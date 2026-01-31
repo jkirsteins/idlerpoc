@@ -1,19 +1,6 @@
-# Sellgame
+# Starship Commander
 
-A browser-based game with character creation featuring backgrounds and skill allocation.
-
-## Features
-
-- Character creation wizard with name, background, and skill selection
-- Two backgrounds: Street Vendor and Bus Driver
-- Skill point allocation system (Charisma, Strength)
-- Local storage persistence
-
-## Tech Stack
-
-- TypeScript
-- Vite
-- ESLint + Prettier
+A browser-based sci-fi spaceship captain game inspired by Firefly and the Gap Cycle. Create your captain, name your ship, and manage your crew across the stars.
 
 ## Getting Started
 
@@ -21,6 +8,14 @@ A browser-based game with character creation featuring backgrounds and skill all
 npm install
 npm run dev
 ```
+
+## Game Features
+
+- **Captain Creation**: Name your captain with randomizable sci-fi names
+- **Ship Naming**: Choose or generate unique ship names
+- **Ship Classes**: Start with the Rustbucket, unlock more classes later
+- **Crew Management**: Assign crew to ship rooms (Bridge, Cantina, Engine Room)
+- **Resource Tracking**: Monitor credits and fuel
 
 ## Scripts
 

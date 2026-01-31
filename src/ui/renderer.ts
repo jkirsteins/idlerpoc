@@ -1,24 +1,23 @@
-import type { Character, Background, Skills } from '../character';
-import { getBackgroundLabel } from '../character';
-import { renderTable } from './table';
+import type { GameData, ShipClassId } from '../models';
 import {
   renderWizard,
   type WizardStep,
   type WizardDraft,
   type WizardCallbacks,
 } from './wizard';
+import { renderShipView } from './shipView';
 
 export type GameState =
-  | { phase: 'no_character' }
+  | { phase: 'no_game' }
   | { phase: 'creating'; step: WizardStep; draft: WizardDraft }
-  | { phase: 'viewing'; character: Character };
+  | { phase: 'playing'; gameData: GameData };
 
 export interface RendererCallbacks {
   onStartCreate: () => void;
   onWizardComplete: (
-    name: string,
-    background: Background,
-    skills: Skills
+    captainName: string,
+    shipName: string,
+    shipClassId: ShipClassId
   ) => void;
   onWizardCancel: () => void;
   onReset: () => void;
@@ -35,34 +34,34 @@ export function render(
   wrapper.className = 'game-container';
 
   const header = document.createElement('h1');
-  header.textContent = 'Idle Game';
+  header.textContent = 'Starship Commander';
   wrapper.appendChild(header);
 
   switch (state.phase) {
-    case 'no_character':
-      wrapper.appendChild(renderNoCharacter(callbacks));
+    case 'no_game':
+      wrapper.appendChild(renderNoGame(callbacks));
       break;
     case 'creating':
       wrapper.appendChild(renderCreating(state.step, state.draft, callbacks));
       break;
-    case 'viewing':
-      wrapper.appendChild(renderViewing(state.character, callbacks));
+    case 'playing':
+      wrapper.appendChild(renderPlaying(state.gameData, callbacks));
       break;
   }
 
   container.appendChild(wrapper);
 }
 
-function renderNoCharacter(callbacks: RendererCallbacks): HTMLElement {
+function renderNoGame(callbacks: RendererCallbacks): HTMLElement {
   const div = document.createElement('div');
-  div.className = 'no-character';
+  div.className = 'no-game';
 
   const message = document.createElement('p');
-  message.textContent = 'No character found. Start your journey!';
+  message.textContent = 'No ship found. Begin your journey across the stars!';
   div.appendChild(message);
 
   const btn = document.createElement('button');
-  btn.textContent = 'Create a Character';
+  btn.textContent = 'New Game';
   btn.addEventListener('click', callbacks.onStartCreate);
   div.appendChild(btn);
 
@@ -81,40 +80,9 @@ function renderCreating(
   return renderWizard(step, draft, wizardCallbacks);
 }
 
-function renderViewing(
-  character: Character,
+function renderPlaying(
+  gameData: GameData,
   callbacks: RendererCallbacks
 ): HTMLElement {
-  const div = document.createElement('div');
-  div.className = 'character-view';
-
-  const subtitle = document.createElement('h2');
-  subtitle.textContent = character.name;
-  div.appendChild(subtitle);
-
-  const tableData: Record<string, string | number> = {
-    Name: character.name,
-    Background: getBackgroundLabel(character.background),
-    Charisma: character.skills.charisma,
-    Strength: character.skills.strength,
-    Created: new Date(character.createdAt).toLocaleDateString(),
-  };
-
-  div.appendChild(renderTable(tableData));
-
-  const resetBtn = document.createElement('button');
-  resetBtn.className = 'danger';
-  resetBtn.textContent = 'Reset Progress';
-  resetBtn.addEventListener('click', () => {
-    if (
-      confirm(
-        'Are you sure you want to reset your progress? This cannot be undone.'
-      )
-    ) {
-      callbacks.onReset();
-    }
-  });
-  div.appendChild(resetBtn);
-
-  return div;
+  return renderShipView(gameData, { onReset: callbacks.onReset });
 }

@@ -14,7 +14,7 @@ body {
 }
 
 #app {
-  max-width: 600px;
+  max-width: 700px;
   margin: 0 auto;
 }
 
@@ -34,6 +34,12 @@ h1 {
 h2 {
   margin: 0 0 16px;
   color: #e94560;
+}
+
+h3 {
+  margin: 0 0 12px;
+  color: #e94560;
+  font-size: 16px;
 }
 
 /* Buttons */
@@ -69,13 +75,13 @@ button.danger:hover {
   background: #a00000;
 }
 
-/* No character view */
-.no-character {
+/* No game view */
+.no-game {
   text-align: center;
   padding: 40px 0;
 }
 
-.no-character p {
+.no-game p {
   margin-bottom: 20px;
   color: #aaa;
 }
@@ -152,14 +158,14 @@ button.danger:hover {
   margin-top: 16px;
 }
 
-/* Background options */
-.background-options {
+/* Ship class options (wizard step 3) */
+.ship-class-options {
   display: flex;
   flex-direction: column;
   gap: 12px;
 }
 
-.background-option {
+.ship-class-option {
   padding: 16px;
   border: 2px solid #0f3460;
   border-radius: 6px;
@@ -169,76 +175,231 @@ button.danger:hover {
     background 0.2s;
 }
 
-.background-option:hover {
+.ship-class-option:hover:not(.locked) {
   border-color: #e94560;
 }
 
-.background-option.selected {
+.ship-class-option.selected {
   border-color: #e94560;
   background: rgba(233, 69, 96, 0.1);
 }
 
-.background-option strong {
-  display: block;
+.ship-class-option.locked {
+  opacity: 0.5;
+  cursor: not-allowed;
+  border-style: dashed;
+}
+
+.ship-class-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   margin-bottom: 4px;
 }
 
-.background-option p {
-  margin: 0;
+.ship-class-option strong {
+  display: block;
+}
+
+.locked-badge {
+  font-size: 11px;
+  background: #444;
+  color: #aaa;
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+.ship-class-option p {
+  margin: 0 0 8px;
   color: #aaa;
   font-size: 14px;
 }
 
-/* Skills */
-.remaining-points {
+.ship-class-stats {
+  display: flex;
+  gap: 16px;
+  font-size: 12px;
+  color: #888;
+}
+
+/* Ship View */
+.ship-view {
+  padding: 10px 0;
+}
+
+.ship-header {
   text-align: center;
-  font-size: 18px;
+  margin-bottom: 24px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #0f3460;
+}
+
+.ship-name {
+  margin: 0 0 4px;
+  font-size: 28px;
+}
+
+.ship-class-label {
+  color: #888;
+  font-size: 14px;
+  margin-bottom: 8px;
+}
+
+.captain-label {
   color: #e94560;
+  font-size: 16px;
+  font-weight: 500;
+}
+
+/* Room Grid */
+.room-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.room-card {
+  background: #1a1a2e;
+  border: 2px solid #0f3460;
+  border-radius: 8px;
+  padding: 16px;
+  text-align: center;
+  transition: border-color 0.2s;
+}
+
+.room-card:hover {
+  border-color: #e94560;
+}
+
+.room-card.room-operational {
+  border-color: #0f3460;
+}
+
+.room-card.room-damaged {
+  border-color: #ff6b35;
+  background: rgba(255, 107, 53, 0.1);
+}
+
+.room-card.room-offline {
+  border-color: #8b0000;
+  background: rgba(139, 0, 0, 0.1);
+  opacity: 0.6;
+}
+
+.room-icon {
+  font-size: 32px;
+  margin-bottom: 8px;
+}
+
+.room-name {
+  font-weight: 600;
+  font-size: 14px;
+  margin-bottom: 4px;
+}
+
+.room-crew {
+  font-size: 12px;
+  color: #aaa;
+}
+
+.room-crew.empty {
+  color: #666;
+  font-style: italic;
+}
+
+/* Crew Roster */
+.crew-roster {
+  background: #1a1a2e;
+  border-radius: 8px;
+  padding: 16px;
   margin-bottom: 16px;
 }
 
-.skills-container {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
+.crew-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
 }
 
-.skill-row {
+.crew-item {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 12px;
-  background: #1a1a2e;
+  padding: 10px 0;
+  border-bottom: 1px solid #0f3460;
+}
+
+.crew-item:last-child {
+  border-bottom: none;
+}
+
+.crew-item.captain {
+  background: rgba(233, 69, 96, 0.1);
+  margin: 0 -16px;
+  padding: 10px 16px;
   border-radius: 4px;
 }
 
-.skill-label {
+.crew-name {
   font-weight: 500;
-  text-transform: capitalize;
+  flex: 1;
 }
 
-.skill-controls {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.skill-btn {
-  width: 36px;
-  height: 36px;
-  padding: 0;
-  font-size: 20px;
-  line-height: 1;
-}
-
-.skill-value {
-  width: 30px;
+.crew-role {
+  color: #888;
+  font-size: 13px;
+  min-width: 80px;
   text-align: center;
-  font-size: 18px;
-  font-weight: bold;
 }
 
-/* Character view */
-.character-view {
-  padding: 10px 0;
+.crew-stats {
+  display: flex;
+  gap: 12px;
+  font-size: 12px;
+  min-width: 100px;
+  justify-content: flex-end;
+}
+
+.crew-stats .stat {
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.crew-stats .health {
+  background: rgba(76, 175, 80, 0.2);
+  color: #4caf50;
+}
+
+.crew-stats .morale {
+  background: rgba(33, 150, 243, 0.2);
+  color: #2196f3;
+}
+
+/* Status Bar */
+.status-bar {
+  display: flex;
+  justify-content: space-around;
+  background: #1a1a2e;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.status-item {
+  text-align: center;
+}
+
+.status-label {
+  display: block;
+  font-size: 12px;
+  color: #888;
+  margin-bottom: 4px;
+}
+
+.status-value {
+  display: block;
+  font-size: 20px;
+  font-weight: 600;
+  color: #e94560;
 }

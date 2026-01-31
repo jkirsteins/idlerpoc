@@ -1,6 +1,7 @@
 import './style.css';
-import { createCharacter, type Background, type Skills } from './character';
-import { saveCharacter, loadCharacter, clearCharacter } from './storage';
+import type { ShipClassId } from './models';
+import { createNewGame } from './gameFactory';
+import { saveGame, loadGame, clearGame } from './storage';
 import { render, type GameState, type RendererCallbacks } from './ui/renderer';
 import type { WizardStep, WizardDraft } from './ui/wizard';
 
@@ -9,34 +10,38 @@ const app = document.getElementById('app')!;
 let state: GameState = initializeState();
 
 function initializeState(): GameState {
-  const character = loadCharacter();
-  if (character) {
-    return { phase: 'viewing', character };
+  const gameData = loadGame();
+  if (gameData) {
+    return { phase: 'playing', gameData };
   }
-  return { phase: 'no_character' };
+  return { phase: 'no_game' };
 }
 
 const callbacks: RendererCallbacks = {
   onStartCreate: () => {
-    state = { phase: 'creating', step: 'name', draft: {} };
+    state = { phase: 'creating', step: 'captain_name', draft: {} };
     renderApp();
   },
 
-  onWizardComplete: (name: string, background: Background, skills: Skills) => {
-    const character = createCharacter(name, background, skills);
-    saveCharacter(character);
-    state = { phase: 'viewing', character };
+  onWizardComplete: (
+    captainName: string,
+    shipName: string,
+    shipClassId: ShipClassId
+  ) => {
+    const gameData = createNewGame(captainName, shipName, shipClassId);
+    saveGame(gameData);
+    state = { phase: 'playing', gameData };
     renderApp();
   },
 
   onWizardCancel: () => {
-    state = { phase: 'no_character' };
+    state = { phase: 'no_game' };
     renderApp();
   },
 
   onReset: () => {
-    clearCharacter();
-    state = { phase: 'no_character' };
+    clearGame();
+    state = { phase: 'no_game' };
     renderApp();
   },
 };
