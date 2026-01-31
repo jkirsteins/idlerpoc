@@ -1,0 +1,2 @@
+- Update README to reflect project goals/scope before commits.
+- README: high-level only. Infer architecture from code; detailed docs go in docs/.
