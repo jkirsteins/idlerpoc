@@ -1,0 +1,244 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  font-family:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu,
+    sans-serif;
+  background: #1a1a2e;
+  color: #eee;
+  margin: 0;
+  padding: 20px;
+  min-height: 100vh;
+}
+
+#app {
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.game-container {
+  background: #16213e;
+  border-radius: 8px;
+  padding: 24px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+}
+
+h1 {
+  margin: 0 0 24px;
+  text-align: center;
+  color: #e94560;
+}
+
+h2 {
+  margin: 0 0 16px;
+  color: #e94560;
+}
+
+/* Buttons */
+button {
+  background: #e94560;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background 0.2s;
+}
+
+button:hover {
+  background: #d63050;
+}
+
+button.secondary {
+  background: #0f3460;
+}
+
+button.secondary:hover {
+  background: #1a4a7a;
+}
+
+button.danger {
+  background: #8b0000;
+  margin-top: 20px;
+}
+
+button.danger:hover {
+  background: #a00000;
+}
+
+/* No character view */
+.no-character {
+  text-align: center;
+  padding: 40px 0;
+}
+
+.no-character p {
+  margin-bottom: 20px;
+  color: #aaa;
+}
+
+/* Data table */
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 16px;
+}
+
+.data-table th,
+.data-table td {
+  padding: 12px;
+  text-align: left;
+  border-bottom: 1px solid #0f3460;
+}
+
+.data-table th {
+  color: #aaa;
+  font-weight: normal;
+  width: 40%;
+}
+
+.data-table td {
+  color: #fff;
+}
+
+/* Wizard */
+.wizard {
+  padding: 10px 0;
+}
+
+.step-indicator {
+  text-align: center;
+  color: #888;
+  font-size: 14px;
+  margin-bottom: 24px;
+}
+
+.wizard-step {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.wizard-step label {
+  font-weight: 500;
+}
+
+.wizard-step input[type='text'] {
+  padding: 10px;
+  border: 1px solid #0f3460;
+  border-radius: 4px;
+  background: #1a1a2e;
+  color: #fff;
+  font-size: 14px;
+  flex: 1;
+}
+
+.wizard-step input[type='text']:focus {
+  outline: none;
+  border-color: #e94560;
+}
+
+.input-row {
+  display: flex;
+  gap: 10px;
+}
+
+.button-row {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 16px;
+}
+
+/* Background options */
+.background-options {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.background-option {
+  padding: 16px;
+  border: 2px solid #0f3460;
+  border-radius: 6px;
+  cursor: pointer;
+  transition:
+    border-color 0.2s,
+    background 0.2s;
+}
+
+.background-option:hover {
+  border-color: #e94560;
+}
+
+.background-option.selected {
+  border-color: #e94560;
+  background: rgba(233, 69, 96, 0.1);
+}
+
+.background-option strong {
+  display: block;
+  margin-bottom: 4px;
+}
+
+.background-option p {
+  margin: 0;
+  color: #aaa;
+  font-size: 14px;
+}
+
+/* Skills */
+.remaining-points {
+  text-align: center;
+  font-size: 18px;
+  color: #e94560;
+  margin-bottom: 16px;
+}
+
+.skills-container {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.skill-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px;
+  background: #1a1a2e;
+  border-radius: 4px;
+}
+
+.skill-label {
+  font-weight: 500;
+  text-transform: capitalize;
+}
+
+.skill-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.skill-btn {
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  font-size: 20px;
+  line-height: 1;
+}
+
+.skill-value {
+  width: 30px;
+  text-align: center;
+  font-size: 18px;
+  font-weight: bold;
+}
+
+/* Character view */
+.character-view {
+  padding: 10px 0;
+}
