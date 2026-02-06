@@ -9,6 +9,12 @@ export interface CrewRoleDefinition {
 
 export const CREW_ROLE_DEFINITIONS: CrewRoleDefinition[] = [
   {
+    role: 'captain',
+    name: 'Captain',
+    description: 'Commands the ship and crew. Your character.',
+    preferredRoom: 'bridge',
+  },
+  {
     role: 'pilot',
     name: 'Pilot',
     description: 'Navigates the ship through space.',

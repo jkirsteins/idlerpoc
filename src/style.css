@@ -75,6 +75,16 @@ button.danger:hover {
   background: #a00000;
 }
 
+button.small-button {
+  padding: 4px 8px;
+  font-size: 11px;
+  background: #0f3460;
+}
+
+button.small-button:hover {
+  background: #1a4a7a;
+}
+
 /* No game view */
 .no-game {
   text-align: center;
@@ -158,6 +168,25 @@ button.danger:hover {
   margin-top: 16px;
 }
 
+/* Ship tier sections (wizard step 3) */
+.ship-tier-section {
+  margin-bottom: 24px;
+}
+
+.ship-tier-section:last-of-type {
+  margin-bottom: 0;
+}
+
+.ship-tier-title {
+  color: #e94560;
+  font-size: 14px;
+  margin: 0 0 12px 0;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 1px solid #0f3460;
+  padding-bottom: 8px;
+}
+
 /* Ship class options (wizard step 3) */
 .ship-class-options {
   display: flex;
@@ -222,8 +251,46 @@ button.danger:hover {
   color: #888;
 }
 
-/* Ship View */
-.ship-view {
+/* Tabbed View */
+.tabbed-view {
+  padding: 10px 0;
+}
+
+/* Tab Bar */
+.tab-bar {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 24px;
+  border-bottom: 2px solid #0f3460;
+  padding-bottom: 0;
+}
+
+.tab-button {
+  background: transparent;
+  color: #888;
+  border: none;
+  border-bottom: 2px solid transparent;
+  padding: 10px 20px;
+  margin-bottom: -2px;
+  cursor: pointer;
+  font-size: 14px;
+  transition:
+    color 0.2s,
+    border-color 0.2s;
+}
+
+.tab-button:hover {
+  color: #e94560;
+  background: transparent;
+}
+
+.tab-button.active {
+  color: #e94560;
+  border-bottom-color: #e94560;
+}
+
+/* Ship Tab */
+.ship-tab {
   padding: 10px 0;
 }
 
@@ -257,15 +324,19 @@ button.danger:hover {
   grid-template-columns: repeat(3, 1fr);
   gap: 12px;
   margin-bottom: 24px;
+  align-items: start;
 }
 
 .room-card {
   background: #1a1a2e;
   border: 2px solid #0f3460;
   border-radius: 8px;
-  padding: 16px;
+  padding: 12px;
   text-align: center;
   transition: border-color 0.2s;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .room-card:hover {
@@ -288,92 +359,202 @@ button.danger:hover {
 }
 
 .room-icon {
-  font-size: 32px;
-  margin-bottom: 8px;
+  font-size: 28px;
 }
 
 .room-name {
   font-weight: 600;
-  font-size: 14px;
-  margin-bottom: 4px;
+  font-size: 13px;
 }
 
-.room-crew {
+.room-power-badge {
+  font-size: 10px;
+  background: rgba(233, 69, 96, 0.2);
+  color: #e94560;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-weight: 500;
+}
+
+.room-automated {
+  font-size: 11px;
+  color: #4caf50;
+  font-weight: 500;
+  margin: 4px 0;
+}
+
+.room-cargo-capacity {
+  font-size: 11px;
+  color: #888;
+}
+
+.room-crew-count {
   font-size: 12px;
-  color: #aaa;
+  color: #888;
+  font-weight: 500;
 }
 
-.room-crew.empty {
+.room-crew-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  text-align: left;
+  min-height: 20px;
+}
+
+.room-crew-empty {
+  font-size: 11px;
   color: #666;
   font-style: italic;
+  text-align: center;
 }
 
-/* Crew Roster */
-.crew-roster {
+.room-crew-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 6px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 4px;
+  font-size: 11px;
+}
+
+.crew-name-short {
+  flex: 1;
+  color: #eee;
+}
+
+.preferred-star {
+  color: #ffd700;
+  margin-left: 2px;
+}
+
+.room-add-crew {
+  margin-top: 4px;
+}
+
+.room-actions {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.room-action-btn {
+  width: 100%;
+  padding: 6px 10px;
+  font-size: 11px;
+  background: #e94560;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.room-action-btn:hover:not(:disabled) {
+  background: #d63050;
+}
+
+.room-action-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background: #555;
+}
+
+.crew-select {
+  width: 100%;
+  padding: 6px;
+  border: 1px solid #0f3460;
+  border-radius: 4px;
+  background: #1a1a2e;
+  color: #fff;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.crew-select:focus {
+  outline: none;
+  border-color: #e94560;
+}
+
+/* Staging Area */
+.staging-area {
   background: #1a1a2e;
   border-radius: 8px;
   padding: 16px;
   margin-bottom: 16px;
 }
 
-.crew-list {
-  list-style: none;
+.staging-empty {
+  color: #666;
+  font-style: italic;
+  font-size: 14px;
   margin: 0;
-  padding: 0;
 }
 
-.crew-item {
+.staging-crew-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.staging-crew-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 10px 0;
-  border-bottom: 1px solid #0f3460;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 6px;
+  border: 1px solid #0f3460;
 }
 
-.crew-item:last-child {
-  border-bottom: none;
-}
-
-.crew-item.captain {
-  background: rgba(233, 69, 96, 0.1);
-  margin: 0 -16px;
-  padding: 10px 16px;
-  border-radius: 4px;
-}
-
-.crew-name {
-  font-weight: 500;
+.staging-crew-info {
   flex: 1;
-}
-
-.crew-role {
-  color: #888;
-  font-size: 13px;
-  min-width: 80px;
-  text-align: center;
-}
-
-.crew-stats {
   display: flex;
-  gap: 12px;
-  font-size: 12px;
-  min-width: 100px;
-  justify-content: flex-end;
+  flex-direction: column;
+  gap: 4px;
 }
 
-.crew-stats .stat {
+.staging-crew-name {
+  font-weight: 500;
+  font-size: 14px;
+  color: #eee;
+}
+
+.staging-crew-role {
+  color: #888;
+  font-size: 12px;
+}
+
+.staging-crew-stats {
+  display: flex;
+  gap: 8px;
+  font-size: 11px;
+}
+
+.staging-crew-stats .stat {
   padding: 2px 6px;
   border-radius: 4px;
 }
 
-.crew-stats .health {
+.staging-crew-stats .health {
   background: rgba(76, 175, 80, 0.2);
   color: #4caf50;
 }
 
-.crew-stats .morale {
+.staging-crew-stats .morale {
   background: rgba(33, 150, 243, 0.2);
   color: #2196f3;
+}
+
+.staging-crew-stats .skill {
+  background: rgba(255, 193, 7, 0.2);
+  color: #ffc107;
+}
+
+.staging-crew-assign {
+  min-width: 180px;
 }
 
 /* Status Bar */
@@ -402,4 +583,459 @@ button.danger:hover {
   font-size: 20px;
   font-weight: 600;
   color: #e94560;
+}
+
+/* Settings Tab */
+.settings-tab {
+  padding: 20px 0;
+}
+
+.settings-section {
+  background: #1a1a2e;
+  border-radius: 8px;
+  padding: 20px;
+}
+
+.settings-description {
+  color: #aaa;
+  font-size: 14px;
+  margin-bottom: 16px;
+  line-height: 1.5;
+}
+
+/* Ship Status Banner */
+.ship-status-banner {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #1a1a2e;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 16px;
+  border: 2px solid #0f3460;
+}
+
+.status-text {
+  font-size: 16px;
+  font-weight: 600;
+  color: #e94560;
+}
+
+.status-action-btn {
+  padding: 8px 16px;
+  font-size: 13px;
+}
+
+/* Ship Specs Panel */
+.ship-specs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  background: #1a1a2e;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.spec-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 4px;
+}
+
+.spec-label {
+  font-size: 12px;
+  color: #888;
+}
+
+.spec-value {
+  font-size: 12px;
+  color: #eee;
+  font-weight: 500;
+}
+
+/* Progress Bars */
+.progress-bar-container {
+  margin-bottom: 16px;
+}
+
+.progress-bar-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #aaa;
+}
+
+.progress-bar-track {
+  width: 100%;
+  height: 20px;
+  background: #1a1a2e;
+  border-radius: 4px;
+  overflow: hidden;
+  border: 1px solid #0f3460;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  transition: width 0.3s ease;
+}
+
+.bar-good {
+  background: #4caf50;
+}
+
+.bar-warning {
+  background: #ffc107;
+}
+
+.bar-danger {
+  background: #e94560;
+}
+
+/* Equipment Section */
+.equipment-section {
+  background: #1a1a2e;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.equipment-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.equipment-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 6px;
+  border: 1px solid #0f3460;
+}
+
+.equipment-icon {
+  font-size: 24px;
+  flex-shrink: 0;
+}
+
+.equipment-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.equipment-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: #eee;
+}
+
+.equipment-power {
+  font-size: 11px;
+  color: #e94560;
+  font-weight: 500;
+}
+
+/* Degradation Bar */
+.degradation-bar-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.degradation-label {
+  font-size: 10px;
+  color: #888;
+}
+
+.degradation-track {
+  width: 100%;
+  height: 8px;
+  background: #1a1a2e;
+  border-radius: 4px;
+  overflow: hidden;
+  border: 1px solid #0f3460;
+}
+
+.degradation-fill {
+  height: 100%;
+  background: #4caf50;
+  transition: width 0.3s ease;
+}
+
+.degradation-warning {
+  background: #ffc107;
+}
+
+.degradation-critical {
+  background: #e94560;
+}
+
+/* Engine Section */
+.engine-section {
+  background: #1a1a2e;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 16px;
+  border: 2px solid #0f3460;
+}
+
+.engine-info {
+  margin-bottom: 12px;
+}
+
+.engine-info h3 {
+  margin: 0 0 8px 0;
+  color: #e94560;
+  font-size: 16px;
+}
+
+.engine-specs {
+  display: flex;
+  gap: 12px;
+  font-size: 12px;
+  color: #888;
+  flex-wrap: wrap;
+}
+
+.engine-specs span {
+  padding: 4px 8px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 4px;
+}
+
+.engine-state {
+  margin-bottom: 12px;
+}
+
+.engine-state-label {
+  font-size: 14px;
+  font-weight: 600;
+  padding: 8px 12px;
+  border-radius: 4px;
+  text-align: center;
+  margin-bottom: 8px;
+}
+
+.engine-state-label.off {
+  background: rgba(139, 0, 0, 0.2);
+  color: #ff6b6b;
+  border: 1px solid rgba(139, 0, 0, 0.4);
+}
+
+.engine-state-label.warming {
+  background: rgba(255, 193, 7, 0.2);
+  color: #ffc107;
+  border: 1px solid rgba(255, 193, 7, 0.4);
+}
+
+.engine-state-label.online {
+  background: rgba(76, 175, 80, 0.2);
+  color: #4caf50;
+  border: 1px solid rgba(76, 175, 80, 0.4);
+}
+
+.engine-controls {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+}
+
+.engine-controls button {
+  padding: 8px 16px;
+  font-size: 13px;
+}
+
+.engine-warning {
+  font-size: 12px;
+  color: #ffc107;
+  text-align: center;
+  padding: 8px;
+  background: rgba(255, 193, 7, 0.1);
+  border-radius: 4px;
+  border: 1px dashed rgba(255, 193, 7, 0.3);
+}
+
+/* Navigation View */
+.navigation-view {
+  background: #1a1a2e;
+  border-radius: 8px;
+  padding: 20px;
+}
+
+.nav-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #0f3460;
+}
+
+.nav-header h3 {
+  margin: 0;
+  color: #e94560;
+  font-size: 18px;
+}
+
+.nav-close-btn {
+  padding: 6px 12px;
+  font-size: 13px;
+}
+
+.nav-map {
+  position: relative;
+  width: 100%;
+  height: 400px;
+  background: #16213e;
+  border-radius: 8px;
+  border: 2px solid #0f3460;
+  margin-bottom: 20px;
+  overflow: hidden;
+}
+
+.nav-marker {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+
+.nav-marker:hover {
+  transform: translate(-50%, -50%) scale(1.1);
+}
+
+.nav-marker.current .nav-marker-dot {
+  animation: pulse 2s infinite;
+  border: 2px solid #e94560;
+  background: rgba(233, 69, 96, 0.2);
+}
+
+.nav-marker.unreachable {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.nav-marker-dot {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  background: rgba(15, 52, 96, 0.8);
+  border-radius: 50%;
+  border: 2px solid #0f3460;
+  margin: 0 auto 4px;
+}
+
+.nav-marker-label {
+  text-align: center;
+  font-size: 10px;
+  font-weight: 600;
+  color: #eee;
+  white-space: nowrap;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(233, 69, 96, 0.7);
+  }
+  50% {
+    box-shadow: 0 0 0 10px rgba(233, 69, 96, 0);
+  }
+}
+
+.nav-legend {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.nav-legend h4 {
+  margin: 0 0 8px 0;
+  color: #e94560;
+  font-size: 14px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.nav-legend-item {
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 6px;
+  border: 1px solid #0f3460;
+}
+
+.nav-legend-item.unreachable {
+  opacity: 0.5;
+}
+
+.nav-legend-item strong {
+  display: block;
+  color: #e94560;
+  margin-bottom: 4px;
+}
+
+.nav-legend-item div {
+  font-size: 12px;
+  color: #888;
+  margin-top: 4px;
+}
+
+/* Captain Badge */
+.captain-badge {
+  display: inline-block;
+  background: #e94560;
+  color: white;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 4px;
+  border-radius: 3px;
+  margin-right: 4px;
+  letter-spacing: 0.5px;
+}
+
+/* Staging Crew Skills */
+.staging-crew-skills {
+  display: flex;
+  gap: 8px;
+  font-size: 11px;
+  margin-top: 4px;
+}
+
+.staging-crew-skills .skill {
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(156, 39, 176, 0.2);
+  color: #ce93d8;
+}
+
+.staging-crew-stats .level {
+  background: rgba(156, 39, 176, 0.2);
+  color: #ce93d8;
+}
+
+/* Button disabled state */
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background: #555;
+}
+
+button:disabled:hover {
+  background: #555;
 }

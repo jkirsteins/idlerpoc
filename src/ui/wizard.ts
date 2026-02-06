@@ -1,5 +1,5 @@
 import type { ShipClassId } from '../models';
-import { SHIP_CLASSES } from '../shipClasses';
+import { SHIP_CLASSES, type ShipClassTier } from '../shipClasses';
 import { generateCaptainName, generateShipName } from '../names';
 
 export type WizardStep = 'captain_name' | 'ship_name' | 'ship_class';
@@ -204,65 +204,89 @@ function renderShipClassStep(
   form.className = 'wizard-step';
 
   const label = document.createElement('p');
-  label.textContent = 'Select your ship class:';
+  label.textContent = 'Select your ship:';
   form.appendChild(label);
-
-  const options = document.createElement('div');
-  options.className = 'ship-class-options';
 
   let selected: ShipClassId | undefined = draft.shipClassId;
 
+  // Group ships by tier
+  const shipsByTier = new Map<ShipClassTier, typeof SHIP_CLASSES>();
   for (const shipClass of SHIP_CLASSES) {
-    const option = document.createElement('div');
-    option.className = 'ship-class-option';
-
-    if (!shipClass.unlocked) {
-      option.classList.add('locked');
-    } else if (selected === shipClass.id) {
-      option.classList.add('selected');
-    }
-
-    option.dataset.shipClass = shipClass.id;
-
-    const header = document.createElement('div');
-    header.className = 'ship-class-header';
-
-    const optionLabel = document.createElement('strong');
-    optionLabel.textContent = shipClass.name;
-    header.appendChild(optionLabel);
-
-    if (!shipClass.unlocked) {
-      const lockedBadge = document.createElement('span');
-      lockedBadge.className = 'locked-badge';
-      lockedBadge.textContent = 'Coming Soon';
-      header.appendChild(lockedBadge);
-    }
-
-    option.appendChild(header);
-
-    const optionDesc = document.createElement('p');
-    optionDesc.textContent = shipClass.description;
-    option.appendChild(optionDesc);
-
-    const stats = document.createElement('div');
-    stats.className = 'ship-class-stats';
-    stats.innerHTML = `<span>Rooms: ${shipClass.rooms.length}</span><span>Max Crew: ${shipClass.maxCrew}</span>`;
-    option.appendChild(stats);
-
-    if (shipClass.unlocked) {
-      option.addEventListener('click', () => {
-        selected = shipClass.id;
-        options
-          .querySelectorAll('.ship-class-option')
-          .forEach((el) => el.classList.remove('selected'));
-        option.classList.add('selected');
-      });
-    }
-
-    options.appendChild(option);
+    const tierShips = shipsByTier.get(shipClass.tier) ?? [];
+    tierShips.push(shipClass);
+    shipsByTier.set(shipClass.tier, tierShips);
   }
 
-  form.appendChild(options);
+  // Render each tier section
+  const tiers: ShipClassTier[] = ['I', 'II', 'III', 'IV'];
+  for (const tier of tiers) {
+    const ships = shipsByTier.get(tier);
+    if (!ships || ships.length === 0) continue;
+
+    const tierSection = document.createElement('div');
+    tierSection.className = 'ship-tier-section';
+
+    const tierTitle = document.createElement('h3');
+    tierTitle.className = 'ship-tier-title';
+    tierTitle.textContent = getTierName(tier);
+    tierSection.appendChild(tierTitle);
+
+    const options = document.createElement('div');
+    options.className = 'ship-class-options';
+
+    for (const shipClass of ships) {
+      const option = document.createElement('div');
+      option.className = 'ship-class-option';
+
+      if (!shipClass.unlocked) {
+        option.classList.add('locked');
+      } else if (selected === shipClass.id) {
+        option.classList.add('selected');
+      }
+
+      option.dataset.shipClass = shipClass.id;
+
+      const header = document.createElement('div');
+      header.className = 'ship-class-header';
+
+      const optionLabel = document.createElement('strong');
+      optionLabel.textContent = shipClass.name;
+      header.appendChild(optionLabel);
+
+      if (!shipClass.unlocked) {
+        const lockedBadge = document.createElement('span');
+        lockedBadge.className = 'locked-badge';
+        lockedBadge.textContent = 'Locked';
+        header.appendChild(lockedBadge);
+      }
+
+      option.appendChild(header);
+
+      const optionDesc = document.createElement('p');
+      optionDesc.textContent = shipClass.description;
+      option.appendChild(optionDesc);
+
+      const stats = document.createElement('div');
+      stats.className = 'ship-class-stats';
+      stats.innerHTML = `<span>Price: ${formatCredits(shipClass.price)}</span><span>Rooms: ${shipClass.rooms.length}</span><span>Max Crew: ${shipClass.maxCrew}</span>`;
+      option.appendChild(stats);
+
+      if (shipClass.unlocked) {
+        option.addEventListener('click', () => {
+          selected = shipClass.id;
+          document
+            .querySelectorAll('.ship-class-option')
+            .forEach((el) => el.classList.remove('selected'));
+          option.classList.add('selected');
+        });
+      }
+
+      options.appendChild(option);
+    }
+
+    tierSection.appendChild(options);
+    form.appendChild(tierSection);
+  }
 
   const buttonRow = document.createElement('div');
   buttonRow.className = 'button-row';
@@ -296,4 +320,28 @@ function renderShipClassStep(
   form.appendChild(buttonRow);
 
   return form;
+}
+
+function getTierName(tier: ShipClassTier): string {
+  switch (tier) {
+    case 'I':
+      return 'Class I: Orbital Maintenance Vessels';
+    case 'II':
+      return 'Class II: Inner System Vessels';
+    case 'III':
+      return 'Class III: Interplanetary Vessels';
+    case 'IV':
+      return 'Class IV: Gap-Capable Vessels';
+  }
+}
+
+function formatCredits(amount: number): string {
+  if (amount >= 1_000_000_000) {
+    return `${(amount / 1_000_000_000).toFixed(1)}B CR`;
+  } else if (amount >= 1_000_000) {
+    return `${(amount / 1_000_000).toFixed(1)}M CR`;
+  } else if (amount >= 1_000) {
+    return `${(amount / 1_000).toFixed(0)}K CR`;
+  }
+  return `${amount} CR`;
 }

@@ -2,7 +2,10 @@
   "permissions": {
     "allow": [
       "Bash(npm create vite@latest . -- --template vanilla-ts)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(npm run lint:*)",
+      "Bash(git add:*)",
+      "Bash(npm run build:*)"
     ]
   }
 }

@@ -5,12 +5,19 @@ import {
   type WizardDraft,
   type WizardCallbacks,
 } from './wizard';
-import { renderShipView } from './shipView';
+import { renderTabbedView } from './tabbedView';
+
+export type PlayingTab = 'ship' | 'settings';
 
 export type GameState =
   | { phase: 'no_game' }
   | { phase: 'creating'; step: WizardStep; draft: WizardDraft }
-  | { phase: 'playing'; gameData: GameData };
+  | {
+      phase: 'playing';
+      gameData: GameData;
+      activeTab: PlayingTab;
+      showNavigation?: boolean;
+    };
 
 export interface RendererCallbacks {
   onStartCreate: () => void;
@@ -21,6 +28,14 @@ export interface RendererCallbacks {
   ) => void;
   onWizardCancel: () => void;
   onReset: () => void;
+  onTabChange: (tab: PlayingTab) => void;
+  onCrewAssign: (crewId: string, roomId: string) => void;
+  onCrewUnassign: (crewId: string, roomId: string) => void;
+  onUndock: () => void;
+  onDock: () => void;
+  onEngineOn: () => void;
+  onEngineOff: () => void;
+  onToggleNavigation: () => void;
 }
 
 export function render(
@@ -45,7 +60,7 @@ export function render(
       wrapper.appendChild(renderCreating(state.step, state.draft, callbacks));
       break;
     case 'playing':
-      wrapper.appendChild(renderPlaying(state.gameData, callbacks));
+      wrapper.appendChild(renderPlaying(state, callbacks));
       break;
   }
 
@@ -81,8 +96,23 @@ function renderCreating(
 }
 
 function renderPlaying(
-  gameData: GameData,
+  state: GameState & { phase: 'playing' },
   callbacks: RendererCallbacks
 ): HTMLElement {
-  return renderShipView(gameData, { onReset: callbacks.onReset });
+  return renderTabbedView(
+    state.gameData,
+    state.activeTab,
+    state.showNavigation || false,
+    {
+      onReset: callbacks.onReset,
+      onTabChange: callbacks.onTabChange,
+      onCrewAssign: callbacks.onCrewAssign,
+      onCrewUnassign: callbacks.onCrewUnassign,
+      onUndock: callbacks.onUndock,
+      onDock: callbacks.onDock,
+      onEngineOn: callbacks.onEngineOn,
+      onEngineOff: callbacks.onEngineOff,
+      onToggleNavigation: callbacks.onToggleNavigation,
+    }
+  );
 }
