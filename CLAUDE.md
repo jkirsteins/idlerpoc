@@ -3,3 +3,4 @@
 - Update README to reflect project goals/scope before commits.
 - README: high-level only. Infer architecture from code; detailed docs go in docs/.
 - Commit messages: concise, no "Claude Code" mentions.
+- Never implement any migration code unless asked. For a proof of concept we should just reset the game state when making incompatible changes.
