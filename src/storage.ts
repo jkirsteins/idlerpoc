@@ -7,6 +7,7 @@ import type {
 import { getShipClass } from './shipClasses';
 import { generateWorld } from './worldGen';
 import { generateStartingXP, getLevelForXP } from './levelSystem';
+import { deduceRoleFromSkills } from './crewRoles';
 
 const STORAGE_KEY = 'spaceship_game_data';
 
@@ -188,6 +189,23 @@ export function loadGame(): GameData | null {
         if (legacyLocation.reachable !== undefined) {
           delete legacyLocation.reachable;
         }
+      }
+    }
+
+    // Migration 9: Add new skills (piloting, engineering) if missing
+    for (const crew of gameData.ship.crew) {
+      if (crew.skills.piloting === undefined) {
+        crew.skills.piloting = Math.floor(Math.random() * 3) + 3; // 3-5
+      }
+      if (crew.skills.engineering === undefined) {
+        crew.skills.engineering = Math.floor(Math.random() * 3) + 3; // 3-5
+      }
+    }
+
+    // Migration 10: Recalculate crew roles based on skills (except captain)
+    for (const crew of gameData.ship.crew) {
+      if (!crew.isCaptain) {
+        crew.role = deduceRoleFromSkills(crew.skills);
       }
     }
 

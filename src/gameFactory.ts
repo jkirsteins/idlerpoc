@@ -8,12 +8,13 @@ import type {
   EquipmentInstance,
   EquipmentId,
   EngineInstance,
-  CrewSkills,
+  CrewEquipmentInstance,
 } from './models';
 import { getShipClass } from './shipClasses';
 import { generateCrewName } from './names';
 import { generateWorld } from './worldGen';
 import { generateStartingXP, getLevelForXP } from './levelSystem';
+import { generateSkillsForRole, deduceRoleFromSkills } from './crewRoles';
 
 function generateId(): string {
   return Math.random().toString(36).substring(2, 11);
@@ -27,21 +28,19 @@ function createEquipmentInstance(definitionId: EquipmentId): EquipmentInstance {
   };
 }
 
-function generateCrewSkills(): CrewSkills {
-  return {
-    strength: Math.floor(Math.random() * 5) + 3, // 3-7
-    loyalty: Math.floor(Math.random() * 5) + 3, // 3-7
-    charisma: Math.floor(Math.random() * 5) + 3, // 3-7
-  };
-}
-
 function createCrewMember(
   name: string,
-  role: CrewRole,
+  targetRole: CrewRole,
   isCaptain: boolean = false
 ): CrewMember {
   const xp = isCaptain ? 120 : generateStartingXP(); // Captain starts at level 4
   const level = getLevelForXP(xp);
+
+  // Generate skills weighted toward the target role
+  const skills = generateSkillsForRole(targetRole);
+
+  // Deduce actual role from skills (unless captain)
+  const role = isCaptain ? 'captain' : deduceRoleFromSkills(skills);
 
   return {
     id: generateId(),
@@ -49,11 +48,12 @@ function createCrewMember(
     role,
     morale: isCaptain ? 85 : 75,
     health: 100,
-    skills: generateCrewSkills(),
+    skills,
     xp,
     level,
     isCaptain,
     equipment: [],
+    unspentSkillPoints: 0,
   };
 }
 
@@ -137,6 +137,12 @@ export function createNewGame(
   // Create engine instance
   const engine = createEngineInstance(shipClassId);
 
+  // Create cargo with 1 sidearm per crew member
+  const cargo: CrewEquipmentInstance[] = crew.map(() => ({
+    id: generateId(),
+    definitionId: 'sidearm',
+  }));
+
   const ship: Ship = {
     name: shipName,
     classId: shipClassId,
@@ -150,6 +156,7 @@ export function createNewGame(
       dockedAt: 'Earth',
     },
     engine,
+    cargo,
   };
 
   // Generate world

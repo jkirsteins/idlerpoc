@@ -251,3 +251,57 @@ The gap drive is powerful but not a magic solution—it requires extensive conve
 - **Maintenance Timing**: When to service gap drive? (30-jump limit)
 - **Risk Management**: Gap drive 0.8% failure rate - insure or gamble?
 - **Crew Welfare**: Gap sickness, radiation exposure, mission duration limits
+
+---
+
+## Crew Skills & Role System
+
+### Core Principle
+
+**Roles are derived from skills, not assigned.** A crew member's role is determined by their highest skill, representing their primary expertise and natural inclination. This creates a dynamic crew where members can transition roles as they develop.
+
+### Skill-to-Role Mapping
+
+Every skill must map to a role archetype:
+
+| Skill           | Role          | Description                                                                                  |
+| --------------- | ------------- | -------------------------------------------------------------------------------------------- |
+| **Piloting**    | Pilot         | Navigation, ship control, spatial awareness. Handles helm operations and course plotting.    |
+| **Engineering** | Engineer      | Reactor maintenance, systems repair, technical expertise. Keeps ship systems operational.    |
+| **Strength**    | Gunner        | Combat capability, security, physical prowess. Handles weapons and boarding actions.         |
+| **Charisma**    | Quartermaster | Morale management, trade negotiations, crew welfare. Handles supplies and diplomacy.         |
+| **Loyalty**     | First Officer | Crew support, conflict mediation, reliability. Supports captain and maintains crew cohesion. |
+
+### Special Cases
+
+**Captain**: Always the player character, regardless of skill distribution. The captain leads through position, not necessarily superior skills.
+
+**Role Assignment**: When generating or leveling crew:
+
+1. Calculate highest skill
+2. Assign role based on that skill
+3. If tie, prioritize: Piloting > Engineering > Strength > Charisma > Loyalty
+4. Captain is always assigned manually (player character)
+
+### Initial Stat Distribution
+
+New crew members receive skill distributions weighted toward their intended role:
+
+- **Primary skill**: 6-9 (role-defining)
+- **Secondary skills**: 3-5 (general competence)
+
+This ensures roles are meaningful at creation but allows growth and specialization through experience.
+
+### Skill Caps & Growth
+
+- Maximum skill: 10 (mastery)
+- Skill points earned: 1 per level gained
+- No skill can exceed 10
+- Crew can shift roles by developing different skills (though rare)
+
+### Implementation Requirements
+
+1. All crew (except captain) have roles deduced from skills
+2. Skill values determine effectiveness in role-specific tasks
+3. UI displays role based on current highest skill
+4. Role changes dynamically if skill distribution shifts

@@ -7,7 +7,7 @@ import {
 } from './wizard';
 import { renderTabbedView } from './tabbedView';
 
-export type PlayingTab = 'ship' | 'settings';
+export type PlayingTab = 'ship' | 'crew' | 'settings';
 
 export type GameState =
   | { phase: 'no_game' }
@@ -17,6 +17,7 @@ export type GameState =
       gameData: GameData;
       activeTab: PlayingTab;
       showNavigation?: boolean;
+      selectedCrewId?: string;
     };
 
 export interface RendererCallbacks {
@@ -36,6 +37,11 @@ export interface RendererCallbacks {
   onEngineOn: () => void;
   onEngineOff: () => void;
   onToggleNavigation: () => void;
+  onSelectCrew: (crewId: string) => void;
+  onLevelUp: (crewId: string) => void;
+  onAssignSkillPoint: (crewId: string, skillId: string) => void;
+  onEquipItem: (crewId: string, itemId: string) => void;
+  onUnequipItem: (crewId: string, itemId: string) => void;
 }
 
 export function render(
@@ -113,6 +119,12 @@ function renderPlaying(
       onEngineOn: callbacks.onEngineOn,
       onEngineOff: callbacks.onEngineOff,
       onToggleNavigation: callbacks.onToggleNavigation,
-    }
+      onSelectCrew: callbacks.onSelectCrew,
+      onLevelUp: callbacks.onLevelUp,
+      onAssignSkillPoint: callbacks.onAssignSkillPoint,
+      onEquipItem: callbacks.onEquipItem,
+      onUnequipItem: callbacks.onUnequipItem,
+    },
+    state.selectedCrewId
   );
 }

@@ -18,6 +18,8 @@ export interface CrewEquipmentDefinition {
   category: CrewEquipmentCategory;
   weight: number; // kg
   value: number; // credits
+  storageUnits: number;
+  attackScore: number;
 }
 
 export const CREW_EQUIPMENT_DEFINITIONS: CrewEquipmentDefinition[] = [
@@ -31,6 +33,8 @@ export const CREW_EQUIPMENT_DEFINITIONS: CrewEquipmentDefinition[] = [
     category: 'weapon',
     weight: 1.2,
     value: 800,
+    storageUnits: 1,
+    attackScore: 3,
   },
   {
     id: 'rifle',
@@ -41,6 +45,8 @@ export const CREW_EQUIPMENT_DEFINITIONS: CrewEquipmentDefinition[] = [
     category: 'weapon',
     weight: 4.5,
     value: 3500,
+    storageUnits: 3,
+    attackScore: 7,
   },
 
   // Tools
@@ -53,6 +59,8 @@ export const CREW_EQUIPMENT_DEFINITIONS: CrewEquipmentDefinition[] = [
     category: 'tool',
     weight: 3.0,
     value: 1200,
+    storageUnits: 2,
+    attackScore: 0,
   },
   {
     id: 'medkit',
@@ -63,6 +71,8 @@ export const CREW_EQUIPMENT_DEFINITIONS: CrewEquipmentDefinition[] = [
     category: 'tool',
     weight: 2.5,
     value: 1500,
+    storageUnits: 2,
+    attackScore: 0,
   },
   {
     id: 'scanner',
@@ -73,6 +83,8 @@ export const CREW_EQUIPMENT_DEFINITIONS: CrewEquipmentDefinition[] = [
     category: 'tool',
     weight: 0.8,
     value: 2000,
+    storageUnits: 1,
+    attackScore: 0,
   },
 
   // Accessories
@@ -85,6 +97,8 @@ export const CREW_EQUIPMENT_DEFINITIONS: CrewEquipmentDefinition[] = [
     category: 'accessory',
     weight: 1.5,
     value: 600,
+    storageUnits: 1,
+    attackScore: 0,
   },
   {
     id: 'wrist_terminal',
@@ -95,6 +109,8 @@ export const CREW_EQUIPMENT_DEFINITIONS: CrewEquipmentDefinition[] = [
     category: 'accessory',
     weight: 0.3,
     value: 450,
+    storageUnits: 1,
+    attackScore: 0,
   },
 
   // Armor
@@ -107,6 +123,8 @@ export const CREW_EQUIPMENT_DEFINITIONS: CrewEquipmentDefinition[] = [
     category: 'armor',
     weight: 3.5,
     value: 2200,
+    storageUnits: 2,
+    attackScore: 0,
   },
 ];
 

@@ -2,6 +2,7 @@ import type { GameData } from '../models';
 import type { PlayingTab } from './renderer';
 import { getShipClass } from '../shipClasses';
 import { renderShipTab } from './shipTab';
+import { renderCrewTab } from './crewTab';
 import { renderSettingsTab } from './settingsTab';
 
 export interface TabbedViewCallbacks {
@@ -14,13 +15,19 @@ export interface TabbedViewCallbacks {
   onEngineOn: () => void;
   onEngineOff: () => void;
   onToggleNavigation: () => void;
+  onSelectCrew: (crewId: string) => void;
+  onLevelUp: (crewId: string) => void;
+  onAssignSkillPoint: (crewId: string, skillId: string) => void;
+  onEquipItem: (crewId: string, itemId: string) => void;
+  onUnequipItem: (crewId: string, itemId: string) => void;
 }
 
 export function renderTabbedView(
   gameData: GameData,
   activeTab: PlayingTab,
   showNavigation: boolean,
-  callbacks: TabbedViewCallbacks
+  callbacks: TabbedViewCallbacks,
+  selectedCrewId?: string
 ): HTMLElement {
   const container = document.createElement('div');
   container.className = 'tabbed-view';
@@ -34,6 +41,8 @@ export function renderTabbedView(
   // Tab content
   if (activeTab === 'ship') {
     container.appendChild(renderShipTab(gameData, showNavigation, callbacks));
+  } else if (activeTab === 'crew') {
+    container.appendChild(renderCrewTab(gameData, selectedCrewId, callbacks));
   } else {
     container.appendChild(renderSettingsTab(callbacks));
   }
@@ -79,6 +88,12 @@ function renderTabBar(
   shipTab.textContent = 'Ship';
   shipTab.addEventListener('click', () => callbacks.onTabChange('ship'));
   tabBar.appendChild(shipTab);
+
+  const crewTab = document.createElement('button');
+  crewTab.className = activeTab === 'crew' ? 'tab-button active' : 'tab-button';
+  crewTab.textContent = 'Crew';
+  crewTab.addEventListener('click', () => callbacks.onTabChange('crew'));
+  tabBar.appendChild(crewTab);
 
   const settingsTab = document.createElement('button');
   settingsTab.className =

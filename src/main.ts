@@ -1,10 +1,12 @@
 import './style.css';
-import type { ShipClassId } from './models';
+import type { ShipClassId, SkillId } from './models';
 import { createNewGame } from './gameFactory';
 import { saveGame, loadGame, clearGame } from './storage';
 import { render, type GameState, type RendererCallbacks } from './ui/renderer';
 import type { WizardStep, WizardDraft } from './ui/wizard';
 import { applyTick } from './gameTick';
+import { getLevelForXP } from './levelSystem';
+import { deduceRoleFromSkills } from './crewRoles';
 
 const app = document.getElementById('app')!;
 
@@ -146,6 +148,94 @@ const callbacks: RendererCallbacks = {
       ...state,
       showNavigation: !state.showNavigation,
     };
+    renderApp();
+  },
+
+  onSelectCrew: (crewId) => {
+    if (state.phase !== 'playing') return;
+
+    state = {
+      ...state,
+      selectedCrewId: crewId,
+    };
+    renderApp();
+  },
+
+  onLevelUp: (crewId) => {
+    if (state.phase !== 'playing') return;
+
+    const crew = state.gameData.ship.crew.find((c) => c.id === crewId);
+    if (!crew) return;
+
+    const newLevel = getLevelForXP(crew.xp);
+    const levelsGained = newLevel - crew.level;
+
+    if (levelsGained > 0) {
+      crew.level = newLevel;
+      crew.unspentSkillPoints += levelsGained;
+
+      saveGame(state.gameData);
+      renderApp();
+    }
+  },
+
+  onAssignSkillPoint: (crewId, skillId) => {
+    if (state.phase !== 'playing') return;
+
+    const crew = state.gameData.ship.crew.find((c) => c.id === crewId);
+    if (!crew) return;
+
+    if (crew.unspentSkillPoints > 0 && crew.skills[skillId as SkillId] < 10) {
+      crew.skills[skillId as SkillId]++;
+      crew.unspentSkillPoints--;
+
+      // Update role based on new skill distribution (unless captain)
+      if (!crew.isCaptain) {
+        crew.role = deduceRoleFromSkills(crew.skills);
+      }
+
+      saveGame(state.gameData);
+      renderApp();
+    }
+  },
+
+  onEquipItem: (crewId, itemId) => {
+    if (state.phase !== 'playing') return;
+
+    const crew = state.gameData.ship.crew.find((c) => c.id === crewId);
+    if (!crew) return;
+
+    const itemIndex = state.gameData.ship.cargo.findIndex(
+      (i) => i.id === itemId
+    );
+    if (itemIndex === -1) return;
+
+    const item = state.gameData.ship.cargo[itemIndex];
+
+    // Move item from cargo to crew equipment
+    state.gameData.ship.cargo.splice(itemIndex, 1);
+    crew.equipment.push(item);
+
+    saveGame(state.gameData);
+    renderApp();
+  },
+
+  onUnequipItem: (crewId, itemId) => {
+    if (state.phase !== 'playing') return;
+
+    const crew = state.gameData.ship.crew.find((c) => c.id === crewId);
+    if (!crew) return;
+
+    const itemIndex = crew.equipment.findIndex((i) => i.id === itemId);
+    if (itemIndex === -1) return;
+
+    const item = crew.equipment[itemIndex];
+
+    // Move item from crew equipment to cargo
+    crew.equipment.splice(itemIndex, 1);
+    state.gameData.ship.cargo.push(item);
+
+    saveGame(state.gameData);
     renderApp();
   },
 };

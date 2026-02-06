@@ -52,7 +52,12 @@ export type CrewEquipmentId =
   | 'wrist_terminal'
   | 'armored_vest';
 
-export type SkillId = 'strength' | 'loyalty' | 'charisma';
+export type SkillId =
+  | 'piloting'
+  | 'engineering'
+  | 'strength'
+  | 'charisma'
+  | 'loyalty';
 
 export type EngineId =
   | 'chemical_bipropellant'
@@ -78,9 +83,11 @@ export interface ShipLocation {
 }
 
 export interface CrewSkills {
+  piloting: number; // 1-10
+  engineering: number; // 1-10
   strength: number; // 1-10
-  loyalty: number; // 1-10
   charisma: number; // 1-10
+  loyalty: number; // 1-10
 }
 
 export interface CrewEquipmentInstance {
@@ -122,6 +129,7 @@ export interface CrewMember {
   level: number;
   isCaptain: boolean;
   equipment: CrewEquipmentInstance[];
+  unspentSkillPoints: number;
 }
 
 export interface Room {
@@ -141,6 +149,7 @@ export interface Ship {
   equipment: EquipmentInstance[];
   location: ShipLocation;
   engine: EngineInstance;
+  cargo: CrewEquipmentInstance[];
 }
 
 export interface GameData {
