@@ -181,6 +181,16 @@ export function loadGame(): GameData | null {
       gameData.world = generateWorld();
     }
 
+    // Migration 8: Remove reachable field from locations (now computed)
+    if (gameData.world && gameData.world.locations) {
+      for (const location of gameData.world.locations) {
+        const legacyLocation = location as unknown as { reachable?: boolean };
+        if (legacyLocation.reachable !== undefined) {
+          delete legacyLocation.reachable;
+        }
+      }
+    }
+
     return gameData;
   } catch {
     return null;

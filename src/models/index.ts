@@ -98,7 +98,6 @@ export interface WorldLocation {
   x: number; // % position for nav map
   y: number; // % position for nav map
   services: LocationService[];
-  reachable: boolean;
 }
 
 export interface World {

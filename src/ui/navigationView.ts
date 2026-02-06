@@ -1,5 +1,6 @@
 import type { GameData } from '../models';
 import { getLocationTypeTemplate } from '../spaceLocations';
+import { isLocationReachable } from '../worldGen';
 
 export interface NavigationViewCallbacks {
   onToggleNavigation: () => void;
@@ -41,6 +42,9 @@ export function renderNavigationView(
 
   const currentLocationId =
     gameData.ship.location.dockedAt?.toLowerCase().replace(' ', '_') || 'earth';
+  const currentLocation =
+    gameData.world.locations.find((loc) => loc.id === currentLocationId) ||
+    gameData.world.locations[0];
 
   for (const location of gameData.world.locations) {
     const marker = document.createElement('div');
@@ -48,10 +52,16 @@ export function renderNavigationView(
     marker.style.left = `${location.x}%`;
     marker.style.top = `${location.y}%`;
 
+    const reachable = isLocationReachable(
+      gameData.ship,
+      location,
+      currentLocation
+    );
+
     if (location.id === currentLocationId) {
       marker.classList.add('current');
     }
-    if (!location.reachable) {
+    if (!reachable) {
       marker.classList.add('unreachable');
     }
 
@@ -80,9 +90,15 @@ export function renderNavigationView(
   legend.appendChild(legendTitle);
 
   for (const location of gameData.world.locations) {
+    const reachable = isLocationReachable(
+      gameData.ship,
+      location,
+      currentLocation
+    );
+
     const item = document.createElement('div');
     item.className = 'nav-legend-item';
-    if (!location.reachable) {
+    if (!reachable) {
       item.classList.add('unreachable');
     }
 
