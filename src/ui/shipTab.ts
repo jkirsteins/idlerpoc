@@ -47,9 +47,6 @@ export function renderShipTab(
   // Power progress bar
   container.appendChild(renderPowerBar(gameData));
 
-  // Engine section
-  container.appendChild(renderEngineSection(gameData, callbacks));
-
   // Room grid
   container.appendChild(renderRoomGrid(gameData, callbacks));
 
@@ -206,103 +203,6 @@ function renderPowerBar(gameData: GameData): HTMLElement {
   );
 }
 
-function renderEngineSection(
-  gameData: GameData,
-  callbacks: ShipTabCallbacks
-): HTMLElement {
-  const section = document.createElement('div');
-  section.className = 'engine-section';
-
-  const engineDef = getEngineDefinition(gameData.ship.engine.definitionId);
-
-  const header = document.createElement('div');
-  header.className = 'engine-info';
-
-  const title = document.createElement('h3');
-  title.textContent = `${engineDef.icon} ${engineDef.name}`;
-  header.appendChild(title);
-
-  const specs = document.createElement('div');
-  specs.className = 'engine-specs';
-  specs.innerHTML = `
-    <span>Type: ${engineDef.type}</span>
-    <span>Fuel: ${engineDef.fuelType}</span>
-    <span>Output: ${engineDef.powerOutput} kW</span>
-  `;
-  header.appendChild(specs);
-
-  section.appendChild(header);
-
-  // Engine state
-  const stateContainer = document.createElement('div');
-  stateContainer.className = 'engine-state';
-
-  if (gameData.ship.engine.state === 'off') {
-    const stateLabel = document.createElement('div');
-    stateLabel.className = 'engine-state-label off';
-    stateLabel.textContent = 'ENGINE OFF';
-    stateContainer.appendChild(stateLabel);
-  } else if (gameData.ship.engine.state === 'warming_up') {
-    const stateLabel = document.createElement('div');
-    stateLabel.className = 'engine-state-label warming';
-    stateLabel.textContent = `WARMING UP ${gameData.ship.engine.warmupProgress.toFixed(0)}%`;
-    stateContainer.appendChild(stateLabel);
-
-    // Warmup progress bar
-    stateContainer.appendChild(
-      renderProgressBar(
-        'WARMUP',
-        gameData.ship.engine.warmupProgress,
-        `${gameData.ship.engine.warmupProgress.toFixed(0)}%`,
-        'bar-good'
-      )
-    );
-  } else if (gameData.ship.engine.state === 'online') {
-    const stateLabel = document.createElement('div');
-    stateLabel.className = 'engine-state-label online';
-    stateLabel.textContent = '⚡ ONLINE';
-    stateContainer.appendChild(stateLabel);
-  }
-
-  section.appendChild(stateContainer);
-
-  // Engine controls
-  const bridgeRoom = gameData.ship.rooms.find((r) => r.type === 'bridge');
-  const engineRoom = gameData.ship.rooms.find((r) => r.type === 'engine_room');
-  const hasControlCrew =
-    (bridgeRoom && bridgeRoom.assignedCrewIds.length > 0) ||
-    (engineRoom && engineRoom.assignedCrewIds.length > 0);
-
-  const isDocked = gameData.ship.location.status === 'docked';
-
-  if (hasControlCrew && !isDocked) {
-    const controls = document.createElement('div');
-    controls.className = 'engine-controls';
-
-    if (gameData.ship.engine.state === 'off') {
-      const onBtn = document.createElement('button');
-      onBtn.textContent = 'Turn On';
-      onBtn.addEventListener('click', callbacks.onEngineOn);
-      controls.appendChild(onBtn);
-    } else {
-      const offBtn = document.createElement('button');
-      offBtn.textContent = 'Turn Off';
-      offBtn.addEventListener('click', callbacks.onEngineOff);
-      controls.appendChild(offBtn);
-    }
-
-    section.appendChild(controls);
-  } else if (!isDocked && !hasControlCrew) {
-    const warning = document.createElement('div');
-    warning.className = 'engine-warning';
-    warning.textContent =
-      'Bridge or Engine Room must be staffed to control engine';
-    section.appendChild(warning);
-  }
-
-  return section;
-}
-
 function renderProgressBar(
   label: string,
   percentage: number,
@@ -390,6 +290,106 @@ function renderRoomCard(
     }
 
     roomCard.appendChild(powerBadge);
+  }
+
+  // Engine room shows equipped engine
+  if (room.type === 'engine_room') {
+    const engineDef = getEngineDefinition(gameData.ship.engine.definitionId);
+
+    const equipmentSlot = document.createElement('div');
+    equipmentSlot.className = 'room-equipment-slot';
+
+    const slotLabel = document.createElement('div');
+    slotLabel.className = 'equipment-slot-label';
+    slotLabel.textContent = 'Engine Slot (1/1)';
+    equipmentSlot.appendChild(slotLabel);
+
+    const engineItem = document.createElement('div');
+    engineItem.className = 'room-equipment-item';
+
+    const engineIcon = document.createElement('div');
+    engineIcon.className = 'equipment-item-icon';
+    engineIcon.textContent = engineDef.icon;
+    engineItem.appendChild(engineIcon);
+
+    const engineInfo = document.createElement('div');
+    engineInfo.className = 'equipment-item-info';
+
+    const engineName = document.createElement('div');
+    engineName.className = 'equipment-item-name';
+    engineName.textContent = engineDef.name;
+    engineInfo.appendChild(engineName);
+
+    const engineType = document.createElement('div');
+    engineType.className = 'equipment-item-type';
+    engineType.textContent = engineDef.type;
+    engineInfo.appendChild(engineType);
+
+    // Engine state indicator
+    const engineState = document.createElement('div');
+    engineState.className = 'equipment-item-state';
+    if (gameData.ship.engine.state === 'off') {
+      engineState.textContent = '⚫ OFF';
+      engineState.style.color = '#ff6b6b';
+    } else if (gameData.ship.engine.state === 'warming_up') {
+      engineState.textContent = `🟡 WARMING ${gameData.ship.engine.warmupProgress.toFixed(0)}%`;
+      engineState.style.color = '#ffc107';
+    } else {
+      engineState.textContent = '🟢 ONLINE';
+      engineState.style.color = '#4caf50';
+    }
+    engineInfo.appendChild(engineState);
+
+    engineItem.appendChild(engineInfo);
+    equipmentSlot.appendChild(engineItem);
+
+    // Engine controls (on/off button)
+    const isDocked = gameData.ship.location.status === 'docked';
+    const bridgeRoom = gameData.ship.rooms.find((r) => r.type === 'bridge');
+    const hasControlCrew =
+      assignedCrew.length > 0 ||
+      (bridgeRoom && bridgeRoom.assignedCrewIds.length > 0);
+
+    if (!isDocked && hasControlCrew) {
+      const controls = document.createElement('div');
+      controls.className = 'room-equipment-controls';
+
+      if (gameData.ship.engine.state === 'off') {
+        const onBtn = document.createElement('button');
+        onBtn.className = 'small-button';
+        onBtn.textContent = 'Turn On';
+        onBtn.addEventListener('click', callbacks.onEngineOn);
+        controls.appendChild(onBtn);
+      } else {
+        const offBtn = document.createElement('button');
+        offBtn.className = 'small-button';
+        offBtn.textContent = 'Turn Off';
+        offBtn.addEventListener('click', callbacks.onEngineOff);
+        controls.appendChild(offBtn);
+      }
+
+      equipmentSlot.appendChild(controls);
+    } else if (!isDocked && !hasControlCrew) {
+      const warning = document.createElement('div');
+      warning.className = 'equipment-warning';
+      warning.textContent = 'Bridge or Engine Room must be staffed';
+      equipmentSlot.appendChild(warning);
+    }
+
+    roomCard.appendChild(equipmentSlot);
+
+    // Show warmup progress bar if warming up
+    if (gameData.ship.engine.state === 'warming_up') {
+      const warmupBar = renderProgressBar(
+        'WARMUP',
+        gameData.ship.engine.warmupProgress,
+        `${gameData.ship.engine.warmupProgress.toFixed(0)}%`,
+        'bar-good'
+      );
+      warmupBar.style.fontSize = '0.85em';
+      warmupBar.style.marginTop = '0.5em';
+      roomCard.appendChild(warmupBar);
+    }
   }
 
   // Cargo hold is automated
