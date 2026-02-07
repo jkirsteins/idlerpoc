@@ -5,7 +5,8 @@
       "Bash(git commit:*)",
       "Bash(npm run lint:*)",
       "Bash(git add:*)",
-      "Bash(npm run build:*)"
+      "Bash(npm run build:*)",
+      "Bash(grep:*)"
     ]
   }
 }

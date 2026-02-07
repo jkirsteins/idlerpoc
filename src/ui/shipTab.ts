@@ -400,10 +400,27 @@ function renderRoomCard(
     roomCard.appendChild(automatedMsg);
 
     const shipClass = getShipClass(gameData.ship.classId);
+    const maxCapacity = shipClass?.cargoCapacity ?? 0;
+
+    // For now, estimate cargo weight: assume each item is ~100 kg
+    // TODO: Add actual weight property to equipment definitions
+    const currentCargo = gameData.ship.cargo.length * 100;
+    const cargoPercent =
+      maxCapacity > 0 ? (currentCargo / maxCapacity) * 100 : 0;
+
     const capacity = document.createElement('div');
     capacity.className = 'room-cargo-capacity';
-    capacity.textContent = `Capacity: ${shipClass?.cargoCapacity ?? 0} SU`;
+    capacity.textContent = `Cargo: ${currentCargo.toLocaleString()} / ${maxCapacity.toLocaleString()} kg`;
     roomCard.appendChild(capacity);
+
+    // Progress bar
+    const progressBar = document.createElement('div');
+    progressBar.className = 'cargo-progress-bar';
+    const progressFill = document.createElement('div');
+    progressFill.className = 'cargo-progress-fill';
+    progressFill.style.width = `${Math.min(100, cargoPercent)}%`;
+    progressBar.appendChild(progressFill);
+    roomCard.appendChild(progressBar);
 
     return roomCard;
   }
