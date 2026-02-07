@@ -3,6 +3,12 @@ import { getActiveShip } from '../models';
 import { getLocationTypeTemplate } from '../spaceLocations';
 import { isLocationReachable, getUnreachableReason } from '../worldGen';
 import { getGravityDegradationLevel } from '../gravitySystem';
+import {
+  estimateRouteRisk,
+  getThreatLevel,
+  getThreatNarrative,
+} from '../encounterSystem';
+import { renderThreatBadge } from './threatBadge';
 
 export interface NavigationViewCallbacks {
   onToggleNavigation: () => void;
@@ -89,6 +95,21 @@ export function renderNavigationView(
     const dot = document.createElement('div');
     dot.className = 'nav-marker-dot';
     dot.textContent = template.icon;
+
+    // Threat-based marker coloring for reachable non-current locations
+    if (reachable && location.id !== currentLocationId) {
+      const routeRisk = estimateRouteRisk(
+        currentLocation,
+        location,
+        ship,
+        gameData.world
+      );
+      const threatLevel = getThreatLevel(routeRisk);
+      if (threatLevel !== 'clear') {
+        dot.setAttribute('data-threat', threatLevel);
+      }
+    }
+
     marker.appendChild(dot);
 
     const label = document.createElement('div');
@@ -134,6 +155,23 @@ export function renderNavigationView(
     description.style.fontSize = '0.9em';
     description.style.color = '#aaa';
     item.appendChild(description);
+
+    // Route risk threat badge for non-current locations
+    if (location.id !== currentLocationId && reachable) {
+      const routeRisk = estimateRouteRisk(
+        currentLocation,
+        location,
+        ship,
+        gameData.world
+      );
+      const threatLevel = getThreatLevel(routeRisk);
+      const narrative = getThreatNarrative(threatLevel);
+
+      const riskLine = document.createElement('div');
+      riskLine.style.marginTop = '6px';
+      riskLine.appendChild(renderThreatBadge(threatLevel, narrative));
+      item.appendChild(riskLine);
+    }
 
     // Gravity warning for degraded crew
     const degradedCrew = ship.crew.filter(

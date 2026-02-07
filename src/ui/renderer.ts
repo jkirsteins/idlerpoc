@@ -1,4 +1,9 @@
-import type { GameData, ShipClassId, CrewEquipmentId } from '../models';
+import type {
+  GameData,
+  ShipClassId,
+  CrewEquipmentId,
+  CatchUpReport,
+} from '../models';
 import {
   renderWizard,
   type WizardStep,
@@ -6,6 +11,7 @@ import {
   type WizardCallbacks,
 } from './wizard';
 import { renderTabbedView } from './tabbedView';
+import { renderCatchUpReport } from './catchUpReport';
 
 export type PlayingTab = 'ship' | 'crew' | 'work' | 'log' | 'settings';
 
@@ -18,6 +24,7 @@ export type GameState =
       activeTab: PlayingTab;
       showNavigation?: boolean;
       selectedCrewId?: string;
+      catchUpReport?: CatchUpReport;
     };
 
 export interface RendererCallbacks {
@@ -59,6 +66,7 @@ export interface RendererCallbacks {
     fromShipId: string,
     toShipId: string
   ) => void;
+  onDismissCatchUp: () => void;
 }
 
 export function render(
@@ -88,6 +96,13 @@ export function render(
   }
 
   container.appendChild(wrapper);
+
+  // Add version badge
+  const versionBadge = document.createElement('div');
+  versionBadge.className = 'version-badge';
+  versionBadge.textContent = `v${__GIT_COMMIT_SHA__.substring(0, 7)}`;
+  versionBadge.title = `Git commit: ${__GIT_COMMIT_SHA__}`;
+  container.appendChild(versionBadge);
 }
 
 function renderNoGame(callbacks: RendererCallbacks): HTMLElement {
@@ -122,6 +137,11 @@ function renderPlaying(
   state: GameState & { phase: 'playing' },
   callbacks: RendererCallbacks
 ): HTMLElement {
+  // Show catch-up report modal if encounters happened during fast-forward
+  if (state.catchUpReport) {
+    return renderCatchUpReport(state.catchUpReport, callbacks.onDismissCatchUp);
+  }
+
   return renderTabbedView(
     state.gameData,
     state.activeTab,

@@ -14,6 +14,16 @@ This file tracks deferred features and known gaps that are not currently priorit
 - **Population Divergence**: Habitat ships with generations in zero-g could develop distinct populations.
 - **Coriolis Discomfort**: Small-radius centrifuges could cause nausea/discomfort effects on crew morale.
 
+## Deferred Encounter System Features (Phase B2/B3)
+
+- **Fleet Ship Positions on Nav Map**: Show in-flight ship positions as markers on the navigation chart.
+- **Convoy Protection System**: Nearby ships on similar routes reduce encounter probability (formula in phase_b.md).
+- **Convoy Protection UI**: Display convoy status and risk reduction in navigation view and flight status.
+- **Ship Readiness Summary on Quest Cards**: Show defense equipment status for CAUTION+ routes.
+- **Crew Competence Display**: Show best navigator/gunner/charisma skills as compact readiness line.
+- **Encounter Heat Map**: Visual overlay on navigation map showing danger zones.
+- **Log Entry Click-to-Expand**: Expandable log entries showing detailed encounter outcome breakdown.
+
 ## Other Known Gaps
 
 - **Equipment Repair at Stations**: Degraded equipment cannot currently be repaired.

@@ -1,4 +1,4 @@
-import type { GameData, Ship } from './models';
+import type { GameData, Ship, EncounterResult } from './models';
 import { getEngineDefinition } from './engines';
 import {
   advanceFlight,
@@ -17,6 +17,40 @@ import {
   getDegradationDescription,
 } from './gravitySystem';
 import { getDistanceBetween } from './worldGen';
+import { calculateEncounterChance } from './encounterSystem';
+
+/**
+ * Encounter system hook.
+ * The combat system (Task #6) registers its resolver here.
+ * This avoids circular dependencies between gameTick and combatSystem.
+ */
+export type EncounterResolver = (
+  ship: Ship,
+  gameData: GameData,
+  isCatchUp: boolean
+) => EncounterResult | null;
+
+let _encounterResolver: EncounterResolver | null = null;
+let _isCatchUp = false;
+let _encounterResults: EncounterResult[] = [];
+
+/**
+ * Register the combat system's encounter resolver.
+ * Called once at startup by the combat system module.
+ */
+export function setEncounterResolver(resolver: EncounterResolver): void {
+  _encounterResolver = resolver;
+}
+
+/**
+ * Get and clear accumulated encounter results from the last tick batch.
+ * Used by fast-forward to build catch-up reports.
+ */
+export function drainEncounterResults(): EncounterResult[] {
+  const results = _encounterResults;
+  _encounterResults = [];
+  return results;
+}
 
 /**
  * Deduct crew salaries for all ships from the shared wallet.
@@ -146,6 +180,26 @@ function applyShipTick(gameData: GameData, ship: Ship): boolean {
       }
 
       changed = true;
+
+      // === ENCOUNTER CHECK ===
+      // Runs after flight physics (position/velocity are current)
+      // and before torch mechanics (boarding damage affects equipment cascade)
+      if (!flightComplete) {
+        const encounterChance = calculateEncounterChance(ship, gameData);
+        if (encounterChance > 0 && Math.random() < encounterChance) {
+          // Encounter triggered — resolve via combat system
+          // The resolveEncounter function is injected via the optional callback
+          // to avoid circular dependency. If no resolver is set, the encounter
+          // is detected but not resolved (Task #6 will wire this up).
+          if (_encounterResolver) {
+            const result = _encounterResolver(ship, gameData, _isCatchUp);
+            if (result) {
+              _encounterResults.push(result);
+            }
+          }
+          changed = true;
+        }
+      }
 
       // TORCH SHIP MECHANICS
       if (ship.engine.state === 'online') {
@@ -305,7 +359,11 @@ function applyShipTick(gameData: GameData, ship: Ship): boolean {
   return changed;
 }
 
-export function applyTick(gameData: GameData): boolean {
+export function applyTick(
+  gameData: GameData,
+  isCatchUp: boolean = false
+): boolean {
+  _isCatchUp = isCatchUp;
   let changed = false;
 
   // Advance game time once per tick

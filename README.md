@@ -71,7 +71,18 @@ npm run dev
   - Recovery mechanics when docked at planetary locations
   - Tagged equipment slots (standard/structural) for installation constraints
   - Real-time exposure monitoring and pre-departure warnings
-- **Event Log**: Comprehensive log of all events (departures, arrivals, payments, contract completions)
+- **Encounter & Combat System**:
+  - Per-tick pirate encounter detection derived from position, engine heat, and crew skills
+  - Auto-resolve combat pipeline: Evade → Negotiate → Combat → Outcome
+  - Five outcomes: evasion, negotiation (ransom), victory (bounty), harassment (minor damage), boarding (major losses)
+  - Defense score from point defense equipment, armory crew weapons, deflector shields, and ship mass
+  - Regional threat levels (Clear/Caution/Danger/Critical) based on distance from Terran Alliance and proximity to lawless zones
+  - Threat badges on quest cards, navigation chart, and flight status
+  - Narrative log entries for all encounter outcomes
+  - Fast-forward severity cap (boarding → harassment during catch-up)
+  - Catch-up report modal summarizing encounters that occurred while away
+  - Encounter cooldown prevents rapid consecutive encounters per ship
+- **Event Log**: Comprehensive log of all events (departures, arrivals, payments, contract completions, encounters)
 - **Resource Tracking**: Monitor credits, fuel, crew count, crew costs per tick, and power consumption
 - **Equipment Trading**: Buy and sell crew equipment at stations with trade services (50% sell value)
 - **Real-time Simulation**: 1-second tick system for fuel consumption, engine warmup, flight physics, and equipment degradation
@@ -95,3 +106,5 @@ npm run dev
 | `npm run lint:fix`     | Fix ESLint errors         |
 | `npm run format`       | Format code with Prettier |
 | `npm run format:check` | Check formatting          |
+| `npm test`             | Run unit tests            |
+| `npm run test:watch`   | Run tests in watch mode   |

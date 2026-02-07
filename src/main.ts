@@ -1,5 +1,13 @@
 import './style.css';
-import type { ShipClassId, SkillId, GameData, CrewEquipmentId } from './models';
+import { initCombatSystem } from './combatSystem';
+import type {
+  ShipClassId,
+  SkillId,
+  GameData,
+  CrewEquipmentId,
+  CatchUpReport,
+  CatchUpShipReport,
+} from './models';
 import { getActiveShip } from './models';
 import {
   createNewGame,
@@ -9,7 +17,11 @@ import {
 import { saveGame, loadGame, clearGame } from './storage';
 import { render, type GameState, type RendererCallbacks } from './ui/renderer';
 import type { WizardStep, WizardDraft } from './ui/wizard';
-import { applyTick, deductFleetSalaries } from './gameTick';
+import {
+  applyTick,
+  deductFleetSalaries,
+  drainEncounterResults,
+} from './gameTick';
 import { getLevelForXP } from './levelSystem';
 import { deduceRoleFromSkills } from './crewRoles';
 import {
@@ -35,13 +47,17 @@ import { getShipClass } from './shipClasses';
 
 const app = document.getElementById('app')!;
 
+// Initialize the combat system encounter resolver
+initCombatSystem();
+
 let state: GameState = initializeState();
 let tickInterval: number | null = null;
 
 /**
- * Fast-forward game state based on elapsed real-world time
+ * Fast-forward game state based on elapsed real-world time.
+ * Returns a CatchUpReport if encounters occurred, null otherwise.
  */
-function fastForwardTicks(gameData: GameData): void {
+function fastForwardTicks(gameData: GameData): CatchUpReport | null {
   const now = Date.now();
   const elapsedMs = now - gameData.lastTickTimestamp;
   const elapsedTicks = Math.floor(elapsedMs / 1000);
@@ -51,22 +67,90 @@ function fastForwardTicks(gameData: GameData): void {
 
     const ticksToApply = Math.min(elapsedTicks, 1000);
 
+    // Clear any stale encounter results before fast-forward
+    drainEncounterResults();
+
     for (let i = 0; i < ticksToApply; i++) {
-      applyTick(gameData);
+      applyTick(gameData, true);
     }
+
+    // Collect encounter results from the fast-forward
+    const encounterResults = drainEncounterResults();
 
     gameData.lastTickTimestamp = now;
     saveGame(gameData);
 
     console.log(`Fast-forward complete. Game time: ${gameData.gameTime}s`);
+
+    // Build catch-up report if encounters occurred
+    if (encounterResults.length > 0) {
+      const shipReportMap = new Map<string, CatchUpShipReport>();
+
+      for (const result of encounterResults) {
+        const ship = gameData.ships.find((s) => s.id === result.shipId);
+        if (!ship) continue;
+
+        let report = shipReportMap.get(result.shipId);
+        if (!report) {
+          report = {
+            shipId: result.shipId,
+            shipName: ship.name,
+            evaded: 0,
+            negotiated: 0,
+            victories: 0,
+            harassments: 0,
+            creditsDelta: 0,
+            avgHealthLost: 0,
+          };
+          shipReportMap.set(result.shipId, report);
+        }
+
+        switch (result.type) {
+          case 'evaded':
+            report.evaded++;
+            break;
+          case 'negotiated':
+            report.negotiated++;
+            report.creditsDelta -= result.creditsLost || 0;
+            break;
+          case 'victory':
+            report.victories++;
+            report.creditsDelta += result.creditsGained || 0;
+            break;
+          case 'harassment':
+            report.harassments++;
+            if (result.healthLost) {
+              const losses = Object.values(result.healthLost);
+              const avgLoss =
+                losses.length > 0
+                  ? losses.reduce((a, b) => a + b, 0) / losses.length
+                  : 0;
+              report.avgHealthLost += avgLoss;
+            }
+            break;
+        }
+      }
+
+      return {
+        totalTicks: ticksToApply,
+        shipReports: Array.from(shipReportMap.values()),
+      };
+    }
   }
+
+  return null;
 }
 
 function initializeState(): GameState {
   const gameData = loadGame();
   if (gameData) {
-    fastForwardTicks(gameData);
-    return { phase: 'playing', gameData, activeTab: 'ship' };
+    const catchUpReport = fastForwardTicks(gameData);
+    return {
+      phase: 'playing',
+      gameData,
+      activeTab: 'ship',
+      catchUpReport: catchUpReport ?? undefined,
+    };
   }
   return { phase: 'no_game' };
 }
@@ -682,6 +766,13 @@ const callbacks: RendererCallbacks = {
 
     saveGame(state.gameData);
     renderApp();
+  },
+
+  onDismissCatchUp: () => {
+    if (state.phase === 'playing') {
+      state = { ...state, catchUpReport: undefined };
+      renderApp();
+    }
   },
 
   onTransferCrew: (crewId: string, fromShipId: string, toShipId: string) => {

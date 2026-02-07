@@ -9,6 +9,11 @@ import { renderLogTab } from './logTab';
 import { renderSettingsTab } from './settingsTab';
 import { formatGameDate, TICKS_PER_DAY } from '../timeSystem';
 import { getCrewRoleDefinition } from '../crewRoles';
+import {
+  getShipPositionKm,
+  calculatePositionDanger,
+  getThreatLevel,
+} from '../encounterSystem';
 
 export interface TabbedViewCallbacks {
   onReset: () => void;
@@ -234,7 +239,38 @@ function renderGlobalStatusBar(
         (l) => l.id === destId
       );
       const destName = destLocation?.name || destId;
+
+      // Compute regional threat for in-flight status
+      const currentKm = getShipPositionKm(ship, gameData.world);
+      const positionDanger = calculatePositionDanger(currentKm, gameData.world);
+      const dangerRisk =
+        positionDanger > 3
+          ? 0.35
+          : positionDanger > 1.5
+            ? 0.2
+            : positionDanger > 0.5
+              ? 0.08
+              : 0.02;
+      const threatLevel = getThreatLevel(dangerRisk);
+
       statusText.textContent = `In flight to ${destName}`;
+      if (threatLevel !== 'clear') {
+        const threatLabel = document.createElement('span');
+        threatLabel.style.marginLeft = '8px';
+        threatLabel.style.fontWeight = '700';
+        threatLabel.style.fontSize = '11px';
+        threatLabel.style.padding = '2px 6px';
+        threatLabel.style.borderRadius = '3px';
+        const colors: Record<string, string> = {
+          caution: '#ffc107',
+          danger: '#e94560',
+          critical: '#ff6b6b',
+        };
+        threatLabel.style.color = colors[threatLevel] || '#aaa';
+        threatLabel.style.background = `${colors[threatLevel]}22`;
+        threatLabel.textContent = threatLevel.toUpperCase();
+        statusText.appendChild(threatLabel);
+      }
     } else {
       statusText.textContent = 'In flight';
     }

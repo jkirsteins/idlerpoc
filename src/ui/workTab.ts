@@ -4,6 +4,14 @@ import { formatDuration } from '../timeSystem';
 import { canAcceptQuest } from '../questGen';
 import { getGForce } from '../flightPhysics';
 import { getCrewRoleDefinition } from '../crewRoles';
+import {
+  estimateRouteRisk,
+  getThreatLevel,
+  getThreatNarrative,
+  getShipPositionKm,
+  calculatePositionDanger,
+} from '../encounterSystem';
+import { renderThreatBadge } from './threatBadge';
 
 export interface WorkTabCallbacks {
   onAcceptQuest: (questId: string) => void;
@@ -224,6 +232,31 @@ function renderQuestCard(
     details.appendChild(crewCostInfo);
   }
 
+  // Route risk threat badge
+  if (origin && destination) {
+    const routeRisk = estimateRouteRisk(
+      origin,
+      destination,
+      ship,
+      gameData.world
+    );
+    const threatLevel = getThreatLevel(routeRisk);
+    const narrative = getThreatNarrative(threatLevel);
+
+    const riskLine = document.createElement('div');
+    riskLine.style.display = 'flex';
+    riskLine.style.alignItems = 'center';
+    riskLine.style.gap = '8px';
+    riskLine.style.marginTop = '4px';
+
+    const riskLabel = document.createElement('span');
+    riskLabel.textContent = 'Route Risk:';
+    riskLine.appendChild(riskLabel);
+
+    riskLine.appendChild(renderThreatBadge(threatLevel, narrative));
+    details.appendChild(riskLine);
+  }
+
   card.appendChild(details);
 
   // Payment
@@ -372,6 +405,27 @@ function renderFlightStatus(
   route.className = 'flight-route';
   route.textContent = `${origin?.name} → ${destination?.name}`;
   status.appendChild(route);
+
+  // Regional threat status
+  const ship = getActiveShip(gameData);
+  const currentKm = getShipPositionKm(ship, gameData.world);
+  const positionDanger = calculatePositionDanger(currentKm, gameData.world);
+  // Map position danger to a cumulative-like risk for threat level display
+  const dangerRisk =
+    positionDanger > 3
+      ? 0.35
+      : positionDanger > 1.5
+        ? 0.2
+        : positionDanger > 0.5
+          ? 0.08
+          : 0.02;
+  const regionalThreat = getThreatLevel(dangerRisk);
+  const regionalNarrative = getThreatNarrative(regionalThreat);
+
+  const regionalStatus = document.createElement('div');
+  regionalStatus.className = `regional-status threat-${regionalThreat}`;
+  regionalStatus.textContent = `Crossing ${regionalNarrative.toLowerCase()}`;
+  status.appendChild(regionalStatus);
 
   // Phase
   const phase = document.createElement('div');

@@ -210,6 +210,7 @@ export interface Ship {
   engine: EngineInstance;
   cargo: CrewEquipmentInstance[];
   activeContract: ActiveContract | null;
+  lastEncounterTime?: number; // gameTime of last encounter (for cooldown)
 }
 
 export type QuestType =
@@ -260,13 +261,67 @@ export type LogEntryType =
   | 'crew_hired'
   | 'equipment_bought'
   | 'equipment_sold'
-  | 'gravity_warning';
+  | 'gravity_warning'
+  | 'encounter_evaded'
+  | 'encounter_negotiated'
+  | 'encounter_victory'
+  | 'encounter_harassment'
+  | 'encounter_boarding';
 
 export interface LogEntry {
   gameTime: number;
   type: LogEntryType;
   message: string;
   shipName?: string;
+}
+
+export interface EncounterStats {
+  totalEncounters: number;
+  evaded: number;
+  negotiated: number;
+  victories: number;
+  harassments: number;
+  boardings: number;
+}
+
+export type EncounterOutcome =
+  | 'evaded'
+  | 'negotiated'
+  | 'victory'
+  | 'harassment'
+  | 'boarding';
+
+export interface EncounterResult {
+  type: EncounterOutcome;
+  shipId: string;
+  threatLevel: number;
+  positionKm: number;
+  defenseScore?: number;
+  pirateAttack?: number;
+  creditsLost?: number;
+  creditsGained?: number;
+  healthLost?: Record<string, number>; // crewId -> HP lost
+  equipmentDegraded?: Record<string, number>; // equipmentInstanceId -> degradation added
+  flightDelayAdded?: number; // game-seconds added
+  negotiatorName?: string;
+}
+
+export type ThreatLevel = 'clear' | 'caution' | 'danger' | 'critical';
+
+export interface CatchUpShipReport {
+  shipId: string;
+  shipName: string;
+  evaded: number;
+  negotiated: number;
+  victories: number;
+  harassments: number;
+  creditsDelta: number;
+  avgHealthLost: number;
+}
+
+export interface CatchUpReport {
+  totalTicks: number;
+  shipReports: CatchUpShipReport[];
 }
 
 export interface GameData {
@@ -282,6 +337,7 @@ export interface GameData {
   lastTickTimestamp: number; // real-world timestamp of last tick (milliseconds)
   lastQuestRegenDay: number; // game day when quests were last generated
   hireableCrewByLocation: Record<string, CrewMember[]>; // key = location ID
+  encounterStats?: EncounterStats;
 }
 
 /**
