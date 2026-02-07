@@ -76,10 +76,28 @@ export interface EquipmentInstance {
 
 export type ShipStatus = 'docked' | 'in_flight';
 
+export type FlightPhase = 'accelerating' | 'coasting' | 'decelerating';
+
+export interface FlightState {
+  origin: string;
+  destination: string;
+  totalDistance: number; // meters
+  distanceCovered: number; // meters
+  currentVelocity: number; // m/s
+  phase: FlightPhase;
+  burnTime: number; // game-seconds per burn phase
+  coastTime: number; // game-seconds for coast phase (0 if mini-brach)
+  elapsedTime: number; // game-seconds into this leg
+  totalTime: number; // game-seconds for full leg
+  acceleration: number; // m/s² during burns
+  dockOnArrival: boolean;
+}
+
 export interface ShipLocation {
   status: ShipStatus;
   dockedAt?: string; // e.g. "Earth" — set when docked
   destination?: string; // e.g. "Mars" — set when in_flight (future use)
+  flight?: FlightState; // flight state when in_flight
 }
 
 export interface CrewSkills {
@@ -105,6 +123,7 @@ export interface WorldLocation {
   x: number; // % position for nav map
   y: number; // % position for nav map
   services: LocationService[];
+  size: number; // quest count per day
 }
 
 export interface World {
@@ -152,8 +171,63 @@ export interface Ship {
   cargo: CrewEquipmentInstance[];
 }
 
+export type QuestType =
+  | 'delivery'
+  | 'passenger'
+  | 'freight'
+  | 'supply'
+  | 'standing_freight';
+
+export interface Quest {
+  id: string;
+  type: QuestType;
+  title: string;
+  description: string;
+  origin: string;
+  destination: string;
+  cargoRequired: number; // kg per trip (0 for passenger)
+  totalCargoRequired: number; // for supply contracts (0 otherwise)
+  tripsRequired: number; // 1 for one-off, N for freight, -1 for indefinite
+  paymentPerTrip: number; // credits (0 if lump sum only)
+  paymentOnCompletion: number; // credits (0 if per-trip only)
+  expiresAfterDays: number; // 0 = no expiry
+  estimatedFuelPerTrip: number; // display only
+  estimatedTripTicks: number; // display only
+}
+
+export interface ActiveContract {
+  quest: Quest; // snapshot
+  tripsCompleted: number;
+  cargoDelivered: number; // for supply contracts
+  creditsEarned: number; // running total
+  leg: 'outbound' | 'inbound';
+  paused: boolean; // docked mid-contract
+}
+
+export type LogEntryType =
+  | 'departure'
+  | 'arrival'
+  | 'trip_complete'
+  | 'contract_complete'
+  | 'payment'
+  | 'contract_accepted'
+  | 'contract_abandoned'
+  | 'day_advanced'
+  | 'refueled';
+
+export interface LogEntry {
+  gameTime: number;
+  type: LogEntryType;
+  message: string;
+}
+
 export interface GameData {
   ship: Ship;
   world: World;
   createdAt: number;
+  gameTime: number; // elapsed game-seconds since epoch
+  availableQuests: Quest[];
+  activeContract: ActiveContract | null;
+  log: LogEntry[];
+  lastTickTimestamp: number; // real-world timestamp of last tick (milliseconds)
 }

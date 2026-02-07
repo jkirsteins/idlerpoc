@@ -1,5 +1,5 @@
 import './style.css';
-import type { ShipClassId, SkillId } from './models';
+import type { ShipClassId, SkillId, GameData } from './models';
 import { createNewGame } from './gameFactory';
 import { saveGame, loadGame, clearGame } from './storage';
 import { render, type GameState, type RendererCallbacks } from './ui/renderer';
@@ -7,15 +7,52 @@ import type { WizardStep, WizardDraft } from './ui/wizard';
 import { applyTick } from './gameTick';
 import { getLevelForXP } from './levelSystem';
 import { deduceRoleFromSkills } from './crewRoles';
+import { advanceDay } from './timeSystem';
+import { generateQuestsForLocation } from './questGen';
+import {
+  acceptQuest,
+  pauseContract,
+  resumeContract,
+  abandonContract,
+} from './contractExec';
+import { addLog } from './logSystem';
 
 const app = document.getElementById('app')!;
 
 let state: GameState = initializeState();
 let tickInterval: number | null = null;
 
+/**
+ * Fast-forward game state based on elapsed real-world time
+ */
+function fastForwardTicks(gameData: GameData): void {
+  const now = Date.now();
+  const elapsedMs = now - gameData.lastTickTimestamp;
+  const elapsedTicks = Math.floor(elapsedMs / 1000); // 1 tick = 1 second
+
+  if (elapsedTicks > 0) {
+    console.log(`Fast-forwarding ${elapsedTicks} ticks...`);
+
+    // Apply up to 1000 ticks at once (safety limit)
+    const ticksToApply = Math.min(elapsedTicks, 1000);
+
+    for (let i = 0; i < ticksToApply; i++) {
+      applyTick(gameData);
+    }
+
+    // Update timestamp to current time
+    gameData.lastTickTimestamp = now;
+    saveGame(gameData);
+
+    console.log(`Fast-forward complete. Game time: ${gameData.gameTime}s`);
+  }
+}
+
 function initializeState(): GameState {
   const gameData = loadGame();
   if (gameData) {
+    // Fast-forward ticks based on elapsed real-world time
+    fastForwardTicks(gameData);
     return { phase: 'playing', gameData, activeTab: 'ship' };
   }
   return { phase: 'no_game' };
@@ -238,6 +275,76 @@ const callbacks: RendererCallbacks = {
     saveGame(state.gameData);
     renderApp();
   },
+
+  onAcceptQuest: (questId) => {
+    if (state.phase !== 'playing') return;
+
+    const quest = state.gameData.availableQuests.find((q) => q.id === questId);
+    if (!quest) return;
+
+    acceptQuest(state.gameData, quest);
+    saveGame(state.gameData);
+    renderApp();
+  },
+
+  onAdvanceDay: () => {
+    if (state.phase !== 'playing') return;
+    if (state.gameData.ship.location.status !== 'docked') return;
+    if (state.gameData.activeContract) return;
+
+    // Advance game time by one day
+    state.gameData.gameTime = advanceDay(state.gameData.gameTime);
+
+    // Log day advancement
+    addLog(
+      state.gameData.log,
+      state.gameData.gameTime,
+      'day_advanced',
+      'Advanced one day'
+    );
+
+    // Regenerate quests for current location
+    const location = state.gameData.ship.location.dockedAt;
+    if (location) {
+      const locationData = state.gameData.world.locations.find(
+        (l) => l.id === location
+      );
+      if (locationData) {
+        state.gameData.availableQuests = generateQuestsForLocation(
+          state.gameData.ship,
+          locationData,
+          state.gameData.world
+        );
+      }
+    }
+
+    saveGame(state.gameData);
+    renderApp();
+  },
+
+  onDockAtNearestPort: () => {
+    if (state.phase !== 'playing') return;
+
+    pauseContract(state.gameData);
+    saveGame(state.gameData);
+    renderApp();
+  },
+
+  onResumeContract: () => {
+    if (state.phase !== 'playing') return;
+
+    resumeContract(state.gameData);
+    saveGame(state.gameData);
+    renderApp();
+  },
+
+  onAbandonContract: () => {
+    if (state.phase !== 'playing') return;
+
+    abandonContract(state.gameData);
+    saveGame(state.gameData);
+    renderApp();
+  },
 };
 
 window.addEventListener('wizard-next', ((
@@ -257,6 +364,8 @@ function startTickSystem(): void {
   tickInterval = window.setInterval(() => {
     if (state.phase === 'playing') {
       const changed = applyTick(state.gameData);
+      // Update timestamp after each tick
+      state.gameData.lastTickTimestamp = Date.now();
       if (changed) {
         saveGame(state.gameData);
         renderApp();

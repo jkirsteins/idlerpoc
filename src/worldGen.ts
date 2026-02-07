@@ -11,15 +11,25 @@ function parseMaxRange(maxRangeStr: string): number {
 }
 
 /**
+ * Get distance between two locations
+ */
+export function getDistanceBetween(
+  locA: WorldLocation,
+  locB: WorldLocation
+): number {
+  return Math.abs(locA.distanceFromEarth - locB.distanceFromEarth);
+}
+
+/**
  * Check if a location is reachable based on ship's range and current fuel
  */
 export function isLocationReachable(
   ship: Ship,
   location: WorldLocation,
-  currentLocation: WorldLocation
+  fromLocation: WorldLocation
 ): boolean {
   // Current location is always reachable
-  if (location.id === currentLocation.id) {
+  if (location.id === fromLocation.id) {
     return true;
   }
 
@@ -28,6 +38,9 @@ export function isLocationReachable(
 
   // Get ship's maximum range in km
   const maxRange = parseMaxRange(shipClass.maxRange);
+
+  // Calculate distance between locations
+  const distance = getDistanceBetween(fromLocation, location);
 
   // Calculate effective range based on current fuel (fuel affects how far you can go)
   // At 100% fuel, you can go max range. At 50% fuel, you can go half max range.
@@ -38,9 +51,7 @@ export function isLocationReachable(
 
   // If destination has refuel, we only need one-way fuel
   // If not, we need round-trip fuel (there and back)
-  const requiredRange = hasRefuel
-    ? location.distanceFromEarth
-    : location.distanceFromEarth * 2;
+  const requiredRange = hasRefuel ? distance : distance * 2;
 
   return effectiveRange >= requiredRange;
 }
@@ -61,6 +72,7 @@ export function generateWorld(): World {
       x: 50, // center of map
       y: 50,
       services: ['refuel', 'trade', 'repair', 'hire'],
+      size: 5,
     },
     {
       id: 'leo_station',
@@ -73,6 +85,7 @@ export function generateWorld(): World {
       x: 52,
       y: 48,
       services: ['refuel', 'trade'],
+      size: 2,
     },
     {
       id: 'meo_depot',
@@ -85,6 +98,7 @@ export function generateWorld(): World {
       x: 55,
       y: 52,
       services: ['refuel', 'repair'],
+      size: 1,
     },
     {
       id: 'forge_station',
@@ -97,6 +111,7 @@ export function generateWorld(): World {
       x: 60,
       y: 45,
       services: ['refuel', 'trade', 'repair', 'hire'],
+      size: 3,
     },
     {
       id: 'freeport_station',
@@ -109,6 +124,7 @@ export function generateWorld(): World {
       x: 68,
       y: 55,
       services: ['refuel', 'trade', 'hire'],
+      size: 3,
     },
     {
       id: 'the_scatter',
@@ -121,6 +137,7 @@ export function generateWorld(): World {
       x: 40,
       y: 60,
       services: ['mine', 'trade'],
+      size: 2,
     },
     {
       id: 'mars',
@@ -133,6 +150,7 @@ export function generateWorld(): World {
       x: 75,
       y: 40,
       services: ['refuel', 'trade', 'repair', 'hire'],
+      size: 3,
     },
     {
       id: 'jupiter_station',
@@ -145,6 +163,7 @@ export function generateWorld(): World {
       x: 85,
       y: 30,
       services: ['refuel', 'trade'],
+      size: 2,
     },
   ];
 

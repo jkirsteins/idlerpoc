@@ -1460,3 +1460,298 @@ button:disabled:hover {
   opacity: 0.5;
   cursor: not-allowed;
 }
+
+/* Work Tab */
+.work-tab {
+  padding: 16px 0;
+}
+
+.date-header-global {
+  font-size: 16px;
+  font-weight: bold;
+  margin-bottom: 12px;
+  padding: 8px 12px;
+  background: #0f3460;
+  border-radius: 6px;
+  text-align: center;
+  color: #4ecdc4;
+}
+
+.available-work h3 {
+  margin-bottom: 16px;
+}
+
+.advance-day-button {
+  margin-bottom: 20px;
+  background: #4ecdc4;
+  color: #1a1a2e;
+}
+
+.advance-day-button:hover {
+  background: #3db3aa;
+}
+
+.quest-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.no-quests {
+  text-align: center;
+  color: #888;
+  padding: 20px;
+}
+
+.quest-card {
+  background: #0f3460;
+  border-radius: 8px;
+  padding: 16px;
+  border: 2px solid transparent;
+  transition: border-color 0.2s;
+}
+
+.quest-card:not(.disabled):hover {
+  border-color: #e94560;
+}
+
+.quest-card.disabled {
+  opacity: 0.6;
+  background: #1a2640;
+}
+
+.quest-title {
+  font-size: 18px;
+  font-weight: bold;
+  color: #e94560;
+  margin-bottom: 8px;
+}
+
+.quest-description {
+  margin-bottom: 12px;
+  color: #ccc;
+}
+
+.quest-details {
+  margin-bottom: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 14px;
+  color: #aaa;
+}
+
+.quest-payment {
+  font-size: 16px;
+  font-weight: bold;
+  color: #4ecdc4;
+  margin-bottom: 12px;
+}
+
+.accept-quest-button {
+  width: 100%;
+  background: #4ecdc4;
+  color: #1a1a2e;
+}
+
+.accept-quest-button:hover {
+  background: #3db3aa;
+}
+
+.quest-reason {
+  color: #ff6b6b;
+  font-size: 14px;
+  font-style: italic;
+}
+
+.active-contract,
+.paused-contract {
+  padding: 16px 0;
+}
+
+.contract-summary {
+  background: #0f3460;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 20px;
+}
+
+.contract-summary h3 {
+  margin-bottom: 12px;
+}
+
+.paused-badge {
+  display: inline-block;
+  margin-left: 12px;
+  padding: 4px 12px;
+  background: #ff6b6b;
+  color: white;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.contract-progress,
+.contract-leg,
+.contract-earned {
+  margin-bottom: 8px;
+  color: #ccc;
+}
+
+.flight-status {
+  background: #0f3460;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 20px;
+}
+
+.flight-status h4 {
+  margin: 0 0 12px;
+  color: #4ecdc4;
+}
+
+.flight-route {
+  font-size: 16px;
+  font-weight: bold;
+  margin-bottom: 12px;
+  color: #eee;
+}
+
+.flight-phase,
+.flight-gforce,
+.flight-velocity,
+.flight-eta {
+  margin-bottom: 8px;
+  color: #ccc;
+}
+
+.progress-bar {
+  margin: 12px 0;
+}
+
+.progress-bar .bar {
+  height: 20px;
+  background: #1a2640;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.progress-bar .fill {
+  height: 100%;
+  background: linear-gradient(90deg, #4ecdc4 0%, #e94560 100%);
+  transition: width 0.3s;
+}
+
+.fuel-gauge {
+  background: #0f3460;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 20px;
+}
+
+.fuel-bar {
+  height: 20px;
+  background: #1a2640;
+  border-radius: 10px;
+  overflow: hidden;
+  margin-top: 8px;
+}
+
+.fuel-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #ff6b6b 0%, #4ecdc4 50%, #4ecdc4 100%);
+  transition: width 0.3s;
+}
+
+.contract-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.dock-button,
+.resume-button {
+  flex: 1;
+  background: #4ecdc4;
+  color: #1a1a2e;
+}
+
+.dock-button:hover,
+.resume-button:hover {
+  background: #3db3aa;
+}
+
+.abandon-button {
+  flex: 1;
+  background: #ff6b6b;
+}
+
+.abandon-button:hover {
+  background: #e65555;
+}
+
+/* Log Tab */
+.log-tab {
+  padding: 16px 0;
+}
+
+.log-tab h3 {
+  margin-bottom: 16px;
+}
+
+.log-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 600px;
+  overflow-y: auto;
+}
+
+.no-logs {
+  text-align: center;
+  color: #888;
+  padding: 20px;
+}
+
+.log-entry {
+  background: #0f3460;
+  border-radius: 6px;
+  padding: 12px;
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  border-left: 3px solid #555;
+}
+
+.log-entry-payment,
+.log-entry-contract_complete,
+.log-entry-trip_complete {
+  border-left-color: #4ecdc4;
+}
+
+.log-entry-departure,
+.log-entry-arrival,
+.log-entry-refueled {
+  border-left-color: #888;
+}
+
+.log-entry-contract_accepted,
+.log-entry-day_advanced {
+  border-left-color: #4ecdc4;
+}
+
+.log-entry-contract_abandoned {
+  border-left-color: #ff6b6b;
+}
+
+.log-timestamp {
+  flex-shrink: 0;
+  color: #888;
+  font-size: 12px;
+  font-family: monospace;
+  min-width: 140px;
+}
+
+.log-message {
+  color: #ccc;
+  flex: 1;
+}

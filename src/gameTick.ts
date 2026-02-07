@@ -1,5 +1,8 @@
 import type { GameData } from './models';
 import { getEngineDefinition } from './engines';
+import { advanceFlight, isEngineBurning } from './flightPhysics';
+import { completeLeg } from './contractExec';
+import { GAME_SECONDS_PER_TICK } from './timeSystem';
 
 export function applyTick(gameData: GameData): boolean {
   const { ship } = gameData;
@@ -33,10 +36,31 @@ export function applyTick(gameData: GameData): boolean {
     changed = true;
   }
 
-  // 2. Fuel consumption (only if engine is online, staffed, and has fuel)
-  if (ship.engine.state === 'online' && engineRoomStaffed && ship.fuel > 0) {
-    ship.fuel = Math.max(0, ship.fuel - engineDef.fuelConsumptionRate);
+  // 2. Flight physics (if we have an active flight)
+  if (ship.location.flight) {
+    // Advance game time
+    gameData.gameTime += GAME_SECONDS_PER_TICK;
+
+    // Advance flight state
+    const flightComplete = advanceFlight(ship.location.flight);
+
+    // Fuel consumption (only during burn phases when engine is online and staffed)
+    const engineBurning = isEngineBurning(ship.location.flight);
+    if (
+      engineBurning &&
+      ship.engine.state === 'online' &&
+      engineRoomStaffed &&
+      ship.fuel > 0
+    ) {
+      ship.fuel = Math.max(0, ship.fuel - engineDef.fuelConsumptionRate);
+    }
+
     changed = true;
+
+    // Handle flight completion
+    if (flightComplete) {
+      completeLeg(gameData);
+    }
   }
 
   // 3. Air filter degradation

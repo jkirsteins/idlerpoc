@@ -82,6 +82,7 @@
 **Acceleration**: 0.001-0.01g
 **Thrust Duration**: Minutes to hours
 **Delta-v Budget**: 500-2,000 m/s
+**Typical Thrust**: 1,500 N (RS-44 Bipropellant on 50t vessel = 0.003g)
 
 **Advantages**:
 
@@ -106,6 +107,13 @@
 **Delta-v Budget**: 10,000-50,000 m/s
 **Specific Impulse**: 800-1,000 seconds
 **Reaction Mass Ratio**: 3:1 (3 kg propellant per 1 kg payload for typical mission)
+
+**Typical Thrust Values**:
+
+- NTR-200 Mk1: 4,000 N (0.002g on 200t Wayfarer)
+- NTR-450 Mk2: 10,000 N (0.0029g on 350t Corsair)
+- NTR-800 Heavy: 20,000 N (0.004g on 500t Dreadnought)
+- NTR-300S Stealth: 7,500 N (0.003g on 250t Phantom)
 
 **Advantages**:
 
@@ -251,6 +259,32 @@ The gap drive is powerful but not a magic solution—it requires extensive conve
 - **Maintenance Timing**: When to service gap drive? (30-jump limit)
 - **Risk Management**: Gap drive 0.8% failure rate - insure or gamble?
 - **Crew Welfare**: Gap sickness, radiation exposure, mission duration limits
+
+---
+
+## Time System
+
+**Game Time Progression**:
+
+- 1 tick = 1 real second = 30 game minutes (1,800 game seconds)
+- 1 game day = 48 ticks (~48 real seconds)
+- 1 game month (30 days) = 1,440 ticks (~24 real minutes)
+
+**Epoch**: 2247-01-01 00:00 (gameTime = 0)
+
+**Time Advancement**:
+
+- Time advances automatically during flight (1,800 game seconds per tick)
+- Time is frozen when docked
+- Players can manually advance time by one day when docked (with no active contract)
+- Quests regenerate when advancing the day
+
+**Flight Time Calculations**:
+
+- Short hops (< 1,000 km): A few ticks (seconds of real time)
+- Medium distances (1,000-500,000 km): Minutes of real time
+- Long distances (> 500,000 km): Extended real time (Mars trip: ~58 minutes real time)
+- Flight times are calculated using burn-coast-burn physics (see implementation)
 
 ---
 

@@ -16,6 +16,7 @@ export interface ShipClass {
   equipmentSlots: number;
   defaultEquipment: EquipmentId[];
   defaultEngineId: EngineId;
+  mass: number; // kg
 }
 
 export const SHIP_CLASSES: ShipClass[] = [
@@ -35,6 +36,7 @@ export const SHIP_CLASSES: ShipClass[] = [
     equipmentSlots: 3,
     defaultEquipment: ['life_support', 'air_filters'],
     defaultEngineId: 'chemical_bipropellant',
+    mass: 50000, // kg
   },
 
   // Class II: Inner System Vessels
@@ -48,11 +50,12 @@ export const SHIP_CLASSES: ShipClass[] = [
     rooms: ['bridge', 'engine_room', 'cantina', 'cargo_hold', 'quarters'],
     maxCrew: 6,
     unlocked: false,
-    maxRange: '50,000 km (Inner System)',
+    maxRange: '500,000 km (Inner System)',
     cargoCapacity: 40000,
     equipmentSlots: 4,
     defaultEquipment: ['life_support', 'air_filters'],
     defaultEngineId: 'ntr_mk1',
+    mass: 200000, // kg
   },
   {
     id: 'corsair',
@@ -71,11 +74,12 @@ export const SHIP_CLASSES: ShipClass[] = [
     ],
     maxCrew: 8,
     unlocked: false,
-    maxRange: '60,000 km (Inner System)',
+    maxRange: '2,500,000 km (Inner System)',
     cargoCapacity: 60000,
     equipmentSlots: 5,
     defaultEquipment: ['life_support', 'air_filters'],
     defaultEngineId: 'ntr_mk2',
+    mass: 350000, // kg
   },
   {
     id: 'dreadnought',
@@ -95,11 +99,12 @@ export const SHIP_CLASSES: ShipClass[] = [
     ],
     maxCrew: 12,
     unlocked: false,
-    maxRange: '80,000 km (Inner System)',
+    maxRange: '60,000,000 km (Earth-Mars)',
     cargoCapacity: 80000,
     equipmentSlots: 6,
     defaultEquipment: ['life_support', 'air_filters'],
     defaultEngineId: 'ntr_heavy',
+    mass: 500000, // kg
   },
   {
     id: 'phantom',
@@ -118,11 +123,12 @@ export const SHIP_CLASSES: ShipClass[] = [
     ],
     maxCrew: 8,
     unlocked: false,
-    maxRange: '55,000 km (Inner System)',
+    maxRange: '1,500,000 km (Inner System)',
     cargoCapacity: 30000,
     equipmentSlots: 5,
     defaultEquipment: ['life_support', 'air_filters'],
     defaultEngineId: 'ntr_stealth',
+    mass: 250000, // kg
   },
 ];
 

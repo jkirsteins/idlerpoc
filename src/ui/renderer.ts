@@ -7,7 +7,7 @@ import {
 } from './wizard';
 import { renderTabbedView } from './tabbedView';
 
-export type PlayingTab = 'ship' | 'crew' | 'settings';
+export type PlayingTab = 'ship' | 'crew' | 'work' | 'log' | 'settings';
 
 export type GameState =
   | { phase: 'no_game' }
@@ -42,6 +42,11 @@ export interface RendererCallbacks {
   onAssignSkillPoint: (crewId: string, skillId: string) => void;
   onEquipItem: (crewId: string, itemId: string) => void;
   onUnequipItem: (crewId: string, itemId: string) => void;
+  onAcceptQuest: (questId: string) => void;
+  onAdvanceDay: () => void;
+  onDockAtNearestPort: () => void;
+  onResumeContract: () => void;
+  onAbandonContract: () => void;
 }
 
 export function render(
@@ -124,6 +129,11 @@ function renderPlaying(
       onAssignSkillPoint: callbacks.onAssignSkillPoint,
       onEquipItem: callbacks.onEquipItem,
       onUnequipItem: callbacks.onUnequipItem,
+      onAcceptQuest: callbacks.onAcceptQuest,
+      onAdvanceDay: callbacks.onAdvanceDay,
+      onDockAtNearestPort: callbacks.onDockAtNearestPort,
+      onResumeContract: callbacks.onResumeContract,
+      onAbandonContract: callbacks.onAbandonContract,
     },
     state.selectedCrewId
   );

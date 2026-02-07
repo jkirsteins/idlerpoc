@@ -16,6 +16,8 @@ export interface EngineDefinition {
   fuelConsumptionRate: number; // fuel % per tick
   warmupRate: number; // % per tick (so 100/warmupRate = ticks to warm up)
   selfPowerDraw: number; // kW the engine itself consumes (from its own output)
+  thrust: number; // Newtons
+  maxDeltaV: number; // m/s (total delta-v budget)
 }
 
 export const ENGINE_DEFINITIONS: EngineDefinition[] = [
@@ -31,6 +33,8 @@ export const ENGINE_DEFINITIONS: EngineDefinition[] = [
     fuelConsumptionRate: 0.5,
     warmupRate: 20, // 5 ticks to warm up
     selfPowerDraw: 5,
+    thrust: 1500, // 0.003g on 50t Station Keeper
+    maxDeltaV: 1000, // m/s
   },
   {
     id: 'ntr_mk1',
@@ -44,6 +48,8 @@ export const ENGINE_DEFINITIONS: EngineDefinition[] = [
     fuelConsumptionRate: 0.1,
     warmupRate: 10, // 10 ticks to warm up
     selfPowerDraw: 8,
+    thrust: 4000, // 0.002g on 200t Wayfarer
+    maxDeltaV: 20000, // m/s
   },
   {
     id: 'ntr_mk2',
@@ -57,6 +63,8 @@ export const ENGINE_DEFINITIONS: EngineDefinition[] = [
     fuelConsumptionRate: 0.12,
     warmupRate: 10, // 10 ticks to warm up
     selfPowerDraw: 10,
+    thrust: 10000, // 0.0029g on 350t Corsair
+    maxDeltaV: 30000, // m/s
   },
   {
     id: 'ntr_heavy',
@@ -70,6 +78,8 @@ export const ENGINE_DEFINITIONS: EngineDefinition[] = [
     fuelConsumptionRate: 0.15,
     warmupRate: 6.67, // ~15 ticks to warm up
     selfPowerDraw: 15,
+    thrust: 20000, // 0.004g on 500t Dreadnought
+    maxDeltaV: 40000, // m/s
   },
   {
     id: 'ntr_stealth',
@@ -83,6 +93,8 @@ export const ENGINE_DEFINITIONS: EngineDefinition[] = [
     fuelConsumptionRate: 0.1,
     warmupRate: 12.5, // 8 ticks to warm up
     selfPowerDraw: 8,
+    thrust: 7500, // 0.003g on 250t Phantom
+    maxDeltaV: 25000, // m/s
   },
 ];
 

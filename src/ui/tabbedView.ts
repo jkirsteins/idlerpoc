@@ -3,7 +3,10 @@ import type { PlayingTab } from './renderer';
 import { getShipClass } from '../shipClasses';
 import { renderShipTab } from './shipTab';
 import { renderCrewTab } from './crewTab';
+import { renderWorkTab } from './workTab';
+import { renderLogTab } from './logTab';
 import { renderSettingsTab } from './settingsTab';
+import { formatGameDate } from '../timeSystem';
 
 export interface TabbedViewCallbacks {
   onReset: () => void;
@@ -20,6 +23,11 @@ export interface TabbedViewCallbacks {
   onAssignSkillPoint: (crewId: string, skillId: string) => void;
   onEquipItem: (crewId: string, itemId: string) => void;
   onUnequipItem: (crewId: string, itemId: string) => void;
+  onAcceptQuest: (questId: string) => void;
+  onAdvanceDay: () => void;
+  onDockAtNearestPort: () => void;
+  onResumeContract: () => void;
+  onAbandonContract: () => void;
 }
 
 export function renderTabbedView(
@@ -43,6 +51,18 @@ export function renderTabbedView(
     container.appendChild(renderShipTab(gameData, showNavigation, callbacks));
   } else if (activeTab === 'crew') {
     container.appendChild(renderCrewTab(gameData, selectedCrewId, callbacks));
+  } else if (activeTab === 'work') {
+    container.appendChild(
+      renderWorkTab(gameData, {
+        onAcceptQuest: callbacks.onAcceptQuest,
+        onAdvanceDay: callbacks.onAdvanceDay,
+        onDockAtNearestPort: callbacks.onDockAtNearestPort,
+        onResumeContract: callbacks.onResumeContract,
+        onAbandonContract: callbacks.onAbandonContract,
+      })
+    );
+  } else if (activeTab === 'log') {
+    container.appendChild(renderLogTab(gameData));
   } else {
     container.appendChild(renderSettingsTab(callbacks));
   }
@@ -53,6 +73,12 @@ export function renderTabbedView(
 function renderShipHeader(gameData: GameData): HTMLElement {
   const header = document.createElement('div');
   header.className = 'ship-header';
+
+  // Date display
+  const dateHeader = document.createElement('div');
+  dateHeader.className = 'date-header-global';
+  dateHeader.textContent = formatGameDate(gameData.gameTime);
+  header.appendChild(dateHeader);
 
   const shipName = document.createElement('h2');
   shipName.className = 'ship-name';
@@ -94,6 +120,18 @@ function renderTabBar(
   crewTab.textContent = 'Crew';
   crewTab.addEventListener('click', () => callbacks.onTabChange('crew'));
   tabBar.appendChild(crewTab);
+
+  const workTab = document.createElement('button');
+  workTab.className = activeTab === 'work' ? 'tab-button active' : 'tab-button';
+  workTab.textContent = 'Work';
+  workTab.addEventListener('click', () => callbacks.onTabChange('work'));
+  tabBar.appendChild(workTab);
+
+  const logTab = document.createElement('button');
+  logTab.className = activeTab === 'log' ? 'tab-button active' : 'tab-button';
+  logTab.textContent = 'Log';
+  logTab.addEventListener('click', () => callbacks.onTabChange('log'));
+  tabBar.appendChild(logTab);
 
   const settingsTab = document.createElement('button');
   settingsTab.className =
