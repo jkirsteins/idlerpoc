@@ -15,22 +15,37 @@ export function renderWorkTab(
   gameData: GameData,
   callbacks: WorkTabCallbacks
 ): HTMLElement {
+  console.log('=== renderWorkTab called ===');
   const container = document.createElement('div');
   container.className = 'work-tab';
 
   const { ship, activeContract } = gameData;
 
+  console.log('renderWorkTab - status:', ship.location.status);
+  console.log('renderWorkTab - activeContract:', activeContract);
+
   if (ship.location.status === 'docked' && !activeContract) {
-    // Docked with no contract: show available work
-    container.appendChild(renderAvailableWork(gameData, callbacks));
+    console.log('renderWorkTab - Rendering available work');
+    const workContent = renderAvailableWork(gameData, callbacks);
+    console.log(
+      'renderWorkTab - workContent children:',
+      workContent.children.length
+    );
+    container.appendChild(workContent);
   } else if (activeContract && activeContract.paused) {
-    // Contract paused
+    console.log('renderWorkTab - Rendering paused contract');
     container.appendChild(renderPausedContract(gameData, callbacks));
   } else if (activeContract) {
-    // Active contract in flight
+    console.log('renderWorkTab - Rendering active contract');
     container.appendChild(renderActiveContract(gameData, callbacks));
+  } else {
+    console.log('renderWorkTab - NO CONDITION MET!');
   }
 
+  console.log(
+    'renderWorkTab - final container children:',
+    container.children.length
+  );
   return container;
 }
 
@@ -49,17 +64,29 @@ function renderAvailableWork(
   console.log('Work tab - ship status:', ship.location.status);
 
   if (!location) {
+    console.error('Work tab - NO LOCATION, returning empty');
     return container;
   }
 
+  console.log('Work tab - world.locations:', gameData.world.locations);
+  console.log('Work tab - looking for location id:', location);
+  console.log(
+    'Work tab - location ids in world:',
+    gameData.world.locations.map((l) => l.id)
+  );
+
   const locationData = gameData.world.locations.find((l) => l.id === location);
+  console.log('Work tab - locationData:', locationData);
+
   if (!locationData) {
+    console.error('Work tab - LOCATION DATA NOT FOUND, returning empty');
     return container;
   }
 
   // Header
   const heading = document.createElement('h3');
   heading.textContent = `Available Work at ${locationData.name}`;
+  console.log('Work tab - Adding heading:', heading.textContent);
   container.appendChild(heading);
 
   // Advance Day button

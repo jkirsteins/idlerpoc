@@ -21,7 +21,25 @@ export function loadGame(): GameData | null {
       loaded.lastTickTimestamp === undefined
     ) {
       // Incompatible save format - clear it
-      console.log('Incompatible save detected, clearing...');
+      console.log(
+        'Incompatible save detected (missing top-level fields), clearing...'
+      );
+      localStorage.removeItem(STORAGE_KEY);
+      return null;
+    }
+
+    // Check if world locations have the size field
+    if (!loaded.world?.locations || loaded.world.locations.length === 0) {
+      console.log('Incompatible save detected (no locations), clearing...');
+      localStorage.removeItem(STORAGE_KEY);
+      return null;
+    }
+
+    // Check if first location has size field (all should have it)
+    if (loaded.world.locations[0].size === undefined) {
+      console.log(
+        'Incompatible save detected (locations missing size field), clearing...'
+      );
       localStorage.removeItem(STORAGE_KEY);
       return null;
     }
