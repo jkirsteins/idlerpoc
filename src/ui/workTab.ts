@@ -204,7 +204,9 @@ function renderQuestCard(
   details.appendChild(fuelInfo);
 
   const timeInfo = document.createElement('div');
-  timeInfo.textContent = `Time: ~${quest.estimatedTripTicks} ticks per trip`;
+  // Convert ticks to game seconds and display as in-game time
+  const gameSecondsPerTrip = quest.estimatedTripTicks * 1800; // 1 tick = 1800 game seconds
+  timeInfo.textContent = `Time: ~${formatDuration(gameSecondsPerTrip)} per trip`;
   details.appendChild(timeInfo);
 
   card.appendChild(details);
