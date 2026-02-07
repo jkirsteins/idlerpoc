@@ -288,6 +288,50 @@ The gap drive is powerful but not a magic solution—it requires extensive conve
 
 ---
 
+## Crew Economics & Salaries
+
+### Salary System
+
+Crew members require regular payment for their services. Salaries are deducted every tick (30 game minutes) during flight operations. When docked, time is frozen and no salaries are charged.
+
+**Salary Rates (credits per tick):**
+
+| Role     | Salary/Tick | Salary/Day (48 ticks) | Role Justification                          |
+| -------- | ----------- | --------------------- | ------------------------------------------- |
+| Captain  | 0           | 0                     | Owner-operator, earns from ship profits     |
+| Pilot    | 3           | 144                   | Skilled navigator, essential for operations |
+| Engineer | 4           | 192                   | Critical for engine and ship systems        |
+| Cook     | 2           | 96                    | Morale specialist, crew welfare             |
+| Medic    | 3           | 144                   | Medical care, crew health maintenance       |
+| Gunner   | 3           | 144                   | Combat capability, ship security            |
+| Mechanic | 3           | 144                   | Repairs and maintenance specialist          |
+
+**Economic Pressure:**
+
+A typical 3-person starting crew (captain + pilot + engineer) costs **7 credits/tick** or **336 credits/day** during active flight time. This creates constant economic pressure to:
+
+- Accept profitable contracts
+- Minimize idle flight time
+- Balance crew size against operational costs
+- Plan efficient routes to reduce flight duration
+
+**Payment Failures:**
+
+- Salaries are deducted from ship credits every tick
+- If credits reach zero, crew members become "unpaid"
+- Unpaid crew will leave the ship once docked at a station
+- Captain never leaves (owner of the ship)
+- Multiple missed payments = multiple crew departures
+
+**Strategic Implications:**
+
+- Larger crews provide operational advantages but increase costs exponentially
+- Long-duration flights without contracts are financially risky
+- Emergency docking may result in crew losses if credits are depleted
+- Standing freight contracts provide steady income to cover crew costs
+
+---
+
 ## Crew Skills & Role System
 
 ### Core Principle

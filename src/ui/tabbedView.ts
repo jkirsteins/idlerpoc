@@ -28,6 +28,8 @@ export interface TabbedViewCallbacks {
   onDockAtNearestPort: () => void;
   onResumeContract: () => void;
   onAbandonContract: () => void;
+  onBuyFuel: () => void;
+  onStartTrip: (destinationId: string) => void;
 }
 
 export function renderTabbedView(

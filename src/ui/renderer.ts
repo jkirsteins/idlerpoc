@@ -47,6 +47,8 @@ export interface RendererCallbacks {
   onDockAtNearestPort: () => void;
   onResumeContract: () => void;
   onAbandonContract: () => void;
+  onBuyFuel: () => void;
+  onStartTrip: (destinationId: string) => void;
 }
 
 export function render(
@@ -134,6 +136,8 @@ function renderPlaying(
       onDockAtNearestPort: callbacks.onDockAtNearestPort,
       onResumeContract: callbacks.onResumeContract,
       onAbandonContract: callbacks.onAbandonContract,
+      onBuyFuel: callbacks.onBuyFuel,
+      onStartTrip: callbacks.onStartTrip,
     },
     state.selectedCrewId
   );

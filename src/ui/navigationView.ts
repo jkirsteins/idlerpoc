@@ -4,6 +4,7 @@ import { isLocationReachable } from '../worldGen';
 
 export interface NavigationViewCallbacks {
   onToggleNavigation: () => void;
+  onStartTrip?: (destinationId: string) => void;
 }
 
 function formatDistance(km: number): string {
@@ -40,11 +41,17 @@ export function renderNavigationView(
   const mapArea = document.createElement('div');
   mapArea.className = 'nav-map';
 
+  // Get current location (either docked location or flight origin/destination)
   const currentLocationId =
-    gameData.ship.location.dockedAt?.toLowerCase().replace(' ', '_') || 'earth';
+    gameData.ship.location.dockedAt ||
+    gameData.ship.location.flight?.destination ||
+    'earth';
   const currentLocation =
     gameData.world.locations.find((loc) => loc.id === currentLocationId) ||
     gameData.world.locations[0];
+
+  const canStartTrips =
+    gameData.ship.location.status === 'docked' && !gameData.activeContract;
 
   for (const location of gameData.world.locations) {
     const marker = document.createElement('div');
@@ -63,6 +70,22 @@ export function renderNavigationView(
     }
     if (!reachable) {
       marker.classList.add('unreachable');
+    }
+
+    // Make clickable if we can start trips and location is reachable
+    if (
+      canStartTrips &&
+      reachable &&
+      location.id !== currentLocationId &&
+      callbacks.onStartTrip
+    ) {
+      marker.classList.add('clickable');
+      marker.addEventListener('click', () => {
+        if (callbacks.onStartTrip) {
+          callbacks.onStartTrip(location.id);
+        }
+      });
+      marker.title = `Click to travel to ${location.name}`;
     }
 
     const template = getLocationTypeTemplate(location.type);
@@ -102,12 +125,32 @@ export function renderNavigationView(
       item.classList.add('unreachable');
     }
 
+    // Make clickable if we can start trips and location is reachable
+    if (
+      canStartTrips &&
+      reachable &&
+      location.id !== currentLocationId &&
+      callbacks.onStartTrip
+    ) {
+      item.classList.add('clickable');
+      item.addEventListener('click', () => {
+        if (callbacks.onStartTrip) {
+          callbacks.onStartTrip(location.id);
+        }
+      });
+      item.title = `Click to travel to ${location.name}`;
+      item.style.cursor = 'pointer';
+    }
+
     const name = document.createElement('strong');
     name.textContent = location.name;
     item.appendChild(name);
 
+    const distanceFromCurrent = Math.abs(
+      location.distanceFromEarth - currentLocation.distanceFromEarth
+    );
     const distance = document.createElement('div');
-    distance.textContent = `Distance: ${formatDistance(location.distanceFromEarth)}`;
+    distance.textContent = `Distance: ${formatDistance(distanceFromCurrent)}`;
     item.appendChild(distance);
 
     const description = document.createElement('div');

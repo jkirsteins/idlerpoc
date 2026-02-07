@@ -6,7 +6,10 @@
       "Bash(npm run lint:*)",
       "Bash(git add:*)",
       "Bash(npm run build:*)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Bash(wc:*)",
+      "Bash(ls:*)",
+      "Bash(sort:*)"
     ]
   }
 }

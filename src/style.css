@@ -927,6 +927,15 @@ button.small-button:hover {
   cursor: not-allowed;
 }
 
+.nav-marker.clickable {
+  cursor: pointer;
+}
+
+.nav-marker.clickable:hover .nav-marker-dot {
+  background: rgba(233, 69, 96, 0.3);
+  border-color: #e94560;
+}
+
 .nav-marker-dot {
   width: 32px;
   height: 32px;
@@ -982,6 +991,18 @@ button.small-button:hover {
 
 .nav-legend-item.unreachable {
   opacity: 0.5;
+}
+
+.nav-legend-item.clickable {
+  cursor: pointer;
+  transition:
+    background 0.2s,
+    border-color 0.2s;
+}
+
+.nav-legend-item.clickable:hover {
+  background: rgba(233, 69, 96, 0.1);
+  border-color: #e94560;
 }
 
 .nav-legend-item strong {

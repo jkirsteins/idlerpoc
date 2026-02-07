@@ -15,6 +15,8 @@ export interface ShipTabCallbacks {
   onEngineOn: () => void;
   onEngineOff: () => void;
   onToggleNavigation: () => void;
+  onBuyFuel: () => void;
+  onStartTrip: (destinationId: string) => void;
 }
 
 export function renderShipTab(
@@ -29,6 +31,7 @@ export function renderShipTab(
   if (showNavigation) {
     return renderNavigationView(gameData, {
       onToggleNavigation: callbacks.onToggleNavigation,
+      onStartTrip: callbacks.onStartTrip,
     });
   }
 
@@ -70,9 +73,22 @@ function renderStatusBanner(
   statusText.className = 'status-text';
 
   if (gameData.ship.location.status === 'docked') {
-    statusText.textContent = `Docked on ${gameData.ship.location.dockedAt}`;
+    const dockedAt = gameData.ship.location.dockedAt;
+    const location = gameData.world.locations.find((l) => l.id === dockedAt);
+    const locationName = location?.name || dockedAt;
+    statusText.textContent = `Docked at ${locationName}`;
   } else {
-    statusText.textContent = 'In flight';
+    // Show destination if we have flight data
+    if (gameData.ship.location.flight) {
+      const destId = gameData.ship.location.flight.destination;
+      const destLocation = gameData.world.locations.find(
+        (l) => l.id === destId
+      );
+      const destName = destLocation?.name || destId;
+      statusText.textContent = `In flight to ${destName}`;
+    } else {
+      statusText.textContent = 'In flight';
+    }
   }
 
   banner.appendChild(statusText);
@@ -89,6 +105,20 @@ function renderStatusBanner(
   }
 
   banner.appendChild(actionBtn);
+
+  // Add Buy Fuel button when docked at a refuel station
+  if (gameData.ship.location.status === 'docked') {
+    const dockedAt = gameData.ship.location.dockedAt;
+    const location = gameData.world.locations.find((l) => l.id === dockedAt);
+
+    if (location?.services.includes('refuel') && gameData.ship.fuel < 100) {
+      const refuelBtn = document.createElement('button');
+      refuelBtn.className = 'refuel-btn';
+      refuelBtn.textContent = `Buy Fuel (${Math.round(100 - gameData.ship.fuel)}% → 500 credits)`;
+      refuelBtn.addEventListener('click', callbacks.onBuyFuel);
+      banner.appendChild(refuelBtn);
+    }
+  }
 
   return banner;
 }
