@@ -10,6 +10,7 @@ import { getCrewEquipmentDefinition } from './crewEquipment';
 import { getShipPositionKm } from './encounterSystem';
 import { addLog } from './logSystem';
 import { setEncounterResolver } from './gameTick';
+import { awardEventXP, logLevelUps, type XPEvent } from './skillProgression';
 
 /**
  * Combat System
@@ -161,21 +162,24 @@ export function attemptNegotiation(ship: Ship): {
   success: boolean;
   chance: number;
   negotiatorName: string;
+  negotiatorId: string;
 } {
   let bestCharisma = 0;
   let negotiatorName = '';
+  let negotiatorId = '';
 
   for (const crew of ship.crew) {
     if (crew.skills.charisma > bestCharisma) {
       bestCharisma = crew.skills.charisma;
       negotiatorName = crew.name;
+      negotiatorId = crew.id;
     }
   }
 
   const chance = bestCharisma / COMBAT_CONSTANTS.NEGOTIATION_DIVISOR;
   const success = Math.random() < chance;
 
-  return { success, chance, negotiatorName };
+  return { success, chance, negotiatorName, negotiatorId };
 }
 
 /**
@@ -399,6 +403,38 @@ export function applyEncounterOutcome(
   const narrative = getEncounterNarrative(result, ship);
   const logType = getEncounterLogType(result.type);
   addLog(gameData.log, gameData.gameTime, logType, narrative, ship.name);
+
+  // Award event XP for encounter outcomes
+  const xpEvent = encounterToXPEvent(result);
+  if (xpEvent) {
+    const levelUps = awardEventXP(ship, xpEvent);
+    if (levelUps.length > 0) {
+      logLevelUps(gameData.log, gameData.gameTime, ship.name, levelUps);
+    }
+  }
+}
+
+/**
+ * Convert encounter result to XP event for skill progression.
+ */
+function encounterToXPEvent(result: EncounterResult): XPEvent | null {
+  switch (result.type) {
+    case 'evaded':
+      return { type: 'encounter_evaded' };
+    case 'negotiated':
+      return {
+        type: 'encounter_negotiated',
+        negotiatorId: result.negotiatorId || '',
+      };
+    case 'victory':
+      return { type: 'encounter_victory' };
+    case 'harassment':
+      return { type: 'encounter_harassment' };
+    case 'boarding':
+      return { type: 'encounter_boarding' };
+    default:
+      return null;
+  }
 }
 
 /**
@@ -532,6 +568,7 @@ export function resolveEncounter(
       positionKm: currentKm,
       creditsLost: ransom,
       negotiatorName: negotiation.negotiatorName,
+      negotiatorId: negotiation.negotiatorId,
     };
     applyEncounterOutcome(result, ship, gameData);
     return result;

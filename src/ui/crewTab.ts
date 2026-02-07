@@ -20,6 +20,7 @@ import {
   getNextThreshold,
 } from '../gravitySystem';
 import { TICKS_PER_DAY } from '../timeSystem';
+import { calculateTickXP } from '../skillProgression';
 
 export function renderCrewTab(
   gameData: GameData,
@@ -105,6 +106,17 @@ function renderCrewList(
     levelDiv.className = 'crew-list-level';
     levelDiv.textContent = `Level ${crew.level}`;
     item.appendChild(levelDiv);
+
+    // Show skill points badge if crew has unspent points
+    if (crew.unspentSkillPoints > 0) {
+      const skillBadge = document.createElement('div');
+      skillBadge.className = 'skill-badge';
+      skillBadge.textContent = `+${crew.unspentSkillPoints} skill pt${crew.unspentSkillPoints > 1 ? 's' : ''}`;
+      skillBadge.style.color = '#4ade80';
+      skillBadge.style.fontSize = '0.75rem';
+      skillBadge.style.fontWeight = 'bold';
+      item.appendChild(skillBadge);
+    }
 
     // Show unpaid badge if crew has unpaid ticks
     if (crew.unpaidTicks > 0 && !crew.isCaptain) {
@@ -200,6 +212,29 @@ function renderCrewDetail(
 
   // Stats section
   panel.appendChild(renderStatsSection(crew));
+
+  // Room training indicator (show what skill is being trained)
+  if (ship.location.status === 'in_flight') {
+    const assignedRoom = ship.rooms.find((r) =>
+      r.assignedCrewIds.includes(crew.id)
+    );
+    const xpResult = calculateTickXP(crew, assignedRoom ?? null);
+    if (xpResult) {
+      const trainingDiv = document.createElement('div');
+      trainingDiv.className = 'training-indicator';
+      trainingDiv.style.padding = '0.5rem 0.75rem';
+      trainingDiv.style.marginBottom = '0.5rem';
+      trainingDiv.style.background = 'rgba(74, 222, 128, 0.1)';
+      trainingDiv.style.border = '1px solid rgba(74, 222, 128, 0.3)';
+      trainingDiv.style.borderRadius = '4px';
+      trainingDiv.style.fontSize = '0.9rem';
+      trainingDiv.style.color = '#4ade80';
+      const skillName =
+        xpResult.skill.charAt(0).toUpperCase() + xpResult.skill.slice(1);
+      trainingDiv.textContent = `Training: ${skillName} (+${xpResult.xp} XP/tick)`;
+      panel.appendChild(trainingDiv);
+    }
+  }
 
   // Level up button
   const eligibleLevel = getLevelForXP(crew.xp);

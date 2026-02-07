@@ -321,5 +321,6 @@ export function createNewGame(
     lastTickTimestamp: Date.now(),
     lastQuestRegenDay,
     hireableCrewByLocation,
+    visitedLocations: ['earth'], // Player starts docked at Earth
   };
 }

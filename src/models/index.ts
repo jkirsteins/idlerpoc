@@ -266,7 +266,9 @@ export type LogEntryType =
   | 'encounter_negotiated'
   | 'encounter_victory'
   | 'encounter_harassment'
-  | 'encounter_boarding';
+  | 'encounter_boarding'
+  | 'crew_level_up'
+  | 'crew_role_change';
 
 export interface LogEntry {
   gameTime: number;
@@ -304,6 +306,7 @@ export interface EncounterResult {
   equipmentDegraded?: Record<string, number>; // equipmentInstanceId -> degradation added
   flightDelayAdded?: number; // game-seconds added
   negotiatorName?: string;
+  negotiatorId?: string;
 }
 
 export type ThreatLevel = 'clear' | 'caution' | 'danger' | 'critical';
@@ -337,6 +340,7 @@ export interface GameData {
   lastTickTimestamp: number; // real-world timestamp of last tick (milliseconds)
   lastQuestRegenDay: number; // game day when quests were last generated
   hireableCrewByLocation: Record<string, CrewMember[]>; // key = location ID
+  visitedLocations: string[]; // location IDs the player has docked at
   encounterStats?: EncounterStats;
 }
 

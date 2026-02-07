@@ -43,6 +43,11 @@ export function loadGame(): GameData | null {
       return null;
     }
 
+    // Backfill new fields for old saves
+    if (!loaded.visitedLocations) {
+      loaded.visitedLocations = [];
+    }
+
     return loaded as GameData;
   } catch {
     return null;

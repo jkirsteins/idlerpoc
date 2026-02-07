@@ -676,7 +676,7 @@ describe('applyEncounterOutcome', () => {
     };
 
     applyEncounterOutcome(result, ship, gameData);
-    expect(gameData.log.length).toBe(1);
+    expect(gameData.log.length).toBeGreaterThanOrEqual(1);
     expect(gameData.log[0].type).toBe('encounter_evaded');
     expect(gameData.log[0].shipName).toBe(ship.name);
   });

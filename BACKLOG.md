@@ -27,7 +27,6 @@ This file tracks deferred features and known gaps that are not currently priorit
 ## Other Known Gaps
 
 - **Equipment Repair at Stations**: Degraded equipment cannot currently be repaired.
-- **XP Earning During Gameplay**: XP is only awarded at game creation. Need XP rewards for missions, combat, etc.
 - **Morale System**: Morale exists but has no game effects yet.
 - **Health Recovery Mechanic**: Health can decrease but has no recovery system.
 - **Ship Unlocking**: All ships except Station Keeper are locked. Need unlock progression system.

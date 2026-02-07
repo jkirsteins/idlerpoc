@@ -11,6 +11,7 @@ import { getDaysSinceEpoch, TICKS_PER_DAY } from './timeSystem';
 import { generateHireableCrewByLocation } from './gameFactory';
 import { getEngineDefinition } from './engines';
 import { getDistanceBetween } from './worldGen';
+import { awardEventXP, logLevelUps } from './skillProgression';
 
 /**
  * Contract Execution
@@ -84,6 +85,27 @@ function removeUnpaidCrew(gameData: GameData, ship: Ship): void {
 function addCredits(gameData: GameData, amount: number): void {
   gameData.credits += amount;
   gameData.lifetimeCreditsEarned += amount;
+}
+
+/**
+ * Award first-arrival XP if this is the ship's first visit to a location.
+ * Mutates gameData.visitedLocations.
+ */
+function checkFirstArrival(
+  gameData: GameData,
+  ship: Ship,
+  locationId: string
+): void {
+  if (!gameData.visitedLocations.includes(locationId)) {
+    gameData.visitedLocations.push(locationId);
+    const levelUps = awardEventXP(ship, {
+      type: 'first_arrival',
+      locationId,
+    });
+    if (levelUps.length > 0) {
+      logLevelUps(gameData.log, gameData.gameTime, ship.name, levelUps);
+    }
+  }
 }
 
 /**
@@ -168,6 +190,7 @@ export function completeLeg(gameData: GameData, ship: Ship): void {
           ship.name
         );
 
+        checkFirstArrival(gameData, ship, destination.id);
         removeUnpaidCrew(gameData, ship);
         regenerateQuestsIfNewDay(gameData, ship);
       }
@@ -212,6 +235,15 @@ export function completeLeg(gameData: GameData, ship: Ship): void {
         ship.name
       );
 
+      // Award contract completion XP
+      const levelUps = awardEventXP(ship, {
+        type: 'contract_completed',
+        tripsCompleted: 1,
+      });
+      if (levelUps.length > 0) {
+        logLevelUps(gameData.log, gameTime, ship.name, levelUps);
+      }
+
       ship.location.status = 'docked';
       ship.location.dockedAt = arrivalLocation.id;
       delete ship.location.flight;
@@ -219,6 +251,7 @@ export function completeLeg(gameData: GameData, ship: Ship): void {
       ship.engine.warmupProgress = 0;
       ship.activeContract = null;
 
+      checkFirstArrival(gameData, ship, arrivalLocation.id);
       removeUnpaidCrew(gameData, ship);
       regenerateQuestsIfNewDay(gameData, ship);
     } else {
@@ -250,6 +283,7 @@ export function completeLeg(gameData: GameData, ship: Ship): void {
           ship.name
         );
 
+        checkFirstArrival(gameData, ship, arrivalLocation.id);
         removeUnpaidCrew(gameData, ship);
         return;
       }
@@ -317,6 +351,15 @@ export function completeLeg(gameData: GameData, ship: Ship): void {
         ship.name
       );
 
+      // Award contract completion XP (scales with trips completed)
+      const levelUps = awardEventXP(ship, {
+        type: 'contract_completed',
+        tripsCompleted: activeContract.tripsCompleted,
+      });
+      if (levelUps.length > 0) {
+        logLevelUps(gameData.log, gameTime, ship.name, levelUps);
+      }
+
       ship.location.status = 'docked';
       ship.location.dockedAt = arrivalLocation.id;
       delete ship.location.flight;
@@ -324,6 +367,7 @@ export function completeLeg(gameData: GameData, ship: Ship): void {
       ship.engine.warmupProgress = 0;
       ship.activeContract = null;
 
+      checkFirstArrival(gameData, ship, arrivalLocation.id);
       removeUnpaidCrew(gameData, ship);
       regenerateQuestsIfNewDay(gameData, ship);
     } else {
@@ -355,6 +399,7 @@ export function completeLeg(gameData: GameData, ship: Ship): void {
           ship.name
         );
 
+        checkFirstArrival(gameData, ship, arrivalLocation.id);
         removeUnpaidCrew(gameData, ship);
         return;
       }

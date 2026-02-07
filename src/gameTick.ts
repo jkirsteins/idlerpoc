@@ -18,6 +18,7 @@ import {
 } from './gravitySystem';
 import { getDistanceBetween } from './worldGen';
 import { calculateEncounterChance } from './encounterSystem';
+import { applyPassiveXP, logLevelUps } from './skillProgression';
 
 /**
  * Encounter system hook.
@@ -351,6 +352,12 @@ function applyShipTick(gameData: GameData, ship: Ship): boolean {
           shipName: ship.name,
         });
       }
+    }
+
+    // Passive skill XP (during flight)
+    const levelUps = applyPassiveXP(ship);
+    if (levelUps.length > 0) {
+      logLevelUps(gameData.log, gameData.gameTime, ship.name, levelUps);
     }
 
     changed = true;

@@ -4,6 +4,7 @@ import { getDistanceBetween } from './worldGen';
 import { calculateFuelCost, computeMaxRange } from './flightPhysics';
 import { gameSecondsToTicks, GAME_SECONDS_PER_TICK } from './timeSystem';
 import { getEngineDefinition } from './engines';
+import { getCrewRoleDefinition } from './crewRoles';
 
 /**
  * Quest Generation
@@ -38,36 +39,90 @@ const PASSENGER_NAMES = [
 ];
 
 /**
- * Calculate payment based on distance, cargo, and trip time
+ * Calculate payment using cost-based floor system.
+ *
+ * Payment = max(costFloor, distancePayment) * cargoPremium
+ *
+ * The cost floor guarantees 130-200% of actual operating costs (crew salaries + fuel),
+ * ensuring every quest is profitable. The distance bonus rewards long-haul routes.
+ * All values emerge from ship physics, crew composition, and fuel economy.
  */
 function calculatePayment(
   ship: Ship,
   distanceKm: number,
   cargoKg: number = 0
 ): number {
-  let basePayment: number;
-
-  if (distanceKm < 1000) {
-    basePayment = 50 + Math.random() * 150; // 50-200
-  } else if (distanceKm < 500000) {
-    basePayment = 200 + Math.random() * 1800; // 200-2000
-  } else {
-    basePayment = 2000 + Math.random() * 8000; // 2000-10000
-  }
-
-  // Scale by cargo weight (if applicable)
-  if (cargoKg > 0) {
-    const cargoFactor = 1 + (cargoKg / 10000) * 0.5; // +50% for 10,000 kg
-    basePayment *= cargoFactor;
-  }
-
-  // Apply time-based multiplier to account for crew costs during long trips
+  // 1. Estimate operating costs for round trip
   const tripTimeSecs = estimateTripTime(ship, distanceKm);
-  const tripTicks = tripTimeSecs / GAME_SECONDS_PER_TICK;
-  const timeMultiplier = 1 + Math.log2(Math.max(1, tripTicks / 10));
-  basePayment *= timeMultiplier;
+  const roundTripTicks = (tripTimeSecs * 2) / GAME_SECONDS_PER_TICK;
 
-  return Math.round(basePayment);
+  const crewSalaryPerTick = ship.crew.reduce((sum, c) => {
+    const roleDef = getCrewRoleDefinition(c.role);
+    return sum + (roleDef?.salary ?? 0);
+  }, 0);
+
+  const shipClass = getShipClass(ship.classId);
+  const engineDef = getEngineDefinition(ship.engine.definitionId);
+  const maxRangeKm = shipClass ? computeMaxRange(shipClass, engineDef) : 1;
+  const fuelCostPercent = calculateFuelCost(distanceKm, maxRangeKm);
+
+  const crewCost = crewSalaryPerTick * roundTripTicks;
+  const fuelCost = fuelCostPercent * 2 * 5; // Round trip, 5 cr per fuel %
+  const totalCost = crewCost + fuelCost;
+
+  // 2. Cost floor: 130-200% of operating costs
+  const costFloor = totalCost * (1.3 + Math.random() * 0.7);
+
+  // 3. Cargo premium
+  let cargoPremium = 1;
+  if (cargoKg > 0) {
+    cargoPremium = 1 + (cargoKg / 10000) * 0.5;
+  }
+
+  // 4. Distance bonus for long hauls (rewards seeking distant routes)
+  let distanceBonus = 0;
+  if (distanceKm > 500000) {
+    distanceBonus = totalCost * (distanceKm / 1000000) * 0.5;
+  }
+
+  const basePayment = (costFloor + distanceBonus) * cargoPremium;
+
+  // 5. Skill-based crew bonus (reputation from skilled crew)
+  const crewBonus = calculateCrewSkillBonus(ship);
+  const payment = basePayment * (1 + crewBonus);
+
+  return Math.round(payment);
+}
+
+/**
+ * Calculate payment bonus from skilled crew members in appropriate rooms.
+ *
+ * - Navigator on bridge: +2% per astrogation point above 5
+ * - Engineer in engine room: +1% per engineering point above 5
+ * - Cook in cantina: +3% per charisma point above 5
+ */
+function calculateCrewSkillBonus(ship: Ship): number {
+  let bonus = 0;
+
+  for (const room of ship.rooms) {
+    for (const crewId of room.assignedCrewIds) {
+      const crew = ship.crew.find((c) => c.id === crewId);
+      if (!crew) continue;
+
+      if (room.type === 'bridge' && crew.role === 'navigator') {
+        const pointsAbove5 = Math.max(0, crew.skills.astrogation - 5);
+        bonus += pointsAbove5 * 0.02;
+      } else if (room.type === 'engine_room' && crew.role === 'engineer') {
+        const pointsAbove5 = Math.max(0, crew.skills.engineering - 5);
+        bonus += pointsAbove5 * 0.01;
+      } else if (room.type === 'cantina' && crew.role === 'cook') {
+        const pointsAbove5 = Math.max(0, crew.skills.charisma - 5);
+        bonus += pointsAbove5 * 0.03;
+      }
+    }
+  }
+
+  return bonus;
 }
 
 /**
