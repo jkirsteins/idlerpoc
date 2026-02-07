@@ -19,64 +19,71 @@ import {
 import { getDistanceBetween } from './worldGen';
 
 /**
- * Deduct crew salaries for a given number of ticks.
+ * Deduct crew salaries for all ships from the shared wallet.
  * Marks crew as unpaid if insufficient credits.
  */
-export function deductCrewSalaries(ship: Ship, numTicks: number): void {
-  // Calculate total salary per tick
-  let totalSalaryPerTick = 0;
-  for (const crew of ship.crew) {
-    const roleDef = getCrewRoleDefinition(crew.role);
-    if (roleDef) {
-      totalSalaryPerTick += roleDef.salary;
+export function deductFleetSalaries(
+  gameData: GameData,
+  numTicks: number
+): void {
+  // Calculate total fleet salary per tick
+  let totalFleetSalaryPerTick = 0;
+  for (const ship of gameData.ships) {
+    for (const crew of ship.crew) {
+      const roleDef = getCrewRoleDefinition(crew.role);
+      if (roleDef) {
+        totalFleetSalaryPerTick += roleDef.salary;
+      }
     }
   }
 
-  if (totalSalaryPerTick === 0) return;
+  if (totalFleetSalaryPerTick === 0) return;
 
-  const totalSalary = totalSalaryPerTick * numTicks;
+  const totalSalary = totalFleetSalaryPerTick * numTicks;
 
-  if (ship.credits >= totalSalary) {
-    // Can afford full salaries
-    ship.credits -= totalSalary;
+  if (gameData.credits >= totalSalary) {
+    gameData.credits -= totalSalary;
   } else {
-    // Cannot afford full salaries - mark crew as unpaid
-    const availableCredits = ship.credits;
-    ship.credits = 0;
+    const availableCredits = gameData.credits;
+    gameData.credits = 0;
 
-    // Calculate how many ticks we can afford to pay
-    const ticksWeCanPay = Math.floor(availableCredits / totalSalaryPerTick);
+    const ticksWeCanPay = Math.floor(
+      availableCredits / totalFleetSalaryPerTick
+    );
     const ticksUnpaid = numTicks - ticksWeCanPay;
 
     if (ticksUnpaid > 0) {
-      // Sort crew by salary (most expensive first) to pay cheaper roles first
-      const crewBySalary = [...ship.crew].sort((a, b) => {
-        const salaryA = getCrewRoleDefinition(a.role)?.salary || 0;
-        const salaryB = getCrewRoleDefinition(b.role)?.salary || 0;
-        return salaryB - salaryA;
-      });
+      // Mark crew as unpaid across all ships (most expensive first)
+      const allCrew: { crew: import('./models').CrewMember; salary: number }[] =
+        [];
+      for (const ship of gameData.ships) {
+        for (const crew of ship.crew) {
+          const salary = getCrewRoleDefinition(crew.role)?.salary || 0;
+          if (salary > 0) {
+            allCrew.push({ crew, salary });
+          }
+        }
+      }
 
-      // For the unpaid ticks, determine which crew goes unpaid
+      allCrew.sort((a, b) => b.salary - a.salary);
+
       const budgetPerTick = availableCredits / Math.max(1, ticksWeCanPay);
 
-      for (const crew of crewBySalary) {
-        const salary = getCrewRoleDefinition(crew.role)?.salary || 0;
-        if (salary > 0) {
-          // If this crew's salary exceeds our per-tick budget, they go unpaid for unpaid ticks
-          if (salary > budgetPerTick || ticksWeCanPay === 0) {
-            crew.unpaidTicks += ticksUnpaid;
-          }
+      for (const { crew, salary } of allCrew) {
+        if (salary > budgetPerTick || ticksWeCanPay === 0) {
+          crew.unpaidTicks += ticksUnpaid;
         }
       }
     }
   }
 }
 
-export function applyTick(gameData: GameData): boolean {
-  const { ship } = gameData;
+/**
+ * Apply one tick of game logic for a single ship
+ */
+function applyShipTick(gameData: GameData, ship: Ship): boolean {
   let changed = false;
 
-  // IN-FLIGHT TICKS
   if (ship.location.status === 'in_flight') {
     const engineDef = getEngineDefinition(ship.engine.definitionId);
 
@@ -93,7 +100,6 @@ export function applyTick(gameData: GameData): boolean {
         100,
         ship.engine.warmupProgress + engineDef.warmupRate
       );
-      // Transition to online when warmup complete
       if (ship.engine.warmupProgress >= 100) {
         ship.engine.state = 'online';
         ship.engine.warmupProgress = 100;
@@ -101,22 +107,17 @@ export function applyTick(gameData: GameData): boolean {
       changed = true;
     }
 
-    // 2. Flight physics (if we have an active flight)
+    // 2. Flight physics
     if (ship.location.flight) {
-      // Advance game time
-      gameData.gameTime += GAME_SECONDS_PER_TICK;
-
-      // Advance flight state
       const flightComplete = advanceFlight(ship.location.flight);
 
-      // Fuel consumption based on flight progress during burn phases
+      // Fuel consumption during burn phases
       const engineBurning = isEngineBurning(ship.location.flight);
       if (
         engineBurning &&
         ship.engine.state === 'online' &&
         engineRoomStaffed
       ) {
-        // Calculate fuel cost for this entire leg
         const flight = ship.location.flight;
         const origin = gameData.world.locations.find(
           (l) => l.id === flight.origin
@@ -135,9 +136,7 @@ export function applyTick(gameData: GameData): boolean {
               maxRangeKm
             );
 
-            // Consume fuel proportionally to burn time
-            // Fuel is only consumed during burn phases, not coast
-            const totalBurnTime = flight.burnTime * 2; // Accel + decel
+            const totalBurnTime = flight.burnTime * 2;
             const fuelPerSecondOfBurn = totalFuelCostPercent / totalBurnTime;
             const fuelThisTick = fuelPerSecondOfBurn * GAME_SECONDS_PER_TICK;
 
@@ -148,36 +147,31 @@ export function applyTick(gameData: GameData): boolean {
 
       changed = true;
 
-      // TORCH SHIP MECHANICS (Class III+)
+      // TORCH SHIP MECHANICS
       if (ship.engine.state === 'online') {
         // === RADIATION EXPOSURE ===
         const engineRadiation = engineDef.radiationOutput || 0;
 
-        // Calculate total shielding from equipment
         let totalShielding = 0;
         for (const eq of ship.equipment) {
           const eqDef = getEquipmentDefinition(eq.definitionId);
           if (eqDef?.radiationShielding) {
-            // Degraded equipment provides less shielding
-            const effectiveness = 1 - eq.degradation / 200; // 0% degradation = 1.0, 100% = 0.5
+            const effectiveness = 1 - eq.degradation / 200;
             totalShielding += eqDef.radiationShielding * effectiveness;
           }
         }
 
         const netRadiation = Math.max(0, engineRadiation - totalShielding);
 
-        // Apply radiation damage to crew (if net radiation > 0)
         if (netRadiation > 0) {
           const radiationDamagePerTick = netRadiation / 10;
 
           for (const crew of ship.crew) {
-            // Check if crew is in medbay (medics can reduce radiation effects)
             const medbay = ship.rooms.find((r) => r.type === 'medbay');
             const isInMedbay = medbay?.assignedCrewIds.includes(crew.id);
 
             let damage = radiationDamagePerTick;
 
-            // Medbay reduces radiation damage by 50%
             if (isInMedbay && medbay?.state === 'operational') {
               damage *= 0.5;
             }
@@ -190,12 +184,10 @@ export function applyTick(gameData: GameData): boolean {
         // === WASTE HEAT MANAGEMENT ===
         const engineHeat = engineDef.wasteHeatOutput || 0;
 
-        // Calculate total heat dissipation from equipment
         let totalHeatDissipation = 0;
         for (const eq of ship.equipment) {
           const eqDef = getEquipmentDefinition(eq.definitionId);
           if (eqDef?.heatDissipation) {
-            // Degraded equipment provides less cooling
             const effectiveness = 1 - eq.degradation / 200;
             totalHeatDissipation += eqDef.heatDissipation * effectiveness;
           }
@@ -203,14 +195,13 @@ export function applyTick(gameData: GameData): boolean {
 
         const excessHeat = Math.max(0, engineHeat - totalHeatDissipation);
 
-        // Excess heat accelerates ALL equipment degradation
         if (excessHeat > 0) {
-          const heatDegradationMultiplier = 1 + excessHeat / 100; // +1% per kW excess heat
+          const heatDegradationMultiplier = 1 + excessHeat / 100;
 
           for (const eq of ship.equipment) {
             const eqDef = getEquipmentDefinition(eq.definitionId);
             if (eqDef?.hasDegradation && eq.degradation < 100) {
-              const baseDegradation = 0.05; // Base rate
+              const baseDegradation = 0.05;
               const heatDegradation =
                 baseDegradation * heatDegradationMultiplier;
               eq.degradation = Math.min(100, eq.degradation + heatDegradation);
@@ -220,24 +211,21 @@ export function applyTick(gameData: GameData): boolean {
         }
 
         // === CONTAINMENT STABILITY ===
-        // Check if reactor room is staffed (for fusion engines)
         const reactorRoom = ship.rooms.find((r) => r.type === 'reactor_room');
         const reactorRoomStaffed =
           reactorRoom &&
           reactorRoom.state === 'operational' &&
           reactorRoom.assignedCrewIds.length > 0;
 
-        // Check if mag_confinement equipment exists
         const confinementEq = ship.equipment.find(
           (eq) => eq.definitionId === 'mag_confinement'
         );
 
         if (confinementEq && engineDef.containmentComplexity > 0) {
-          // Confinement degrades faster if reactor room unstaffed
-          let confinementDegradationRate = 0.1; // Base rate
+          let confinementDegradationRate = 0.1;
 
           if (!reactorRoomStaffed) {
-            confinementDegradationRate *= 3; // 3x degradation if unstaffed
+            confinementDegradationRate *= 3;
           }
 
           confinementEq.degradation = Math.min(
@@ -246,12 +234,10 @@ export function applyTick(gameData: GameData): boolean {
           );
           changed = true;
 
-          // If confinement is degraded, radiation spikes
           if (confinementEq.degradation > 30) {
-            const spikeMultiplier = 1 + confinementEq.degradation / 50; // Up to 3x at 100% degradation
+            const spikeMultiplier = 1 + confinementEq.degradation / 50;
             const spikeRadiation = (netRadiation * (spikeMultiplier - 1)) / 10;
 
-            // Additional radiation damage to all crew
             for (const crew of ship.crew) {
               crew.health = Math.max(0, crew.health - spikeRadiation);
               changed = true;
@@ -260,17 +246,14 @@ export function applyTick(gameData: GameData): boolean {
         }
       }
 
-      // Crew salary deduction (only during flight)
-      deductCrewSalaries(ship, 1);
-
       // Handle flight completion
       if (flightComplete) {
-        completeLeg(gameData);
+        completeLeg(gameData, ship);
       }
     }
   }
 
-  // 3. Air filter degradation (always happens)
+  // Air filter degradation (always happens)
   for (const equipment of ship.equipment) {
     if (equipment.definitionId === 'air_filters') {
       if (equipment.degradation < 100) {
@@ -280,18 +263,15 @@ export function applyTick(gameData: GameData): boolean {
     }
   }
 
-  // 4. Gravity exposure (during flight)
+  // Gravity exposure (during flight)
   if (ship.location.status === 'in_flight') {
-    // Store previous exposure values to detect threshold crossings
     const previousExposures = new Map<string, number>();
     for (const crew of ship.crew) {
       previousExposures.set(crew.id, crew.zeroGExposure);
     }
 
-    // Apply gravity tick
-    applyGravityTick(gameData);
+    applyGravityTick(ship);
 
-    // Check for threshold crossings and generate log entries
     for (const crew of ship.crew) {
       const previousExposure = previousExposures.get(crew.id) || 0;
       const newLevel = checkThresholdCrossing(crew, previousExposure);
@@ -314,11 +294,38 @@ export function applyTick(gameData: GameData): boolean {
           gameTime: gameData.gameTime,
           type: 'gravity_warning',
           message,
+          shipName: ship.name,
         });
       }
     }
 
     changed = true;
+  }
+
+  return changed;
+}
+
+export function applyTick(gameData: GameData): boolean {
+  let changed = false;
+
+  // Advance game time once per tick
+  const hasFlightShips = gameData.ships.some(
+    (s) => s.location.status === 'in_flight' && s.location.flight
+  );
+  if (hasFlightShips) {
+    gameData.gameTime += GAME_SECONDS_PER_TICK;
+  }
+
+  // Apply per-ship tick logic
+  for (const ship of gameData.ships) {
+    if (applyShipTick(gameData, ship)) {
+      changed = true;
+    }
+  }
+
+  // Fleet-wide salary deduction (only during flight activity)
+  if (hasFlightShips) {
+    deductFleetSalaries(gameData, 1);
   }
 
   return changed;

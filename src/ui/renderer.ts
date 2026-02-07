@@ -52,6 +52,13 @@ export interface RendererCallbacks {
   onHireCrew: (crewId: string) => void;
   onBuyEquipment: (equipmentId: CrewEquipmentId) => void;
   onSellEquipment: (itemId: string) => void;
+  onSelectShip: (shipId: string) => void;
+  onBuyShip: (classId: string, shipName: string) => void;
+  onTransferCrew: (
+    crewId: string,
+    fromShipId: string,
+    toShipId: string
+  ) => void;
 }
 
 export function render(
@@ -144,6 +151,9 @@ function renderPlaying(
       onHireCrew: callbacks.onHireCrew,
       onBuyEquipment: callbacks.onBuyEquipment,
       onSellEquipment: callbacks.onSellEquipment,
+      onSelectShip: callbacks.onSelectShip,
+      onBuyShip: callbacks.onBuyShip,
+      onTransferCrew: callbacks.onTransferCrew,
     },
     state.selectedCrewId
   );

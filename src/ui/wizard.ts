@@ -238,7 +238,7 @@ function renderShipClassStep(
       const option = document.createElement('div');
       option.className = 'ship-class-option';
 
-      if (!shipClass.unlocked) {
+      if (shipClass.unlockThreshold > 0) {
         option.classList.add('locked');
       } else if (selected === shipClass.id) {
         option.classList.add('selected');
@@ -253,7 +253,7 @@ function renderShipClassStep(
       optionLabel.textContent = shipClass.name;
       header.appendChild(optionLabel);
 
-      if (!shipClass.unlocked) {
+      if (shipClass.unlockThreshold > 0) {
         const lockedBadge = document.createElement('span');
         lockedBadge.className = 'locked-badge';
         lockedBadge.textContent = 'Locked';
@@ -271,7 +271,7 @@ function renderShipClassStep(
       stats.innerHTML = `<span>Price: ${formatCredits(shipClass.price)}</span><span>Rooms: ${shipClass.rooms.length}</span><span>Max Crew: ${shipClass.maxCrew}</span>`;
       option.appendChild(stats);
 
-      if (shipClass.unlocked) {
+      if (shipClass.unlockThreshold === 0) {
         option.addEventListener('click', () => {
           selected = shipClass.id;
           document

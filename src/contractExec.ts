@@ -1,4 +1,4 @@
-import type { GameData, ActiveContract, Quest } from './models';
+import type { GameData, Ship, ActiveContract, Quest } from './models';
 import {
   initializeFlight,
   computeMaxRange,
@@ -8,48 +8,59 @@ import { addLog } from './logSystem';
 import { getShipClass } from './shipClasses';
 import { generateAllLocationQuests } from './questGen';
 import { getDaysSinceEpoch, TICKS_PER_DAY } from './timeSystem';
-import { generateHireableCrew } from './gameFactory';
+import { generateHireableCrewByLocation } from './gameFactory';
 import { getEngineDefinition } from './engines';
 import { getDistanceBetween } from './worldGen';
 
 /**
  * Contract Execution
  *
- * Manages active contract state and transitions
+ * Manages active contract state and transitions (per-ship)
  */
+
+/**
+ * Get location IDs where player ships are docked
+ */
+function getDockedLocationIds(gameData: GameData): string[] {
+  const ids = new Set<string>();
+  for (const ship of gameData.ships) {
+    if (ship.location.status === 'docked' && ship.location.dockedAt) {
+      ids.add(ship.location.dockedAt);
+    }
+  }
+  return Array.from(ids);
+}
 
 /**
  * Regenerate quests if we've crossed a day boundary
  */
-function regenerateQuestsIfNewDay(gameData: GameData): void {
+function regenerateQuestsIfNewDay(gameData: GameData, ship: Ship): void {
   const currentDay = getDaysSinceEpoch(gameData.gameTime);
   if (currentDay > gameData.lastQuestRegenDay) {
-    gameData.availableQuests = generateAllLocationQuests(
-      gameData.ship,
-      gameData.world
-    );
+    gameData.availableQuests = generateAllLocationQuests(ship, gameData.world);
     gameData.lastQuestRegenDay = currentDay;
 
-    // Also regenerate hireable crew
-    gameData.hireableCrew = generateHireableCrew();
+    // Regenerate hireable crew only for stations with docked ships
+    const dockedIds = getDockedLocationIds(gameData);
+    gameData.hireableCrewByLocation = generateHireableCrewByLocation(
+      gameData.world,
+      dockedIds
+    );
   }
 }
 
 /**
  * Remove unpaid crew on docking
  */
-function removeUnpaidCrew(gameData: GameData): void {
-  const { ship, gameTime } = gameData;
+function removeUnpaidCrew(gameData: GameData, ship: Ship): void {
   const unpaidCrew = ship.crew.filter((c) => c.unpaidTicks > 0 && !c.isCaptain);
 
   for (const crew of unpaidCrew) {
-    // Remove from ship.crew
     const crewIndex = ship.crew.indexOf(crew);
     if (crewIndex !== -1) {
       ship.crew.splice(crewIndex, 1);
     }
 
-    // Remove from all rooms
     for (const room of ship.rooms) {
       const roomIndex = room.assignedCrewIds.indexOf(crew.id);
       if (roomIndex !== -1) {
@@ -57,23 +68,34 @@ function removeUnpaidCrew(gameData: GameData): void {
       }
     }
 
-    // Log departure
     addLog(
       gameData.log,
-      gameTime,
+      gameData.gameTime,
       'crew_departed',
-      `${crew.name} departed due to unpaid wages (${Math.ceil(crew.unpaidTicks / TICKS_PER_DAY)} unpaid days)`
+      `${crew.name} departed due to unpaid wages (${Math.ceil(crew.unpaidTicks / TICKS_PER_DAY)} unpaid days)`,
+      ship.name
     );
   }
 }
 
 /**
+ * Add credits and track lifetime earnings
+ */
+function addCredits(gameData: GameData, amount: number): void {
+  gameData.credits += amount;
+  gameData.lifetimeCreditsEarned += amount;
+}
+
+/**
  * Start a contract by accepting a quest
  */
-export function acceptQuest(gameData: GameData, quest: Quest): void {
-  const { ship, world, gameTime } = gameData;
+export function acceptQuest(
+  gameData: GameData,
+  ship: Ship,
+  quest: Quest
+): void {
+  const { world, gameTime } = gameData;
 
-  // Create active contract
   const contract: ActiveContract = {
     quest,
     tripsCompleted: 0,
@@ -83,17 +105,16 @@ export function acceptQuest(gameData: GameData, quest: Quest): void {
     paused: false,
   };
 
-  gameData.activeContract = contract;
+  ship.activeContract = contract;
 
-  // Log acceptance
   addLog(
     gameData.log,
     gameTime,
     'contract_accepted',
-    `Accepted contract: ${quest.title}`
+    `Accepted contract: ${quest.title}`,
+    ship.name
   );
 
-  // Undock and start flight
   const origin = world.locations.find((l) => l.id === quest.origin);
   const destination = world.locations.find((l) => l.id === quest.destination);
 
@@ -104,27 +125,26 @@ export function acceptQuest(gameData: GameData, quest: Quest): void {
   ship.location.status = 'in_flight';
   delete ship.location.dockedAt;
 
-  // Initialize flight
   ship.location.flight = initializeFlight(ship, origin, destination, false);
 
-  // Start engine warmup
   ship.engine.state = 'warming_up';
   ship.engine.warmupProgress = 0;
 
-  // Log departure
   addLog(
     gameData.log,
     gameTime,
     'departure',
-    `Departed ${origin.name} en route to ${destination.name}`
+    `Departed ${origin.name} en route to ${destination.name}`,
+    ship.name
   );
 }
 
 /**
  * Complete current leg of contract flight
  */
-export function completeLeg(gameData: GameData): void {
-  const { ship, world, gameTime, activeContract } = gameData;
+export function completeLeg(gameData: GameData, ship: Ship): void {
+  const { world, gameTime } = gameData;
+  const activeContract = ship.activeContract;
 
   // Handle manual trip completion (no contract)
   if (!activeContract && ship.location.flight) {
@@ -144,14 +164,12 @@ export function completeLeg(gameData: GameData): void {
           gameData.log,
           gameTime,
           'arrival',
-          `Arrived at ${destination.name}`
+          `Arrived at ${destination.name}`,
+          ship.name
         );
 
-        // Remove unpaid crew
-        removeUnpaidCrew(gameData);
-
-        // Regenerate quests if new day
-        regenerateQuestsIfNewDay(gameData);
+        removeUnpaidCrew(gameData, ship);
+        regenerateQuestsIfNewDay(gameData, ship);
       }
     }
     return;
@@ -172,53 +190,44 @@ export function completeLeg(gameData: GameData): void {
   const arrivalLocation =
     activeContract.leg === 'outbound' ? destLoc : originLoc;
 
-  // Log arrival
   addLog(
     gameData.log,
     gameTime,
     'arrival',
-    `Arrived at ${arrivalLocation.name}`
+    `Arrived at ${arrivalLocation.name}`,
+    ship.name
   );
 
-  // Handle leg completion based on type
   if (activeContract.leg === 'outbound') {
-    // Completed outbound leg
     if (quest.type === 'delivery' || quest.type === 'passenger') {
-      // One-way quests: complete on arrival at destination
       activeContract.tripsCompleted = 1;
       activeContract.creditsEarned = quest.paymentOnCompletion;
-      ship.credits += quest.paymentOnCompletion;
+      addCredits(gameData, quest.paymentOnCompletion);
 
       addLog(
         gameData.log,
         gameTime,
         'contract_complete',
-        `Contract completed: ${quest.title}. Earned ${quest.paymentOnCompletion.toLocaleString()} credits.`
+        `Contract completed: ${quest.title}. Earned ${quest.paymentOnCompletion.toLocaleString()} credits.`,
+        ship.name
       );
 
-      // Dock and clear contract
       ship.location.status = 'docked';
       ship.location.dockedAt = arrivalLocation.id;
       delete ship.location.flight;
       ship.engine.state = 'off';
       ship.engine.warmupProgress = 0;
-      gameData.activeContract = null;
+      ship.activeContract = null;
 
-      // Remove unpaid crew
-      removeUnpaidCrew(gameData);
-
-      // Regenerate quests if new day
-      regenerateQuestsIfNewDay(gameData);
+      removeUnpaidCrew(gameData, ship);
+      regenerateQuestsIfNewDay(gameData, ship);
     } else {
-      // Freight/supply contracts: continue to inbound leg
       activeContract.leg = 'inbound';
 
-      // Check if there's enough fuel for return leg
       const nextOrigin = destLoc;
       const nextDestination = originLoc;
       const distanceKm = getDistanceBetween(nextOrigin, nextDestination);
 
-      // Calculate required fuel
       const shipClass = getShipClass(ship.classId);
       if (!shipClass) return;
       const engineDef = getEngineDefinition(ship.engine.definitionId);
@@ -226,7 +235,6 @@ export function completeLeg(gameData: GameData): void {
       const requiredFuel = calculateFuelCost(distanceKm, maxRangeKm);
 
       if (ship.fuel < requiredFuel * 1.1) {
-        // Not enough fuel (need 10% buffer), pause contract
         activeContract.paused = true;
         ship.location.status = 'docked';
         ship.location.dockedAt = arrivalLocation.id;
@@ -238,15 +246,14 @@ export function completeLeg(gameData: GameData): void {
           gameData.log,
           gameTime,
           'arrival',
-          `Low fuel at ${arrivalLocation.name}! Contract "${quest.title}" paused - refuel to continue.`
+          `Low fuel at ${arrivalLocation.name}! Contract "${quest.title}" paused - refuel to continue.`,
+          ship.name
         );
 
-        // Remove unpaid crew
-        removeUnpaidCrew(gameData);
+        removeUnpaidCrew(gameData, ship);
         return;
       }
 
-      // Start return leg
       ship.location.flight = initializeFlight(
         ship,
         nextOrigin,
@@ -260,39 +267,38 @@ export function completeLeg(gameData: GameData): void {
         gameData.log,
         gameTime,
         'departure',
-        `Departed ${nextOrigin.name} en route to ${nextDestination.name} (${quest.title})`
+        `Departed ${nextOrigin.name} en route to ${nextDestination.name} (${quest.title})`,
+        ship.name
       );
     }
   } else {
-    // Completed inbound leg (return to origin)
     activeContract.tripsCompleted++;
 
-    // Update cargo delivered for supply contracts
     if (quest.type === 'supply') {
       activeContract.cargoDelivered += quest.cargoRequired;
     }
 
-    // Pay per-trip payment
     if (quest.paymentPerTrip > 0) {
       activeContract.creditsEarned += quest.paymentPerTrip;
-      ship.credits += quest.paymentPerTrip;
+      addCredits(gameData, quest.paymentPerTrip);
 
       addLog(
         gameData.log,
         gameTime,
         'payment',
-        `Trip ${activeContract.tripsCompleted} complete. Earned ${quest.paymentPerTrip.toLocaleString()} credits.`
+        `Trip ${activeContract.tripsCompleted} complete. Earned ${quest.paymentPerTrip.toLocaleString()} credits.`,
+        ship.name
       );
     } else {
       addLog(
         gameData.log,
         gameTime,
         'trip_complete',
-        `Trip ${activeContract.tripsCompleted}/${quest.tripsRequired === -1 ? '∞' : quest.tripsRequired} complete`
+        `Trip ${activeContract.tripsCompleted}/${quest.tripsRequired === -1 ? '\u221e' : quest.tripsRequired} complete`,
+        ship.name
       );
     }
 
-    // Check if contract is complete
     const isComplete =
       (quest.tripsRequired > 0 &&
         activeContract.tripsCompleted >= quest.tripsRequired) ||
@@ -300,49 +306,35 @@ export function completeLeg(gameData: GameData): void {
         activeContract.cargoDelivered >= quest.totalCargoRequired);
 
     if (isComplete) {
-      // Contract complete
       if (quest.paymentOnCompletion > 0) {
         activeContract.creditsEarned += quest.paymentOnCompletion;
-        ship.credits += quest.paymentOnCompletion;
-
-        addLog(
-          gameData.log,
-          gameTime,
-          'contract_complete',
-          `Contract completed: ${quest.title}. Total earned: ${activeContract.creditsEarned.toLocaleString()} credits.`
-        );
-      } else {
-        addLog(
-          gameData.log,
-          gameTime,
-          'contract_complete',
-          `Contract completed: ${quest.title}. Total earned: ${activeContract.creditsEarned.toLocaleString()} credits.`
-        );
+        addCredits(gameData, quest.paymentOnCompletion);
       }
 
-      // Dock and clear contract
+      addLog(
+        gameData.log,
+        gameTime,
+        'contract_complete',
+        `Contract completed: ${quest.title}. Total earned: ${activeContract.creditsEarned.toLocaleString()} credits.`,
+        ship.name
+      );
+
       ship.location.status = 'docked';
       ship.location.dockedAt = arrivalLocation.id;
       delete ship.location.flight;
       ship.engine.state = 'off';
       ship.engine.warmupProgress = 0;
-      gameData.activeContract = null;
+      ship.activeContract = null;
 
-      // Remove unpaid crew
-      removeUnpaidCrew(gameData);
-
-      // Regenerate quests if new day
-      regenerateQuestsIfNewDay(gameData);
+      removeUnpaidCrew(gameData, ship);
+      regenerateQuestsIfNewDay(gameData, ship);
     } else {
-      // Start next outbound leg
       activeContract.leg = 'outbound';
 
-      // Check if there's enough fuel for next outbound leg
       const nextOrigin = originLoc;
       const nextDestination = destLoc;
       const distanceKm = getDistanceBetween(nextOrigin, nextDestination);
 
-      // Calculate required fuel
       const shipClass = getShipClass(ship.classId);
       if (!shipClass) return;
       const engineDef = getEngineDefinition(ship.engine.definitionId);
@@ -350,7 +342,6 @@ export function completeLeg(gameData: GameData): void {
       const requiredFuel = calculateFuelCost(distanceKm, maxRangeKm);
 
       if (ship.fuel < requiredFuel * 1.1) {
-        // Not enough fuel (need 10% buffer), pause contract
         activeContract.paused = true;
         ship.location.status = 'docked';
         ship.location.dockedAt = arrivalLocation.id;
@@ -362,11 +353,11 @@ export function completeLeg(gameData: GameData): void {
           gameData.log,
           gameTime,
           'arrival',
-          `Low fuel at ${arrivalLocation.name}! Contract "${quest.title}" paused - refuel to continue.`
+          `Low fuel at ${arrivalLocation.name}! Contract "${quest.title}" paused - refuel to continue.`,
+          ship.name
         );
 
-        // Remove unpaid crew
-        removeUnpaidCrew(gameData);
+        removeUnpaidCrew(gameData, ship);
         return;
       }
 
@@ -383,7 +374,8 @@ export function completeLeg(gameData: GameData): void {
         gameData.log,
         gameTime,
         'departure',
-        `Departed ${nextOrigin.name} en route to ${nextDestination.name} (${quest.title})`
+        `Departed ${nextOrigin.name} en route to ${nextDestination.name} (${quest.title})`,
+        ship.name
       );
     }
   }
@@ -392,29 +384,26 @@ export function completeLeg(gameData: GameData): void {
 /**
  * Pause contract at nearest port (dock on arrival)
  */
-export function pauseContract(gameData: GameData): void {
-  const { ship, activeContract } = gameData;
-
-  if (!activeContract || !ship.location.flight) {
+export function pauseContract(ship: Ship): void {
+  if (!ship.activeContract || !ship.location.flight) {
     return;
   }
 
-  // Set flag to dock on arrival
   ship.location.flight.dockOnArrival = true;
-  activeContract.paused = true;
+  ship.activeContract.paused = true;
 }
 
 /**
  * Resume paused contract
  */
-export function resumeContract(gameData: GameData): void {
-  const { ship, world, gameTime, activeContract } = gameData;
+export function resumeContract(gameData: GameData, ship: Ship): void {
+  const { world, gameTime } = gameData;
 
-  if (!activeContract || !activeContract.paused) {
+  if (!ship.activeContract || !ship.activeContract.paused) {
     return;
   }
 
-  const quest = activeContract.quest;
+  const quest = ship.activeContract.quest;
   const originLoc = world.locations.find((l) => l.id === quest.origin);
   const destLoc = world.locations.find((l) => l.id === quest.destination);
 
@@ -422,7 +411,6 @@ export function resumeContract(gameData: GameData): void {
     return;
   }
 
-  // Determine current location and next destination
   const currentLoc = ship.location.dockedAt
     ? world.locations.find((l) => l.id === ship.location.dockedAt)
     : null;
@@ -432,10 +420,9 @@ export function resumeContract(gameData: GameData): void {
   }
 
   const nextDestination =
-    activeContract.leg === 'outbound' ? destLoc : originLoc;
+    ship.activeContract.leg === 'outbound' ? destLoc : originLoc;
 
-  // Undock and resume flight
-  activeContract.paused = false;
+  ship.activeContract.paused = false;
   ship.location.status = 'in_flight';
   delete ship.location.dockedAt;
 
@@ -452,37 +439,34 @@ export function resumeContract(gameData: GameData): void {
     gameData.log,
     gameTime,
     'departure',
-    `Resumed contract. Departed ${currentLoc.name} en route to ${nextDestination.name}`
+    `Resumed contract. Departed ${currentLoc.name} en route to ${nextDestination.name}`,
+    ship.name
   );
 }
 
 /**
  * Abandon active contract
  */
-export function abandonContract(gameData: GameData): void {
-  const { ship, gameTime, activeContract } = gameData;
-
-  if (!activeContract) {
+export function abandonContract(gameData: GameData, ship: Ship): void {
+  if (!ship.activeContract) {
     return;
   }
 
-  const quest = activeContract.quest;
+  const quest = ship.activeContract.quest;
 
   addLog(
     gameData.log,
-    gameTime,
+    gameData.gameTime,
     'contract_abandoned',
-    `Abandoned contract: ${quest.title}. Earned ${activeContract.creditsEarned.toLocaleString()} credits from completed trips.`
+    `Abandoned contract: ${quest.title}. Earned ${ship.activeContract.creditsEarned.toLocaleString()} credits from completed trips.`,
+    ship.name
   );
 
   if (ship.location.flight) {
-    // Mid-flight: let the flight finish naturally, dock on arrival
     ship.location.flight.dockOnArrival = true;
   }
-  // If already docked: nothing to do, ship stays docked
 
-  gameData.activeContract = null;
+  ship.activeContract = null;
 
-  // Regenerate quests if new day
-  regenerateQuestsIfNewDay(gameData);
+  regenerateQuestsIfNewDay(gameData, ship);
 }

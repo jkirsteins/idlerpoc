@@ -1,4 +1,5 @@
 import type { GameData } from '../models';
+import { getActiveShip } from '../models';
 import { getLocationTypeTemplate } from '../spaceLocations';
 import { isLocationReachable, getUnreachableReason } from '../worldGen';
 import { getGravityDegradationLevel } from '../gravitySystem';
@@ -19,6 +20,7 @@ export function renderNavigationView(
   gameData: GameData,
   callbacks: NavigationViewCallbacks
 ): HTMLElement {
+  const ship = getActiveShip(gameData);
   const container = document.createElement('div');
   container.className = 'navigation-view';
 
@@ -44,15 +46,13 @@ export function renderNavigationView(
 
   // Get current location (either docked location or flight origin/destination)
   const currentLocationId =
-    gameData.ship.location.dockedAt ||
-    gameData.ship.location.flight?.destination ||
-    'earth';
+    ship.location.dockedAt || ship.location.flight?.destination || 'earth';
   const currentLocation =
     gameData.world.locations.find((loc) => loc.id === currentLocationId) ||
     gameData.world.locations[0];
 
   const canStartTrips =
-    gameData.ship.location.status === 'docked' && !gameData.activeContract;
+    ship.location.status === 'docked' && !ship.activeContract;
 
   for (const location of gameData.world.locations) {
     const marker = document.createElement('div');
@@ -60,11 +60,7 @@ export function renderNavigationView(
     marker.style.left = `${location.x}%`;
     marker.style.top = `${location.y}%`;
 
-    const reachable = isLocationReachable(
-      gameData.ship,
-      location,
-      currentLocation
-    );
+    const reachable = isLocationReachable(ship, location, currentLocation);
 
     if (location.id === currentLocationId) {
       marker.classList.add('current');
@@ -114,11 +110,7 @@ export function renderNavigationView(
   legend.appendChild(legendTitle);
 
   for (const location of gameData.world.locations) {
-    const reachable = isLocationReachable(
-      gameData.ship,
-      location,
-      currentLocation
-    );
+    const reachable = isLocationReachable(ship, location, currentLocation);
 
     const item = document.createElement('div');
     item.className = 'nav-legend-item';
@@ -144,7 +136,7 @@ export function renderNavigationView(
     item.appendChild(description);
 
     // Gravity warning for degraded crew
-    const degradedCrew = gameData.ship.crew.filter(
+    const degradedCrew = ship.crew.filter(
       (c) => getGravityDegradationLevel(c.zeroGExposure) !== 'none'
     );
 
@@ -188,7 +180,7 @@ export function renderNavigationView(
     } else {
       // Unreachable - show reason
       const unreachableReason = getUnreachableReason(
-        gameData.ship,
+        ship,
         location,
         currentLocation
       );

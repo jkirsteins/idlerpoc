@@ -1,4 +1,5 @@
 import type { GameData, CrewEquipmentId } from '../models';
+import { getActiveShip } from '../models';
 import type { PlayingTab } from './renderer';
 import { getShipClass } from '../shipClasses';
 import { renderShipTab } from './shipTab';
@@ -34,6 +35,13 @@ export interface TabbedViewCallbacks {
   onHireCrew: (crewId: string) => void;
   onBuyEquipment: (equipmentId: CrewEquipmentId) => void;
   onSellEquipment: (itemId: string) => void;
+  onSelectShip: (shipId: string) => void;
+  onBuyShip: (classId: string, shipName: string) => void;
+  onTransferCrew: (
+    crewId: string,
+    fromShipId: string,
+    toShipId: string
+  ) => void;
 }
 
 export function renderTabbedView(
@@ -92,18 +100,52 @@ function renderShipHeader(
 
   header.appendChild(dateHeader);
 
+  const ship = getActiveShip(gameData);
+
+  // Ship selector bar (only when fleet has multiple ships)
+  if (gameData.ships.length > 1) {
+    const shipSelector = document.createElement('div');
+    shipSelector.className = 'ship-selector-bar';
+    shipSelector.style.display = 'flex';
+    shipSelector.style.gap = '0.5rem';
+    shipSelector.style.marginBottom = '0.5rem';
+    shipSelector.style.flexWrap = 'wrap';
+
+    for (const s of gameData.ships) {
+      const chip = document.createElement('button');
+      chip.className =
+        s.id === gameData.activeShipId ? 'ship-chip active' : 'ship-chip';
+      chip.textContent = s.name;
+      chip.style.padding = '0.25rem 0.75rem';
+      chip.style.borderRadius = '12px';
+      chip.style.border =
+        s.id === gameData.activeShipId ? '1px solid #4a9eff' : '1px solid #666';
+      chip.style.background =
+        s.id === gameData.activeShipId
+          ? 'rgba(74, 158, 255, 0.2)'
+          : 'rgba(0, 0, 0, 0.3)';
+      chip.style.color = s.id === gameData.activeShipId ? '#4a9eff' : '#aaa';
+      chip.style.cursor = 'pointer';
+      chip.style.fontSize = '0.85rem';
+      chip.addEventListener('click', () => callbacks.onSelectShip(s.id));
+      shipSelector.appendChild(chip);
+    }
+
+    header.appendChild(shipSelector);
+  }
+
   const shipName = document.createElement('h2');
   shipName.className = 'ship-name';
-  shipName.textContent = gameData.ship.name;
+  shipName.textContent = ship.name;
   header.appendChild(shipName);
 
-  const shipClass = getShipClass(gameData.ship.classId);
+  const shipClass = getShipClass(ship.classId);
   const shipClassLabel = document.createElement('div');
   shipClassLabel.className = 'ship-class-label';
-  shipClassLabel.textContent = `Class: ${shipClass?.name ?? gameData.ship.classId}`;
+  shipClassLabel.textContent = `Class: ${shipClass?.name ?? ship.classId}`;
   header.appendChild(shipClassLabel);
 
-  const captain = gameData.ship.crew.find((c) => c.isCaptain);
+  const captain = ship.crew.find((c) => c.isCaptain);
   if (captain) {
     const captainLabel = document.createElement('div');
     captainLabel.className = 'captain-label';
@@ -132,6 +174,8 @@ function renderGlobalStatusBar(
   statusBar.style.borderRadius = '4px';
   statusBar.style.border = '1px solid #444';
 
+  const ship = getActiveShip(gameData);
+
   // Left side: Stats
   const statsDiv = document.createElement('div');
   statsDiv.style.display = 'flex';
@@ -139,22 +183,24 @@ function renderGlobalStatusBar(
 
   // Credits
   const creditsDiv = document.createElement('div');
-  creditsDiv.innerHTML = `<span style="color: #888;">Credits:</span> <span style="color: #4a9eff; font-weight: bold;">${Math.round(gameData.ship.credits).toLocaleString()}</span>`;
+  creditsDiv.innerHTML = `<span style="color: #888;">Credits:</span> <span style="color: #4a9eff; font-weight: bold;">${Math.round(gameData.credits).toLocaleString()}</span>`;
   statsDiv.appendChild(creditsDiv);
 
   // Crew count
-  const shipClass = getShipClass(gameData.ship.classId);
+  const shipClass = getShipClass(ship.classId);
   const maxCrew = shipClass?.maxCrew ?? '?';
   const crewDiv = document.createElement('div');
-  crewDiv.innerHTML = `<span style="color: #888;">Crew:</span> <span style="font-weight: bold;">${gameData.ship.crew.length}/${maxCrew}</span>`;
+  crewDiv.innerHTML = `<span style="color: #888;">Crew:</span> <span style="font-weight: bold;">${ship.crew.length}/${maxCrew}</span>`;
   statsDiv.appendChild(crewDiv);
 
-  // Crew cost per tick
+  // Crew cost per tick (fleet-wide)
   let totalCrewCost = 0;
-  for (const crew of gameData.ship.crew) {
-    const roleDef = getCrewRoleDefinition(crew.role);
-    if (roleDef) {
-      totalCrewCost += roleDef.salary;
+  for (const s of gameData.ships) {
+    for (const crew of s.crew) {
+      const roleDef = getCrewRoleDefinition(crew.role);
+      if (roleDef) {
+        totalCrewCost += roleDef.salary;
+      }
     }
   }
 
@@ -176,14 +222,14 @@ function renderGlobalStatusBar(
   const statusText = document.createElement('span');
   statusText.style.marginRight = '0.5rem';
   statusText.style.color = '#aaa';
-  if (gameData.ship.location.status === 'docked') {
-    const dockedAt = gameData.ship.location.dockedAt;
+  if (ship.location.status === 'docked') {
+    const dockedAt = ship.location.dockedAt;
     const location = gameData.world.locations.find((l) => l.id === dockedAt);
     const locationName = location?.name || dockedAt;
     statusText.textContent = `Docked at ${locationName}`;
   } else {
-    if (gameData.ship.location.flight) {
-      const destId = gameData.ship.location.flight.destination;
+    if (ship.location.flight) {
+      const destId = ship.location.flight.destination;
       const destLocation = gameData.world.locations.find(
         (l) => l.id === destId
       );
@@ -198,7 +244,7 @@ function renderGlobalStatusBar(
   // Undock/Dock button
   const dockBtn = document.createElement('button');
   dockBtn.style.padding = '0.5rem 1rem';
-  if (gameData.ship.location.status === 'docked') {
+  if (ship.location.status === 'docked') {
     dockBtn.textContent = 'Undock';
     dockBtn.addEventListener('click', () => callbacks.onUndock());
   } else {
@@ -208,17 +254,17 @@ function renderGlobalStatusBar(
   actionsDiv.appendChild(dockBtn);
 
   // Buy Fuel button (when docked at refuel station with fuel < 100%)
-  if (gameData.ship.location.status === 'docked') {
-    const dockedAt = gameData.ship.location.dockedAt;
+  if (ship.location.status === 'docked') {
+    const dockedAt = ship.location.dockedAt;
     const location = gameData.world.locations.find((l) => l.id === dockedAt);
 
-    if (location?.services.includes('refuel') && gameData.ship.fuel < 100) {
-      const fuelNeeded = 100 - gameData.ship.fuel;
+    if (location?.services.includes('refuel') && ship.fuel < 100) {
+      const fuelNeeded = 100 - ship.fuel;
       const cost = Math.round(fuelNeeded * 5);
       const refuelBtn = document.createElement('button');
       refuelBtn.textContent = `Buy Fuel (${Math.round(fuelNeeded)}% → ${cost} cr)`;
       refuelBtn.style.padding = '0.5rem 1rem';
-      refuelBtn.disabled = gameData.ship.credits < cost;
+      refuelBtn.disabled = gameData.credits < cost;
       refuelBtn.addEventListener('click', () => callbacks.onBuyFuel());
       actionsDiv.appendChild(refuelBtn);
     }
@@ -226,7 +272,7 @@ function renderGlobalStatusBar(
 
   // Advance Day button (only when docked with no contract)
   const canAdvanceDay =
-    gameData.ship.location.status === 'docked' && !gameData.activeContract;
+    ship.location.status === 'docked' && !ship.activeContract;
 
   if (canAdvanceDay) {
     const advanceDayBtn = document.createElement('button');

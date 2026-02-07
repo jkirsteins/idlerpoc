@@ -1,4 +1,4 @@
-import type { Ship, GameData, CrewMember } from './models';
+import type { Ship, CrewMember } from './models';
 import { getShipClass } from './shipClasses';
 import { getEquipmentDefinition } from './equipment';
 import { getEngineDefinition } from './engines';
@@ -107,9 +107,7 @@ export function shipHasGravity(ship: Ship): boolean {
 /**
  * Apply gravity tick accumulation during flight
  */
-export function applyGravityTick(gameData: GameData): void {
-  const { ship } = gameData;
-
+export function applyGravityTick(ship: Ship): void {
   // Only accumulate during flight
   if (ship.location.status !== 'in_flight') return;
 
@@ -167,11 +165,9 @@ export function applyGravityTick(gameData: GameData): void {
  * Apply gravity recovery when docked at a planet/moon
  */
 export function applyGravityRecovery(
-  gameData: GameData,
+  ship: Ship,
   gameSecondsElapsed: number
 ): void {
-  const { ship } = gameData;
-
   // Only recover when docked
   if (ship.location.status !== 'docked') return;
 

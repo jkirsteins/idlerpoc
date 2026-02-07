@@ -1,10 +1,15 @@
 import './style.css';
 import type { ShipClassId, SkillId, GameData, CrewEquipmentId } from './models';
-import { createNewGame, generateHireableCrew } from './gameFactory';
+import { getActiveShip } from './models';
+import {
+  createNewGame,
+  generateHireableCrewByLocation,
+  createAdditionalShip,
+} from './gameFactory';
 import { saveGame, loadGame, clearGame } from './storage';
 import { render, type GameState, type RendererCallbacks } from './ui/renderer';
 import type { WizardStep, WizardDraft } from './ui/wizard';
-import { applyTick, deductCrewSalaries } from './gameTick';
+import { applyTick, deductFleetSalaries } from './gameTick';
 import { getLevelForXP } from './levelSystem';
 import { deduceRoleFromSkills } from './crewRoles';
 import {
@@ -26,6 +31,7 @@ import {
   applyGravityRecovery,
   getGravityDegradationLevel,
 } from './gravitySystem';
+import { getShipClass } from './shipClasses';
 
 const app = document.getElementById('app')!;
 
@@ -38,19 +44,17 @@ let tickInterval: number | null = null;
 function fastForwardTicks(gameData: GameData): void {
   const now = Date.now();
   const elapsedMs = now - gameData.lastTickTimestamp;
-  const elapsedTicks = Math.floor(elapsedMs / 1000); // 1 tick = 1 second
+  const elapsedTicks = Math.floor(elapsedMs / 1000);
 
   if (elapsedTicks > 0) {
     console.log(`Fast-forwarding ${elapsedTicks} ticks...`);
 
-    // Apply up to 1000 ticks at once (safety limit)
     const ticksToApply = Math.min(elapsedTicks, 1000);
 
     for (let i = 0; i < ticksToApply; i++) {
       applyTick(gameData);
     }
 
-    // Update timestamp to current time
     gameData.lastTickTimestamp = now;
     saveGame(gameData);
 
@@ -61,7 +65,6 @@ function fastForwardTicks(gameData: GameData): void {
 function initializeState(): GameState {
   const gameData = loadGame();
   if (gameData) {
-    // Fast-forward ticks based on elapsed real-world time
     fastForwardTicks(gameData);
     return { phase: 'playing', gameData, activeTab: 'ship' };
   }
@@ -105,17 +108,16 @@ const callbacks: RendererCallbacks = {
 
   onCrewAssign: (crewId, roomId) => {
     if (state.phase !== 'playing') return;
+    const ship = getActiveShip(state.gameData);
 
-    // Remove crew from any existing room
-    for (const room of state.gameData.ship.rooms) {
+    for (const room of ship.rooms) {
       const index = room.assignedCrewIds.indexOf(crewId);
       if (index !== -1) {
         room.assignedCrewIds.splice(index, 1);
       }
     }
 
-    // Add crew to target room
-    const targetRoom = state.gameData.ship.rooms.find((r) => r.id === roomId);
+    const targetRoom = ship.rooms.find((r) => r.id === roomId);
     if (targetRoom && !targetRoom.assignedCrewIds.includes(crewId)) {
       targetRoom.assignedCrewIds.push(crewId);
     }
@@ -126,8 +128,9 @@ const callbacks: RendererCallbacks = {
 
   onCrewUnassign: (crewId, roomId) => {
     if (state.phase !== 'playing') return;
+    const ship = getActiveShip(state.gameData);
 
-    const room = state.gameData.ship.rooms.find((r) => r.id === roomId);
+    const room = ship.rooms.find((r) => r.id === roomId);
     if (room) {
       const index = room.assignedCrewIds.indexOf(crewId);
       if (index !== -1) {
@@ -141,13 +144,17 @@ const callbacks: RendererCallbacks = {
 
   onUndock: () => {
     if (state.phase !== 'playing') return;
+    const ship = getActiveShip(state.gameData);
 
-    state.gameData.ship.location.status = 'in_flight';
-    delete state.gameData.ship.location.dockedAt;
+    // Check minimum crew on bridge
+    const bridge = ship.rooms.find((r) => r.type === 'bridge');
+    if (!bridge || bridge.assignedCrewIds.length === 0) return;
 
-    // Auto-start engine warmup when undocking
-    state.gameData.ship.engine.state = 'warming_up';
-    state.gameData.ship.engine.warmupProgress = 0;
+    ship.location.status = 'in_flight';
+    delete ship.location.dockedAt;
+
+    ship.engine.state = 'warming_up';
+    ship.engine.warmupProgress = 0;
 
     saveGame(state.gameData);
     renderApp();
@@ -155,13 +162,13 @@ const callbacks: RendererCallbacks = {
 
   onDock: () => {
     if (state.phase !== 'playing') return;
+    const ship = getActiveShip(state.gameData);
 
-    state.gameData.ship.location.status = 'docked';
-    state.gameData.ship.location.dockedAt = 'earth';
+    ship.location.status = 'docked';
+    ship.location.dockedAt = 'earth';
 
-    // Turn off engine when docking
-    state.gameData.ship.engine.state = 'off';
-    state.gameData.ship.engine.warmupProgress = 0;
+    ship.engine.state = 'off';
+    ship.engine.warmupProgress = 0;
 
     saveGame(state.gameData);
     renderApp();
@@ -169,10 +176,11 @@ const callbacks: RendererCallbacks = {
 
   onEngineOn: () => {
     if (state.phase !== 'playing') return;
-    if (state.gameData.ship.location.status === 'docked') return;
+    const ship = getActiveShip(state.gameData);
+    if (ship.location.status === 'docked') return;
 
-    state.gameData.ship.engine.state = 'warming_up';
-    state.gameData.ship.engine.warmupProgress = 0;
+    ship.engine.state = 'warming_up';
+    ship.engine.warmupProgress = 0;
 
     saveGame(state.gameData);
     renderApp();
@@ -180,9 +188,10 @@ const callbacks: RendererCallbacks = {
 
   onEngineOff: () => {
     if (state.phase !== 'playing') return;
+    const ship = getActiveShip(state.gameData);
 
-    state.gameData.ship.engine.state = 'off';
-    state.gameData.ship.engine.warmupProgress = 0;
+    ship.engine.state = 'off';
+    ship.engine.warmupProgress = 0;
 
     saveGame(state.gameData);
     renderApp();
@@ -210,8 +219,9 @@ const callbacks: RendererCallbacks = {
 
   onLevelUp: (crewId) => {
     if (state.phase !== 'playing') return;
+    const ship = getActiveShip(state.gameData);
 
-    const crew = state.gameData.ship.crew.find((c) => c.id === crewId);
+    const crew = ship.crew.find((c) => c.id === crewId);
     if (!crew) return;
 
     const newLevel = getLevelForXP(crew.xp);
@@ -228,15 +238,15 @@ const callbacks: RendererCallbacks = {
 
   onAssignSkillPoint: (crewId, skillId) => {
     if (state.phase !== 'playing') return;
+    const ship = getActiveShip(state.gameData);
 
-    const crew = state.gameData.ship.crew.find((c) => c.id === crewId);
+    const crew = ship.crew.find((c) => c.id === crewId);
     if (!crew) return;
 
     if (crew.unspentSkillPoints > 0 && crew.skills[skillId as SkillId] < 10) {
       crew.skills[skillId as SkillId]++;
       crew.unspentSkillPoints--;
 
-      // Update role based on new skill distribution (unless captain)
       if (!crew.isCaptain) {
         crew.role = deduceRoleFromSkills(crew.skills);
       }
@@ -248,19 +258,17 @@ const callbacks: RendererCallbacks = {
 
   onEquipItem: (crewId, itemId) => {
     if (state.phase !== 'playing') return;
+    const ship = getActiveShip(state.gameData);
 
-    const crew = state.gameData.ship.crew.find((c) => c.id === crewId);
+    const crew = ship.crew.find((c) => c.id === crewId);
     if (!crew) return;
 
-    const itemIndex = state.gameData.ship.cargo.findIndex(
-      (i) => i.id === itemId
-    );
+    const itemIndex = ship.cargo.findIndex((i) => i.id === itemId);
     if (itemIndex === -1) return;
 
-    const item = state.gameData.ship.cargo[itemIndex];
+    const item = ship.cargo[itemIndex];
 
-    // Move item from cargo to crew equipment
-    state.gameData.ship.cargo.splice(itemIndex, 1);
+    ship.cargo.splice(itemIndex, 1);
     crew.equipment.push(item);
 
     saveGame(state.gameData);
@@ -269,8 +277,9 @@ const callbacks: RendererCallbacks = {
 
   onUnequipItem: (crewId, itemId) => {
     if (state.phase !== 'playing') return;
+    const ship = getActiveShip(state.gameData);
 
-    const crew = state.gameData.ship.crew.find((c) => c.id === crewId);
+    const crew = ship.crew.find((c) => c.id === crewId);
     if (!crew) return;
 
     const itemIndex = crew.equipment.findIndex((i) => i.id === itemId);
@@ -278,9 +287,8 @@ const callbacks: RendererCallbacks = {
 
     const item = crew.equipment[itemIndex];
 
-    // Move item from crew equipment to cargo
     crew.equipment.splice(itemIndex, 1);
-    state.gameData.ship.cargo.push(item);
+    ship.cargo.push(item);
 
     saveGame(state.gameData);
     renderApp();
@@ -288,8 +296,9 @@ const callbacks: RendererCallbacks = {
 
   onAcceptQuest: (questId) => {
     if (state.phase !== 'playing') return;
+    const ship = getActiveShip(state.gameData);
 
-    const currentLocation = state.gameData.ship.location.dockedAt;
+    const currentLocation = ship.location.dockedAt;
     if (!currentLocation) return;
 
     const locationQuests =
@@ -297,64 +306,73 @@ const callbacks: RendererCallbacks = {
     const quest = locationQuests.find((q) => q.id === questId);
     if (!quest) return;
 
-    // Remove the accepted quest from the location's quest list
     const questIndex = locationQuests.indexOf(quest);
     if (questIndex !== -1) {
       locationQuests.splice(questIndex, 1);
     }
 
-    acceptQuest(state.gameData, quest);
+    acceptQuest(state.gameData, ship, quest);
     saveGame(state.gameData);
     renderApp();
   },
 
   onAdvanceDay: () => {
     if (state.phase !== 'playing') return;
-    if (state.gameData.ship.location.status !== 'docked') return;
-    if (state.gameData.activeContract) return;
+    const ship = getActiveShip(state.gameData);
+    if (ship.location.status !== 'docked') return;
+    if (ship.activeContract) return;
 
-    // Deduct crew salaries for 1 day (48 ticks)
-    deductCrewSalaries(state.gameData.ship, TICKS_PER_DAY);
+    // Deduct fleet-wide crew salaries for 1 day (48 ticks)
+    deductFleetSalaries(state.gameData, TICKS_PER_DAY);
 
-    // Store previous exposure values to detect recovery threshold crossings
-    const previousExposures = new Map<string, number>();
-    for (const crew of state.gameData.ship.crew) {
-      previousExposures.set(crew.id, crew.zeroGExposure);
-    }
+    // Process ALL ships for day advancement (including in-flight)
+    for (const s of state.gameData.ships) {
+      // Gravity recovery for docked ships
+      if (s.location.status === 'docked') {
+        const previousExposures = new Map<string, number>();
+        for (const crew of s.crew) {
+          previousExposures.set(crew.id, crew.zeroGExposure);
+        }
 
-    // Apply gravity recovery (1 day)
-    applyGravityRecovery(state.gameData, GAME_SECONDS_PER_DAY);
+        applyGravityRecovery(s, GAME_SECONDS_PER_DAY);
 
-    // Check for recovery threshold crossings and log them
-    for (const crew of state.gameData.ship.crew) {
-      const previousExposure = previousExposures.get(crew.id) || 0;
-      const previousLevel = getGravityDegradationLevel(previousExposure);
-      const currentLevel = getGravityDegradationLevel(crew.zeroGExposure);
+        for (const crew of s.crew) {
+          const previousExposure = previousExposures.get(crew.id) || 0;
+          const previousLevel = getGravityDegradationLevel(previousExposure);
+          const currentLevel = getGravityDegradationLevel(crew.zeroGExposure);
 
-      // Only log if we recovered PAST a threshold (went to a better level)
-      if (
-        previousLevel !== 'none' &&
-        currentLevel !== previousLevel &&
-        previousExposure > crew.zeroGExposure
-      ) {
-        const message =
-          currentLevel === 'none'
-            ? `${crew.name} has fully recovered from zero-g atrophy.`
-            : `${crew.name} has recovered from ${previousLevel} to ${currentLevel} zero-g atrophy.`;
+          if (
+            previousLevel !== 'none' &&
+            currentLevel !== previousLevel &&
+            previousExposure > crew.zeroGExposure
+          ) {
+            const message =
+              currentLevel === 'none'
+                ? `${crew.name} has fully recovered from zero-g atrophy.`
+                : `${crew.name} has recovered from ${previousLevel} to ${currentLevel} zero-g atrophy.`;
 
-        addLog(
-          state.gameData.log,
-          state.gameData.gameTime,
-          'gravity_warning',
-          message
-        );
+            addLog(
+              state.gameData.log,
+              state.gameData.gameTime,
+              'gravity_warning',
+              message,
+              s.name
+            );
+          }
+        }
+      }
+
+      // Advance in-flight ships by 48 ticks
+      if (s.location.status === 'in_flight') {
+        for (let i = 0; i < TICKS_PER_DAY; i++) {
+          applyTick(state.gameData);
+        }
       }
     }
 
     // Advance to the start of the next day
     state.gameData.gameTime = advanceToNextDayStart(state.gameData.gameTime);
 
-    // Log day advancement
     addLog(
       state.gameData.log,
       state.gameData.gameTime,
@@ -364,28 +382,40 @@ const callbacks: RendererCallbacks = {
 
     // Regenerate quests for all locations
     state.gameData.availableQuests = generateAllLocationQuests(
-      state.gameData.ship,
+      ship,
       state.gameData.world
     );
     state.gameData.lastQuestRegenDay = getDaysSinceEpoch(
       state.gameData.gameTime
     );
 
-    // Regenerate hireable crew
-    state.gameData.hireableCrew = generateHireableCrew();
-
-    // Check for unpaid crew and log them (they'll depart if player tries to undock)
-    const unpaidCrew = state.gameData.ship.crew.filter(
-      (c) => c.unpaidTicks > 0 && !c.isCaptain
+    // Regenerate hireable crew only for stations with docked ships
+    const dockedIds: string[] = [];
+    for (const s of state.gameData.ships) {
+      if (s.location.status === 'docked' && s.location.dockedAt) {
+        dockedIds.push(s.location.dockedAt);
+      }
+    }
+    state.gameData.hireableCrewByLocation = generateHireableCrewByLocation(
+      state.gameData.world,
+      dockedIds
     );
-    if (unpaidCrew.length > 0) {
-      for (const crew of unpaidCrew) {
-        addLog(
-          state.gameData.log,
-          state.gameData.gameTime,
-          'crew_departed',
-          `${crew.name} has unpaid wages (${Math.ceil(crew.unpaidTicks / TICKS_PER_DAY)} days) and will depart if ship leaves port`
-        );
+
+    // Check for unpaid crew across all ships
+    for (const s of state.gameData.ships) {
+      const unpaidCrew = s.crew.filter(
+        (c) => c.unpaidTicks > 0 && !c.isCaptain
+      );
+      if (unpaidCrew.length > 0) {
+        for (const crew of unpaidCrew) {
+          addLog(
+            state.gameData.log,
+            state.gameData.gameTime,
+            'crew_departed',
+            `${crew.name} has unpaid wages (${Math.ceil(crew.unpaidTicks / TICKS_PER_DAY)} days) and will depart if ship leaves port`,
+            s.name
+          );
+        }
       }
     }
 
@@ -395,33 +425,37 @@ const callbacks: RendererCallbacks = {
 
   onDockAtNearestPort: () => {
     if (state.phase !== 'playing') return;
+    const ship = getActiveShip(state.gameData);
 
-    pauseContract(state.gameData);
+    pauseContract(ship);
     saveGame(state.gameData);
     renderApp();
   },
 
   onResumeContract: () => {
     if (state.phase !== 'playing') return;
+    const ship = getActiveShip(state.gameData);
 
-    resumeContract(state.gameData);
+    resumeContract(state.gameData, ship);
     saveGame(state.gameData);
     renderApp();
   },
 
   onAbandonContract: () => {
     if (state.phase !== 'playing') return;
+    const ship = getActiveShip(state.gameData);
 
-    abandonContract(state.gameData);
+    abandonContract(state.gameData, ship);
     saveGame(state.gameData);
     renderApp();
   },
 
   onBuyFuel: () => {
     if (state.phase !== 'playing') return;
-    if (state.gameData.ship.location.status !== 'docked') return;
+    const ship = getActiveShip(state.gameData);
+    if (ship.location.status !== 'docked') return;
 
-    const dockedLocationId = state.gameData.ship.location.dockedAt;
+    const dockedLocationId = ship.location.dockedAt;
     if (!dockedLocationId) return;
 
     const location = state.gameData.world.locations.find(
@@ -429,20 +463,21 @@ const callbacks: RendererCallbacks = {
     );
     if (!location || !location.services.includes('refuel')) return;
 
-    const fuelNeeded = 100 - state.gameData.ship.fuel;
+    const fuelNeeded = 100 - ship.fuel;
     if (fuelNeeded <= 0) return;
 
-    const cost = Math.round(fuelNeeded * 5); // 5 credits per percent
+    const cost = Math.round(fuelNeeded * 5);
 
-    if (state.gameData.ship.credits >= cost) {
-      state.gameData.ship.credits -= cost;
-      state.gameData.ship.fuel = 100;
+    if (state.gameData.credits >= cost) {
+      state.gameData.credits -= cost;
+      ship.fuel = 100;
 
       addLog(
         state.gameData.log,
         state.gameData.gameTime,
         'refueled',
-        `Purchased ${Math.round(fuelNeeded)}% fuel for ${cost} credits`
+        `Purchased ${Math.round(fuelNeeded)}% fuel for ${cost} credits`,
+        ship.name
       );
 
       saveGame(state.gameData);
@@ -452,10 +487,15 @@ const callbacks: RendererCallbacks = {
 
   onStartTrip: (destinationId: string) => {
     if (state.phase !== 'playing') return;
-    if (state.gameData.ship.location.status !== 'docked') return;
-    if (state.gameData.activeContract) return; // Can't start manual trip during contract
+    const ship = getActiveShip(state.gameData);
+    if (ship.location.status !== 'docked') return;
+    if (ship.activeContract) return;
 
-    const currentLocationId = state.gameData.ship.location.dockedAt;
+    // Check minimum crew on bridge
+    const bridge = ship.rooms.find((r) => r.type === 'bridge');
+    if (!bridge || bridge.assignedCrewIds.length === 0) return;
+
+    const currentLocationId = ship.location.dockedAt;
     if (!currentLocationId) return;
 
     const origin = state.gameData.world.locations.find(
@@ -467,35 +507,25 @@ const callbacks: RendererCallbacks = {
 
     if (!origin || !destination) return;
 
-    // Import initializeFlight dynamically
     import('./flightPhysics').then(({ initializeFlight }) => {
       if (state.phase !== 'playing') return;
 
-      // Undock and start flight
-      state.gameData.ship.location.status = 'in_flight';
-      delete state.gameData.ship.location.dockedAt;
+      ship.location.status = 'in_flight';
+      delete ship.location.dockedAt;
 
-      // Initialize flight
-      state.gameData.ship.location.flight = initializeFlight(
-        state.gameData.ship,
-        origin,
-        destination,
-        true // Dock on arrival for manual trips
-      );
+      ship.location.flight = initializeFlight(ship, origin, destination, true);
 
-      // Start engine warmup
-      state.gameData.ship.engine.state = 'warming_up';
-      state.gameData.ship.engine.warmupProgress = 0;
+      ship.engine.state = 'warming_up';
+      ship.engine.warmupProgress = 0;
 
-      // Log departure
       addLog(
         state.gameData.log,
         state.gameData.gameTime,
         'departure',
-        `Departed ${origin.name} en route to ${destination.name}`
+        `Departed ${origin.name} en route to ${destination.name}`,
+        ship.name
       );
 
-      // Close navigation view
       state.showNavigation = false;
 
       saveGame(state.gameData);
@@ -505,32 +535,33 @@ const callbacks: RendererCallbacks = {
 
   onHireCrew: (crewId) => {
     if (state.phase !== 'playing') return;
-    if (state.gameData.ship.location.status !== 'docked') return;
+    const ship = getActiveShip(state.gameData);
+    if (ship.location.status !== 'docked') return;
 
-    const crew = state.gameData.hireableCrew.find((c) => c.id === crewId);
+    const dockedAt = ship.location.dockedAt;
+    if (!dockedAt) return;
+
+    const locationCrew = state.gameData.hireableCrewByLocation[dockedAt] || [];
+    const crew = locationCrew.find((c) => c.id === crewId);
     if (!crew) return;
 
-    // Check if can afford
-    if (state.gameData.ship.credits < crew.hireCost) return;
+    if (state.gameData.credits < crew.hireCost) return;
 
-    // Deduct credits
-    state.gameData.ship.credits -= crew.hireCost;
+    state.gameData.credits -= crew.hireCost;
 
-    // Add to ship crew
-    state.gameData.ship.crew.push(crew);
+    ship.crew.push(crew);
 
-    // Remove from hireable crew
-    const index = state.gameData.hireableCrew.indexOf(crew);
+    const index = locationCrew.indexOf(crew);
     if (index !== -1) {
-      state.gameData.hireableCrew.splice(index, 1);
+      locationCrew.splice(index, 1);
     }
 
-    // Log hire
     addLog(
       state.gameData.log,
       state.gameData.gameTime,
       'crew_hired',
-      `Hired ${crew.name} (${crew.role}) for ${crew.hireCost} credits`
+      `Hired ${crew.name} (${crew.role}) for ${crew.hireCost} credits`,
+      ship.name
     );
 
     saveGame(state.gameData);
@@ -539,29 +570,27 @@ const callbacks: RendererCallbacks = {
 
   onBuyEquipment: (equipmentId: CrewEquipmentId) => {
     if (state.phase !== 'playing') return;
-    if (state.gameData.ship.location.status !== 'docked') return;
+    const ship = getActiveShip(state.gameData);
+    if (ship.location.status !== 'docked') return;
 
     const equipDef = getCrewEquipmentDefinition(equipmentId);
     if (!equipDef) return;
 
-    // Check if can afford
-    if (state.gameData.ship.credits < equipDef.value) return;
+    if (state.gameData.credits < equipDef.value) return;
 
-    // Deduct credits
-    state.gameData.ship.credits -= equipDef.value;
+    state.gameData.credits -= equipDef.value;
 
-    // Add to cargo
-    state.gameData.ship.cargo.push({
+    ship.cargo.push({
       id: Math.random().toString(36).substring(2, 11),
       definitionId: equipmentId,
     });
 
-    // Log purchase
     addLog(
       state.gameData.log,
       state.gameData.gameTime,
       'equipment_bought',
-      `Purchased ${equipDef.name} for ${equipDef.value} credits`
+      `Purchased ${equipDef.name} for ${equipDef.value} credits`,
+      ship.name
     );
 
     saveGame(state.gameData);
@@ -570,16 +599,15 @@ const callbacks: RendererCallbacks = {
 
   onSellEquipment: (itemId: string) => {
     if (state.phase !== 'playing') return;
-    if (state.gameData.ship.location.status !== 'docked') return;
+    const ship = getActiveShip(state.gameData);
+    if (ship.location.status !== 'docked') return;
 
-    // Check if item is in cargo
-    let itemIndex = state.gameData.ship.cargo.findIndex((i) => i.id === itemId);
+    let itemIndex = ship.cargo.findIndex((i) => i.id === itemId);
     const isInCargo = itemIndex !== -1;
-    let item = isInCargo ? state.gameData.ship.cargo[itemIndex] : null;
+    let item = isInCargo ? ship.cargo[itemIndex] : null;
 
-    // If not in cargo, check crew equipment
     if (!item) {
-      for (const crew of state.gameData.ship.crew) {
+      for (const crew of ship.crew) {
         itemIndex = crew.equipment.findIndex((i) => i.id === itemId);
         if (itemIndex !== -1) {
           item = crew.equipment[itemIndex];
@@ -588,8 +616,7 @@ const callbacks: RendererCallbacks = {
         }
       }
     } else {
-      // Remove from cargo
-      state.gameData.ship.cargo.splice(itemIndex, 1);
+      ship.cargo.splice(itemIndex, 1);
     }
 
     if (!item) return;
@@ -597,15 +624,111 @@ const callbacks: RendererCallbacks = {
     const equipDef = getCrewEquipmentDefinition(item.definitionId);
     const sellPrice = Math.floor(equipDef.value * 0.5);
 
-    // Add credits
-    state.gameData.ship.credits += sellPrice;
+    state.gameData.credits += sellPrice;
 
-    // Log sale
     addLog(
       state.gameData.log,
       state.gameData.gameTime,
       'equipment_sold',
-      `Sold ${equipDef.name} for ${sellPrice} credits`
+      `Sold ${equipDef.name} for ${sellPrice} credits`,
+      ship.name
+    );
+
+    saveGame(state.gameData);
+    renderApp();
+  },
+
+  onSelectShip: (shipId: string) => {
+    if (state.phase !== 'playing') return;
+    const ship = state.gameData.ships.find((s) => s.id === shipId);
+    if (!ship) return;
+
+    state.gameData.activeShipId = shipId;
+    saveGame(state.gameData);
+    renderApp();
+  },
+
+  onBuyShip: (classId: string, shipName: string) => {
+    if (state.phase !== 'playing') return;
+    const activeShip = getActiveShip(state.gameData);
+    if (activeShip.location.status !== 'docked') return;
+
+    const shipClass = getShipClass(classId as ShipClassId);
+    if (!shipClass) return;
+
+    // Check unlock threshold
+    if (state.gameData.lifetimeCreditsEarned < shipClass.unlockThreshold)
+      return;
+
+    // Check credits
+    if (state.gameData.credits < shipClass.price) return;
+
+    state.gameData.credits -= shipClass.price;
+
+    const stationId = activeShip.location.dockedAt!;
+    const newShip = createAdditionalShip(
+      shipName,
+      classId as ShipClassId,
+      stationId
+    );
+    state.gameData.ships.push(newShip);
+
+    addLog(
+      state.gameData.log,
+      state.gameData.gameTime,
+      'equipment_bought',
+      `Purchased new ship: ${shipClass.name} for ${shipClass.price.toLocaleString()} credits`
+    );
+
+    saveGame(state.gameData);
+    renderApp();
+  },
+
+  onTransferCrew: (crewId: string, fromShipId: string, toShipId: string) => {
+    if (state.phase !== 'playing') return;
+
+    const fromShip = state.gameData.ships.find((s) => s.id === fromShipId);
+    const toShip = state.gameData.ships.find((s) => s.id === toShipId);
+    if (!fromShip || !toShip) return;
+
+    // Both ships must be docked at same station
+    if (
+      fromShip.location.status !== 'docked' ||
+      toShip.location.status !== 'docked' ||
+      fromShip.location.dockedAt !== toShip.location.dockedAt
+    )
+      return;
+
+    const crewIndex = fromShip.crew.findIndex((c) => c.id === crewId);
+    if (crewIndex === -1) return;
+
+    const crew = fromShip.crew[crewIndex];
+
+    // Cannot transfer captain
+    if (crew.isCaptain) return;
+
+    // Cannot leave ship with 0 crew if it has an active contract
+    if (fromShip.crew.length <= 1 && fromShip.activeContract) return;
+
+    // Remove from source ship
+    fromShip.crew.splice(crewIndex, 1);
+
+    // Remove from any rooms on source ship
+    for (const room of fromShip.rooms) {
+      const idx = room.assignedCrewIds.indexOf(crewId);
+      if (idx !== -1) {
+        room.assignedCrewIds.splice(idx, 1);
+      }
+    }
+
+    // Add to target ship
+    toShip.crew.push(crew);
+
+    addLog(
+      state.gameData.log,
+      state.gameData.gameTime,
+      'crew_hired',
+      `${crew.name} transferred from ${fromShip.name} to ${toShip.name}`
     );
 
     saveGame(state.gameData);
@@ -625,12 +748,11 @@ window.addEventListener('wizard-next', ((
 }) as EventListener);
 
 function startTickSystem(): void {
-  if (tickInterval !== null) return; // Already running
+  if (tickInterval !== null) return;
 
   tickInterval = window.setInterval(() => {
     if (state.phase === 'playing') {
       const changed = applyTick(state.gameData);
-      // Update timestamp after each tick
       state.gameData.lastTickTimestamp = Date.now();
       if (changed) {
         saveGame(state.gameData);
@@ -650,7 +772,6 @@ function stopTickSystem(): void {
 function renderApp(): void {
   render(app, state, callbacks);
 
-  // Manage tick system based on game phase
   if (state.phase === 'playing') {
     startTickSystem();
   } else {

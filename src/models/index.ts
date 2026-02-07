@@ -198,17 +198,18 @@ export interface Room {
 }
 
 export interface Ship {
+  id: string;
   name: string;
   classId: ShipClassId;
   rooms: Room[];
   crew: CrewMember[];
   fuel: number;
-  credits: number;
   equipment: EquipmentInstance[];
   equipmentSlots: EquipmentSlotDef[];
   location: ShipLocation;
   engine: EngineInstance;
   cargo: CrewEquipmentInstance[];
+  activeContract: ActiveContract | null;
 }
 
 export type QuestType =
@@ -265,17 +266,27 @@ export interface LogEntry {
   gameTime: number;
   type: LogEntryType;
   message: string;
+  shipName?: string;
 }
 
 export interface GameData {
-  ship: Ship;
+  ships: Ship[];
+  activeShipId: string;
+  credits: number;
+  lifetimeCreditsEarned: number;
   world: World;
   createdAt: number;
   gameTime: number; // elapsed game-seconds since epoch
   availableQuests: Record<string, Quest[]>; // key = location ID
-  activeContract: ActiveContract | null;
   log: LogEntry[];
   lastTickTimestamp: number; // real-world timestamp of last tick (milliseconds)
   lastQuestRegenDay: number; // game day when quests were last generated
-  hireableCrew: CrewMember[]; // Available crew for hire at current station
+  hireableCrewByLocation: Record<string, CrewMember[]>; // key = location ID
+}
+
+/**
+ * Get the currently selected ship from fleet
+ */
+export function getActiveShip(gameData: GameData): Ship {
+  return gameData.ships.find((s) => s.id === gameData.activeShipId)!;
 }

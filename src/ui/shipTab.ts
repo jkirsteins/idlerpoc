@@ -1,4 +1,5 @@
 import type { GameData, Room, CrewMember } from '../models';
+import { getActiveShip } from '../models';
 import { getShipClass } from '../shipClasses';
 import { getRoomDefinition } from '../rooms';
 import { getCrewRoleName, getCrewRoleDefinition } from '../crewRoles';
@@ -43,7 +44,8 @@ export function renderShipTab(
   container.appendChild(renderPowerBar(gameData));
 
   // Torch ship status bars (Class III+)
-  const engineDef = getEngineDefinition(gameData.ship.engine.definitionId);
+  const ship = getActiveShip(gameData);
+  const engineDef = getEngineDefinition(ship.engine.definitionId);
   if (engineDef.radiationOutput > 0) {
     container.appendChild(renderRadiationBar(gameData));
   }
@@ -70,7 +72,8 @@ export function renderShipTab(
 }
 
 function renderFuelBar(gameData: GameData): HTMLElement {
-  const fuel = gameData.ship.fuel;
+  const ship = getActiveShip(gameData);
+  const fuel = ship.fuel;
   let colorClass = 'bar-good';
   if (fuel <= 20) {
     colorClass = 'bar-danger';
@@ -82,7 +85,8 @@ function renderFuelBar(gameData: GameData): HTMLElement {
 }
 
 function renderPowerBar(gameData: GameData): HTMLElement {
-  const powerStatus = computePowerStatus(gameData.ship);
+  const ship = getActiveShip(gameData);
+  const powerStatus = computePowerStatus(ship);
 
   let label = 'POWER';
   switch (powerStatus.powerSource) {
@@ -121,12 +125,13 @@ function renderPowerBar(gameData: GameData): HTMLElement {
 }
 
 function renderRadiationBar(gameData: GameData): HTMLElement {
-  const engineDef = getEngineDefinition(gameData.ship.engine.definitionId);
+  const ship = getActiveShip(gameData);
+  const engineDef = getEngineDefinition(ship.engine.definitionId);
   const engineRadiation = engineDef.radiationOutput || 0;
 
   // Calculate total shielding
   let totalShielding = 0;
-  for (const eq of gameData.ship.equipment) {
+  for (const eq of ship.equipment) {
     const eqDef = getEquipmentDefinition(eq.definitionId);
     if (eqDef?.radiationShielding) {
       const effectiveness = 1 - eq.degradation / 200;
@@ -146,7 +151,7 @@ function renderRadiationBar(gameData: GameData): HTMLElement {
   }
 
   const valueLabel =
-    gameData.ship.engine.state === 'online'
+    ship.engine.state === 'online'
       ? `${netRadiation.toFixed(0)} rad (${engineRadiation.toFixed(0)} - ${totalShielding.toFixed(0)} shield)`
       : 'ENGINE OFF';
 
@@ -154,12 +159,13 @@ function renderRadiationBar(gameData: GameData): HTMLElement {
 }
 
 function renderHeatBar(gameData: GameData): HTMLElement {
-  const engineDef = getEngineDefinition(gameData.ship.engine.definitionId);
+  const ship = getActiveShip(gameData);
+  const engineDef = getEngineDefinition(ship.engine.definitionId);
   const engineHeat = engineDef.wasteHeatOutput || 0;
 
   // Calculate total heat dissipation
   let totalDissipation = 0;
-  for (const eq of gameData.ship.equipment) {
+  for (const eq of ship.equipment) {
     const eqDef = getEquipmentDefinition(eq.definitionId);
     if (eqDef?.heatDissipation) {
       const effectiveness = 1 - eq.degradation / 200;
@@ -178,7 +184,7 @@ function renderHeatBar(gameData: GameData): HTMLElement {
   }
 
   const valueLabel =
-    gameData.ship.engine.state === 'online'
+    ship.engine.state === 'online'
       ? `${excessHeat.toFixed(0)} kW excess (${engineHeat.toFixed(0)} - ${totalDissipation.toFixed(0)} cooling)`
       : 'ENGINE OFF';
 
@@ -186,7 +192,8 @@ function renderHeatBar(gameData: GameData): HTMLElement {
 }
 
 function renderContainmentBar(gameData: GameData): HTMLElement {
-  const confinementEq = gameData.ship.equipment.find(
+  const ship = getActiveShip(gameData);
+  const confinementEq = ship.equipment.find(
     (eq) => eq.definitionId === 'mag_confinement'
   );
 
@@ -209,9 +216,7 @@ function renderContainmentBar(gameData: GameData): HTMLElement {
     colorClass = 'bar-warning';
   }
 
-  const reactorRoom = gameData.ship.rooms.find(
-    (r) => r.type === 'reactor_room'
-  );
+  const reactorRoom = ship.rooms.find((r) => r.type === 'reactor_room');
   const staffingNote =
     reactorRoom && reactorRoom.assignedCrewIds.length === 0
       ? ' [UNSTAFFED]'
@@ -261,10 +266,11 @@ function renderRoomGrid(
   gameData: GameData,
   callbacks: ShipTabCallbacks
 ): HTMLElement {
+  const ship = getActiveShip(gameData);
   const grid = document.createElement('div');
   grid.className = 'room-grid';
 
-  for (const room of gameData.ship.rooms) {
+  for (const room of ship.rooms) {
     grid.appendChild(renderRoomCard(room, gameData, callbacks));
   }
 
@@ -276,9 +282,10 @@ function renderRoomCard(
   gameData: GameData,
   callbacks: ShipTabCallbacks
 ): HTMLElement {
+  const ship = getActiveShip(gameData);
   const roomDef = getRoomDefinition(room.type);
   const assignedCrew = room.assignedCrewIds
-    .map((id) => gameData.ship.crew.find((c) => c.id === id))
+    .map((id) => ship.crew.find((c) => c.id === id))
     .filter((c): c is CrewMember => c !== undefined);
 
   const roomCard = document.createElement('div');
@@ -302,7 +309,7 @@ function renderRoomCard(
     powerBadge.className = 'room-power-badge';
 
     if (room.type === 'engine_room') {
-      const engineDef = getEngineDefinition(gameData.ship.engine.definitionId);
+      const engineDef = getEngineDefinition(ship.engine.definitionId);
       powerBadge.textContent = `+${engineDef.powerOutput} kW / -${roomDef.powerDraw} kW`;
     } else {
       powerBadge.textContent = `${roomDef.powerDraw} kW`;
@@ -313,7 +320,7 @@ function renderRoomCard(
 
   // Engine room shows equipped engine
   if (room.type === 'engine_room') {
-    const engineDef = getEngineDefinition(gameData.ship.engine.definitionId);
+    const engineDef = getEngineDefinition(ship.engine.definitionId);
 
     const equipmentSlot = document.createElement('div');
     equipmentSlot.className = 'room-equipment-slot';
@@ -347,11 +354,11 @@ function renderRoomCard(
     // Engine state indicator
     const engineState = document.createElement('div');
     engineState.className = 'equipment-item-state';
-    if (gameData.ship.engine.state === 'off') {
+    if (ship.engine.state === 'off') {
       engineState.textContent = '⚫ OFF';
       engineState.style.color = '#ff6b6b';
-    } else if (gameData.ship.engine.state === 'warming_up') {
-      engineState.textContent = `🟡 WARMING ${gameData.ship.engine.warmupProgress.toFixed(0)}%`;
+    } else if (ship.engine.state === 'warming_up') {
+      engineState.textContent = `🟡 WARMING ${ship.engine.warmupProgress.toFixed(0)}%`;
       engineState.style.color = '#ffc107';
     } else {
       engineState.textContent = '🟢 ONLINE';
@@ -363,8 +370,8 @@ function renderRoomCard(
     equipmentSlot.appendChild(engineItem);
 
     // Engine controls (on/off button)
-    const isDocked = gameData.ship.location.status === 'docked';
-    const bridgeRoom = gameData.ship.rooms.find((r) => r.type === 'bridge');
+    const isDocked = ship.location.status === 'docked';
+    const bridgeRoom = ship.rooms.find((r) => r.type === 'bridge');
     const hasControlCrew =
       assignedCrew.length > 0 ||
       (bridgeRoom && bridgeRoom.assignedCrewIds.length > 0);
@@ -373,7 +380,7 @@ function renderRoomCard(
       const controls = document.createElement('div');
       controls.className = 'room-equipment-controls';
 
-      if (gameData.ship.engine.state === 'off') {
+      if (ship.engine.state === 'off') {
         const onBtn = document.createElement('button');
         onBtn.className = 'small-button';
         onBtn.textContent = 'Turn On';
@@ -398,11 +405,11 @@ function renderRoomCard(
     roomCard.appendChild(equipmentSlot);
 
     // Show warmup progress bar if warming up
-    if (gameData.ship.engine.state === 'warming_up') {
+    if (ship.engine.state === 'warming_up') {
       const warmupBar = renderProgressBar(
         'WARMUP',
-        gameData.ship.engine.warmupProgress,
-        `${gameData.ship.engine.warmupProgress.toFixed(0)}%`,
+        ship.engine.warmupProgress,
+        `${ship.engine.warmupProgress.toFixed(0)}%`,
         'bar-good'
       );
       warmupBar.style.fontSize = '0.85em';
@@ -418,12 +425,12 @@ function renderRoomCard(
     automatedMsg.textContent = 'Automated';
     roomCard.appendChild(automatedMsg);
 
-    const shipClass = getShipClass(gameData.ship.classId);
+    const shipClass = getShipClass(ship.classId);
     const maxCapacity = shipClass?.cargoCapacity ?? 0;
 
     // For now, estimate cargo weight: assume each item is ~100 kg
     // TODO: Add actual weight property to equipment definitions
-    const currentCargo = gameData.ship.cargo.length * 100;
+    const currentCargo = ship.cargo.length * 100;
     const cargoPercent =
       maxCapacity > 0 ? (currentCargo / maxCapacity) * 100 : 0;
 
@@ -562,6 +569,7 @@ function renderRoomCard(
 }
 
 function renderGravityStatus(gameData: GameData): HTMLElement {
+  const ship = getActiveShip(gameData);
   const section = document.createElement('div');
   section.className = 'gravity-status-section';
 
@@ -569,7 +577,7 @@ function renderGravityStatus(gameData: GameData): HTMLElement {
   title.textContent = 'Gravity Status';
   section.appendChild(title);
 
-  const gravitySource = getGravitySource(gameData.ship);
+  const gravitySource = getGravitySource(ship);
 
   // Source line
   const sourceLine = document.createElement('div');
@@ -624,7 +632,7 @@ function renderGravityStatus(gameData: GameData): HTMLElement {
     }
 
     // Check for exercise module
-    const hasExerciseModule = gameData.ship.equipment.some((eq) => {
+    const hasExerciseModule = ship.equipment.some((eq) => {
       const def = getEquipmentDefinition(eq.definitionId);
       return def?.id === 'exercise_module';
     });
@@ -634,7 +642,7 @@ function renderGravityStatus(gameData: GameData): HTMLElement {
     }
 
     // Count crew with g_seats (just for display info)
-    const crewWithGSeats = gameData.ship.crew.filter((crew) =>
+    const crewWithGSeats = ship.crew.filter((crew) =>
       crew.equipment.some((eq) => eq.definitionId === 'g_seat')
     ).length;
 
@@ -676,6 +684,7 @@ function renderGravityStatus(gameData: GameData): HTMLElement {
 }
 
 function renderEquipmentSection(gameData: GameData): HTMLElement {
+  const ship = getActiveShip(gameData);
   const section = document.createElement('div');
   section.className = 'equipment-section';
 
@@ -686,7 +695,7 @@ function renderEquipmentSection(gameData: GameData): HTMLElement {
   const equipmentList = document.createElement('div');
   equipmentList.className = 'equipment-list';
 
-  for (const equipment of gameData.ship.equipment) {
+  for (const equipment of ship.equipment) {
     const equipDef = getEquipmentDefinition(equipment.definitionId);
     if (!equipDef) continue;
 
@@ -742,6 +751,7 @@ function renderStagingArea(
   gameData: GameData,
   callbacks: ShipTabCallbacks
 ): HTMLElement {
+  const ship = getActiveShip(gameData);
   const unassignedCrew = getUnassignedCrew(gameData);
 
   const staging = document.createElement('div');
@@ -807,7 +817,7 @@ function renderStagingArea(
       defaultOption.textContent = 'Assign to room...';
       select.appendChild(defaultOption);
 
-      for (const room of gameData.ship.rooms) {
+      for (const room of ship.rooms) {
         const roomDef = getRoomDefinition(room.type);
         if (!roomDef) continue;
 
@@ -843,12 +853,13 @@ function renderStagingArea(
 }
 
 function getUnassignedCrew(gameData: GameData): CrewMember[] {
+  const ship = getActiveShip(gameData);
   const assignedIds = new Set<string>();
-  for (const room of gameData.ship.rooms) {
+  for (const room of ship.rooms) {
     for (const crewId of room.assignedCrewIds) {
       assignedIds.add(crewId);
     }
   }
 
-  return gameData.ship.crew.filter((crew) => !assignedIds.has(crew.id));
+  return ship.crew.filter((crew) => !assignedIds.has(crew.id));
 }

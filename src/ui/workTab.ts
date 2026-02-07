@@ -1,4 +1,5 @@
 import type { GameData, Quest, FlightState } from '../models';
+import { getActiveShip } from '../models';
 import { formatDuration } from '../timeSystem';
 import { canAcceptQuest } from '../questGen';
 import { getGForce } from '../flightPhysics';
@@ -19,7 +20,8 @@ export function renderWorkTab(
   const container = document.createElement('div');
   container.className = 'work-tab';
 
-  const { ship, activeContract } = gameData;
+  const ship = getActiveShip(gameData);
+  const activeContract = ship.activeContract;
 
   console.log('renderWorkTab - status:', ship.location.status);
   console.log('renderWorkTab - activeContract:', activeContract);
@@ -56,7 +58,7 @@ function renderAvailableWork(
   const container = document.createElement('div');
   container.className = 'available-work';
 
-  const { ship } = gameData;
+  const ship = getActiveShip(gameData);
   const location = ship.location.dockedAt;
 
   console.log('Work tab - location:', location);
@@ -131,7 +133,7 @@ function renderQuestCard(
   const card = document.createElement('div');
   card.className = 'quest-card';
 
-  const { ship } = gameData;
+  const ship = getActiveShip(gameData);
   const destination = gameData.world.locations.find(
     (l) => l.id === quest.destination
   );
@@ -207,7 +209,7 @@ function renderQuestCard(
 
   // Calculate crew cost for this trip
   let totalCrewCost = 0;
-  for (const crew of gameData.ship.crew) {
+  for (const crew of ship.crew) {
     const roleDef = getCrewRoleDefinition(crew.role);
     if (roleDef) {
       totalCrewCost += roleDef.salary;
@@ -262,7 +264,8 @@ function renderActiveContract(
   const container = document.createElement('div');
   container.className = 'active-contract';
 
-  const { ship, activeContract } = gameData;
+  const ship = getActiveShip(gameData);
+  const activeContract = ship.activeContract;
 
   if (!activeContract) {
     return container;
@@ -437,7 +440,8 @@ function renderPausedContract(
   const container = document.createElement('div');
   container.className = 'paused-contract';
 
-  const { activeContract } = gameData;
+  const ship = getActiveShip(gameData);
+  const activeContract = ship.activeContract;
 
   if (!activeContract) {
     return container;

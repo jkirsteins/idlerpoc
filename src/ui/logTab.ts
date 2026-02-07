@@ -40,6 +40,15 @@ function renderLogEntry(entry: LogEntry): HTMLElement {
   timestamp.textContent = formatGameDateTime(entry.gameTime);
   entryDiv.appendChild(timestamp);
 
+  if (entry.shipName) {
+    const shipPrefix = document.createElement('span');
+    shipPrefix.className = 'log-ship-name';
+    shipPrefix.textContent = `[${entry.shipName}] `;
+    shipPrefix.style.color = '#4a9eff';
+    shipPrefix.style.fontWeight = 'bold';
+    entryDiv.appendChild(shipPrefix);
+  }
+
   const message = document.createElement('span');
   message.className = 'log-message';
   message.textContent = entry.message;

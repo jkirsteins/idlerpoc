@@ -17,7 +17,7 @@ export interface ShipClass {
   price: number;
   rooms: RoomType[];
   maxCrew: number;
-  unlocked: boolean;
+  unlockThreshold: number; // Lifetime credits earned to unlock (0 = always available)
   rangeLabel: string; // Display flavor text (e.g., 'LEO/MEO', 'Inner System', 'Jupiter+')
   cargoCapacity: number;
   equipmentSlots: number; // deprecated, use equipmentSlotDefs
@@ -39,7 +39,7 @@ export const SHIP_CLASSES: ShipClass[] = [
     price: 250_000,
     rooms: ['bridge', 'engine_room', 'cargo_hold'],
     maxCrew: 4,
-    unlocked: true,
+    unlockThreshold: 0,
     rangeLabel: 'LEO/MEO',
     cargoCapacity: 5000,
     equipmentSlots: 3,
@@ -64,7 +64,7 @@ export const SHIP_CLASSES: ShipClass[] = [
     price: 8_500_000,
     rooms: ['bridge', 'engine_room', 'cantina', 'cargo_hold', 'quarters'],
     maxCrew: 6,
-    unlocked: false,
+    unlockThreshold: 1_000_000,
     rangeLabel: 'Inner System',
     cargoCapacity: 40000,
     equipmentSlots: 4,
@@ -95,7 +95,7 @@ export const SHIP_CLASSES: ShipClass[] = [
       'armory',
     ],
     maxCrew: 8,
-    unlocked: false,
+    unlockThreshold: 1_000_000,
     rangeLabel: 'Inner System+',
     cargoCapacity: 60000,
     equipmentSlots: 5,
@@ -128,7 +128,7 @@ export const SHIP_CLASSES: ShipClass[] = [
       'quarters',
     ],
     maxCrew: 12,
-    unlocked: false,
+    unlockThreshold: 1_000_000,
     rangeLabel: 'Earth-Mars',
     cargoCapacity: 80000,
     equipmentSlots: 6,
@@ -161,7 +161,7 @@ export const SHIP_CLASSES: ShipClass[] = [
       'quarters',
     ],
     maxCrew: 8,
-    unlocked: false,
+    unlockThreshold: 1_000_000,
     rangeLabel: 'Inner System',
     cargoCapacity: 30000,
     equipmentSlots: 5,
@@ -196,7 +196,7 @@ export const SHIP_CLASSES: ShipClass[] = [
       'quarters',
     ],
     maxCrew: 10,
-    unlocked: false,
+    unlockThreshold: 50_000_000,
     rangeLabel: 'Mars',
     cargoCapacity: 100000,
     equipmentSlots: 8,
@@ -240,7 +240,7 @@ export const SHIP_CLASSES: ShipClass[] = [
       'point_defense_station',
     ],
     maxCrew: 16,
-    unlocked: false,
+    unlockThreshold: 50_000_000,
     rangeLabel: 'Jupiter+',
     cargoCapacity: 200000,
     equipmentSlots: 10,
@@ -275,6 +275,10 @@ export function getShipClass(id: ShipClassId): ShipClass | undefined {
   return SHIP_CLASSES.find((sc) => sc.id === id);
 }
 
-export function getUnlockedShipClasses(): ShipClass[] {
-  return SHIP_CLASSES.filter((sc) => sc.unlocked);
+export function getUnlockedShipClasses(
+  lifetimeCreditsEarned: number = 0
+): ShipClass[] {
+  return SHIP_CLASSES.filter(
+    (sc) => sc.unlockThreshold <= lifetimeCreditsEarned
+  );
 }

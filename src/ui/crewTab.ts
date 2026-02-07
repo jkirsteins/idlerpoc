@@ -1,4 +1,5 @@
 import type { GameData, CrewMember, CrewEquipmentId } from '../models';
+import { getActiveShip } from '../models';
 import type { TabbedViewCallbacks } from './tabbedView';
 import {
   getCrewEquipmentDefinition,
@@ -28,6 +29,8 @@ export function renderCrewTab(
   const container = document.createElement('div');
   container.className = 'crew-tab';
 
+  const ship = getActiveShip(gameData);
+
   const layout = document.createElement('div');
   layout.className = 'crew-list-detail';
 
@@ -36,8 +39,8 @@ export function renderCrewTab(
 
   // Right panel: crew detail
   const selectedCrew = selectedCrewId
-    ? gameData.ship.crew.find((c) => c.id === selectedCrewId)
-    : gameData.ship.crew[0];
+    ? ship.crew.find((c) => c.id === selectedCrewId)
+    : ship.crew[0];
 
   if (selectedCrew) {
     layout.appendChild(renderCrewDetail(gameData, selectedCrew, callbacks));
@@ -48,8 +51,8 @@ export function renderCrewTab(
   container.appendChild(layout);
 
   // Add hiring section if docked at a hiring station
-  if (gameData.ship.location.status === 'docked') {
-    const dockedLocationId = gameData.ship.location.dockedAt;
+  if (ship.location.status === 'docked') {
+    const dockedLocationId = ship.location.dockedAt;
     const location = gameData.world.locations.find(
       (l) => l.id === dockedLocationId
     );
@@ -71,6 +74,8 @@ function renderCrewList(
   selectedCrewId: string | undefined,
   callbacks: TabbedViewCallbacks
 ): HTMLElement {
+  const ship = getActiveShip(gameData);
+
   const panel = document.createElement('div');
   panel.className = 'crew-list-panel';
 
@@ -81,7 +86,7 @@ function renderCrewList(
   const list = document.createElement('div');
   list.className = 'crew-list';
 
-  for (const crew of gameData.ship.crew) {
+  for (const crew of ship.crew) {
     const item = document.createElement('div');
     item.className =
       crew.id === selectedCrewId ? 'crew-list-item selected' : 'crew-list-item';
@@ -624,6 +629,8 @@ function renderCargoSection(
   crew: CrewMember,
   callbacks: TabbedViewCallbacks
 ): HTMLElement {
+  const ship = getActiveShip(gameData);
+
   const section = document.createElement('div');
   section.className = 'crew-detail-section';
 
@@ -638,7 +645,7 @@ function renderCargoSection(
 
   // Calculate cargo space
   let usedSpace = 0;
-  for (const item of gameData.ship.cargo) {
+  for (const item of ship.cargo) {
     const def = getCrewEquipmentDefinition(item.definitionId);
     usedSpace += def.storageUnits;
   }
@@ -654,13 +661,13 @@ function renderCargoSection(
   const cargoList = document.createElement('div');
   cargoList.className = 'cargo-list';
 
-  if (gameData.ship.cargo.length === 0) {
+  if (ship.cargo.length === 0) {
     const empty = document.createElement('div');
     empty.className = 'cargo-empty';
     empty.textContent = 'Cargo hold is empty';
     cargoList.appendChild(empty);
   } else {
-    for (const item of gameData.ship.cargo) {
+    for (const item of ship.cargo) {
       const def = getCrewEquipmentDefinition(item.definitionId);
       const cargoItem = document.createElement('div');
       cargoItem.className = 'cargo-item';
@@ -700,6 +707,12 @@ function renderHiringSection(
   gameData: GameData,
   callbacks: TabbedViewCallbacks
 ): HTMLElement {
+  const ship = getActiveShip(gameData);
+  const dockedAt = ship.location.dockedAt;
+  const hireableCrew = dockedAt
+    ? gameData.hireableCrewByLocation[dockedAt] || []
+    : [];
+
   const section = document.createElement('div');
   section.className = 'hiring-section';
   section.style.marginTop = '2rem';
@@ -711,7 +724,7 @@ function renderHiringSection(
   title.textContent = '🤝 Hire Crew';
   section.appendChild(title);
 
-  if (gameData.hireableCrew.length === 0) {
+  if (hireableCrew.length === 0) {
     const empty = document.createElement('p');
     empty.textContent = 'No crew available for hire at this station.';
     section.appendChild(empty);
@@ -723,7 +736,7 @@ function renderHiringSection(
   candidatesList.style.flexDirection = 'column';
   candidatesList.style.gap = '1rem';
 
-  for (const candidate of gameData.hireableCrew) {
+  for (const candidate of hireableCrew) {
     const candidateDiv = document.createElement('div');
     candidateDiv.style.display = 'flex';
     candidateDiv.style.justifyContent = 'space-between';
@@ -768,7 +781,7 @@ function renderHiringSection(
 
     const hireButton = document.createElement('button');
     hireButton.textContent = 'Hire';
-    hireButton.disabled = gameData.ship.credits < candidate.hireCost;
+    hireButton.disabled = gameData.credits < candidate.hireCost;
     hireButton.addEventListener('click', () =>
       callbacks.onHireCrew(candidate.id)
     );
@@ -881,7 +894,7 @@ function renderBuyList(
 
     const buyButton = document.createElement('button');
     buyButton.textContent = 'Buy';
-    buyButton.disabled = gameData.ship.credits < equipDef.value;
+    buyButton.disabled = gameData.credits < equipDef.value;
     buyButton.addEventListener('click', () =>
       callbacks.onBuyEquipment(equipDef.id)
     );
@@ -898,6 +911,8 @@ function renderSellList(
   gameData: GameData,
   callbacks: TabbedViewCallbacks
 ): HTMLElement {
+  const ship = getActiveShip(gameData);
+
   const list = document.createElement('div');
   list.style.display = 'flex';
   list.style.flexDirection = 'column';
@@ -911,7 +926,7 @@ function renderSellList(
   }> = [];
 
   // Add cargo items
-  for (const item of gameData.ship.cargo) {
+  for (const item of ship.cargo) {
     sellableItems.push({
       id: item.id,
       definitionId: item.definitionId,
@@ -920,7 +935,7 @@ function renderSellList(
   }
 
   // Add crew equipment
-  for (const crew of gameData.ship.crew) {
+  for (const crew of ship.crew) {
     for (const item of crew.equipment) {
       sellableItems.push({
         id: item.id,
