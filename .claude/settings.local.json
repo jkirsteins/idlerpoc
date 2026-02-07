@@ -11,7 +11,9 @@
       "Bash(ls:*)",
       "Bash(sort:*)",
       "Bash(find:*)",
-      "Bash(tmux capture-pane:*)"
+      "Bash(tmux capture-pane:*)",
+      "Bash(npm run check:*)",
+      "Bash(npm run:*)"
     ]
   }
 }
