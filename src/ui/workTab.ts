@@ -1,6 +1,10 @@
 import type { GameData, Quest, FlightState } from '../models';
 import { getActiveShip } from '../models';
-import { formatDuration } from '../timeSystem';
+import {
+  formatDuration,
+  formatRealDuration,
+  GAME_SECONDS_PER_TICK,
+} from '../timeSystem';
 import { canAcceptQuest } from '../questGen';
 import { getGForce } from '../flightPhysics';
 import { getCrewRoleDefinition } from '../crewRoles';
@@ -101,6 +105,17 @@ function renderAvailableWork(
   heading.textContent = `Available Work at ${locationData.name}`;
   console.log('Work tab - Adding heading:', heading.textContent);
   container.appendChild(heading);
+
+  // Ship context
+  const shipContext = document.createElement('div');
+  shipContext.style.marginBottom = '0.75rem';
+  shipContext.style.padding = '0.5rem';
+  shipContext.style.background = 'rgba(74, 158, 255, 0.1)';
+  shipContext.style.border = '1px solid #4a9eff';
+  shipContext.style.borderRadius = '4px';
+  shipContext.style.fontSize = '0.9rem';
+  shipContext.innerHTML = `<span style="color: #aaa;">Assigning to:</span> <span style="color: #4a9eff; font-weight: bold;">${ship.name}</span>`;
+  container.appendChild(shipContext);
 
   // Quest list
   const questList = document.createElement('div');
@@ -343,7 +358,7 @@ function renderActiveContract(
 
   // Flight status
   if (flight) {
-    container.appendChild(renderFlightStatus(flight, gameData));
+    container.appendChild(renderFlightStatus(flight, gameData, ship));
   }
 
   // Fuel gauge
@@ -386,7 +401,8 @@ function renderActiveContract(
 
 function renderFlightStatus(
   flight: FlightState,
-  gameData: GameData
+  gameData: GameData,
+  ship: import('../models').Ship
 ): HTMLElement {
   const status = document.createElement('div');
   status.className = 'flight-status';
@@ -407,7 +423,6 @@ function renderFlightStatus(
   status.appendChild(route);
 
   // Regional threat status
-  const ship = getActiveShip(gameData);
   const currentKm = getShipPositionKm(ship, gameData.world);
   const positionDanger = calculatePositionDanger(currentKm, gameData.world);
   // Map position danger to a cumulative-like risk for threat level display
@@ -427,20 +442,26 @@ function renderFlightStatus(
   regionalStatus.textContent = `Crossing ${regionalNarrative.toLowerCase()}`;
   status.appendChild(regionalStatus);
 
-  // Phase
+  // Phase (or engine warmup)
   const phase = document.createElement('div');
   phase.className = 'flight-phase';
   let phaseText = '';
-  switch (flight.phase) {
-    case 'accelerating':
-      phaseText = 'Phase: Accelerating';
-      break;
-    case 'coasting':
-      phaseText = 'Phase: Coasting (0g)';
-      break;
-    case 'decelerating':
-      phaseText = 'Phase: Decelerating';
-      break;
+
+  if (ship.engine.state === 'warming_up') {
+    const warmupPercent = Math.round(ship.engine.warmupProgress);
+    phaseText = `Phase: Engine Warming Up (${warmupPercent}%)`;
+  } else {
+    switch (flight.phase) {
+      case 'accelerating':
+        phaseText = 'Phase: Accelerating';
+        break;
+      case 'coasting':
+        phaseText = 'Phase: Coasting (0g)';
+        break;
+      case 'decelerating':
+        phaseText = 'Phase: Decelerating';
+        break;
+    }
   }
   phase.textContent = phaseText;
   status.appendChild(phase);
@@ -452,10 +473,15 @@ function renderFlightStatus(
   gForceDiv.textContent = `G-force: ${gForce.toFixed(4)}g`;
   status.appendChild(gForceDiv);
 
-  // Velocity
+  // Velocity (adaptive display)
   const velocity = document.createElement('div');
   velocity.className = 'flight-velocity';
-  velocity.textContent = `Velocity: ${(flight.currentVelocity / 1000).toFixed(2)} km/s`;
+  const velocityMs = flight.currentVelocity;
+  if (velocityMs < 1000) {
+    velocity.textContent = `Velocity: ${velocityMs.toFixed(1)} m/s`;
+  } else {
+    velocity.textContent = `Velocity: ${(velocityMs / 1000).toFixed(2)} km/s`;
+  }
   status.appendChild(velocity);
 
   // Distance progress
@@ -477,11 +503,22 @@ function renderFlightStatus(
 
   status.appendChild(progressBar);
 
-  // ETA
+  // ETA (with real-time estimation)
   const remainingTime = flight.totalTime - flight.elapsedTime;
+  const remainingTicks = Math.ceil(remainingTime / GAME_SECONDS_PER_TICK);
+
+  // Add warmup overhead if engine is still warming up
+  let totalRealSeconds = remainingTicks;
+  if (ship.engine.state === 'warming_up') {
+    const remainingWarmup = 100 - ship.engine.warmupProgress;
+    // Estimate warmup ticks (simplified - actual rate depends on engine definition)
+    const estimatedWarmupTicks = Math.ceil(remainingWarmup / 5); // rough estimate
+    totalRealSeconds += estimatedWarmupTicks;
+  }
+
   const eta = document.createElement('div');
   eta.className = 'flight-eta';
-  eta.textContent = `ETA: ${formatDuration(remainingTime)}`;
+  eta.textContent = `ETA: ${formatDuration(remainingTime)} (~${formatRealDuration(totalRealSeconds)} real)`;
   status.appendChild(eta);
 
   return status;

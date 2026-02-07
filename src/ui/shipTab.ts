@@ -1,6 +1,6 @@
 import type { GameData, Room, CrewMember } from '../models';
 import { getActiveShip } from '../models';
-import { getShipClass } from '../shipClasses';
+import { getShipClass, SHIP_CLASSES } from '../shipClasses';
 import { getRoomDefinition } from '../rooms';
 import { getCrewRoleName, getCrewRoleDefinition } from '../crewRoles';
 import { computePowerStatus } from '../powerSystem';
@@ -19,6 +19,7 @@ export interface ShipTabCallbacks {
   onToggleNavigation: () => void;
   onBuyFuel: () => void;
   onStartTrip: (destinationId: string) => void;
+  onBuyShip?: (classId: string, shipName: string) => void;
 }
 
 export function renderShipTab(
@@ -67,6 +68,11 @@ export function renderShipTab(
 
   // Staging area (unassigned crew)
   container.appendChild(renderStagingArea(gameData, callbacks));
+
+  // Fleet management (when docked)
+  if (ship.location.status === 'docked' && callbacks.onBuyShip) {
+    container.appendChild(renderFleetManagement(gameData, callbacks));
+  }
 
   return container;
 }
@@ -862,4 +868,129 @@ function getUnassignedCrew(gameData: GameData): CrewMember[] {
   }
 
   return ship.crew.filter((crew) => !assignedIds.has(crew.id));
+}
+
+function renderFleetManagement(
+  gameData: GameData,
+  callbacks: ShipTabCallbacks
+): HTMLElement {
+  const section = document.createElement('div');
+  section.className = 'fleet-management-section';
+  section.style.marginTop = '1.5rem';
+  section.style.padding = '1rem';
+  section.style.background = 'rgba(0, 0, 0, 0.3)';
+  section.style.border = '1px solid #444';
+  section.style.borderRadius = '4px';
+
+  const title = document.createElement('h3');
+  title.textContent = 'Fleet Management';
+  title.style.marginBottom = '1rem';
+  section.appendChild(title);
+
+  const intro = document.createElement('p');
+  intro.textContent =
+    'Expand your fleet by purchasing additional ships. Each ship can operate independently.';
+  intro.style.marginBottom = '1rem';
+  intro.style.color = '#aaa';
+  intro.style.fontSize = '0.9rem';
+  section.appendChild(intro);
+
+  const shipList = document.createElement('div');
+  shipList.style.display = 'flex';
+  shipList.style.flexDirection = 'column';
+  shipList.style.gap = '0.75rem';
+
+  for (const shipClass of SHIP_CLASSES) {
+    const card = document.createElement('div');
+    card.style.padding = '0.75rem';
+    card.style.background = 'rgba(0, 0, 0, 0.4)';
+    card.style.border = '1px solid #555';
+    card.style.borderRadius = '4px';
+
+    const header = document.createElement('div');
+    header.style.display = 'flex';
+    header.style.justifyContent = 'space-between';
+    header.style.alignItems = 'center';
+    header.style.marginBottom = '0.5rem';
+
+    const nameDiv = document.createElement('div');
+    nameDiv.style.fontWeight = 'bold';
+    nameDiv.textContent = shipClass.name;
+    header.appendChild(nameDiv);
+
+    const priceDiv = document.createElement('div');
+    priceDiv.style.color = '#4a9eff';
+    priceDiv.style.fontWeight = 'bold';
+    priceDiv.textContent = `${shipClass.price.toLocaleString()} cr`;
+    header.appendChild(priceDiv);
+
+    card.appendChild(header);
+
+    const desc = document.createElement('div');
+    desc.style.fontSize = '0.85rem';
+    desc.style.color = '#aaa';
+    desc.style.marginBottom = '0.5rem';
+    desc.textContent = shipClass.description;
+    card.appendChild(desc);
+
+    const specs = document.createElement('div');
+    specs.style.fontSize = '0.8rem';
+    specs.style.color = '#888';
+    specs.style.marginBottom = '0.5rem';
+    specs.textContent = `Crew: ${shipClass.maxCrew} | Cargo: ${shipClass.cargoCapacity.toLocaleString()} kg | Range: ${shipClass.rangeLabel}`;
+    card.appendChild(specs);
+
+    // Buy button or reason
+    const isUnlocked =
+      gameData.lifetimeCreditsEarned >= shipClass.unlockThreshold;
+    const canAfford = gameData.credits >= shipClass.price;
+
+    if (!isUnlocked) {
+      const lockMsg = document.createElement('div');
+      lockMsg.style.fontSize = '0.85rem';
+      lockMsg.style.color = '#ff4444';
+      lockMsg.textContent = `🔒 Unlock at ${shipClass.unlockThreshold.toLocaleString()} lifetime credits earned`;
+      card.appendChild(lockMsg);
+    } else if (!canAfford) {
+      const affordMsg = document.createElement('div');
+      affordMsg.style.fontSize = '0.85rem';
+      affordMsg.style.color = '#ffa500';
+      affordMsg.textContent = `Insufficient funds (need ${(shipClass.price - gameData.credits).toLocaleString()} more credits)`;
+      card.appendChild(affordMsg);
+    } else {
+      const buyContainer = document.createElement('div');
+      buyContainer.style.display = 'flex';
+      buyContainer.style.gap = '0.5rem';
+      buyContainer.style.alignItems = 'center';
+
+      const nameInput = document.createElement('input');
+      nameInput.type = 'text';
+      nameInput.placeholder = 'Ship name...';
+      nameInput.style.flex = '1';
+      nameInput.style.padding = '0.5rem';
+      nameInput.style.background = 'rgba(0, 0, 0, 0.5)';
+      nameInput.style.border = '1px solid #666';
+      nameInput.style.borderRadius = '4px';
+      nameInput.style.color = '#fff';
+      buyContainer.appendChild(nameInput);
+
+      const buyBtn = document.createElement('button');
+      buyBtn.textContent = 'Buy Ship';
+      buyBtn.style.padding = '0.5rem 1rem';
+      buyBtn.addEventListener('click', () => {
+        const shipName = nameInput.value.trim() || `${shipClass.name}`;
+        if (callbacks.onBuyShip) {
+          callbacks.onBuyShip(shipClass.id, shipName);
+        }
+      });
+      buyContainer.appendChild(buyBtn);
+
+      card.appendChild(buyContainer);
+    }
+
+    shipList.appendChild(card);
+  }
+
+  section.appendChild(shipList);
+  return section;
 }

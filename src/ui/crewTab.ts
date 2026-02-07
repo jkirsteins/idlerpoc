@@ -188,6 +188,16 @@ function renderCrewDetail(
 
   panel.appendChild(header);
 
+  // Transfer crew option (when docked with multiple ships)
+  const ship = getActiveShip(gameData);
+  if (
+    !crew.isCaptain &&
+    ship.location.status === 'docked' &&
+    gameData.ships.length > 1
+  ) {
+    panel.appendChild(renderTransferCrewSection(gameData, crew, callbacks));
+  }
+
   // Stats section
   panel.appendChild(renderStatsSection(crew));
 
@@ -1002,4 +1012,98 @@ function renderSellList(
   }
 
   return list;
+}
+
+function renderTransferCrewSection(
+  gameData: GameData,
+  crew: CrewMember,
+  callbacks: TabbedViewCallbacks
+): HTMLElement {
+  const section = document.createElement('div');
+  section.className = 'transfer-crew-section';
+  section.style.padding = '0.75rem';
+  section.style.background = 'rgba(74, 158, 255, 0.1)';
+  section.style.border = '1px solid #4a9eff';
+  section.style.borderRadius = '4px';
+  section.style.marginBottom = '1rem';
+
+  const title = document.createElement('div');
+  title.textContent = 'Transfer Crew';
+  title.style.fontWeight = 'bold';
+  title.style.marginBottom = '0.5rem';
+  title.style.color = '#4a9eff';
+  section.appendChild(title);
+
+  const ship = getActiveShip(gameData);
+  const dockedLocationId = ship.location.dockedAt;
+
+  // Find other ships docked at the same location
+  const otherDockedShips = gameData.ships.filter(
+    (s) =>
+      s.id !== ship.id &&
+      s.location.status === 'docked' &&
+      s.location.dockedAt === dockedLocationId
+  );
+
+  if (otherDockedShips.length === 0) {
+    const noShips = document.createElement('div');
+    noShips.style.color = '#aaa';
+    noShips.style.fontSize = '0.85rem';
+    noShips.textContent = 'No other ships docked at this station.';
+    section.appendChild(noShips);
+    return section;
+  }
+
+  const controls = document.createElement('div');
+  controls.style.display = 'flex';
+  controls.style.gap = '0.5rem';
+  controls.style.alignItems = 'center';
+
+  const label = document.createElement('span');
+  label.textContent = 'Transfer to:';
+  label.style.fontSize = '0.9rem';
+  controls.appendChild(label);
+
+  const select = document.createElement('select');
+  select.style.flex = '1';
+  select.style.padding = '0.5rem';
+  select.style.background = 'rgba(0, 0, 0, 0.5)';
+  select.style.border = '1px solid #666';
+  select.style.borderRadius = '4px';
+  select.style.color = '#fff';
+
+  const placeholderOption = document.createElement('option');
+  placeholderOption.value = '';
+  placeholderOption.textContent = '-- Select ship --';
+  select.appendChild(placeholderOption);
+
+  for (const otherShip of otherDockedShips) {
+    const option = document.createElement('option');
+    option.value = otherShip.id;
+    option.textContent = otherShip.name;
+    select.appendChild(option);
+  }
+
+  controls.appendChild(select);
+
+  const transferBtn = document.createElement('button');
+  transferBtn.textContent = 'Transfer';
+  transferBtn.style.padding = '0.5rem 1rem';
+  transferBtn.disabled = true;
+
+  select.addEventListener('change', () => {
+    transferBtn.disabled = select.value === '';
+  });
+
+  transferBtn.addEventListener('click', () => {
+    const targetShipId = select.value;
+    if (targetShipId && callbacks.onTransferCrew) {
+      callbacks.onTransferCrew(crew.id, ship.id, targetShipId);
+    }
+  });
+
+  controls.appendChild(transferBtn);
+  section.appendChild(controls);
+
+  return section;
 }

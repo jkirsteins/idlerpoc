@@ -2046,3 +2046,80 @@ button:disabled:hover {
   color: #888;
   background: rgba(0, 0, 0, 0.5);
 }
+
+/* Header flight progress bar */
+.header-flight-progress {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 12px;
+}
+
+/* Day progress bar */
+.day-progress-bar {
+  width: 100%;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 2px;
+  margin-top: 4px;
+  overflow: hidden;
+}
+
+.day-progress-fill {
+  height: 100%;
+  background: #4a9eff;
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}
+
+/* Fleet panel */
+.fleet-panel {
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid #444;
+  border-radius: 4px;
+  padding: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.fleet-row {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.5rem;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.2s;
+  font-size: 0.85rem;
+}
+
+.fleet-row.active {
+  background: rgba(74, 158, 255, 0.2);
+  border: 1px solid #4a9eff;
+}
+
+.fleet-row:not(.active) {
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid transparent;
+}
+
+.fleet-row:not(.active):hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+/* Fleet management section */
+.fleet-management-section {
+  margin-top: 1.5rem;
+  padding: 1rem;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid #444;
+  border-radius: 4px;
+}
+
+/* Transfer crew section */
+.transfer-crew-section {
+  padding: 0.75rem;
+  background: rgba(74, 158, 255, 0.1);
+  border: 1px solid #4a9eff;
+  border-radius: 4px;
+  margin-bottom: 1rem;
+}

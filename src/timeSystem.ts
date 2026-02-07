@@ -125,3 +125,26 @@ export function gameSecondsToTicks(gameSeconds: number): number {
 export function ticksToGameSeconds(ticks: number): number {
   return ticks * GAME_SECONDS_PER_TICK;
 }
+
+/**
+ * Format real-world duration to human-readable string
+ */
+export function formatRealDuration(realSeconds: number): string {
+  if (realSeconds < 60) {
+    return `${Math.round(realSeconds)}s`;
+  } else if (realSeconds < 3600) {
+    const minutes = Math.floor(realSeconds / 60);
+    const seconds = Math.round(realSeconds % 60);
+    if (seconds === 0) {
+      return `${minutes}m`;
+    }
+    return `${minutes}m ${seconds}s`;
+  } else {
+    const hours = Math.floor(realSeconds / 3600);
+    const minutes = Math.round((realSeconds % 3600) / 60);
+    if (minutes === 0) {
+      return `${hours}h`;
+    }
+    return `${hours}h ${minutes}m`;
+  }
+}

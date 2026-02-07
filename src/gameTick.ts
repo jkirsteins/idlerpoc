@@ -141,8 +141,8 @@ function applyShipTick(gameData: GameData, ship: Ship): boolean {
       changed = true;
     }
 
-    // 2. Flight physics
-    if (ship.location.flight) {
+    // 2. Flight physics (only advance when engine is online)
+    if (ship.location.flight && ship.engine.state === 'online') {
       const flightComplete = advanceFlight(ship.location.flight);
 
       // Fuel consumption during burn phases

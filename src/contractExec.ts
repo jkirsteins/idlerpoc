@@ -290,13 +290,11 @@ export function completeLeg(gameData: GameData, ship: Ship): void {
         ship.name
       );
     } else {
-      addLog(
-        gameData.log,
-        gameTime,
-        'trip_complete',
-        `Trip ${activeContract.tripsCompleted}/${quest.tripsRequired === -1 ? '\u221e' : quest.tripsRequired} complete`,
-        ship.name
-      );
+      let message = `Trip ${activeContract.tripsCompleted}/${quest.tripsRequired === -1 ? '\u221e' : quest.tripsRequired} complete`;
+      if (quest.paymentOnCompletion > 0) {
+        message += `. Payment of ${quest.paymentOnCompletion.toLocaleString()} credits on contract completion.`;
+      }
+      addLog(gameData.log, gameTime, 'trip_complete', message, ship.name);
     }
 
     const isComplete =

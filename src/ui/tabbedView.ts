@@ -7,7 +7,12 @@ import { renderCrewTab } from './crewTab';
 import { renderWorkTab } from './workTab';
 import { renderLogTab } from './logTab';
 import { renderSettingsTab } from './settingsTab';
-import { formatGameDate, TICKS_PER_DAY } from '../timeSystem';
+import { renderFleetPanel } from './fleetPanel';
+import {
+  formatGameDate,
+  TICKS_PER_DAY,
+  GAME_SECONDS_PER_DAY,
+} from '../timeSystem';
 import { getCrewRoleDefinition } from '../crewRoles';
 import {
   getShipPositionKm,
@@ -67,7 +72,20 @@ export function renderTabbedView(
 
   // Tab content
   if (activeTab === 'ship') {
-    container.appendChild(renderShipTab(gameData, showNavigation, callbacks));
+    container.appendChild(
+      renderShipTab(gameData, showNavigation, {
+        onCrewAssign: callbacks.onCrewAssign,
+        onCrewUnassign: callbacks.onCrewUnassign,
+        onUndock: callbacks.onUndock,
+        onDock: callbacks.onDock,
+        onEngineOn: callbacks.onEngineOn,
+        onEngineOff: callbacks.onEngineOff,
+        onToggleNavigation: callbacks.onToggleNavigation,
+        onBuyFuel: callbacks.onBuyFuel,
+        onStartTrip: callbacks.onStartTrip,
+        onBuyShip: callbacks.onBuyShip,
+      })
+    );
   } else if (activeTab === 'crew') {
     container.appendChild(renderCrewTab(gameData, selectedCrewId, callbacks));
   } else if (activeTab === 'work') {
@@ -95,7 +113,7 @@ function renderShipHeader(
   const header = document.createElement('div');
   header.className = 'ship-header';
 
-  // Date display with tick counter
+  // Date display with day progress bar
   const dateHeader = document.createElement('div');
   dateHeader.className = 'date-header-global';
 
@@ -103,40 +121,37 @@ function renderShipHeader(
   dateText.textContent = formatGameDate(gameData.gameTime);
   dateHeader.appendChild(dateText);
 
+  // Day progress bar
+  const dayProgress =
+    ((gameData.gameTime % GAME_SECONDS_PER_DAY) / GAME_SECONDS_PER_DAY) * 100;
+  const dayProgressBar = document.createElement('div');
+  dayProgressBar.className = 'day-progress-bar';
+  dayProgressBar.style.width = '100%';
+  dayProgressBar.style.height = '4px';
+  dayProgressBar.style.background = 'rgba(255, 255, 255, 0.1)';
+  dayProgressBar.style.borderRadius = '2px';
+  dayProgressBar.style.marginTop = '4px';
+  dayProgressBar.style.overflow = 'hidden';
+
+  const dayProgressFill = document.createElement('div');
+  dayProgressFill.className = 'day-progress-fill';
+  dayProgressFill.style.height = '100%';
+  dayProgressFill.style.width = `${dayProgress}%`;
+  dayProgressFill.style.background = '#4a9eff';
+  dayProgressFill.style.borderRadius = '2px';
+  dayProgressBar.appendChild(dayProgressFill);
+
+  dateHeader.appendChild(dayProgressBar);
+
   header.appendChild(dateHeader);
 
   const ship = getActiveShip(gameData);
 
-  // Ship selector bar (only when fleet has multiple ships)
+  // Fleet status panel (only when fleet has multiple ships)
   if (gameData.ships.length > 1) {
-    const shipSelector = document.createElement('div');
-    shipSelector.className = 'ship-selector-bar';
-    shipSelector.style.display = 'flex';
-    shipSelector.style.gap = '0.5rem';
-    shipSelector.style.marginBottom = '0.5rem';
-    shipSelector.style.flexWrap = 'wrap';
-
-    for (const s of gameData.ships) {
-      const chip = document.createElement('button');
-      chip.className =
-        s.id === gameData.activeShipId ? 'ship-chip active' : 'ship-chip';
-      chip.textContent = s.name;
-      chip.style.padding = '0.25rem 0.75rem';
-      chip.style.borderRadius = '12px';
-      chip.style.border =
-        s.id === gameData.activeShipId ? '1px solid #4a9eff' : '1px solid #666';
-      chip.style.background =
-        s.id === gameData.activeShipId
-          ? 'rgba(74, 158, 255, 0.2)'
-          : 'rgba(0, 0, 0, 0.3)';
-      chip.style.color = s.id === gameData.activeShipId ? '#4a9eff' : '#aaa';
-      chip.style.cursor = 'pointer';
-      chip.style.fontSize = '0.85rem';
-      chip.addEventListener('click', () => callbacks.onSelectShip(s.id));
-      shipSelector.appendChild(chip);
-    }
-
-    header.appendChild(shipSelector);
+    header.appendChild(
+      renderFleetPanel(gameData, { onSelectShip: callbacks.onSelectShip })
+    );
   }
 
   const shipName = document.createElement('h2');
@@ -253,7 +268,11 @@ function renderGlobalStatusBar(
               : 0.02;
       const threatLevel = getThreatLevel(dangerRisk);
 
-      statusText.textContent = `In flight to ${destName}`;
+      // Build status text with flight progress
+      const textSpan = document.createElement('span');
+      textSpan.textContent = `In flight to ${destName}`;
+      statusText.appendChild(textSpan);
+
       if (threatLevel !== 'clear') {
         const threatLabel = document.createElement('span');
         threatLabel.style.marginLeft = '8px';
@@ -271,23 +290,57 @@ function renderGlobalStatusBar(
         threatLabel.textContent = threatLevel.toUpperCase();
         statusText.appendChild(threatLabel);
       }
+
+      // Add inline progress bar
+      const progressPercent =
+        (ship.location.flight.distanceCovered /
+          ship.location.flight.totalDistance) *
+        100;
+      const progressContainer = document.createElement('span');
+      progressContainer.className = 'header-flight-progress';
+      progressContainer.style.marginLeft = '12px';
+      progressContainer.style.display = 'inline-flex';
+      progressContainer.style.alignItems = 'center';
+      progressContainer.style.gap = '6px';
+
+      const progressBar = document.createElement('span');
+      progressBar.style.display = 'inline-block';
+      progressBar.style.width = '80px';
+      progressBar.style.height = '8px';
+      progressBar.style.background = 'rgba(255, 255, 255, 0.1)';
+      progressBar.style.borderRadius = '4px';
+      progressBar.style.overflow = 'hidden';
+
+      const progressFill = document.createElement('span');
+      progressFill.style.display = 'block';
+      progressFill.style.height = '100%';
+      progressFill.style.width = `${progressPercent}%`;
+      progressFill.style.background = '#4a9eff';
+      progressFill.style.borderRadius = '4px';
+      progressBar.appendChild(progressFill);
+
+      const progressLabel = document.createElement('span');
+      progressLabel.style.fontSize = '11px';
+      progressLabel.style.color = '#aaa';
+      progressLabel.textContent = `${progressPercent.toFixed(0)}%`;
+
+      progressContainer.appendChild(progressBar);
+      progressContainer.appendChild(progressLabel);
+      statusText.appendChild(progressContainer);
     } else {
       statusText.textContent = 'In flight';
     }
   }
   actionsDiv.appendChild(statusText);
 
-  // Undock/Dock button
-  const dockBtn = document.createElement('button');
-  dockBtn.style.padding = '0.5rem 1rem';
+  // Undock button (only show when docked)
   if (ship.location.status === 'docked') {
-    dockBtn.textContent = 'Undock';
-    dockBtn.addEventListener('click', () => callbacks.onUndock());
-  } else {
-    dockBtn.textContent = 'Dock';
-    dockBtn.addEventListener('click', () => callbacks.onDock());
+    const undockBtn = document.createElement('button');
+    undockBtn.style.padding = '0.5rem 1rem';
+    undockBtn.textContent = 'Undock';
+    undockBtn.addEventListener('click', () => callbacks.onUndock());
+    actionsDiv.appendChild(undockBtn);
   }
-  actionsDiv.appendChild(dockBtn);
 
   // Buy Fuel button (when docked at refuel station with fuel < 100%)
   if (ship.location.status === 'docked') {
