@@ -3,6 +3,7 @@ import { getShipClass } from './shipClasses';
 import { getDistanceBetween } from './worldGen';
 import { calculateFuelCost } from './flightPhysics';
 import { gameSecondsToTicks } from './timeSystem';
+import { getEngineDefinition } from './engines';
 
 /**
  * Quest Generation
@@ -37,7 +38,7 @@ const PASSENGER_NAMES = [
 ];
 
 /**
- * Parse max range string from ship class
+ * Parse max range string from ship class (e.g., "2,000 km (LEO/MEO)" -> 2000)
  */
 function parseMaxRange(maxRangeStr: string): number {
   const match = maxRangeStr.match(/^([\d,]+)/);
@@ -69,16 +70,41 @@ function calculatePayment(distanceKm: number, cargoKg: number = 0): number {
 }
 
 /**
- * Estimate trip time in game seconds
+ * Estimate trip time in game seconds using simplified burn-coast-burn physics
  */
 function estimateTripTime(ship: Ship, distanceKm: number): number {
   const shipClass = getShipClass(ship.classId);
   if (!shipClass) return 0;
 
-  // Simplified estimate: assume average velocity of 10 km/s
-  // (This is a rough estimate; actual time is calculated in flight physics)
-  const averageVelocityKmPerSec = 10;
-  return distanceKm / averageVelocityKmPerSec;
+  const engineDef = getEngineDefinition(ship.engine.definitionId);
+  const distanceMeters = distanceKm * 1000;
+  const mass = shipClass.mass;
+  const thrust = engineDef.thrust;
+  const acceleration = thrust / mass;
+
+  // Get max range and calculate fuel allocation
+  const maxRangeKm = parseMaxRange(shipClass.maxRange);
+  const fuelCostPercent = calculateFuelCost(distanceKm, maxRangeKm);
+  const allocatedDeltaV = (fuelCostPercent / 100) * engineDef.maxDeltaV;
+
+  // Check if mini-brachistochrone (short trip)
+  const dv_brachistochrone = 2 * Math.sqrt(distanceMeters * acceleration);
+
+  let totalTime: number;
+  if (dv_brachistochrone <= allocatedDeltaV) {
+    // Short trip: constant acceleration/deceleration
+    totalTime = 2 * Math.sqrt(distanceMeters / acceleration);
+  } else {
+    // Long trip: burn-coast-burn
+    const v_cruise = allocatedDeltaV / 2;
+    const burnTime = v_cruise / acceleration;
+    const burnDistance = 0.5 * acceleration * burnTime * burnTime;
+    const coastDistance = distanceMeters - 2 * burnDistance;
+    const coastTime = coastDistance / v_cruise;
+    totalTime = 2 * burnTime + coastTime;
+  }
+
+  return totalTime;
 }
 
 /**
