@@ -5,6 +5,7 @@ import { completeLeg } from './contractExec';
 import { GAME_SECONDS_PER_TICK } from './timeSystem';
 import { getShipClass } from './shipClasses';
 import { getCrewRoleDefinition } from './crewRoles';
+import { getEquipmentDefinition } from './equipment';
 
 /**
  * Deduct crew salaries for a given number of ticks.
@@ -138,6 +139,118 @@ export function applyTick(gameData: GameData): boolean {
       }
 
       changed = true;
+
+      // TORCH SHIP MECHANICS (Class III+)
+      if (ship.engine.state === 'online') {
+        // === RADIATION EXPOSURE ===
+        const engineRadiation = engineDef.radiationOutput || 0;
+
+        // Calculate total shielding from equipment
+        let totalShielding = 0;
+        for (const eq of ship.equipment) {
+          const eqDef = getEquipmentDefinition(eq.definitionId);
+          if (eqDef?.radiationShielding) {
+            // Degraded equipment provides less shielding
+            const effectiveness = 1 - eq.degradation / 200; // 0% degradation = 1.0, 100% = 0.5
+            totalShielding += eqDef.radiationShielding * effectiveness;
+          }
+        }
+
+        const netRadiation = Math.max(0, engineRadiation - totalShielding);
+
+        // Apply radiation damage to crew (if net radiation > 0)
+        if (netRadiation > 0) {
+          const radiationDamagePerTick = netRadiation / 10;
+
+          for (const crew of ship.crew) {
+            // Check if crew is in medbay (medics can reduce radiation effects)
+            const medbay = ship.rooms.find((r) => r.type === 'medbay');
+            const isInMedbay = medbay?.assignedCrewIds.includes(crew.id);
+
+            let damage = radiationDamagePerTick;
+
+            // Medbay reduces radiation damage by 50%
+            if (isInMedbay && medbay?.state === 'operational') {
+              damage *= 0.5;
+            }
+
+            crew.health = Math.max(0, crew.health - damage);
+            changed = true;
+          }
+        }
+
+        // === WASTE HEAT MANAGEMENT ===
+        const engineHeat = engineDef.wasteHeatOutput || 0;
+
+        // Calculate total heat dissipation from equipment
+        let totalHeatDissipation = 0;
+        for (const eq of ship.equipment) {
+          const eqDef = getEquipmentDefinition(eq.definitionId);
+          if (eqDef?.heatDissipation) {
+            // Degraded equipment provides less cooling
+            const effectiveness = 1 - eq.degradation / 200;
+            totalHeatDissipation += eqDef.heatDissipation * effectiveness;
+          }
+        }
+
+        const excessHeat = Math.max(0, engineHeat - totalHeatDissipation);
+
+        // Excess heat accelerates ALL equipment degradation
+        if (excessHeat > 0) {
+          const heatDegradationMultiplier = 1 + excessHeat / 100; // +1% per kW excess heat
+
+          for (const eq of ship.equipment) {
+            const eqDef = getEquipmentDefinition(eq.definitionId);
+            if (eqDef?.hasDegradation && eq.degradation < 100) {
+              const baseDegradation = 0.05; // Base rate
+              const heatDegradation =
+                baseDegradation * heatDegradationMultiplier;
+              eq.degradation = Math.min(100, eq.degradation + heatDegradation);
+              changed = true;
+            }
+          }
+        }
+
+        // === CONTAINMENT STABILITY ===
+        // Check if reactor room is staffed (for fusion engines)
+        const reactorRoom = ship.rooms.find((r) => r.type === 'reactor_room');
+        const reactorRoomStaffed =
+          reactorRoom &&
+          reactorRoom.state === 'operational' &&
+          reactorRoom.assignedCrewIds.length > 0;
+
+        // Check if mag_confinement equipment exists
+        const confinementEq = ship.equipment.find(
+          (eq) => eq.definitionId === 'mag_confinement'
+        );
+
+        if (confinementEq && engineDef.containmentComplexity > 0) {
+          // Confinement degrades faster if reactor room unstaffed
+          let confinementDegradationRate = 0.1; // Base rate
+
+          if (!reactorRoomStaffed) {
+            confinementDegradationRate *= 3; // 3x degradation if unstaffed
+          }
+
+          confinementEq.degradation = Math.min(
+            100,
+            confinementEq.degradation + confinementDegradationRate
+          );
+          changed = true;
+
+          // If confinement is degraded, radiation spikes
+          if (confinementEq.degradation > 30) {
+            const spikeMultiplier = 1 + confinementEq.degradation / 50; // Up to 3x at 100% degradation
+            const spikeRadiation = (netRadiation * (spikeMultiplier - 1)) / 10;
+
+            // Additional radiation damage to all crew
+            for (const crew of ship.crew) {
+              crew.health = Math.max(0, crew.health - spikeRadiation);
+              changed = true;
+            }
+          }
+        }
+      }
 
       // Crew salary deduction (only during flight)
       deductCrewSalaries(ship, 1);

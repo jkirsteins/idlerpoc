@@ -1,6 +1,6 @@
 import type { ShipClassId, RoomType, EquipmentId, EngineId } from './models';
 
-export type ShipClassTier = 'I' | 'II' | 'III' | 'IV';
+export type ShipClassTier = 'I' | 'II' | 'III' | 'IV' | 'V';
 
 export interface ShipClass {
   id: ShipClassId;
@@ -129,6 +129,74 @@ export const SHIP_CLASSES: ShipClass[] = [
     defaultEquipment: ['life_support', 'air_filters'],
     defaultEngineId: 'ntr_stealth',
     mass: 250000, // kg
+  },
+
+  // Class III: Interplanetary Vessels (Torch Ships)
+  {
+    id: 'firebrand',
+    name: 'Prometheus FDR-I "Firebrand"',
+    description:
+      'Entry-level torch ship. Continuous fusion burn capability. Can reach Mars but not Jupiter. Bootstrap into interplanetary space.',
+    tier: 'III',
+    price: 120_000_000,
+    rooms: [
+      'bridge',
+      'engine_room',
+      'reactor_room',
+      'cantina',
+      'medbay',
+      'cargo_hold',
+      'quarters',
+    ],
+    maxCrew: 10,
+    unlocked: false,
+    maxRange: '150,000,000 km (Mars)',
+    cargoCapacity: 100000,
+    equipmentSlots: 8,
+    defaultEquipment: [
+      'life_support',
+      'air_filters',
+      'rad_shield_basic',
+      'heat_radiator_basic',
+      'mag_confinement',
+    ],
+    defaultEngineId: 'fdr_sunfire',
+    mass: 800000, // kg
+  },
+  {
+    id: 'leviathan',
+    name: 'Prometheus FDR-III "Leviathan"',
+    description:
+      'Deep system hauler. Full torch capability with point defense. Can reach Jupiter and beyond. Expensive to own, expensive to run.',
+    tier: 'III',
+    price: 350_000_000,
+    rooms: [
+      'bridge',
+      'engine_room',
+      'reactor_room',
+      'cantina',
+      'medbay',
+      'cargo_hold',
+      'armory',
+      'quarters',
+      'point_defense_station',
+    ],
+    maxCrew: 16,
+    unlocked: false,
+    maxRange: '800,000,000 km (Jupiter+)',
+    cargoCapacity: 200000,
+    equipmentSlots: 10,
+    defaultEquipment: [
+      'life_support',
+      'air_filters',
+      'rad_shield_heavy',
+      'heat_radiator_heavy',
+      'mag_confinement',
+      'point_defense',
+      'accel_couches',
+    ],
+    defaultEngineId: 'fdr_hellion',
+    mass: 1200000, // kg
   },
 ];
 

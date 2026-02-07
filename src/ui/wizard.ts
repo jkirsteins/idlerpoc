@@ -331,7 +331,9 @@ function getTierName(tier: ShipClassTier): string {
     case 'III':
       return 'Class III: Interplanetary Vessels';
     case 'IV':
-      return 'Class IV: Gap-Capable Vessels';
+      return 'Class IV: Deep System Cruisers';
+    case 'V':
+      return 'Class V: Gap-Capable Vessels';
   }
 }
 

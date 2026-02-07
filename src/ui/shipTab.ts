@@ -41,6 +41,18 @@ export function renderShipTab(
   // Power progress bar
   container.appendChild(renderPowerBar(gameData));
 
+  // Torch ship status bars (Class III+)
+  const engineDef = getEngineDefinition(gameData.ship.engine.definitionId);
+  if (engineDef.radiationOutput > 0) {
+    container.appendChild(renderRadiationBar(gameData));
+  }
+  if (engineDef.wasteHeatOutput > 0) {
+    container.appendChild(renderHeatBar(gameData));
+  }
+  if (engineDef.containmentComplexity > 0) {
+    container.appendChild(renderContainmentBar(gameData));
+  }
+
   // Room grid
   container.appendChild(renderRoomGrid(gameData, callbacks));
 
@@ -102,6 +114,108 @@ function renderPowerBar(gameData: GameData): HTMLElement {
     valueLabel,
     colorClass
   );
+}
+
+function renderRadiationBar(gameData: GameData): HTMLElement {
+  const engineDef = getEngineDefinition(gameData.ship.engine.definitionId);
+  const engineRadiation = engineDef.radiationOutput || 0;
+
+  // Calculate total shielding
+  let totalShielding = 0;
+  for (const eq of gameData.ship.equipment) {
+    const eqDef = getEquipmentDefinition(eq.definitionId);
+    if (eqDef?.radiationShielding) {
+      const effectiveness = 1 - eq.degradation / 200;
+      totalShielding += eqDef.radiationShielding * effectiveness;
+    }
+  }
+
+  const netRadiation = Math.max(0, engineRadiation - totalShielding);
+  const percentage =
+    engineRadiation > 0 ? (netRadiation / engineRadiation) * 100 : 0;
+
+  let colorClass = 'bar-good';
+  if (netRadiation > 30) {
+    colorClass = 'bar-danger';
+  } else if (netRadiation > 15) {
+    colorClass = 'bar-warning';
+  }
+
+  const valueLabel =
+    gameData.ship.engine.state === 'online'
+      ? `${netRadiation.toFixed(0)} rad (${engineRadiation.toFixed(0)} - ${totalShielding.toFixed(0)} shield)`
+      : 'ENGINE OFF';
+
+  return renderProgressBar('RADIATION', percentage, valueLabel, colorClass);
+}
+
+function renderHeatBar(gameData: GameData): HTMLElement {
+  const engineDef = getEngineDefinition(gameData.ship.engine.definitionId);
+  const engineHeat = engineDef.wasteHeatOutput || 0;
+
+  // Calculate total heat dissipation
+  let totalDissipation = 0;
+  for (const eq of gameData.ship.equipment) {
+    const eqDef = getEquipmentDefinition(eq.definitionId);
+    if (eqDef?.heatDissipation) {
+      const effectiveness = 1 - eq.degradation / 200;
+      totalDissipation += eqDef.heatDissipation * effectiveness;
+    }
+  }
+
+  const excessHeat = Math.max(0, engineHeat - totalDissipation);
+  const percentage = engineHeat > 0 ? (excessHeat / engineHeat) * 100 : 0;
+
+  let colorClass = 'bar-good';
+  if (excessHeat > 100) {
+    colorClass = 'bar-danger';
+  } else if (excessHeat > 50) {
+    colorClass = 'bar-warning';
+  }
+
+  const valueLabel =
+    gameData.ship.engine.state === 'online'
+      ? `${excessHeat.toFixed(0)} kW excess (${engineHeat.toFixed(0)} - ${totalDissipation.toFixed(0)} cooling)`
+      : 'ENGINE OFF';
+
+  return renderProgressBar('HEAT', percentage, valueLabel, colorClass);
+}
+
+function renderContainmentBar(gameData: GameData): HTMLElement {
+  const confinementEq = gameData.ship.equipment.find(
+    (eq) => eq.definitionId === 'mag_confinement'
+  );
+
+  if (!confinementEq) {
+    return renderProgressBar(
+      'CONTAINMENT',
+      0,
+      'NO CONFINEMENT UNIT',
+      'bar-danger'
+    );
+  }
+
+  const degradationPercent = confinementEq.degradation;
+  const integrity = 100 - degradationPercent;
+
+  let colorClass = 'bar-good';
+  if (degradationPercent > 70) {
+    colorClass = 'bar-danger';
+  } else if (degradationPercent > 30) {
+    colorClass = 'bar-warning';
+  }
+
+  const reactorRoom = gameData.ship.rooms.find(
+    (r) => r.type === 'reactor_room'
+  );
+  const staffingNote =
+    reactorRoom && reactorRoom.assignedCrewIds.length === 0
+      ? ' [UNSTAFFED]'
+      : '';
+
+  const valueLabel = `${integrity.toFixed(0)}% integrity${staffingNote}`;
+
+  return renderProgressBar('CONTAINMENT', integrity, valueLabel, colorClass);
 }
 
 function renderProgressBar(

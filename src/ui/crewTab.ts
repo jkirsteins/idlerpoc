@@ -347,6 +347,7 @@ function renderSkillsSection(
   // Render each skill
   const skillIds: Array<keyof typeof crew.skills> = [
     'piloting',
+    'astrogation',
     'engineering',
     'strength',
     'charisma',
@@ -604,7 +605,7 @@ function renderHiringSection(
     const skills = document.createElement('div');
     skills.style.fontSize = '0.85rem';
     skills.style.color = '#888';
-    skills.textContent = `Skills: Pilot ${candidate.skills.piloting} | Eng ${candidate.skills.engineering} | Str ${candidate.skills.strength}`;
+    skills.textContent = `Skills: Pilot ${candidate.skills.piloting} | Nav ${candidate.skills.astrogation} | Eng ${candidate.skills.engineering} | Str ${candidate.skills.strength}`;
     infoDiv.appendChild(skills);
 
     candidateDiv.appendChild(infoDiv);

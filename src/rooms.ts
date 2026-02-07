@@ -88,6 +88,29 @@ export const ROOM_DEFINITIONS: RoomDefinition[] = [
     powerDraw: 2,
     alwaysPowered: true,
   },
+  {
+    type: 'reactor_room',
+    name: 'Reactor Room',
+    description:
+      'Fusion containment management. Separate from engine thrust control.',
+    icon: '⚛️', // atom symbol
+    preferredRole: 'engineer',
+    minCrew: 1,
+    maxCrew: 3,
+    powerDraw: 6,
+    alwaysPowered: false,
+  },
+  {
+    type: 'point_defense_station',
+    name: 'Point Defense Station',
+    description: 'Fire control for PD systems. Gunner-operated.',
+    icon: '🎯', // target
+    preferredRole: 'gunner',
+    minCrew: 1,
+    maxCrew: 2,
+    powerDraw: 8,
+    alwaysPowered: false,
+  },
 ];
 
 export function getRoomDefinition(type: RoomType): RoomDefinition | undefined {
