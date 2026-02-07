@@ -993,18 +993,6 @@ button.small-button:hover {
   opacity: 0.5;
 }
 
-.nav-legend-item.clickable {
-  cursor: pointer;
-  transition:
-    background 0.2s,
-    border-color 0.2s;
-}
-
-.nav-legend-item.clickable:hover {
-  background: rgba(233, 69, 96, 0.1);
-  border-color: #e94560;
-}
-
 .nav-legend-item strong {
   display: block;
   color: #e94560;
@@ -1015,6 +1003,43 @@ button.small-button:hover {
   font-size: 12px;
   color: #888;
   margin-top: 4px;
+}
+
+.nav-travel-button {
+  width: 100%;
+  margin-top: 8px;
+  padding: 8px 16px;
+  font-size: 13px;
+  background: #4ecdc4;
+  color: #1a1a2e;
+  font-weight: 600;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.nav-travel-button:hover {
+  background: #3db3aa;
+}
+
+.nav-current-label {
+  margin-top: 8px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #e94560;
+  border: 2px solid #e94560;
+  border-radius: 4px;
+  text-align: center;
+}
+
+.nav-travel-disabled-reason {
+  margin-top: 8px;
+  font-size: 12px;
+  font-style: italic;
+  color: #ff6b6b;
+  text-align: center;
 }
 
 /* Captain Badge */

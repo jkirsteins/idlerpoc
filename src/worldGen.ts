@@ -57,6 +57,51 @@ export function isLocationReachable(
 }
 
 /**
+ * Get the reason why a location is unreachable, or null if it's reachable
+ */
+export function getUnreachableReason(
+  ship: Ship,
+  location: WorldLocation,
+  fromLocation: WorldLocation
+): string | null {
+  // Current location is always reachable
+  if (location.id === fromLocation.id) {
+    return null;
+  }
+
+  const shipClass = getShipClass(ship.classId);
+  if (!shipClass) return 'Unknown ship class';
+
+  // Get ship's maximum range in km
+  const maxRange = parseMaxRange(shipClass.maxRange);
+
+  // Calculate distance between locations
+  const distance = getDistanceBetween(fromLocation, location);
+
+  // Check if destination has refuel services
+  const hasRefuel = location.services.includes('refuel');
+
+  // If destination has refuel, we only need one-way fuel
+  // If not, we need round-trip fuel (there and back)
+  const requiredRange = hasRefuel ? distance : distance * 2;
+
+  // First check if ship class can reach it at all
+  if (maxRange < requiredRange) {
+    return 'Out of range';
+  }
+
+  // Calculate effective range based on current fuel
+  const effectiveRange = maxRange * (ship.fuel / 100);
+
+  // Check if we have enough fuel
+  if (effectiveRange < requiredRange) {
+    return 'Insufficient fuel';
+  }
+
+  return null;
+}
+
+/**
  * Generate the initial world with 8 locations
  */
 export function generateWorld(): World {

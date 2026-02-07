@@ -1,6 +1,6 @@
 import type { GameData } from '../models';
 import { getLocationTypeTemplate } from '../spaceLocations';
-import { isLocationReachable } from '../worldGen';
+import { isLocationReachable, getUnreachableReason } from '../worldGen';
 import { getGravityDegradationLevel } from '../gravitySystem';
 
 export interface NavigationViewCallbacks {
@@ -126,23 +126,6 @@ export function renderNavigationView(
       item.classList.add('unreachable');
     }
 
-    // Make clickable if we can start trips and location is reachable
-    if (
-      canStartTrips &&
-      reachable &&
-      location.id !== currentLocationId &&
-      callbacks.onStartTrip
-    ) {
-      item.classList.add('clickable');
-      item.addEventListener('click', () => {
-        if (callbacks.onStartTrip) {
-          callbacks.onStartTrip(location.id);
-        }
-      });
-      item.title = `Click to travel to ${location.name}`;
-      item.style.cursor = 'pointer';
-    }
-
     const name = document.createElement('strong');
     name.textContent = location.name;
     item.appendChild(name);
@@ -176,6 +159,45 @@ export function renderNavigationView(
       warning.style.marginTop = '0.25rem';
       warning.textContent = `⚠️ ${degradedCrew.length} crew member${degradedCrew.length > 1 ? 's' : ''} with zero-g atrophy`;
       item.appendChild(warning);
+    }
+
+    // Add travel button or status indicator
+    if (location.id === currentLocationId) {
+      // Current location badge
+      const currentBadge = document.createElement('div');
+      currentBadge.className = 'nav-current-label';
+      currentBadge.textContent = 'Current Location';
+      item.appendChild(currentBadge);
+    } else if (!canStartTrips) {
+      // Active contract or in-flight - show status
+      const statusText = document.createElement('div');
+      statusText.className = 'nav-travel-disabled-reason';
+      statusText.textContent = 'Contract in progress';
+      item.appendChild(statusText);
+    } else if (reachable && callbacks.onStartTrip) {
+      // Reachable - show travel button
+      const travelButton = document.createElement('button');
+      travelButton.className = 'nav-travel-button';
+      travelButton.textContent = `Travel to ${location.name}`;
+      travelButton.addEventListener('click', () => {
+        if (callbacks.onStartTrip) {
+          callbacks.onStartTrip(location.id);
+        }
+      });
+      item.appendChild(travelButton);
+    } else {
+      // Unreachable - show reason
+      const unreachableReason = getUnreachableReason(
+        gameData.ship,
+        location,
+        currentLocation
+      );
+      if (unreachableReason) {
+        const reasonText = document.createElement('div');
+        reasonText.className = 'nav-travel-disabled-reason';
+        reasonText.textContent = unreachableReason;
+        item.appendChild(reasonText);
+      }
     }
 
     legend.appendChild(item);
