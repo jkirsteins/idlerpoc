@@ -172,6 +172,13 @@ export function createNewGame(
   // Generate initial quests for Earth
   const availableQuests = generateQuestsForLocation(ship, earthLocation, world);
 
+  console.log(
+    'GameFactory - Generated quests:',
+    availableQuests.length,
+    availableQuests
+  );
+  console.log('GameFactory - Earth location size:', earthLocation.size);
+
   return {
     ship,
     world,

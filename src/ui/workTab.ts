@@ -44,6 +44,10 @@ function renderAvailableWork(
   const { ship, availableQuests } = gameData;
   const location = ship.location.dockedAt;
 
+  console.log('Work tab - availableQuests:', availableQuests);
+  console.log('Work tab - location:', location);
+  console.log('Work tab - ship status:', ship.location.status);
+
   if (!location) {
     return container;
   }

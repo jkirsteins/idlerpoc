@@ -74,10 +74,20 @@ function renderShipHeader(gameData: GameData): HTMLElement {
   const header = document.createElement('div');
   header.className = 'ship-header';
 
-  // Date display
+  // Date display with tick counter
   const dateHeader = document.createElement('div');
   dateHeader.className = 'date-header-global';
-  dateHeader.textContent = formatGameDate(gameData.gameTime);
+
+  const dateText = document.createElement('span');
+  dateText.textContent = formatGameDate(gameData.gameTime);
+  dateHeader.appendChild(dateText);
+
+  const tickCounter = document.createElement('span');
+  tickCounter.className = 'tick-counter';
+  const currentTick = Math.floor(gameData.gameTime / 1800); // 1 tick = 1800 seconds
+  tickCounter.textContent = ` [tick: ${currentTick}]`;
+  dateHeader.appendChild(tickCounter);
+
   header.appendChild(dateHeader);
 
   const shipName = document.createElement('h2');
