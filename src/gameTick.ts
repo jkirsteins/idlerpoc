@@ -6,6 +6,11 @@ import { GAME_SECONDS_PER_TICK } from './timeSystem';
 import { getShipClass } from './shipClasses';
 import { getCrewRoleDefinition } from './crewRoles';
 import { getEquipmentDefinition } from './equipment';
+import {
+  applyGravityTick,
+  checkThresholdCrossing,
+  getDegradationDescription,
+} from './gravitySystem';
 
 /**
  * Deduct crew salaries for a given number of ticks.
@@ -270,6 +275,47 @@ export function applyTick(gameData: GameData): boolean {
         changed = true;
       }
     }
+  }
+
+  // 4. Gravity exposure (during flight)
+  if (ship.location.status === 'in_flight') {
+    // Store previous exposure values to detect threshold crossings
+    const previousExposures = new Map<string, number>();
+    for (const crew of ship.crew) {
+      previousExposures.set(crew.id, crew.zeroGExposure);
+    }
+
+    // Apply gravity tick
+    applyGravityTick(gameData);
+
+    // Check for threshold crossings and generate log entries
+    for (const crew of ship.crew) {
+      const previousExposure = previousExposures.get(crew.id) || 0;
+      const newLevel = checkThresholdCrossing(crew, previousExposure);
+
+      if (newLevel && newLevel !== 'none') {
+        const description = getDegradationDescription(newLevel);
+
+        let message = '';
+        if (newLevel === 'minor') {
+          message = `${crew.name} showing signs of zero-g atrophy. ${description}.`;
+        } else if (newLevel === 'moderate') {
+          message = `Warning: ${crew.name} entering moderate zero-g degradation. ${description}.`;
+        } else if (newLevel === 'severe') {
+          message = `Alert: ${crew.name} suffering severe zero-g atrophy. ${description}.`;
+        } else if (newLevel === 'critical') {
+          message = `Critical: ${crew.name} in critical zero-g atrophy. ${description}.`;
+        }
+
+        gameData.log.push({
+          gameTime: gameData.gameTime,
+          type: 'gravity_warning',
+          message,
+        });
+      }
+    }
+
+    changed = true;
   }
 
   return changed;

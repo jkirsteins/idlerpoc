@@ -538,6 +538,79 @@ At stations with **'trade'** service (Earth, Forge Station, Freeport Station, Ma
 
 **Roles are derived from skills, not assigned.** A crew member's role is determined by their highest skill, representing their primary expertise and natural inclination. This creates a dynamic crew where members can transition roles as they develop.
 
+---
+
+## Gravity & Zero-G Physiology
+
+### Natural Gravity Sources
+
+Most locations in space provide negligible gravity. Crew on extended voyages face progressive physical degradation from zero-g exposure.
+
+**Ship-Based Gravity Solutions:**
+
+- **Rotating Habitats**: Large military ships (Dreadnought, Leviathan) have rotating sections providing ~0.3-0.5g spin gravity. Completely prevents zero-g exposure.
+- **Centrifuge Pods**: Installable modules for smaller ships. Provides ~0.3g spin gravity via rotating crew quarters. Requires structural equipment slot.
+- **Thrust Gravity**: Fusion drives (Class III) produce measurable thrust gravity during burns (0.01-0.1g). Reduces but doesn't eliminate exposure.
+
+### Zero-G Exposure Mechanics
+
+Crew accumulate zero-g exposure during flight time. Effects are cumulative and progressive:
+
+**Thresholds** (measured in days):
+
+- **Safe**: < 14 days — No effects
+- **Minor**: 14-60 days — Strength -7.5%
+- **Moderate**: 60-180 days — Strength -17.5%
+- **Severe**: 180-365 days — Strength -35%
+- **Critical**: > 365 days — Strength -60%
+
+**Exposure Rate Modifiers:**
+
+- Rotating habitat or centrifuge: **0% accumulation** (full protection)
+- Thrust gravity during burns: **Reduced by thrust g-force** (fusion drives: ~10% reduction at 0.1g)
+- Exercise module (ship equipment): **50% reduction** in accumulation rate
+- G-Seat harness (crew equipment): **30% reduction** per crew member equipped
+
+**Example**: A 60-day trip on a fusion ship with exercise module and g-seats:
+
+- Base exposure: 60 days
+- Thrust reduction (10% of burn time): ~54 days effective
+- Exercise module (50%): ~27 days effective
+- G-seat (30%): ~19 days effective
+- Result: Minor atrophy threshold (14d) crossed, but moderate threshold (60d) avoided
+
+### Recovery Mechanics
+
+When docked at planetary or lunar locations, crew slowly recover from zero-g exposure:
+
+- **Recovery rate**: 0.5x accumulation rate (slower than degradation)
+- **Time to full recovery**: ~2x the exposure time
+- Recovery happens during manual day advancement when docked
+- No recovery during flight or at zero-g stations
+
+**Strategic Implications:**
+
+- Long-haul fusion ships need gravity solutions or suffer combat penalties
+- Shorter trips can skip gravity equipment if planned carefully
+- Rest stops at planetary stations allow partial recovery
+- Crew rotation strategies can manage long-term exposure
+
+### Equipment Slots & Compatibility
+
+Ships have two slot types:
+
+- **Standard Slots**: Accept all equipment (life support, shielding, thermal, etc.)
+- **Structural Slots**: Accept both standard equipment AND large structural items (centrifuges)
+
+**Ship Slot Configurations**:
+
+- Class I/II ships: Mostly standard slots (0-1 structural)
+- Class III ships: More structural slots for centrifuges and heavy equipment
+
+This creates equipment trade-offs: installing a centrifuge uses a structural slot that could hold other critical equipment.
+
+---
+
 ### Skill-to-Role Mapping
 
 Every skill must map to a role archetype:

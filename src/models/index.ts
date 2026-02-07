@@ -42,7 +42,9 @@ export type EquipmentId =
   | 'nav_scanner'
   | 'mag_confinement'
   | 'accel_couches'
-  | 'crash_couches';
+  | 'crash_couches'
+  | 'centrifuge_pod'
+  | 'exercise_module';
 
 export type FactionId =
   | 'terran_alliance'
@@ -67,7 +69,8 @@ export type CrewEquipmentId =
   | 'scanner'
   | 'rebreather'
   | 'wrist_terminal'
-  | 'armored_vest';
+  | 'armored_vest'
+  | 'g_seat';
 
 export type SkillId =
   | 'piloting'
@@ -89,6 +92,16 @@ export type EngineId =
   | 'unas_m1_colossus';
 
 export type DriveState = 'off' | 'warming_up' | 'online';
+
+export type EquipmentSlotTag = 'standard' | 'structural';
+
+export interface EquipmentSlotDef {
+  id: string;
+  tags: EquipmentSlotTag[];
+  equippedId?: string;
+}
+
+export type ShipFeatureId = 'rotating_habitat';
 
 export interface EquipmentInstance {
   id: string;
@@ -174,6 +187,7 @@ export interface CrewMember {
   unspentSkillPoints: number;
   unpaidTicks: number; // Accumulated ticks of unpaid salary
   hireCost: number; // Cost to hire this crew member (reference)
+  zeroGExposure: number; // cumulative game-seconds in zero-g
 }
 
 export interface Room {
@@ -191,6 +205,7 @@ export interface Ship {
   fuel: number;
   credits: number;
   equipment: EquipmentInstance[];
+  equipmentSlots: EquipmentSlotDef[];
   location: ShipLocation;
   engine: EngineInstance;
   cargo: CrewEquipmentInstance[];
@@ -243,7 +258,8 @@ export type LogEntryType =
   | 'crew_departed'
   | 'crew_hired'
   | 'equipment_bought'
-  | 'equipment_sold';
+  | 'equipment_sold'
+  | 'gravity_warning';
 
 export interface LogEntry {
   gameTime: number;

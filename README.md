@@ -63,16 +63,24 @@ npm run dev
   - Fusion containment stability requiring reactor room staffing
   - Cascading failure mechanics (heat → equipment degradation → radiation spikes)
   - Real-time status bars for radiation, heat, and containment integrity
+- **Gravity & Zero-G Physiology System**:
+  - Cumulative zero-g exposure tracking with 5 degradation tiers
+  - Progressive strength reduction (0% to -60%) from prolonged zero-g
+  - Ship-based gravity: rotating habitats (Dreadnought/Leviathan), centrifuge pods (equipment), thrust gravity (fusion drives)
+  - Mitigation equipment: exercise modules (ship), g-seat harnesses (crew)
+  - Recovery mechanics when docked at planetary locations
+  - Tagged equipment slots (standard/structural) for installation constraints
+  - Real-time exposure monitoring and pre-departure warnings
 - **Event Log**: Comprehensive log of all events (departures, arrivals, payments, contract completions)
 - **Resource Tracking**: Monitor credits, fuel, crew count, crew costs per tick, and power consumption
 - **Equipment Trading**: Buy and sell crew equipment at stations with trade services (50% sell value)
 - **Real-time Simulation**: 1-second tick system for fuel consumption, engine warmup, flight physics, and equipment degradation
 - **Game Data Catalogs**:
   - 9 engine types (chemical, nuclear fission, fusion, advanced fusion) with thrust and delta-v specifications
-  - 14 ship equipment types (life support, shielding, thermal, defense, navigation, structural)
+  - 16 ship equipment types (life support, shielding, thermal, defense, navigation, structural, gravity systems)
   - 9 room types (bridge, engine room, reactor room, point defense station, etc.)
   - 3 factions (Terran Alliance, Free Traders Guild, Kreth Collective)
-  - 8 crew equipment items (weapons, tools, accessories, armor)
+  - 9 crew equipment items (weapons, tools, accessories, armor, gravity countermeasures)
   - Progressive XP/leveling system (20 levels)
   - 8 world locations with varied services and quest availability
 

@@ -1,4 +1,11 @@
-import type { ShipClassId, RoomType, EquipmentId, EngineId } from './models';
+import type {
+  ShipClassId,
+  RoomType,
+  EquipmentId,
+  EngineId,
+  EquipmentSlotTag,
+  ShipFeatureId,
+} from './models';
 
 export type ShipClassTier = 'I' | 'II' | 'III' | 'IV' | 'V';
 
@@ -13,7 +20,9 @@ export interface ShipClass {
   unlocked: boolean;
   maxRange: string;
   cargoCapacity: number;
-  equipmentSlots: number;
+  equipmentSlots: number; // deprecated, use equipmentSlotDefs
+  equipmentSlotDefs: { tags: EquipmentSlotTag[] }[];
+  features: ShipFeatureId[];
   defaultEquipment: EquipmentId[];
   defaultEngineId: EngineId;
   mass: number; // kg
@@ -34,6 +43,12 @@ export const SHIP_CLASSES: ShipClass[] = [
     maxRange: '2,000 km (LEO/MEO)',
     cargoCapacity: 5000,
     equipmentSlots: 3,
+    equipmentSlotDefs: [
+      { tags: ['standard'] },
+      { tags: ['standard'] },
+      { tags: ['standard'] },
+    ],
+    features: [],
     defaultEquipment: ['life_support', 'air_filters'],
     defaultEngineId: 'chemical_bipropellant',
     mass: 50000, // kg
@@ -53,6 +68,13 @@ export const SHIP_CLASSES: ShipClass[] = [
     maxRange: '500,000 km (Inner System)',
     cargoCapacity: 40000,
     equipmentSlots: 4,
+    equipmentSlotDefs: [
+      { tags: ['standard'] },
+      { tags: ['standard'] },
+      { tags: ['standard'] },
+      { tags: ['standard'] },
+    ],
+    features: [],
     defaultEquipment: ['life_support', 'air_filters'],
     defaultEngineId: 'ntr_mk1',
     mass: 200000, // kg
@@ -77,6 +99,14 @@ export const SHIP_CLASSES: ShipClass[] = [
     maxRange: '2,500,000 km (Inner System)',
     cargoCapacity: 60000,
     equipmentSlots: 5,
+    equipmentSlotDefs: [
+      { tags: ['standard'] },
+      { tags: ['standard'] },
+      { tags: ['standard'] },
+      { tags: ['standard'] },
+      { tags: ['standard', 'structural'] },
+    ],
+    features: [],
     defaultEquipment: ['life_support', 'air_filters'],
     defaultEngineId: 'ntr_mk2',
     mass: 350000, // kg
@@ -102,6 +132,15 @@ export const SHIP_CLASSES: ShipClass[] = [
     maxRange: '60,000,000 km (Earth-Mars)',
     cargoCapacity: 80000,
     equipmentSlots: 6,
+    equipmentSlotDefs: [
+      { tags: ['standard'] },
+      { tags: ['standard'] },
+      { tags: ['standard'] },
+      { tags: ['standard'] },
+      { tags: ['standard'] },
+      { tags: ['standard', 'structural'] },
+    ],
+    features: ['rotating_habitat'],
     defaultEquipment: ['life_support', 'air_filters'],
     defaultEngineId: 'ntr_heavy',
     mass: 500000, // kg
@@ -126,6 +165,14 @@ export const SHIP_CLASSES: ShipClass[] = [
     maxRange: '1,500,000 km (Inner System)',
     cargoCapacity: 30000,
     equipmentSlots: 5,
+    equipmentSlotDefs: [
+      { tags: ['standard'] },
+      { tags: ['standard'] },
+      { tags: ['standard'] },
+      { tags: ['standard'] },
+      { tags: ['standard', 'structural'] },
+    ],
+    features: [],
     defaultEquipment: ['life_support', 'air_filters'],
     defaultEngineId: 'ntr_stealth',
     mass: 250000, // kg
@@ -153,6 +200,17 @@ export const SHIP_CLASSES: ShipClass[] = [
     maxRange: '150,000,000 km (Mars)',
     cargoCapacity: 100000,
     equipmentSlots: 8,
+    equipmentSlotDefs: [
+      { tags: ['standard'] },
+      { tags: ['standard'] },
+      { tags: ['standard'] },
+      { tags: ['standard'] },
+      { tags: ['standard'] },
+      { tags: ['standard'] },
+      { tags: ['standard'] },
+      { tags: ['standard', 'structural'] },
+    ],
+    features: [],
     defaultEquipment: [
       'life_support',
       'air_filters',
@@ -186,6 +244,19 @@ export const SHIP_CLASSES: ShipClass[] = [
     maxRange: '800,000,000 km (Jupiter+)',
     cargoCapacity: 200000,
     equipmentSlots: 10,
+    equipmentSlotDefs: [
+      { tags: ['standard'] },
+      { tags: ['standard'] },
+      { tags: ['standard'] },
+      { tags: ['standard'] },
+      { tags: ['standard'] },
+      { tags: ['standard'] },
+      { tags: ['standard'] },
+      { tags: ['standard'] },
+      { tags: ['standard', 'structural'] },
+      { tags: ['standard', 'structural'] },
+    ],
+    features: ['rotating_habitat'],
     defaultEquipment: [
       'life_support',
       'air_filters',

@@ -6,6 +6,7 @@ import { computePowerStatus } from '../powerSystem';
 import { getEquipmentDefinition } from '../equipment';
 import { getEngineDefinition } from '../engines';
 import { renderNavigationView } from './navigationView';
+import { getGravitySource } from '../gravitySystem';
 
 export interface ShipTabCallbacks {
   onCrewAssign: (crewId: string, roomId: string) => void;
@@ -55,6 +56,9 @@ export function renderShipTab(
 
   // Room grid
   container.appendChild(renderRoomGrid(gameData, callbacks));
+
+  // Gravity status panel
+  container.appendChild(renderGravityStatus(gameData));
 
   // Equipment section
   container.appendChild(renderEquipmentSection(gameData));
@@ -555,6 +559,120 @@ function renderRoomCard(
   }
 
   return roomCard;
+}
+
+function renderGravityStatus(gameData: GameData): HTMLElement {
+  const section = document.createElement('div');
+  section.className = 'gravity-status-section';
+
+  const title = document.createElement('h3');
+  title.textContent = 'Gravity Status';
+  section.appendChild(title);
+
+  const gravitySource = getGravitySource(gameData.ship);
+
+  // Source line
+  const sourceLine = document.createElement('div');
+  sourceLine.className = 'gravity-line';
+
+  const sourceLabel = document.createElement('span');
+  sourceLabel.textContent = 'Source: ';
+  sourceLine.appendChild(sourceLabel);
+
+  const sourceValue = document.createElement('span');
+  if (gravitySource.type === 'rotating_habitat') {
+    sourceValue.textContent = 'Rotating Habitat';
+    sourceValue.style.color = '#4ade80'; // green
+  } else if (gravitySource.type === 'centrifuge') {
+    sourceValue.textContent = 'Centrifuge Pod';
+    sourceValue.style.color = '#4ade80'; // green
+  } else if (gravitySource.type === 'thrust' && gravitySource.thrustG) {
+    sourceValue.textContent = `Thrust (${gravitySource.thrustG.toFixed(2)}g)`;
+    sourceValue.style.color = '#fbbf24'; // yellow
+  } else {
+    sourceValue.textContent = 'None';
+    sourceValue.style.color = '#f87171'; // red
+  }
+  sourceLine.appendChild(sourceValue);
+  section.appendChild(sourceLine);
+
+  // Exposure rate line
+  const exposureLine = document.createElement('div');
+  exposureLine.className = 'gravity-line';
+
+  const exposureLabel = document.createElement('span');
+  exposureLabel.textContent = 'Exposure Rate: ';
+  exposureLine.appendChild(exposureLabel);
+
+  const exposureValue = document.createElement('span');
+
+  // Calculate exposure rate
+  let rate = 100; // base 100%
+
+  if (
+    gravitySource.type === 'rotating_habitat' ||
+    gravitySource.type === 'centrifuge'
+  ) {
+    rate = 0;
+    exposureValue.textContent = '0%';
+    exposureValue.style.color = '#4ade80'; // green
+  } else {
+    // Check for thrust reduction
+    if (gravitySource.type === 'thrust' && gravitySource.thrustG) {
+      const reduction = Math.min(100, gravitySource.thrustG * 100);
+      rate = Math.max(0, 100 - reduction);
+    }
+
+    // Check for exercise module
+    const hasExerciseModule = gameData.ship.equipment.some((eq) => {
+      const def = getEquipmentDefinition(eq.definitionId);
+      return def?.id === 'exercise_module';
+    });
+
+    if (hasExerciseModule) {
+      rate *= 0.5;
+    }
+
+    // Count crew with g_seats (just for display info)
+    const crewWithGSeats = gameData.ship.crew.filter((crew) =>
+      crew.equipment.some((eq) => eq.definitionId === 'g_seat')
+    ).length;
+
+    exposureValue.textContent = `${rate.toFixed(0)}%`;
+
+    if (rate === 0) {
+      exposureValue.style.color = '#4ade80'; // green
+    } else if (rate <= 50) {
+      exposureValue.style.color = '#fbbf24'; // yellow
+    } else {
+      exposureValue.style.color = '#f87171'; // red
+    }
+
+    // Add modifiers note
+    const modifiers: string[] = [];
+    if (gravitySource.type === 'thrust') {
+      modifiers.push('thrust burn');
+    }
+    if (hasExerciseModule) {
+      modifiers.push('exercise module');
+    }
+    if (crewWithGSeats > 0) {
+      modifiers.push(`${crewWithGSeats} crew with g-seats`);
+    }
+
+    if (modifiers.length > 0) {
+      const modNote = document.createElement('span');
+      modNote.textContent = ` (${modifiers.join(', ')})`;
+      modNote.style.fontSize = '0.9em';
+      modNote.style.opacity = '0.8';
+      exposureValue.appendChild(modNote);
+    }
+  }
+
+  exposureLine.appendChild(exposureValue);
+  section.appendChild(exposureLine);
+
+  return section;
 }
 
 function renderEquipmentSection(gameData: GameData): HTMLElement {

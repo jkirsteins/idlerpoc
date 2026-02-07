@@ -10,6 +10,14 @@ import {
   getXPForNextLevel,
 } from '../levelSystem';
 import { getCrewRoleDefinition } from '../crewRoles';
+import {
+  getGravityDegradationLevel,
+  getStrengthMultiplier,
+  formatExposureDays,
+  getDegradationLevelName,
+  getDegradationDescription,
+  getNextThreshold,
+} from '../gravitySystem';
 
 export function renderCrewTab(
   gameData: GameData,
@@ -126,7 +134,9 @@ function renderNoCrewSelected(): HTMLElement {
 
 function calculateAttackScore(crew: CrewMember): number {
   // Base attack from strength skill
-  let attack = crew.skills.strength;
+  const level = getGravityDegradationLevel(crew.zeroGExposure);
+  const multiplier = getStrengthMultiplier(level);
+  let attack = Math.floor(crew.skills.strength * multiplier);
 
   // Add weapon bonus
   const weaponSlot = crew.equipment.find((item) => {
@@ -300,6 +310,121 @@ function renderStatsSection(crew: CrewMember): HTMLElement {
   }
 
   section.appendChild(stats);
+
+  // Zero-G Exposure section
+  const exposureDays = formatExposureDays(crew.zeroGExposure);
+  const exposureLevel = getGravityDegradationLevel(crew.zeroGExposure);
+  const nextThreshold = getNextThreshold(crew.zeroGExposure);
+
+  const exposureSection = document.createElement('div');
+  exposureSection.className = 'exposure-section';
+  exposureSection.style.marginTop = '1rem';
+  exposureSection.style.padding = '0.5rem';
+  exposureSection.style.border = '1px solid rgba(255,255,255,0.1)';
+  exposureSection.style.borderRadius = '4px';
+
+  const exposureTitle = document.createElement('div');
+  exposureTitle.style.fontWeight = 'bold';
+  exposureTitle.style.marginBottom = '0.5rem';
+  exposureTitle.textContent = `Zero-G Exposure: ${exposureDays} days`;
+  exposureSection.appendChild(exposureTitle);
+
+  // Progress bar
+  const barContainer = document.createElement('div');
+  barContainer.style.position = 'relative';
+  barContainer.style.width = '100%';
+  barContainer.style.height = '20px';
+  barContainer.style.backgroundColor = 'rgba(0,0,0,0.3)';
+  barContainer.style.borderRadius = '4px';
+  barContainer.style.overflow = 'hidden';
+  barContainer.style.marginBottom = '0.5rem';
+
+  // Calculate fill percentage (0-365+ days)
+  const maxDays = 365;
+  const fillPercent = Math.min(100, (exposureDays / maxDays) * 100);
+
+  const barFill = document.createElement('div');
+  barFill.style.width = `${fillPercent}%`;
+  barFill.style.height = '100%';
+  barFill.style.transition = 'width 0.3s ease';
+
+  // Color based on level
+  if (exposureLevel === 'none') {
+    barFill.style.backgroundColor = '#4ade80'; // green
+  } else if (exposureLevel === 'minor') {
+    barFill.style.backgroundColor = '#fbbf24'; // yellow
+  } else if (exposureLevel === 'moderate') {
+    barFill.style.backgroundColor = '#fb923c'; // orange
+  } else if (exposureLevel === 'severe') {
+    barFill.style.backgroundColor = '#f87171'; // red
+  } else {
+    barFill.style.backgroundColor = '#dc2626'; // dark red
+  }
+
+  barContainer.appendChild(barFill);
+
+  // Threshold markers
+  const thresholds = [
+    { days: 14, label: '14d' },
+    { days: 60, label: '60d' },
+    { days: 180, label: '180d' },
+    { days: 365, label: '365d' },
+  ];
+
+  for (const threshold of thresholds) {
+    const marker = document.createElement('div');
+    marker.style.position = 'absolute';
+    marker.style.left = `${(threshold.days / maxDays) * 100}%`;
+    marker.style.top = '0';
+    marker.style.bottom = '0';
+    marker.style.width = '2px';
+    marker.style.backgroundColor = 'rgba(255,255,255,0.3)';
+    barContainer.appendChild(marker);
+
+    const label = document.createElement('div');
+    label.style.position = 'absolute';
+    label.style.left = `${(threshold.days / maxDays) * 100}%`;
+    label.style.bottom = '-18px';
+    label.style.transform = 'translateX(-50%)';
+    label.style.fontSize = '0.7em';
+    label.style.color = 'rgba(255,255,255,0.5)';
+    label.textContent = threshold.label;
+    barContainer.appendChild(label);
+  }
+
+  exposureSection.appendChild(barContainer);
+
+  // Status text
+  const statusText = document.createElement('div');
+  statusText.style.fontSize = '0.9em';
+  statusText.style.marginTop = '1rem';
+
+  if (exposureLevel === 'none') {
+    statusText.textContent = 'Status: Normal — No effects';
+    statusText.style.color = '#4ade80';
+  } else {
+    const levelName = getDegradationLevelName(exposureLevel);
+    const description = getDegradationDescription(exposureLevel);
+    statusText.innerHTML = `Status: <span style="color: ${exposureLevel === 'minor' ? '#fbbf24' : exposureLevel === 'moderate' ? '#fb923c' : '#f87171'}">${levelName}</span> — ${description}`;
+  }
+
+  exposureSection.appendChild(statusText);
+
+  // Next threshold warning
+  if (nextThreshold) {
+    const nextDays = formatExposureDays(nextThreshold.threshold);
+    const nextText = document.createElement('div');
+    nextText.style.fontSize = '0.85em';
+    nextText.style.marginTop = '0.25rem';
+    nextText.style.opacity = '0.7';
+    const levelName = getDegradationLevelName(nextThreshold.level);
+    const description = getDegradationDescription(nextThreshold.level);
+    nextText.textContent = `Next: ${levelName} at ${nextDays} days — ${description}`;
+    exposureSection.appendChild(nextText);
+  }
+
+  section.appendChild(exposureSection);
+
   return section;
 }
 
@@ -366,7 +491,22 @@ function renderSkillsSection(
 
     const skillValue = document.createElement('span');
     skillValue.className = 'skill-value';
-    skillValue.textContent = `${crew.skills[skillId]}`;
+
+    // Show effective strength if degraded
+    if (skillId === 'strength') {
+      const level = getGravityDegradationLevel(crew.zeroGExposure);
+      const multiplier = getStrengthMultiplier(level);
+      const effectiveStrength = Math.floor(crew.skills.strength * multiplier);
+
+      if (level !== 'none') {
+        skillValue.innerHTML = `${crew.skills.strength} <span style="opacity: 0.6">(eff: ${effectiveStrength})</span>`;
+      } else {
+        skillValue.textContent = `${crew.skills[skillId]}`;
+      }
+    } else {
+      skillValue.textContent = `${crew.skills[skillId]}`;
+    }
+
     skillRow.appendChild(skillValue);
 
     // +1 button

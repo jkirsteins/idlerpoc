@@ -7,7 +7,11 @@ import type { WizardStep, WizardDraft } from './ui/wizard';
 import { applyTick, deductCrewSalaries } from './gameTick';
 import { getLevelForXP } from './levelSystem';
 import { deduceRoleFromSkills } from './crewRoles';
-import { advanceToNextDayStart, getDaysSinceEpoch } from './timeSystem';
+import {
+  advanceToNextDayStart,
+  getDaysSinceEpoch,
+  GAME_SECONDS_PER_DAY,
+} from './timeSystem';
 import { generateAllLocationQuests } from './questGen';
 import {
   acceptQuest,
@@ -17,6 +21,10 @@ import {
 } from './contractExec';
 import { addLog } from './logSystem';
 import { getCrewEquipmentDefinition } from './crewEquipment';
+import {
+  applyGravityRecovery,
+  getGravityDegradationLevel,
+} from './gravitySystem';
 
 const app = document.getElementById('app')!;
 
@@ -307,6 +315,41 @@ const callbacks: RendererCallbacks = {
     // Deduct crew salaries for 1 day (48 ticks)
     const TICKS_PER_DAY = 48;
     deductCrewSalaries(state.gameData.ship, TICKS_PER_DAY);
+
+    // Store previous exposure values to detect recovery threshold crossings
+    const previousExposures = new Map<string, number>();
+    for (const crew of state.gameData.ship.crew) {
+      previousExposures.set(crew.id, crew.zeroGExposure);
+    }
+
+    // Apply gravity recovery (1 day)
+    applyGravityRecovery(state.gameData, GAME_SECONDS_PER_DAY);
+
+    // Check for recovery threshold crossings and log them
+    for (const crew of state.gameData.ship.crew) {
+      const previousExposure = previousExposures.get(crew.id) || 0;
+      const previousLevel = getGravityDegradationLevel(previousExposure);
+      const currentLevel = getGravityDegradationLevel(crew.zeroGExposure);
+
+      // Only log if we recovered PAST a threshold (went to a better level)
+      if (
+        previousLevel !== 'none' &&
+        currentLevel !== previousLevel &&
+        previousExposure > crew.zeroGExposure
+      ) {
+        const message =
+          currentLevel === 'none'
+            ? `${crew.name} has fully recovered from zero-g atrophy.`
+            : `${crew.name} has recovered from ${previousLevel} to ${currentLevel} zero-g atrophy.`;
+
+        addLog(
+          state.gameData.log,
+          state.gameData.gameTime,
+          'gravity_warning',
+          message
+        );
+      }
+    }
 
     // Advance to the start of the next day
     state.gameData.gameTime = advanceToNextDayStart(state.gameData.gameTime);

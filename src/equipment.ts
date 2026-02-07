@@ -1,4 +1,4 @@
-import type { EquipmentId } from './models';
+import type { EquipmentId, EquipmentSlotTag, EquipmentSlotDef } from './models';
 
 export interface EquipmentDefinition {
   id: EquipmentId;
@@ -7,6 +7,7 @@ export interface EquipmentDefinition {
   icon: string;
   powerDraw: number;
   hasDegradation: boolean;
+  requiredTags: EquipmentSlotTag[];
   radiationShielding?: number; // 0-100+ radiation blocked
   heatDissipation?: number; // kW-thermal dissipated
 }
@@ -20,6 +21,7 @@ export const EQUIPMENT_DEFINITIONS: EquipmentDefinition[] = [
     icon: '🌬️',
     powerDraw: 12,
     hasDegradation: false,
+    requiredTags: ['standard'],
   },
   {
     id: 'air_filters',
@@ -28,6 +30,7 @@ export const EQUIPMENT_DEFINITIONS: EquipmentDefinition[] = [
     icon: '🔬',
     powerDraw: 5,
     hasDegradation: true,
+    requiredTags: ['standard'],
   },
   // Shielding
   {
@@ -37,6 +40,7 @@ export const EQUIPMENT_DEFINITIONS: EquipmentDefinition[] = [
     icon: '🛡️',
     powerDraw: 8,
     hasDegradation: true,
+    requiredTags: ['standard'],
     radiationShielding: 30,
   },
   {
@@ -46,6 +50,7 @@ export const EQUIPMENT_DEFINITIONS: EquipmentDefinition[] = [
     icon: '🛡️',
     powerDraw: 20,
     hasDegradation: true,
+    requiredTags: ['standard'],
     radiationShielding: 70,
   },
   // Thermal
@@ -56,6 +61,7 @@ export const EQUIPMENT_DEFINITIONS: EquipmentDefinition[] = [
     icon: '📡',
     powerDraw: 10,
     hasDegradation: true,
+    requiredTags: ['standard'],
     heatDissipation: 100,
   },
   {
@@ -65,6 +71,7 @@ export const EQUIPMENT_DEFINITIONS: EquipmentDefinition[] = [
     icon: '❄️',
     powerDraw: 25,
     hasDegradation: true,
+    requiredTags: ['standard'],
     heatDissipation: 300,
   },
   // Defense & Navigation
@@ -75,6 +82,7 @@ export const EQUIPMENT_DEFINITIONS: EquipmentDefinition[] = [
     icon: '🎯',
     powerDraw: 30,
     hasDegradation: true,
+    requiredTags: ['standard'],
   },
   {
     id: 'deflector_shield',
@@ -83,6 +91,7 @@ export const EQUIPMENT_DEFINITIONS: EquipmentDefinition[] = [
     icon: '🧲',
     powerDraw: 15,
     hasDegradation: false,
+    requiredTags: ['standard'],
   },
   {
     id: 'nav_scanner',
@@ -91,6 +100,7 @@ export const EQUIPMENT_DEFINITIONS: EquipmentDefinition[] = [
     icon: '📊',
     powerDraw: 12,
     hasDegradation: false,
+    requiredTags: ['standard'],
   },
   // Structural
   {
@@ -101,6 +111,7 @@ export const EQUIPMENT_DEFINITIONS: EquipmentDefinition[] = [
     icon: '⚙️',
     powerDraw: 18,
     hasDegradation: true,
+    requiredTags: ['standard'],
   },
   {
     id: 'accel_couches',
@@ -109,6 +120,7 @@ export const EQUIPMENT_DEFINITIONS: EquipmentDefinition[] = [
     icon: '🛏️',
     powerDraw: 5,
     hasDegradation: false,
+    requiredTags: ['standard'],
   },
   {
     id: 'crash_couches',
@@ -117,6 +129,27 @@ export const EQUIPMENT_DEFINITIONS: EquipmentDefinition[] = [
     icon: '💺',
     powerDraw: 15,
     hasDegradation: false,
+    requiredTags: ['standard'],
+  },
+  // Gravity Systems
+  {
+    id: 'centrifuge_pod',
+    name: 'Rotating Gravity Module',
+    description: 'Rotating gravity module. Provides ~0.3g spin gravity.',
+    icon: '🔄',
+    powerDraw: 25,
+    hasDegradation: false,
+    requiredTags: ['structural'],
+  },
+  {
+    id: 'exercise_module',
+    name: 'Resistance Training Equipment',
+    description:
+      'Resistance training equipment. Slows zero-g degradation by 50%.',
+    icon: '💪',
+    powerDraw: 8,
+    hasDegradation: false,
+    requiredTags: ['standard'],
   },
 ];
 
@@ -128,4 +161,11 @@ export function getEquipmentDefinition(
 
 export function getAllEquipmentDefinitions(): EquipmentDefinition[] {
   return EQUIPMENT_DEFINITIONS;
+}
+
+export function canEquipInSlot(
+  equipDef: EquipmentDefinition,
+  slot: EquipmentSlotDef
+): boolean {
+  return equipDef.requiredTags.some((tag) => slot.tags.includes(tag));
 }

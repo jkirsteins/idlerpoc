@@ -6,7 +6,8 @@ export type CrewEquipmentId =
   | 'scanner'
   | 'rebreather'
   | 'wrist_terminal'
-  | 'armored_vest';
+  | 'armored_vest'
+  | 'g_seat';
 
 export type CrewEquipmentCategory = 'weapon' | 'tool' | 'accessory' | 'armor';
 
@@ -124,6 +125,18 @@ export const CREW_EQUIPMENT_DEFINITIONS: CrewEquipmentDefinition[] = [
     weight: 3.5,
     value: 2200,
     storageUnits: 2,
+    attackScore: 0,
+  },
+  {
+    id: 'g_seat',
+    name: 'G-Seat Harness',
+    description:
+      'Compression harness simulating gravitational load. Reduces zero-g exposure rate by 30%.',
+    icon: '💺',
+    category: 'accessory',
+    weight: 8.0,
+    value: 3500,
+    storageUnits: 3,
     attackScore: 0,
   },
 ];

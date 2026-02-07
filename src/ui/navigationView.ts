@@ -1,6 +1,7 @@
 import type { GameData } from '../models';
 import { getLocationTypeTemplate } from '../spaceLocations';
 import { isLocationReachable } from '../worldGen';
+import { getGravityDegradationLevel } from '../gravitySystem';
 
 export interface NavigationViewCallbacks {
   onToggleNavigation: () => void;
@@ -158,6 +159,24 @@ export function renderNavigationView(
     description.style.fontSize = '0.9em';
     description.style.color = '#aaa';
     item.appendChild(description);
+
+    // Gravity warning for degraded crew
+    const degradedCrew = gameData.ship.crew.filter(
+      (c) => getGravityDegradationLevel(c.zeroGExposure) !== 'none'
+    );
+
+    if (
+      degradedCrew.length > 0 &&
+      location.id !== currentLocationId &&
+      reachable
+    ) {
+      const warning = document.createElement('div');
+      warning.style.fontSize = '0.85em';
+      warning.style.color = '#fbbf24';
+      warning.style.marginTop = '0.25rem';
+      warning.textContent = `⚠️ ${degradedCrew.length} crew member${degradedCrew.length > 1 ? 's' : ''} with zero-g atrophy`;
+      item.appendChild(warning);
+    }
 
     legend.appendChild(item);
   }

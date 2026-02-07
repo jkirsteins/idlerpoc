@@ -5,3 +5,4 @@
 - Commit messages: concise, no "Claude Code" mentions.
 - Never implement any migration code unless asked. For a proof of concept we should just reset the game state when making incompatible changes.
 - "tick" is a implementation term, and should not appear in the game UI ever. Instead of "tick" convert it to terms like days, months, years, etc.
+- Maintain BACKLOG.md: add deferred ideas during design discussions, remove items when implemented.

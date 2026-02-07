@@ -9,6 +9,7 @@ import type {
   EquipmentId,
   EngineInstance,
   CrewEquipmentInstance,
+  EquipmentSlotDef,
 } from './models';
 import { getShipClass } from './shipClasses';
 import { generateCrewName } from './names';
@@ -16,6 +17,7 @@ import { generateWorld } from './worldGen';
 import { generateStartingXP, getLevelForXP } from './levelSystem';
 import { generateSkillsForRole, deduceRoleFromSkills } from './crewRoles';
 import { generateAllLocationQuests } from './questGen';
+import { getEquipmentDefinition, canEquipInSlot } from './equipment';
 
 const HIRE_BASE_COST = 500;
 const HIRE_LEVEL_MULTIPLIER = 200;
@@ -62,6 +64,7 @@ function createCrewMember(
     unspentSkillPoints: 0,
     unpaidTicks: 0,
     hireCost,
+    zeroGExposure: 0,
   };
 }
 
@@ -164,10 +167,33 @@ export function createNewGame(
     }
   }
 
+  // Generate equipment slots from ship class definition
+  const equipmentSlots: EquipmentSlotDef[] = shipClass.equipmentSlotDefs.map(
+    (slotDef) => ({
+      id: generateId(),
+      tags: slotDef.tags,
+    })
+  );
+
   // Create default equipment
   const equipment: EquipmentInstance[] = shipClass.defaultEquipment.map(
     (equipId) => createEquipmentInstance(equipId)
   );
+
+  // Assign default equipment to compatible slots
+  for (const equipInstance of equipment) {
+    const equipDef = getEquipmentDefinition(equipInstance.definitionId);
+    if (!equipDef) continue;
+
+    // Find first empty slot that can accept this equipment
+    const compatibleSlot = equipmentSlots.find(
+      (slot) => !slot.equippedId && canEquipInSlot(equipDef, slot)
+    );
+
+    if (compatibleSlot) {
+      compatibleSlot.equippedId = equipInstance.id;
+    }
+  }
 
   // Create engine instance
   const engine = createEngineInstance(shipClassId);
@@ -186,6 +212,7 @@ export function createNewGame(
     fuel: 100,
     credits: 5000, // Starting credits for initial operations
     equipment,
+    equipmentSlots,
     location: {
       status: 'docked',
       dockedAt: 'earth',
