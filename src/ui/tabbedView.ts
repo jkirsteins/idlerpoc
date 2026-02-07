@@ -172,7 +172,65 @@ function renderGlobalStatusBar(
 
   statusBar.appendChild(statsDiv);
 
-  // Right side: Advance Day button
+  // Right side: Action buttons
+  const actionsDiv = document.createElement('div');
+  actionsDiv.style.display = 'flex';
+  actionsDiv.style.gap = '0.5rem';
+  actionsDiv.style.alignItems = 'center';
+
+  // Status text
+  const statusText = document.createElement('span');
+  statusText.style.marginRight = '0.5rem';
+  statusText.style.color = '#aaa';
+  if (gameData.ship.location.status === 'docked') {
+    const dockedAt = gameData.ship.location.dockedAt;
+    const location = gameData.world.locations.find((l) => l.id === dockedAt);
+    const locationName = location?.name || dockedAt;
+    statusText.textContent = `Docked at ${locationName}`;
+  } else {
+    if (gameData.ship.location.flight) {
+      const destId = gameData.ship.location.flight.destination;
+      const destLocation = gameData.world.locations.find(
+        (l) => l.id === destId
+      );
+      const destName = destLocation?.name || destId;
+      statusText.textContent = `In flight to ${destName}`;
+    } else {
+      statusText.textContent = 'In flight';
+    }
+  }
+  actionsDiv.appendChild(statusText);
+
+  // Undock/Dock button
+  const dockBtn = document.createElement('button');
+  dockBtn.style.padding = '0.5rem 1rem';
+  if (gameData.ship.location.status === 'docked') {
+    dockBtn.textContent = 'Undock';
+    dockBtn.addEventListener('click', () => callbacks.onUndock());
+  } else {
+    dockBtn.textContent = 'Dock';
+    dockBtn.addEventListener('click', () => callbacks.onDock());
+  }
+  actionsDiv.appendChild(dockBtn);
+
+  // Buy Fuel button (when docked at refuel station with fuel < 100%)
+  if (gameData.ship.location.status === 'docked') {
+    const dockedAt = gameData.ship.location.dockedAt;
+    const location = gameData.world.locations.find((l) => l.id === dockedAt);
+
+    if (location?.services.includes('refuel') && gameData.ship.fuel < 100) {
+      const fuelNeeded = 100 - gameData.ship.fuel;
+      const cost = Math.round(fuelNeeded * 5);
+      const refuelBtn = document.createElement('button');
+      refuelBtn.textContent = `Buy Fuel (${Math.round(fuelNeeded)}% → ${cost} cr)`;
+      refuelBtn.style.padding = '0.5rem 1rem';
+      refuelBtn.disabled = gameData.ship.credits < cost;
+      refuelBtn.addEventListener('click', () => callbacks.onBuyFuel());
+      actionsDiv.appendChild(refuelBtn);
+    }
+  }
+
+  // Advance Day button (only when docked with no contract)
   const canAdvanceDay =
     gameData.ship.location.status === 'docked' && !gameData.activeContract;
 
@@ -181,8 +239,10 @@ function renderGlobalStatusBar(
     advanceDayBtn.textContent = '⏭ Advance Day';
     advanceDayBtn.style.padding = '0.5rem 1rem';
     advanceDayBtn.addEventListener('click', () => callbacks.onAdvanceDay());
-    statusBar.appendChild(advanceDayBtn);
+    actionsDiv.appendChild(advanceDayBtn);
   }
+
+  statusBar.appendChild(actionsDiv);
 
   return statusBar;
 }
