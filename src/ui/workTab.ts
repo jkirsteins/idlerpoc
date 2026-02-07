@@ -106,7 +106,18 @@ function renderAvailableWork(
     noQuests.textContent = 'No work available. Try advancing the day.';
     questList.appendChild(noQuests);
   } else {
-    for (const quest of availableQuests) {
+    // Sort quests: acceptable ones first, then unacceptable ones
+    const sortedQuests = [...availableQuests].sort((a, b) => {
+      const aAcceptable = canAcceptQuest(ship, a).canAccept;
+      const bAcceptable = canAcceptQuest(ship, b).canAccept;
+
+      // Acceptable quests come first (true > false gives descending order)
+      if (aAcceptable && !bAcceptable) return -1;
+      if (!aAcceptable && bAcceptable) return 1;
+      return 0;
+    });
+
+    for (const quest of sortedQuests) {
       questList.appendChild(renderQuestCard(gameData, quest, callbacks));
     }
   }
