@@ -18,11 +18,21 @@ export function loadGame(): GameData | null {
       loaded.availableQuests === undefined ||
       loaded.activeContract === undefined ||
       loaded.log === undefined ||
-      loaded.lastTickTimestamp === undefined
+      loaded.lastTickTimestamp === undefined ||
+      loaded.lastQuestRegenDay === undefined
     ) {
       // Incompatible save format - clear it
       console.log(
         'Incompatible save detected (missing top-level fields), clearing...'
+      );
+      localStorage.removeItem(STORAGE_KEY);
+      return null;
+    }
+
+    // Check if availableQuests is the old array format instead of Record<string, Quest[]>
+    if (Array.isArray(loaded.availableQuests)) {
+      console.log(
+        'Incompatible save detected (old quest array format), clearing...'
       );
       localStorage.removeItem(STORAGE_KEY);
       return null;

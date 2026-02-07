@@ -7,8 +7,8 @@ import type { WizardStep, WizardDraft } from './ui/wizard';
 import { applyTick } from './gameTick';
 import { getLevelForXP } from './levelSystem';
 import { deduceRoleFromSkills } from './crewRoles';
-import { advanceDay } from './timeSystem';
-import { generateQuestsForLocation } from './questGen';
+import { advanceToNextDayStart, getDaysSinceEpoch } from './timeSystem';
+import { generateAllLocationQuests } from './questGen';
 import {
   acceptQuest,
   pauseContract,
@@ -279,8 +279,19 @@ const callbacks: RendererCallbacks = {
   onAcceptQuest: (questId) => {
     if (state.phase !== 'playing') return;
 
-    const quest = state.gameData.availableQuests.find((q) => q.id === questId);
+    const currentLocation = state.gameData.ship.location.dockedAt;
+    if (!currentLocation) return;
+
+    const locationQuests =
+      state.gameData.availableQuests[currentLocation] || [];
+    const quest = locationQuests.find((q) => q.id === questId);
     if (!quest) return;
+
+    // Remove the accepted quest from the location's quest list
+    const questIndex = locationQuests.indexOf(quest);
+    if (questIndex !== -1) {
+      locationQuests.splice(questIndex, 1);
+    }
 
     acceptQuest(state.gameData, quest);
     saveGame(state.gameData);
@@ -292,8 +303,8 @@ const callbacks: RendererCallbacks = {
     if (state.gameData.ship.location.status !== 'docked') return;
     if (state.gameData.activeContract) return;
 
-    // Advance game time by one day
-    state.gameData.gameTime = advanceDay(state.gameData.gameTime);
+    // Advance to the start of the next day
+    state.gameData.gameTime = advanceToNextDayStart(state.gameData.gameTime);
 
     // Log day advancement
     addLog(
@@ -303,20 +314,14 @@ const callbacks: RendererCallbacks = {
       'Advanced one day'
     );
 
-    // Regenerate quests for current location
-    const location = state.gameData.ship.location.dockedAt;
-    if (location) {
-      const locationData = state.gameData.world.locations.find(
-        (l) => l.id === location
-      );
-      if (locationData) {
-        state.gameData.availableQuests = generateQuestsForLocation(
-          state.gameData.ship,
-          locationData,
-          state.gameData.world
-        );
-      }
-    }
+    // Regenerate quests for all locations
+    state.gameData.availableQuests = generateAllLocationQuests(
+      state.gameData.ship,
+      state.gameData.world
+    );
+    state.gameData.lastQuestRegenDay = getDaysSinceEpoch(
+      state.gameData.gameTime
+    );
 
     saveGame(state.gameData);
     renderApp();
@@ -344,6 +349,92 @@ const callbacks: RendererCallbacks = {
     abandonContract(state.gameData);
     saveGame(state.gameData);
     renderApp();
+  },
+
+  onBuyFuel: () => {
+    if (state.phase !== 'playing') return;
+    if (state.gameData.ship.location.status !== 'docked') return;
+
+    const dockedLocationId = state.gameData.ship.location.dockedAt;
+    if (!dockedLocationId) return;
+
+    const location = state.gameData.world.locations.find(
+      (l) => l.id === dockedLocationId
+    );
+    if (!location || !location.services.includes('refuel')) return;
+
+    const fuelNeeded = 100 - state.gameData.ship.fuel;
+    if (fuelNeeded <= 0) return;
+
+    const cost = Math.round(fuelNeeded * 5); // 5 credits per percent
+
+    if (state.gameData.ship.credits >= cost) {
+      state.gameData.ship.credits -= cost;
+      state.gameData.ship.fuel = 100;
+
+      addLog(
+        state.gameData.log,
+        state.gameData.gameTime,
+        'refueled',
+        `Purchased ${Math.round(fuelNeeded)}% fuel for ${cost} credits`
+      );
+
+      saveGame(state.gameData);
+      renderApp();
+    }
+  },
+
+  onStartTrip: (destinationId: string) => {
+    if (state.phase !== 'playing') return;
+    if (state.gameData.ship.location.status !== 'docked') return;
+    if (state.gameData.activeContract) return; // Can't start manual trip during contract
+
+    const currentLocationId = state.gameData.ship.location.dockedAt;
+    if (!currentLocationId) return;
+
+    const origin = state.gameData.world.locations.find(
+      (l) => l.id === currentLocationId
+    );
+    const destination = state.gameData.world.locations.find(
+      (l) => l.id === destinationId
+    );
+
+    if (!origin || !destination) return;
+
+    // Import initializeFlight dynamically
+    import('./flightPhysics').then(({ initializeFlight }) => {
+      if (state.phase !== 'playing') return;
+
+      // Undock and start flight
+      state.gameData.ship.location.status = 'in_flight';
+      delete state.gameData.ship.location.dockedAt;
+
+      // Initialize flight
+      state.gameData.ship.location.flight = initializeFlight(
+        state.gameData.ship,
+        origin,
+        destination,
+        true // Dock on arrival for manual trips
+      );
+
+      // Start engine warmup
+      state.gameData.ship.engine.state = 'warming_up';
+      state.gameData.ship.engine.warmupProgress = 0;
+
+      // Log departure
+      addLog(
+        state.gameData.log,
+        state.gameData.gameTime,
+        'departure',
+        `Departed ${origin.name} en route to ${destination.name}`
+      );
+
+      // Close navigation view
+      state.showNavigation = false;
+
+      saveGame(state.gameData);
+      renderApp();
+    });
   },
 };
 

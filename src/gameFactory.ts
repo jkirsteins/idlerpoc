@@ -15,7 +15,7 @@ import { generateCrewName } from './names';
 import { generateWorld } from './worldGen';
 import { generateStartingXP, getLevelForXP } from './levelSystem';
 import { generateSkillsForRole, deduceRoleFromSkills } from './crewRoles';
-import { generateQuestsForLocation } from './questGen';
+import { generateAllLocationQuests } from './questGen';
 
 function generateId(): string {
   return Math.random().toString(36).substring(2, 11);
@@ -163,21 +163,14 @@ export function createNewGame(
   // Generate world
   const world = generateWorld();
 
-  // Get starting location
-  const earthLocation = world.locations.find((l) => l.id === 'earth');
-  if (!earthLocation) {
-    throw new Error('Earth location not found');
-  }
-
-  // Generate initial quests for Earth
-  const availableQuests = generateQuestsForLocation(ship, earthLocation, world);
+  // Generate initial quests for all locations
+  const availableQuests = generateAllLocationQuests(ship, world);
+  const lastQuestRegenDay = 0; // Starting on day 0
 
   console.log(
-    'GameFactory - Generated quests:',
-    availableQuests.length,
+    'GameFactory - Generated quests for all locations:',
     availableQuests
   );
-  console.log('GameFactory - Earth location size:', earthLocation.size);
 
   return {
     ship,
@@ -188,5 +181,6 @@ export function createNewGame(
     activeContract: null,
     log: [],
     lastTickTimestamp: Date.now(),
+    lastQuestRegenDay,
   };
 }

@@ -1,12 +1,29 @@
 import type { GameData, ActiveContract, Quest, WorldLocation } from './models';
 import { initializeFlight } from './flightPhysics';
 import { addLog } from './logSystem';
+import { getShipClass } from './shipClasses';
+import { generateAllLocationQuests } from './questGen';
+import { getDaysSinceEpoch } from './timeSystem';
 
 /**
  * Contract Execution
  *
  * Manages active contract state and transitions
  */
+
+/**
+ * Regenerate quests if we've crossed a day boundary
+ */
+function regenerateQuestsIfNewDay(gameData: GameData): void {
+  const currentDay = getDaysSinceEpoch(gameData.gameTime);
+  if (currentDay > gameData.lastQuestRegenDay) {
+    gameData.availableQuests = generateAllLocationQuests(
+      gameData.ship,
+      gameData.world
+    );
+    gameData.lastQuestRegenDay = currentDay;
+  }
+}
 
 /**
  * Start a contract by accepting a quest
@@ -67,6 +84,34 @@ export function acceptQuest(gameData: GameData, quest: Quest): void {
 export function completeLeg(gameData: GameData): void {
   const { ship, world, gameTime, activeContract } = gameData;
 
+  // Handle manual trip completion (no contract)
+  if (!activeContract && ship.location.flight) {
+    const flight = ship.location.flight;
+    if (flight.dockOnArrival) {
+      const destination = world.locations.find(
+        (l) => l.id === flight.destination
+      );
+      if (destination) {
+        ship.location.status = 'docked';
+        ship.location.dockedAt = destination.id;
+        delete ship.location.flight;
+        ship.engine.state = 'off';
+        ship.engine.warmupProgress = 0;
+
+        addLog(
+          gameData.log,
+          gameTime,
+          'arrival',
+          `Arrived at ${destination.name}`
+        );
+
+        // Regenerate quests if new day
+        regenerateQuestsIfNewDay(gameData);
+      }
+    }
+    return;
+  }
+
   if (!activeContract || !ship.location.flight) {
     return;
   }
@@ -113,24 +158,49 @@ export function completeLeg(gameData: GameData): void {
       ship.engine.state = 'off';
       ship.engine.warmupProgress = 0;
       gameData.activeContract = null;
+
+      // Regenerate quests if new day
+      regenerateQuestsIfNewDay(gameData);
     } else {
       // Freight/supply contracts: continue to inbound leg
       activeContract.leg = 'inbound';
 
-      // Dock briefly if destination has refuel
-      if (arrivalLocation.services.includes('refuel')) {
-        ship.fuel = Math.min(100, ship.fuel + 20); // Quick refuel
+      // Check if there's enough fuel for return leg
+      const nextOrigin = destLoc;
+      const nextDestination = originLoc;
+      const distanceKm = Math.abs(
+        nextOrigin.distanceFromEarth - nextDestination.distanceFromEarth
+      );
+
+      // Calculate required fuel
+      const shipClass = getShipClass(ship.classId);
+      const maxRangeKm = shipClass
+        ? parseInt(
+            shipClass.maxRange.match(/^([\d,]+)/)?.[1].replace(/,/g, '') || '0',
+            10
+          )
+        : 2000;
+      const requiredFuel = (distanceKm / maxRangeKm) * 50; // One-way fuel cost
+
+      if (ship.fuel < requiredFuel * 1.1) {
+        // Not enough fuel (need 10% buffer), pause contract
+        activeContract.paused = true;
+        ship.location.status = 'docked';
+        ship.location.dockedAt = arrivalLocation.id;
+        delete ship.location.flight;
+        ship.engine.state = 'off';
+        ship.engine.warmupProgress = 0;
+
         addLog(
           gameData.log,
           gameTime,
-          'refueled',
-          `Refueled at ${arrivalLocation.name}`
+          'arrival',
+          `Low fuel at ${arrivalLocation.name}! Contract "${quest.title}" paused - refuel to continue.`
         );
+        return;
       }
 
       // Start return leg
-      const nextOrigin = destLoc;
-      const nextDestination = originLoc;
       ship.location.flight = initializeFlight(
         ship,
         nextOrigin,
@@ -144,7 +214,7 @@ export function completeLeg(gameData: GameData): void {
         gameData.log,
         gameTime,
         'departure',
-        `Departed ${nextOrigin.name} en route to ${nextDestination.name}`
+        `Departed ${nextOrigin.name} en route to ${nextDestination.name} (${quest.title})`
       );
     }
   } else {
@@ -211,23 +281,48 @@ export function completeLeg(gameData: GameData): void {
       ship.engine.state = 'off';
       ship.engine.warmupProgress = 0;
       gameData.activeContract = null;
+
+      // Regenerate quests if new day
+      regenerateQuestsIfNewDay(gameData);
     } else {
       // Start next outbound leg
       activeContract.leg = 'outbound';
 
-      // Dock briefly if origin has refuel
-      if (arrivalLocation.services.includes('refuel')) {
-        ship.fuel = Math.min(100, ship.fuel + 20); // Quick refuel
+      // Check if there's enough fuel for next outbound leg
+      const nextOrigin = originLoc;
+      const nextDestination = destLoc;
+      const distanceKm = Math.abs(
+        nextOrigin.distanceFromEarth - nextDestination.distanceFromEarth
+      );
+
+      // Calculate required fuel
+      const shipClass = getShipClass(ship.classId);
+      const maxRangeKm = shipClass
+        ? parseInt(
+            shipClass.maxRange.match(/^([\d,]+)/)?.[1].replace(/,/g, '') || '0',
+            10
+          )
+        : 2000;
+      const requiredFuel = (distanceKm / maxRangeKm) * 50; // One-way fuel cost
+
+      if (ship.fuel < requiredFuel * 1.1) {
+        // Not enough fuel (need 10% buffer), pause contract
+        activeContract.paused = true;
+        ship.location.status = 'docked';
+        ship.location.dockedAt = arrivalLocation.id;
+        delete ship.location.flight;
+        ship.engine.state = 'off';
+        ship.engine.warmupProgress = 0;
+
         addLog(
           gameData.log,
           gameTime,
-          'refueled',
-          `Refueled at ${arrivalLocation.name}`
+          'arrival',
+          `Low fuel at ${arrivalLocation.name}! Contract "${quest.title}" paused - refuel to continue.`
         );
+        return;
       }
 
-      const nextOrigin = originLoc;
-      const nextDestination = destLoc;
       ship.location.flight = initializeFlight(
         ship,
         nextOrigin,
@@ -241,7 +336,7 @@ export function completeLeg(gameData: GameData): void {
         gameData.log,
         gameTime,
         'departure',
-        `Departed ${nextOrigin.name} en route to ${nextDestination.name}`
+        `Departed ${nextOrigin.name} en route to ${nextDestination.name} (${quest.title})`
       );
     }
   }
@@ -354,4 +449,7 @@ export function abandonContract(gameData: GameData): void {
   }
 
   gameData.activeContract = null;
+
+  // Regenerate quests if new day
+  regenerateQuestsIfNewDay(gameData);
 }

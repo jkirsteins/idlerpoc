@@ -226,8 +226,9 @@ export interface GameData {
   world: World;
   createdAt: number;
   gameTime: number; // elapsed game-seconds since epoch
-  availableQuests: Quest[];
+  availableQuests: Record<string, Quest[]>; // key = location ID
   activeContract: ActiveContract | null;
   log: LogEntry[];
   lastTickTimestamp: number; // real-world timestamp of last tick (milliseconds)
+  lastQuestRegenDay: number; // game day when quests were last generated
 }

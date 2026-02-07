@@ -56,10 +56,9 @@ function renderAvailableWork(
   const container = document.createElement('div');
   container.className = 'available-work';
 
-  const { ship, availableQuests } = gameData;
+  const { ship } = gameData;
   const location = ship.location.dockedAt;
 
-  console.log('Work tab - availableQuests:', availableQuests);
   console.log('Work tab - location:', location);
   console.log('Work tab - ship status:', ship.location.status);
 
@@ -82,6 +81,10 @@ function renderAvailableWork(
     console.error('Work tab - LOCATION DATA NOT FOUND, returning empty');
     return container;
   }
+
+  // Get quests for this location
+  const availableQuests = gameData.availableQuests[location] || [];
+  console.log('Work tab - availableQuests for location:', availableQuests);
 
   // Header
   const heading = document.createElement('h3');

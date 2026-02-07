@@ -80,6 +80,14 @@ export function advanceDay(currentGameTime: number): number {
 }
 
 /**
+ * Advance to the start of the next day (midnight)
+ */
+export function advanceToNextDayStart(currentGameTime: number): number {
+  const nextDay = getDaysSinceEpoch(currentGameTime) + 1;
+  return nextDay * GAME_SECONDS_PER_DAY;
+}
+
+/**
  * Get the number of days elapsed since epoch
  */
 export function getDaysSinceEpoch(gameTime: number): number {

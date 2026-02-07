@@ -322,6 +322,20 @@ function generateStandingFreightQuest(
 }
 
 /**
+ * Generate quests for all locations in the world
+ */
+export function generateAllLocationQuests(
+  ship: Ship,
+  world: World
+): Record<string, Quest[]> {
+  const allQuests: Record<string, Quest[]> = {};
+  for (const location of world.locations) {
+    allQuests[location.id] = generateQuestsForLocation(ship, location, world);
+  }
+  return allQuests;
+}
+
+/**
  * Generate quests for a location
  */
 export function generateQuestsForLocation(
