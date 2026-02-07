@@ -4,7 +4,7 @@ import { createNewGame, generateHireableCrew } from './gameFactory';
 import { saveGame, loadGame, clearGame } from './storage';
 import { render, type GameState, type RendererCallbacks } from './ui/renderer';
 import type { WizardStep, WizardDraft } from './ui/wizard';
-import { applyTick } from './gameTick';
+import { applyTick, deductCrewSalaries } from './gameTick';
 import { getLevelForXP } from './levelSystem';
 import { deduceRoleFromSkills } from './crewRoles';
 import { advanceToNextDayStart, getDaysSinceEpoch } from './timeSystem';
@@ -304,6 +304,10 @@ const callbacks: RendererCallbacks = {
     if (state.gameData.ship.location.status !== 'docked') return;
     if (state.gameData.activeContract) return;
 
+    // Deduct crew salaries for 1 day (48 ticks)
+    const TICKS_PER_DAY = 48;
+    deductCrewSalaries(state.gameData.ship, TICKS_PER_DAY);
+
     // Advance to the start of the next day
     state.gameData.gameTime = advanceToNextDayStart(state.gameData.gameTime);
 
@@ -326,6 +330,21 @@ const callbacks: RendererCallbacks = {
 
     // Regenerate hireable crew
     state.gameData.hireableCrew = generateHireableCrew();
+
+    // Check for unpaid crew and log them (they'll depart if player tries to undock)
+    const unpaidCrew = state.gameData.ship.crew.filter(
+      (c) => c.unpaidTicks > 0 && !c.isCaptain
+    );
+    if (unpaidCrew.length > 0) {
+      for (const crew of unpaidCrew) {
+        addLog(
+          state.gameData.log,
+          state.gameData.gameTime,
+          'crew_departed',
+          `${crew.name} has unpaid wages (${crew.unpaidTicks} ticks) and will depart if ship leaves port`
+        );
+      }
+    }
 
     saveGame(state.gameData);
     renderApp();

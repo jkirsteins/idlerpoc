@@ -1,10 +1,64 @@
-import type { GameData } from './models';
+import type { GameData, Ship } from './models';
 import { getEngineDefinition } from './engines';
 import { advanceFlight, isEngineBurning } from './flightPhysics';
 import { completeLeg } from './contractExec';
 import { GAME_SECONDS_PER_TICK } from './timeSystem';
 import { getShipClass } from './shipClasses';
 import { getCrewRoleDefinition } from './crewRoles';
+
+/**
+ * Deduct crew salaries for a given number of ticks.
+ * Marks crew as unpaid if insufficient credits.
+ */
+export function deductCrewSalaries(ship: Ship, numTicks: number): void {
+  // Calculate total salary per tick
+  let totalSalaryPerTick = 0;
+  for (const crew of ship.crew) {
+    const roleDef = getCrewRoleDefinition(crew.role);
+    if (roleDef) {
+      totalSalaryPerTick += roleDef.salary;
+    }
+  }
+
+  if (totalSalaryPerTick === 0) return;
+
+  const totalSalary = totalSalaryPerTick * numTicks;
+
+  if (ship.credits >= totalSalary) {
+    // Can afford full salaries
+    ship.credits -= totalSalary;
+  } else {
+    // Cannot afford full salaries - mark crew as unpaid
+    const availableCredits = ship.credits;
+    ship.credits = 0;
+
+    // Calculate how many ticks we can afford to pay
+    const ticksWeCanPay = Math.floor(availableCredits / totalSalaryPerTick);
+    const ticksUnpaid = numTicks - ticksWeCanPay;
+
+    if (ticksUnpaid > 0) {
+      // Sort crew by salary (most expensive first) to pay cheaper roles first
+      const crewBySalary = [...ship.crew].sort((a, b) => {
+        const salaryA = getCrewRoleDefinition(a.role)?.salary || 0;
+        const salaryB = getCrewRoleDefinition(b.role)?.salary || 0;
+        return salaryB - salaryA;
+      });
+
+      // For the unpaid ticks, determine which crew goes unpaid
+      const budgetPerTick = availableCredits / Math.max(1, ticksWeCanPay);
+
+      for (const crew of crewBySalary) {
+        const salary = getCrewRoleDefinition(crew.role)?.salary || 0;
+        if (salary > 0) {
+          // If this crew's salary exceeds our per-tick budget, they go unpaid for unpaid ticks
+          if (salary > budgetPerTick || ticksWeCanPay === 0) {
+            crew.unpaidTicks += ticksUnpaid;
+          }
+        }
+      }
+    }
+  }
+}
 
 export function applyTick(gameData: GameData): boolean {
   const { ship } = gameData;
@@ -86,43 +140,7 @@ export function applyTick(gameData: GameData): boolean {
       changed = true;
 
       // Crew salary deduction (only during flight)
-      let totalSalary = 0;
-      for (const crew of ship.crew) {
-        const roleDef = getCrewRoleDefinition(crew.role);
-        if (roleDef) {
-          totalSalary += roleDef.salary;
-        }
-      }
-
-      if (totalSalary > 0) {
-        if (ship.credits >= totalSalary) {
-          // Can afford full salaries
-          ship.credits -= totalSalary;
-        } else {
-          // Cannot afford full salaries - mark crew as unpaid
-          ship.credits = 0;
-
-          // Sort crew by salary (most expensive first) to pay cheaper roles first
-          const crewBySalary = [...ship.crew].sort((a, b) => {
-            const salaryA = getCrewRoleDefinition(a.role)?.salary || 0;
-            const salaryB = getCrewRoleDefinition(b.role)?.salary || 0;
-            return salaryB - salaryA;
-          });
-
-          let remainingBudget = ship.credits;
-          for (const crew of crewBySalary) {
-            const salary = getCrewRoleDefinition(crew.role)?.salary || 0;
-            if (salary > 0) {
-              if (remainingBudget >= salary) {
-                remainingBudget -= salary;
-              } else {
-                // This crew member goes unpaid
-                crew.unpaidTicks++;
-              }
-            }
-          }
-        }
-      }
+      deductCrewSalaries(ship, 1);
 
       // Handle flight completion
       if (flightComplete) {

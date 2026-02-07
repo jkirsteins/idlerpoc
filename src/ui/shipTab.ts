@@ -129,16 +129,10 @@ function renderShipSpecs(gameData: GameData): HTMLElement {
     return document.createElement('div');
   }
 
-  const engineDef = getEngineDefinition(gameData.ship.engine.definitionId);
-
   const specs = document.createElement('div');
   specs.className = 'ship-specs';
 
   const specItems = [
-    { label: 'Engine', value: engineDef.name },
-    { label: 'Engine Type', value: engineDef.type },
-    { label: 'Fuel Type', value: engineDef.fuelType },
-    { label: 'Max Range', value: shipClass.maxRange },
     { label: 'Cargo Capacity', value: `${shipClass.cargoCapacity} SU` },
     { label: 'Equipment Slots', value: `${shipClass.equipmentSlots}` },
   ];

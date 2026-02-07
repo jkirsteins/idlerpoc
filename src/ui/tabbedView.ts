@@ -7,6 +7,7 @@ import { renderWorkTab } from './workTab';
 import { renderLogTab } from './logTab';
 import { renderSettingsTab } from './settingsTab';
 import { formatGameDate } from '../timeSystem';
+import { getCrewRoleDefinition } from '../crewRoles';
 
 export interface TabbedViewCallbacks {
   onReset: () => void;
@@ -46,7 +47,7 @@ export function renderTabbedView(
   container.className = 'tabbed-view';
 
   // Ship header
-  container.appendChild(renderShipHeader(gameData));
+  container.appendChild(renderShipHeader(gameData, callbacks));
 
   // Tab bar
   container.appendChild(renderTabBar(activeTab, callbacks));
@@ -60,7 +61,6 @@ export function renderTabbedView(
     container.appendChild(
       renderWorkTab(gameData, {
         onAcceptQuest: callbacks.onAcceptQuest,
-        onAdvanceDay: callbacks.onAdvanceDay,
         onDockAtNearestPort: callbacks.onDockAtNearestPort,
         onResumeContract: callbacks.onResumeContract,
         onAbandonContract: callbacks.onAbandonContract,
@@ -75,7 +75,10 @@ export function renderTabbedView(
   return container;
 }
 
-function renderShipHeader(gameData: GameData): HTMLElement {
+function renderShipHeader(
+  gameData: GameData,
+  callbacks: TabbedViewCallbacks
+): HTMLElement {
   const header = document.createElement('div');
   header.className = 'ship-header';
 
@@ -114,7 +117,74 @@ function renderShipHeader(gameData: GameData): HTMLElement {
     header.appendChild(captainLabel);
   }
 
+  // Global status bar with credits, crew, and advance day
+  header.appendChild(renderGlobalStatusBar(gameData, callbacks));
+
   return header;
+}
+
+function renderGlobalStatusBar(
+  gameData: GameData,
+  callbacks: TabbedViewCallbacks
+): HTMLElement {
+  const statusBar = document.createElement('div');
+  statusBar.className = 'global-status-bar';
+  statusBar.style.display = 'flex';
+  statusBar.style.justifyContent = 'space-between';
+  statusBar.style.alignItems = 'center';
+  statusBar.style.marginTop = '1rem';
+  statusBar.style.padding = '0.75rem';
+  statusBar.style.background = 'rgba(0, 0, 0, 0.3)';
+  statusBar.style.borderRadius = '4px';
+  statusBar.style.border = '1px solid #444';
+
+  // Left side: Stats
+  const statsDiv = document.createElement('div');
+  statsDiv.style.display = 'flex';
+  statsDiv.style.gap = '2rem';
+
+  // Credits
+  const creditsDiv = document.createElement('div');
+  creditsDiv.innerHTML = `<span style="color: #888;">Credits:</span> <span style="color: #4a9eff; font-weight: bold;">${Math.round(gameData.ship.credits).toLocaleString()}</span>`;
+  statsDiv.appendChild(creditsDiv);
+
+  // Crew count
+  const shipClass = getShipClass(gameData.ship.classId);
+  const maxCrew = shipClass?.maxCrew ?? '?';
+  const crewDiv = document.createElement('div');
+  crewDiv.innerHTML = `<span style="color: #888;">Crew:</span> <span style="font-weight: bold;">${gameData.ship.crew.length}/${maxCrew}</span>`;
+  statsDiv.appendChild(crewDiv);
+
+  // Crew cost per tick
+  let totalCrewCost = 0;
+  for (const crew of gameData.ship.crew) {
+    const roleDef = getCrewRoleDefinition(crew.role);
+    if (roleDef) {
+      totalCrewCost += roleDef.salary;
+    }
+  }
+
+  if (totalCrewCost > 0) {
+    const costDiv = document.createElement('div');
+    costDiv.innerHTML = `<span style="color: #888;">Crew Cost:</span> <span style="color: #ffa500; font-weight: bold;">${totalCrewCost.toFixed(1)} cr/tick</span>`;
+    statsDiv.appendChild(costDiv);
+  }
+
+  statusBar.appendChild(statsDiv);
+
+  // Right side: Advance Day button
+  const canAdvanceDay =
+    gameData.ship.location.status === 'docked' && !gameData.activeContract;
+
+  if (canAdvanceDay) {
+    const advanceDayBtn = document.createElement('button');
+    advanceDayBtn.textContent = '⏭ Advance Day';
+    advanceDayBtn.style.padding = '0.5rem 1rem';
+    advanceDayBtn.addEventListener('click', () => callbacks.onAdvanceDay());
+    statusBar.appendChild(advanceDayBtn);
+  }
+
+  return statusBar;
 }
 
 function renderTabBar(

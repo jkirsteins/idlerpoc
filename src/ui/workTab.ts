@@ -6,7 +6,6 @@ import { getCrewRoleDefinition } from '../crewRoles';
 
 export interface WorkTabCallbacks {
   onAcceptQuest: (questId: string) => void;
-  onAdvanceDay: () => void;
   onDockAtNearestPort: () => void;
   onResumeContract: () => void;
   onAbandonContract: () => void;
@@ -92,13 +91,6 @@ function renderAvailableWork(
   heading.textContent = `Available Work at ${locationData.name}`;
   console.log('Work tab - Adding heading:', heading.textContent);
   container.appendChild(heading);
-
-  // Advance Day button
-  const advanceDayBtn = document.createElement('button');
-  advanceDayBtn.className = 'advance-day-button';
-  advanceDayBtn.textContent = 'Advance Day';
-  advanceDayBtn.addEventListener('click', () => callbacks.onAdvanceDay());
-  container.appendChild(advanceDayBtn);
 
   // Quest list
   const questList = document.createElement('div');
