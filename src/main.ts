@@ -147,7 +147,7 @@ const callbacks: RendererCallbacks = {
     if (state.phase !== 'playing') return;
 
     state.gameData.ship.location.status = 'docked';
-    state.gameData.ship.location.dockedAt = 'Earth';
+    state.gameData.ship.location.dockedAt = 'earth';
 
     // Turn off engine when docking
     state.gameData.ship.engine.state = 'off';

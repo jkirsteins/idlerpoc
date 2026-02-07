@@ -154,7 +154,7 @@ export function createNewGame(
     equipment,
     location: {
       status: 'docked',
-      dockedAt: 'Earth',
+      dockedAt: 'earth',
     },
     engine,
     cargo,
