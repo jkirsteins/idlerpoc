@@ -11,6 +11,7 @@ import {
   advanceToNextDayStart,
   getDaysSinceEpoch,
   GAME_SECONDS_PER_DAY,
+  TICKS_PER_DAY,
 } from './timeSystem';
 import { generateAllLocationQuests } from './questGen';
 import {
@@ -313,7 +314,6 @@ const callbacks: RendererCallbacks = {
     if (state.gameData.activeContract) return;
 
     // Deduct crew salaries for 1 day (48 ticks)
-    const TICKS_PER_DAY = 48;
     deductCrewSalaries(state.gameData.ship, TICKS_PER_DAY);
 
     // Store previous exposure values to detect recovery threshold crossings
@@ -384,7 +384,7 @@ const callbacks: RendererCallbacks = {
           state.gameData.log,
           state.gameData.gameTime,
           'crew_departed',
-          `${crew.name} has unpaid wages (${crew.unpaidTicks} ticks) and will depart if ship leaves port`
+          `${crew.name} has unpaid wages (${Math.ceil(crew.unpaidTicks / TICKS_PER_DAY)} days) and will depart if ship leaves port`
         );
       }
     }

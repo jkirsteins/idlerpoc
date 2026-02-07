@@ -1,6 +1,6 @@
 import type { Ship, FlightState, WorldLocation } from './models';
-import { getEngineDefinition } from './engines';
-import { getShipClass } from './shipClasses';
+import { getEngineDefinition, type EngineDefinition } from './engines';
+import { getShipClass, type ShipClass } from './shipClasses';
 import { getDistanceBetween } from './worldGen';
 import { GAME_SECONDS_PER_TICK } from './timeSystem';
 
@@ -11,12 +11,62 @@ import { GAME_SECONDS_PER_TICK } from './timeSystem';
  */
 
 /**
- * Parse max range string from ship class (e.g., "2,000 km (LEO/MEO)" -> 2000)
+ * Constants for mission endurance calculations
  */
-function parseMaxRange(maxRangeStr: string): number {
-  const match = maxRangeStr.match(/^([\d,]+)/);
-  if (!match) return 0;
-  return parseInt(match[1].replace(/,/g, ''), 10);
+const CONSUMABLE_FRACTION = 0.3; // 30% of cargo capacity reserved for consumables
+const KG_PER_CREW_PER_DAY = 30; // 30 kg per crew member per day (food, water, air reserves)
+
+/**
+ * Compute mission endurance based on consumable supplies and crew size
+ * Returns endurance in game seconds
+ */
+export function computeMissionEndurance(shipClass: ShipClass): number {
+  const consumablesKg = shipClass.cargoCapacity * CONSUMABLE_FRACTION;
+  let ratePerCrew = KG_PER_CREW_PER_DAY;
+
+  // Cook reduces waste by 20%
+  if (shipClass.rooms.includes('cantina')) {
+    ratePerCrew *= 0.8;
+  }
+
+  const enduranceDays = consumablesKg / (shipClass.maxCrew * ratePerCrew);
+  return enduranceDays * 86400; // Convert to game seconds
+}
+
+/**
+ * Compute maximum range derived from engine capability, ship mass, and mission endurance
+ * Returns range in kilometers
+ */
+export function computeMaxRange(
+  shipClass: ShipClass,
+  engineDef: EngineDefinition
+): number {
+  const mass = shipClass.mass;
+  const thrust = engineDef.thrust;
+  const maxDeltaV = engineDef.maxDeltaV;
+  const acceleration = thrust / mass;
+
+  // 50% fuel allocation for one-way trip
+  const allocatedDeltaV = 0.5 * maxDeltaV;
+  const v_cruise = allocatedDeltaV / 2; // Half for accel, half for decel
+  const burnTime = v_cruise / acceleration;
+  const endurance = computeMissionEndurance(shipClass);
+
+  let rangeMeters: number;
+
+  if (endurance <= 2 * burnTime) {
+    // Can't complete full burn-coast-burn cycle
+    // Mini-brachistochrone constrained by endurance
+    rangeMeters = 0.25 * acceleration * endurance * endurance;
+  } else {
+    // Full burn-coast-burn
+    const coastTime = endurance - 2 * burnTime;
+    const burnDist = acceleration * burnTime * burnTime;
+    const coastDist = v_cruise * coastTime;
+    rangeMeters = burnDist + coastDist;
+  }
+
+  return rangeMeters / 1000; // Convert to km
 }
 
 /**
@@ -50,7 +100,7 @@ export function initializeFlight(
   const distanceMeters = distanceKm * 1000;
 
   // Get ship parameters
-  const maxRangeKm = parseMaxRange(shipClass.maxRange);
+  const maxRangeKm = computeMaxRange(shipClass, engineDef);
   const mass = shipClass.mass;
   const thrust = engineDef.thrust;
   const maxDeltaV = engineDef.maxDeltaV;

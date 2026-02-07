@@ -380,8 +380,23 @@ This ruleset balances:
 3. **Gameplay Depth**: Different ship classes serve different purposes; trade-offs matter
 4. **Economic Pressure**: Faster ≠ better if it bankrupts you
 5. **Strategic Choices**: No "best" ship - context-dependent decisions
+6. **Emergent Systems**: Game values should emerge from interacting systems rather than being hardcoded. Ship range is derived from engine capability × ship mass × mission endurance (from cargo capacity, crew count, and room bonuses). When systems interact, gameplay depth emerges without hand-tuning.
 
 The gap drive is powerful but not a magic solution—it requires extensive conventional acceleration, careful planning, carries real risks, degrades with use, and costs a fortune. Most cargo still moves on slow Class III ships because the economics don't support gap transit for bulk goods.
+
+### Range as Emergent Property
+
+Ship maximum range is not a fixed value but emerges from the interaction of multiple systems:
+
+- **Engine thrust & ship mass** → acceleration
+- **Engine maxDeltaV** → fuel budget for cruise velocity
+- **Cargo capacity** → consumable supplies (30% reserved for food, water, air)
+- **Crew count** → consumption rate (30 kg/crew/day base)
+- **Rooms (cantina)** → efficiency modifiers (cook reduces waste by 20%)
+
+Mission endurance constrains range: even with abundant fuel, a ship can only go as far as its consumables allow. A slow ship with low thrust CAN travel far if it has enough supplies and time. A fast ship with many crew burns through consumables quickly, limiting effective range despite powerful engines.
+
+This creates natural trade-offs: Class I ships are slow AND supply-limited, making them truly orbital-only. Class II ships can reach Mars slowly but require long journey times. Class III torch ships have high acceleration but large crews, balancing range through different constraints.
 
 ---
 

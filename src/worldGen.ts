@@ -1,14 +1,7 @@
 import type { World, WorldLocation, Ship } from './models';
 import { getShipClass } from './shipClasses';
-
-/**
- * Parse max range string from ship class (e.g., "2,000 km (LEO/MEO)" -> 2000)
- */
-function parseMaxRange(maxRangeStr: string): number {
-  const match = maxRangeStr.match(/^([\d,]+)/);
-  if (!match) return 0;
-  return parseInt(match[1].replace(/,/g, ''), 10);
-}
+import { computeMaxRange } from './flightPhysics';
+import { getEngineDefinition } from './engines';
 
 /**
  * Get distance between two locations
@@ -37,7 +30,8 @@ export function isLocationReachable(
   if (!shipClass) return false;
 
   // Get ship's maximum range in km
-  const maxRange = parseMaxRange(shipClass.maxRange);
+  const engineDef = getEngineDefinition(ship.engine.definitionId);
+  const maxRange = computeMaxRange(shipClass, engineDef);
 
   // Calculate distance between locations
   const distance = getDistanceBetween(fromLocation, location);
@@ -73,7 +67,8 @@ export function getUnreachableReason(
   if (!shipClass) return 'Unknown ship class';
 
   // Get ship's maximum range in km
-  const maxRange = parseMaxRange(shipClass.maxRange);
+  const engineDef = getEngineDefinition(ship.engine.definitionId);
+  const maxRange = computeMaxRange(shipClass, engineDef);
 
   // Calculate distance between locations
   const distance = getDistanceBetween(fromLocation, location);

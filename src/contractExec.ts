@@ -1,10 +1,16 @@
-import type { GameData, ActiveContract, Quest, WorldLocation } from './models';
-import { initializeFlight } from './flightPhysics';
+import type { GameData, ActiveContract, Quest } from './models';
+import {
+  initializeFlight,
+  computeMaxRange,
+  calculateFuelCost,
+} from './flightPhysics';
 import { addLog } from './logSystem';
 import { getShipClass } from './shipClasses';
 import { generateAllLocationQuests } from './questGen';
-import { getDaysSinceEpoch } from './timeSystem';
+import { getDaysSinceEpoch, TICKS_PER_DAY } from './timeSystem';
 import { generateHireableCrew } from './gameFactory';
+import { getEngineDefinition } from './engines';
+import { getDistanceBetween } from './worldGen';
 
 /**
  * Contract Execution
@@ -56,7 +62,7 @@ function removeUnpaidCrew(gameData: GameData): void {
       gameData.log,
       gameTime,
       'crew_departed',
-      `${crew.name} departed due to unpaid wages (${crew.unpaidTicks} unpaid ticks)`
+      `${crew.name} departed due to unpaid wages (${Math.ceil(crew.unpaidTicks / TICKS_PER_DAY)} unpaid days)`
     );
   }
 }
@@ -210,19 +216,14 @@ export function completeLeg(gameData: GameData): void {
       // Check if there's enough fuel for return leg
       const nextOrigin = destLoc;
       const nextDestination = originLoc;
-      const distanceKm = Math.abs(
-        nextOrigin.distanceFromEarth - nextDestination.distanceFromEarth
-      );
+      const distanceKm = getDistanceBetween(nextOrigin, nextDestination);
 
       // Calculate required fuel
       const shipClass = getShipClass(ship.classId);
-      const maxRangeKm = shipClass
-        ? parseInt(
-            shipClass.maxRange.match(/^([\d,]+)/)?.[1].replace(/,/g, '') || '0',
-            10
-          )
-        : 2000;
-      const requiredFuel = (distanceKm / maxRangeKm) * 50; // One-way fuel cost
+      if (!shipClass) return;
+      const engineDef = getEngineDefinition(ship.engine.definitionId);
+      const maxRangeKm = computeMaxRange(shipClass, engineDef);
+      const requiredFuel = calculateFuelCost(distanceKm, maxRangeKm);
 
       if (ship.fuel < requiredFuel * 1.1) {
         // Not enough fuel (need 10% buffer), pause contract
@@ -339,19 +340,14 @@ export function completeLeg(gameData: GameData): void {
       // Check if there's enough fuel for next outbound leg
       const nextOrigin = originLoc;
       const nextDestination = destLoc;
-      const distanceKm = Math.abs(
-        nextOrigin.distanceFromEarth - nextDestination.distanceFromEarth
-      );
+      const distanceKm = getDistanceBetween(nextOrigin, nextDestination);
 
       // Calculate required fuel
       const shipClass = getShipClass(ship.classId);
-      const maxRangeKm = shipClass
-        ? parseInt(
-            shipClass.maxRange.match(/^([\d,]+)/)?.[1].replace(/,/g, '') || '0',
-            10
-          )
-        : 2000;
-      const requiredFuel = (distanceKm / maxRangeKm) * 50; // One-way fuel cost
+      if (!shipClass) return;
+      const engineDef = getEngineDefinition(ship.engine.definitionId);
+      const maxRangeKm = computeMaxRange(shipClass, engineDef);
+      const requiredFuel = calculateFuelCost(distanceKm, maxRangeKm);
 
       if (ship.fuel < requiredFuel * 1.1) {
         // Not enough fuel (need 10% buffer), pause contract
@@ -464,7 +460,7 @@ export function resumeContract(gameData: GameData): void {
  * Abandon active contract
  */
 export function abandonContract(gameData: GameData): void {
-  const { ship, world, gameTime, activeContract } = gameData;
+  const { ship, gameTime, activeContract } = gameData;
 
   if (!activeContract) {
     return;
@@ -479,25 +475,11 @@ export function abandonContract(gameData: GameData): void {
     `Abandoned contract: ${quest.title}. Earned ${activeContract.creditsEarned.toLocaleString()} credits from completed trips.`
   );
 
-  // Determine dock location
-  let dockLocation: WorldLocation | undefined;
-
   if (ship.location.flight) {
-    // In flight: dock at destination
-    const destId = ship.location.flight.destination;
-    dockLocation = world.locations.find((l) => l.id === destId);
-  } else if (ship.location.dockedAt) {
-    // Already docked
-    dockLocation = world.locations.find((l) => l.id === ship.location.dockedAt);
+    // Mid-flight: let the flight finish naturally, dock on arrival
+    ship.location.flight.dockOnArrival = true;
   }
-
-  if (dockLocation) {
-    ship.location.status = 'docked';
-    ship.location.dockedAt = dockLocation.id;
-    delete ship.location.flight;
-    ship.engine.state = 'off';
-    ship.engine.warmupProgress = 0;
-  }
+  // If already docked: nothing to do, ship stays docked
 
   gameData.activeContract = null;
 

@@ -1,7 +1,7 @@
 import type { Quest, Ship, WorldLocation, World } from './models';
 import { getShipClass } from './shipClasses';
 import { getDistanceBetween } from './worldGen';
-import { calculateFuelCost } from './flightPhysics';
+import { calculateFuelCost, computeMaxRange } from './flightPhysics';
 import { gameSecondsToTicks, GAME_SECONDS_PER_TICK } from './timeSystem';
 import { getEngineDefinition } from './engines';
 
@@ -36,15 +36,6 @@ const PASSENGER_NAMES = [
   'Captain Rodriguez',
   'Diplomat Morgan',
 ];
-
-/**
- * Parse max range string from ship class (e.g., "2,000 km (LEO/MEO)" -> 2000)
- */
-function parseMaxRange(maxRangeStr: string): number {
-  const match = maxRangeStr.match(/^([\d,]+)/);
-  if (!match) return 0;
-  return parseInt(match[1].replace(/,/g, ''), 10);
-}
 
 /**
  * Calculate payment based on distance, cargo, and trip time
@@ -93,7 +84,7 @@ function estimateTripTime(ship: Ship, distanceKm: number): number {
   const acceleration = thrust / mass;
 
   // Get max range and calculate fuel allocation
-  const maxRangeKm = parseMaxRange(shipClass.maxRange);
+  const maxRangeKm = computeMaxRange(shipClass, engineDef);
   const fuelCostPercent = calculateFuelCost(distanceKm, maxRangeKm);
   const allocatedDeltaV = (fuelCostPercent / 100) * engineDef.maxDeltaV;
 
@@ -128,7 +119,8 @@ function isDestinationReachable(
   const shipClass = getShipClass(ship.classId);
   if (!shipClass) return false;
 
-  const maxRangeKm = parseMaxRange(shipClass.maxRange);
+  const engineDef = getEngineDefinition(ship.engine.definitionId);
+  const maxRangeKm = computeMaxRange(shipClass, engineDef);
   const distanceKm = getDistanceBetween(origin, destination);
 
   // Need enough range for round trip (fuel cost is 50% per one-way at max range)
@@ -156,7 +148,8 @@ function generateDeliveryQuest(
   const payment = calculatePayment(ship, distanceKm, cargoKg);
   const estimatedTime = estimateTripTime(ship, distanceKm);
   const shipClass = getShipClass(ship.classId);
-  const maxRangeKm = shipClass ? parseMaxRange(shipClass.maxRange) : 0;
+  const engineDef = getEngineDefinition(ship.engine.definitionId);
+  const maxRangeKm = shipClass ? computeMaxRange(shipClass, engineDef) : 0;
   const fuelCost = calculateFuelCost(distanceKm, maxRangeKm);
 
   return {
@@ -192,7 +185,8 @@ function generatePassengerQuest(
   const payment = calculatePayment(ship, distanceKm);
   const estimatedTime = estimateTripTime(ship, distanceKm);
   const shipClass = getShipClass(ship.classId);
-  const maxRangeKm = shipClass ? parseMaxRange(shipClass.maxRange) : 0;
+  const engineDef = getEngineDefinition(ship.engine.definitionId);
+  const maxRangeKm = shipClass ? computeMaxRange(shipClass, engineDef) : 0;
   const fuelCost = calculateFuelCost(distanceKm, maxRangeKm);
 
   return {
@@ -232,7 +226,8 @@ function generateFreightQuest(
   ); // 80% of one-off rate
   const estimatedTime = estimateTripTime(ship, distanceKm);
   const shipClass = getShipClass(ship.classId);
-  const maxRangeKm = shipClass ? parseMaxRange(shipClass.maxRange) : 0;
+  const engineDef = getEngineDefinition(ship.engine.definitionId);
+  const maxRangeKm = shipClass ? computeMaxRange(shipClass, engineDef) : 0;
   const fuelCost = calculateFuelCost(distanceKm, maxRangeKm);
 
   return {
@@ -274,7 +269,8 @@ function generateSupplyQuest(
     calculatePayment(ship, distanceKm, totalCargoKg) * 1.5
   ); // 150% bonus for bulk
   const estimatedTime = estimateTripTime(ship, distanceKm);
-  const maxRangeKm = shipClass ? parseMaxRange(shipClass.maxRange) : 0;
+  const engineDef = getEngineDefinition(ship.engine.definitionId);
+  const maxRangeKm = shipClass ? computeMaxRange(shipClass, engineDef) : 0;
   const fuelCost = calculateFuelCost(distanceKm, maxRangeKm);
 
   return {
@@ -312,7 +308,8 @@ function generateStandingFreightQuest(
   ); // 70% of one-off rate
   const estimatedTime = estimateTripTime(ship, distanceKm);
   const shipClass = getShipClass(ship.classId);
-  const maxRangeKm = shipClass ? parseMaxRange(shipClass.maxRange) : 0;
+  const engineDef = getEngineDefinition(ship.engine.definitionId);
+  const maxRangeKm = shipClass ? computeMaxRange(shipClass, engineDef) : 0;
   const fuelCost = calculateFuelCost(distanceKm, maxRangeKm);
 
   return {

@@ -6,7 +6,7 @@ import { renderCrewTab } from './crewTab';
 import { renderWorkTab } from './workTab';
 import { renderLogTab } from './logTab';
 import { renderSettingsTab } from './settingsTab';
-import { formatGameDate } from '../timeSystem';
+import { formatGameDate, TICKS_PER_DAY } from '../timeSystem';
 import { getCrewRoleDefinition } from '../crewRoles';
 
 export interface TabbedViewCallbacks {
@@ -90,12 +90,6 @@ function renderShipHeader(
   dateText.textContent = formatGameDate(gameData.gameTime);
   dateHeader.appendChild(dateText);
 
-  const tickCounter = document.createElement('span');
-  tickCounter.className = 'tick-counter';
-  const currentTick = Math.floor(gameData.gameTime / 1800); // 1 tick = 1800 seconds
-  tickCounter.textContent = ` [tick: ${currentTick}]`;
-  dateHeader.appendChild(tickCounter);
-
   header.appendChild(dateHeader);
 
   const shipName = document.createElement('h2');
@@ -166,7 +160,7 @@ function renderGlobalStatusBar(
 
   if (totalCrewCost > 0) {
     const costDiv = document.createElement('div');
-    costDiv.innerHTML = `<span style="color: #888;">Crew Cost:</span> <span style="color: #ffa500; font-weight: bold;">${totalCrewCost.toFixed(1)} cr/tick</span>`;
+    costDiv.innerHTML = `<span style="color: #888;">Crew Cost:</span> <span style="color: #ffa500; font-weight: bold;">${(totalCrewCost * TICKS_PER_DAY).toFixed(0)} cr/day</span>`;
     statsDiv.appendChild(costDiv);
   }
 

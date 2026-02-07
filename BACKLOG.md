@@ -24,5 +24,4 @@ This file tracks deferred features and known gaps that are not currently priorit
 - **Cargo Weight Estimation**: Currently hardcoded `* 100`. Need proper cargo weight tracking.
 - **Cargo Space Limit**: Currently hardcoded `maxSpace = 20`. Should use ship cargo capacity.
 - **Class IV/V Ships**: Ship classes defined in WORLDRULES.md but not implemented.
-- **Remove "tick" from UI**: Replace "tick" references in existing UI with time-based terms (days/months).
 - **Remove Debug Console Logs**: Clean up `console.log` statements throughout codebase.

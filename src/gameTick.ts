@@ -1,6 +1,11 @@
 import type { GameData, Ship } from './models';
 import { getEngineDefinition } from './engines';
-import { advanceFlight, isEngineBurning } from './flightPhysics';
+import {
+  advanceFlight,
+  isEngineBurning,
+  computeMaxRange,
+  calculateFuelCost,
+} from './flightPhysics';
 import { completeLeg } from './contractExec';
 import { GAME_SECONDS_PER_TICK } from './timeSystem';
 import { getShipClass } from './shipClasses';
@@ -11,6 +16,7 @@ import {
   checkThresholdCrossing,
   getDegradationDescription,
 } from './gravitySystem';
+import { getDistanceBetween } from './worldGen';
 
 /**
  * Deduct crew salaries for a given number of ticks.
@@ -120,17 +126,14 @@ export function applyTick(gameData: GameData): boolean {
         );
 
         if (origin && destination) {
-          const distanceKm = Math.abs(
-            origin.distanceFromEarth - destination.distanceFromEarth
-          );
           const shipClass = getShipClass(ship.classId);
           if (shipClass) {
-            const maxRangeKm = parseInt(
-              shipClass.maxRange.match(/^([\d,]+)/)?.[1].replace(/,/g, '') ||
-                '0',
-              10
+            const distanceKm = getDistanceBetween(origin, destination);
+            const maxRangeKm = computeMaxRange(shipClass, engineDef);
+            const totalFuelCostPercent = calculateFuelCost(
+              distanceKm,
+              maxRangeKm
             );
-            const totalFuelCostPercent = (distanceKm / maxRangeKm) * 50; // One-way fuel cost
 
             // Consume fuel proportionally to burn time
             // Fuel is only consumed during burn phases, not coast

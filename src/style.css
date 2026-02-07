@@ -1523,13 +1523,6 @@ button:disabled:hover {
   color: #4ecdc4;
 }
 
-.tick-counter {
-  font-size: 10px;
-  color: #888;
-  font-weight: normal;
-  margin-left: 8px;
-}
-
 .available-work h3 {
   margin-bottom: 16px;
 }

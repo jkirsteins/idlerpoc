@@ -18,7 +18,7 @@ export interface ShipClass {
   rooms: RoomType[];
   maxCrew: number;
   unlocked: boolean;
-  maxRange: string;
+  rangeLabel: string; // Display flavor text (e.g., 'LEO/MEO', 'Inner System', 'Jupiter+')
   cargoCapacity: number;
   equipmentSlots: number; // deprecated, use equipmentSlotDefs
   equipmentSlotDefs: { tags: EquipmentSlotTag[] }[];
@@ -40,7 +40,7 @@ export const SHIP_CLASSES: ShipClass[] = [
     rooms: ['bridge', 'engine_room', 'cargo_hold'],
     maxCrew: 4,
     unlocked: true,
-    maxRange: '2,000 km (LEO/MEO)',
+    rangeLabel: 'LEO/MEO',
     cargoCapacity: 5000,
     equipmentSlots: 3,
     equipmentSlotDefs: [
@@ -65,7 +65,7 @@ export const SHIP_CLASSES: ShipClass[] = [
     rooms: ['bridge', 'engine_room', 'cantina', 'cargo_hold', 'quarters'],
     maxCrew: 6,
     unlocked: false,
-    maxRange: '500,000 km (Inner System)',
+    rangeLabel: 'Inner System',
     cargoCapacity: 40000,
     equipmentSlots: 4,
     equipmentSlotDefs: [
@@ -96,7 +96,7 @@ export const SHIP_CLASSES: ShipClass[] = [
     ],
     maxCrew: 8,
     unlocked: false,
-    maxRange: '2,500,000 km (Inner System)',
+    rangeLabel: 'Inner System+',
     cargoCapacity: 60000,
     equipmentSlots: 5,
     equipmentSlotDefs: [
@@ -129,7 +129,7 @@ export const SHIP_CLASSES: ShipClass[] = [
     ],
     maxCrew: 12,
     unlocked: false,
-    maxRange: '60,000,000 km (Earth-Mars)',
+    rangeLabel: 'Earth-Mars',
     cargoCapacity: 80000,
     equipmentSlots: 6,
     equipmentSlotDefs: [
@@ -162,7 +162,7 @@ export const SHIP_CLASSES: ShipClass[] = [
     ],
     maxCrew: 8,
     unlocked: false,
-    maxRange: '1,500,000 km (Inner System)',
+    rangeLabel: 'Inner System',
     cargoCapacity: 30000,
     equipmentSlots: 5,
     equipmentSlotDefs: [
@@ -197,7 +197,7 @@ export const SHIP_CLASSES: ShipClass[] = [
     ],
     maxCrew: 10,
     unlocked: false,
-    maxRange: '150,000,000 km (Mars)',
+    rangeLabel: 'Mars',
     cargoCapacity: 100000,
     equipmentSlots: 8,
     equipmentSlotDefs: [
@@ -241,7 +241,7 @@ export const SHIP_CLASSES: ShipClass[] = [
     ],
     maxCrew: 16,
     unlocked: false,
-    maxRange: '800,000,000 km (Jupiter+)',
+    rangeLabel: 'Jupiter+',
     cargoCapacity: 200000,
     equipmentSlots: 10,
     equipmentSlotDefs: [

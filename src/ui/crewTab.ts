@@ -18,6 +18,7 @@ import {
   getDegradationDescription,
   getNextThreshold,
 } from '../gravitySystem';
+import { TICKS_PER_DAY } from '../timeSystem';
 
 export function renderCrewTab(
   gameData: GameData,
@@ -292,7 +293,9 @@ function renderStatsSection(crew: CrewMember): HTMLElement {
     salaryLabel.textContent = 'Salary:';
     const salaryValue = document.createElement('span');
     salaryValue.textContent =
-      roleDef.salary > 0 ? `${roleDef.salary} cr/tick` : 'None (Captain)';
+      roleDef.salary > 0
+        ? `${(roleDef.salary * TICKS_PER_DAY).toFixed(0)} cr/day`
+        : 'None (Captain)';
     salaryRow.appendChild(salaryLabel);
     salaryRow.appendChild(salaryValue);
     stats.appendChild(salaryRow);
@@ -305,7 +308,8 @@ function renderStatsSection(crew: CrewMember): HTMLElement {
     unpaidWarning.style.color = '#ff4444';
     unpaidWarning.style.marginTop = '0.5rem';
     unpaidWarning.style.fontWeight = 'bold';
-    unpaidWarning.textContent = `⚠️ ${crew.unpaidTicks} unpaid tick${crew.unpaidTicks > 1 ? 's' : ''} - will depart at next port!`;
+    const unpaidDays = Math.ceil(crew.unpaidTicks / TICKS_PER_DAY);
+    unpaidWarning.textContent = `⚠️ ${unpaidDays} unpaid day${unpaidDays > 1 ? 's' : ''} - will depart at next port!`;
     stats.appendChild(unpaidWarning);
   }
 
@@ -739,7 +743,7 @@ function renderHiringSection(
     const levelSalary = document.createElement('div');
     levelSalary.style.fontSize = '0.9rem';
     levelSalary.style.color = '#aaa';
-    levelSalary.textContent = `Level ${candidate.level} • Salary: ${roleDef?.salary || 0} cr/tick`;
+    levelSalary.textContent = `Level ${candidate.level} • Salary: ${((roleDef?.salary || 0) * TICKS_PER_DAY).toFixed(0)} cr/day`;
     infoDiv.appendChild(levelSalary);
 
     const skills = document.createElement('div');
