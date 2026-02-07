@@ -4,6 +4,7 @@ import { advanceFlight, isEngineBurning } from './flightPhysics';
 import { completeLeg } from './contractExec';
 import { GAME_SECONDS_PER_TICK } from './timeSystem';
 import { getShipClass } from './shipClasses';
+import { getCrewRoleDefinition } from './crewRoles';
 
 export function applyTick(gameData: GameData): boolean {
   const { ship } = gameData;
@@ -83,6 +84,45 @@ export function applyTick(gameData: GameData): boolean {
       }
 
       changed = true;
+
+      // Crew salary deduction (only during flight)
+      let totalSalary = 0;
+      for (const crew of ship.crew) {
+        const roleDef = getCrewRoleDefinition(crew.role);
+        if (roleDef) {
+          totalSalary += roleDef.salary;
+        }
+      }
+
+      if (totalSalary > 0) {
+        if (ship.credits >= totalSalary) {
+          // Can afford full salaries
+          ship.credits -= totalSalary;
+        } else {
+          // Cannot afford full salaries - mark crew as unpaid
+          ship.credits = 0;
+
+          // Sort crew by salary (most expensive first) to pay cheaper roles first
+          const crewBySalary = [...ship.crew].sort((a, b) => {
+            const salaryA = getCrewRoleDefinition(a.role)?.salary || 0;
+            const salaryB = getCrewRoleDefinition(b.role)?.salary || 0;
+            return salaryB - salaryA;
+          });
+
+          let remainingBudget = ship.credits;
+          for (const crew of crewBySalary) {
+            const salary = getCrewRoleDefinition(crew.role)?.salary || 0;
+            if (salary > 0) {
+              if (remainingBudget >= salary) {
+                remainingBudget -= salary;
+              } else {
+                // This crew member goes unpaid
+                crew.unpaidTicks++;
+              }
+            }
+          }
+        }
+      }
 
       // Handle flight completion
       if (flightComplete) {

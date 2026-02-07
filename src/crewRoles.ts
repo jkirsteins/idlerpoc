@@ -5,6 +5,7 @@ export interface CrewRoleDefinition {
   name: string;
   description: string;
   preferredRoom: RoomType;
+  salary: number; // Credits per tick during flight
 }
 
 export const CREW_ROLE_DEFINITIONS: CrewRoleDefinition[] = [
@@ -13,42 +14,56 @@ export const CREW_ROLE_DEFINITIONS: CrewRoleDefinition[] = [
     name: 'Captain',
     description: 'Commands the ship and crew. Your character.',
     preferredRoom: 'bridge',
+    salary: 0, // Owner-operator
   },
   {
     role: 'pilot',
     name: 'Pilot',
-    description: 'Navigates the ship through space.',
+    description: 'Handles ship operations and helm control during flight.',
     preferredRoom: 'bridge',
+    salary: 1,
+  },
+  {
+    role: 'navigator',
+    name: 'Navigator',
+    description: 'Plots routes, analyzes hazards, operates scanners.',
+    preferredRoom: 'bridge',
+    salary: 1,
   },
   {
     role: 'engineer',
     name: 'Engineer',
     description: 'Keeps the engines running smoothly.',
     preferredRoom: 'engine_room',
+    salary: 1.5,
   },
   {
     role: 'cook',
     name: 'Cook',
     description: 'Prepares meals and boosts crew morale.',
     preferredRoom: 'cantina',
+    salary: 0.5,
   },
   {
     role: 'medic',
     name: 'Medic',
     description: 'Treats injuries and illnesses.',
     preferredRoom: 'medbay',
+    salary: 0.75,
   },
   {
     role: 'gunner',
     name: 'Gunner',
     description: 'Operates weapons systems.',
     preferredRoom: 'armory',
+    salary: 0.75,
   },
   {
     role: 'mechanic',
     name: 'Mechanic',
     description: 'Repairs ship systems and equipment.',
     preferredRoom: 'engine_room',
+    salary: 1,
   },
 ];
 
@@ -67,6 +82,7 @@ export function getCrewRoleName(role: CrewRole): string {
  */
 const SKILL_TO_ROLE: Record<SkillId, CrewRole> = {
   piloting: 'pilot',
+  astrogation: 'navigator',
   engineering: 'engineer',
   strength: 'gunner',
   charisma: 'cook', // Quartermaster/morale role (cook manages crew welfare)
@@ -78,6 +94,7 @@ const SKILL_TO_ROLE: Record<SkillId, CrewRole> = {
  */
 const SKILL_PRIORITY: SkillId[] = [
   'piloting',
+  'astrogation',
   'engineering',
   'strength',
   'charisma',
@@ -122,6 +139,7 @@ export function generateSkillsForRole(targetRole: CrewRole): CrewSkills {
   // Generate base skills (3-5 for all)
   const skills: CrewSkills = {
     piloting: Math.floor(Math.random() * 3) + 3, // 3-5
+    astrogation: Math.floor(Math.random() * 3) + 3, // 3-5
     engineering: Math.floor(Math.random() * 3) + 3, // 3-5
     strength: Math.floor(Math.random() * 3) + 3, // 3-5
     charisma: Math.floor(Math.random() * 3) + 3, // 3-5

@@ -57,7 +57,22 @@
 - Effective range: Entire solar system
 - Requires significant fuel/reaction mass for brachistochrone trajectories
 
-### Class IV: Gap-Capable Vessels (GCV)
+### Class IV: Deep System Cruisers (DSC)
+
+**Range**: Entire solar system at high speed
+**Typical Missions**: Rapid transit, military operations, pre-gap acceleration
+**Travel Time**: Days (inner system), weeks (outer system)
+
+**Constraints**:
+
+- G-forces threaten crew survival
+- Extreme thermal/radiation output
+- Requires anti-g countermeasures (drugs, immersion pods)
+- Military-origin technology restricts availability and increases cost
+- Sustained multi-g acceleration possible but biologically limited
+- The engine can push far harder than crew can survive
+
+### Class V: Gap-Capable Vessels (GCV)
 
 **Range**: Interstellar distances
 **Typical Missions**: Interstellar trade, exploration, military operations
@@ -65,6 +80,7 @@
 
 **Constraints**:
 
+- Requires Class IV-grade conventional drive to reach gap insertion velocity
 - Requires minimum entry velocity (0.3c) to engage gap drive
 - Gap field unstable; requires precise navigation
 - Gap drive range: 1-50 light-years per insertion (dependent on power and stability)
@@ -156,7 +172,33 @@
 
 ---
 
-### 4. Solar Sails / Photon Drives
+### 4. Advanced Fusion Drives
+
+**Applications**: Class III-IV
+**Acceleration**: 0.5-10g+ sustained
+**Thrust Duration**: Days to weeks
+**Delta-v Budget**: 500,000-1,000,000 m/s
+**Specific Impulse**: 100,000-500,000 seconds
+
+**Advantages**:
+
+- Solar system traversal in days not months
+- Enables gap insertion velocity (0.3c achievable)
+- Military-proven technology
+- Can sustain extreme acceleration
+
+**Limitations**:
+
+- Extreme waste heat requires massive thermal management
+- Radiation output requires heavy shielding
+- G-forces require crew countermeasures (drugs, immersion pods)
+- Military provenance means expensive and restricted
+- The engine can push far harder than the crew can survive
+- Human biology is the limiting factor, not engineering
+
+---
+
+### 5. Solar Sails / Photon Drives
 
 **Applications**: Class I-II (supplemental only)
 **Acceleration**: 0.00001-0.0001g
@@ -180,7 +222,7 @@
 
 ---
 
-### 5. Gap Drives (FTL)
+### 6. Gap Drives (FTL)
 
 **Applications**: Class IV exclusively
 **Acceleration**: N/A (translation through gap field)
@@ -219,6 +261,116 @@
 
 ---
 
+## Operational Hazards
+
+### Radiation Exposure
+
+All drives above chemical emit radiation proportional to their power output:
+
+- **Fission drives**: Mild radiation; manageable on short flights, cumulative on long ones
+- **Fusion drives**: Significant radiation requiring dedicated shielding equipment
+- **Advanced fusion**: Extreme radiation requiring heavy shielding
+
+Unshielded crew suffer progressive health degradation. Medical care can slow but not prevent this. Shielding equipment consumes equipment slots and power — a direct tax on ship capability.
+
+### Waste Heat
+
+Fusion and advanced fusion drives produce enormous waste heat that must be radiated away:
+
+- Ships require thermal management equipment (radiator arrays, active coolant systems)
+- Insufficient thermal management causes accelerated degradation of all ship equipment
+- Thermal management equipment itself degrades under load, creating potential cascade failures
+
+### Debris Hazards
+
+At sustained high velocity, even micro-debris is lethal kinetic energy:
+
+- Ships operating under thrust require point defense systems to destroy or deflect debris in their path
+- Point defense effectiveness depends on crew skill (gunner) and detection equipment (scanners)
+- Debris density varies by region — asteroid belts are far more dangerous than open space
+- Magnetic deflectors handle micro-particles; point defense handles larger debris. Both are needed.
+
+### Reactor Containment
+
+Fusion reactors require active containment management:
+
+- Containment equipment degrades during operation; failure leads to radiation spikes far exceeding normal output
+- Reactor monitoring requires dedicated crew (engineers) in a separate reactor room
+- An unstaffed or poorly-staffed reactor is a ticking time bomb
+
+### G-Force Exposure (Class IV+)
+
+Advanced fusion drives can accelerate far harder than the human body can tolerate:
+
+- Sustained acceleration above ~2g causes progressive health damage without countermeasures
+- **Countermeasures**: anti-g drugs (crew consumable with side effects), full-immersion crash pods (ship equipment), physical fitness (crew strength skill)
+- Anti-g drugs enable higher tolerance but cause temporary personality/cognitive side effects
+- The captain must balance transit speed against crew survival — faster is not always better
+
+### Cascading Failures
+
+On fusion-class vessels and above, ship systems are deeply interdependent:
+
+- A single equipment failure can cascade: degraded containment → radiation spike → crew health drop → unstaffed stations → further degradation
+- Crew management and repair prioritization become critical survival skills
+- This is the fundamental difference from Class I/II operations: on a torch ship, neglect kills
+
+---
+
+## Navigation Planning
+
+Higher-class vessels require increasingly careful route planning. Navigation is not trivial — it is a core crew competency.
+
+### Route Planning
+
+Before departure, crew plot a course. Quality depends on navigator skill and equipment:
+
+- Route quality affects debris encounter frequency, fuel efficiency, and hazard warning time
+- Poor navigation wastes fuel on course corrections and leaves the ship vulnerable to debris
+- Excellent navigation avoids hazard-dense regions and optimizes fuel consumption
+
+### Regional Hazard Density
+
+Space is not uniformly empty:
+
+- Asteroid belts, debris fields, and high-traffic zones present varying hazard levels
+- Route planning quality determines how effectively the ship avoids high-density regions
+- Long journeys through hazardous regions accumulate risk even with good navigation
+
+### Gap Navigation (Class V)
+
+Gap insertion requires precise pre-jump calculations:
+
+- Navigator skill directly affects positional accuracy after gap transit
+- Poor navigation increases drift, potentially stranding the ship far from intended destination
+- Navigation failure during insertion increases the probability of catastrophic gap field collapse
+
+---
+
+## Crew Consumables
+
+Crew consumables are single-use items carried in cargo and used during operations:
+
+- **Anti-g drugs ("Compress")**: Increases crew g-force tolerance temporarily. Side effects include reduced social capability and focus. Limited supply per journey creates resource tension.
+- Future consumables may include medical supplies, rations, repair materials
+
+---
+
+## Ship Equipment Categories
+
+Ship equipment now spans multiple categories beyond life support:
+
+- **Life Support**: Atmosphere, air quality
+- **Shielding**: Radiation protection
+- **Thermal**: Heat dissipation and management
+- **Defense**: Point defense, debris deflection
+- **Navigation**: Hazard detection and scanning
+- **Structural**: Reactor containment, acceleration compensation
+
+Higher-class ships require more equipment categories to operate safely, consuming more equipment slots. This creates a natural "equipment tax" — a torch ship must dedicate most of its slots to survival systems before any optional upgrades.
+
+---
+
 ## Design Philosophy
 
 This ruleset balances:
@@ -237,7 +389,9 @@ The gap drive is powerful but not a magic solution—it requires extensive conve
 
 ### Resource Management
 
-- **Fuel Costs**: Chemical < Fission < Fusion < Gap Drive (exponential cost increase)
+- **Fuel Costs**: Chemical (1x) < Fission (3x) < Fusion D-D (10x) < Fusion D-He3 (30x) < Gap Drive
+- Operating a fusion-class vessel is inherently expensive; every burn is a financial decision
+- Fuel availability and cost at different stations creates route planning incentives
 - **Reaction Mass**: Even fusion drives need propellant; resupply stations critical
 - **Maintenance**: Gap drives require expensive, specialized service
 - **Time vs. Cost**: Faster ships cost exponentially more to operate
@@ -296,19 +450,20 @@ Crew members require regular payment for their services. Salaries are deducted e
 
 **Salary Rates (credits per tick):**
 
-| Role     | Salary/Tick | Salary/Day (48 ticks) | Role Justification                          |
-| -------- | ----------- | --------------------- | ------------------------------------------- |
-| Captain  | 0           | 0                     | Owner-operator, earns from ship profits     |
-| Pilot    | 3           | 144                   | Skilled navigator, essential for operations |
-| Engineer | 4           | 192                   | Critical for engine and ship systems        |
-| Cook     | 2           | 96                    | Morale specialist, crew welfare             |
-| Medic    | 3           | 144                   | Medical care, crew health maintenance       |
-| Gunner   | 3           | 144                   | Combat capability, ship security            |
-| Mechanic | 3           | 144                   | Repairs and maintenance specialist          |
+| Role      | Salary/Tick | Salary/Day (48 ticks) | Role Justification                       |
+| --------- | ----------- | --------------------- | ---------------------------------------- |
+| Captain   | 0           | 0                     | Owner-operator, earns from ship profits  |
+| Pilot     | 1           | 48                    | Essential bridge crew, flight operations |
+| Navigator | 1           | 48                    | Route planning and hazard analysis       |
+| Engineer  | 1.5         | 72                    | Critical for engine and ship systems     |
+| Cook      | 0.5         | 24                    | Morale specialist, crew welfare          |
+| Medic     | 0.75        | 36                    | Medical care, crew health maintenance    |
+| Gunner    | 0.75        | 36                    | Combat capability, ship security         |
+| Mechanic  | 1           | 48                    | Repairs and maintenance specialist       |
 
 **Economic Pressure:**
 
-A typical 3-person starting crew (captain + pilot + engineer) costs **7 credits/tick** or **336 credits/day** during active flight time. This creates constant economic pressure to:
+A typical 3-person starting crew (captain + pilot + engineer) costs **2.5 credits/tick** or **120 credits/day** during active flight time. This creates constant economic pressure to:
 
 - Accept profitable contracts
 - Minimize idle flight time
@@ -330,6 +485,51 @@ A typical 3-person starting crew (captain + pilot + engineer) costs **7 credits/
 - Emergency docking may result in crew losses if credits are depleted
 - Standing freight contracts provide steady income to cover crew costs
 
+### Crew Hiring
+
+When docked at stations with **'hire'** service (Earth, Forge Station, Freeport Station, Mars), players can recruit additional crew members.
+
+**Hiring Mechanics:**
+
+- 2-3 randomly generated crew candidates available per station visit
+- Candidates refresh when advancing the day
+- Each candidate has randomized skills, level, and role
+- Hire cost formula: **Base Cost (500 cr) + (Level × 200 cr)**
+  - Level 1 crew: ~700 credits
+  - Level 3 crew: ~1,100 credits
+  - Level 5 crew: ~1,500 credits
+
+**Strategic Considerations:**
+
+- Hiring higher-level crew costs more but provides better skills
+- Crew diversity (multiple roles) enables more operational flexibility
+- Larger crews increase operational costs but reduce single-crew dependency
+- Crew departures due to unpaid wages can force emergency hiring
+
+### Equipment Shop
+
+At stations with **'trade'** service (Earth, Forge Station, Freeport Station, Mars), players can buy and sell crew equipment.
+
+**Buy Equipment:**
+
+- All crew equipment types available at full retail value
+- Equipment values range from 450 cr (wrist terminal) to 3,500 cr (assault rifle)
+- Purchased items go to ship cargo hold
+- Must have sufficient credits to purchase
+
+**Sell Equipment:**
+
+- Sell equipped items or cargo items for 50% of retail value
+- Useful for liquidating excess equipment or outdated gear
+- Crew can unequip items before sale
+
+**Available Equipment Categories:**
+
+- **Weapons**: Sidearms (800 cr), Assault Rifles (3,500 cr)
+- **Tools**: Toolkits (1,200 cr), Medkits (1,500 cr), Scanners (2,000 cr)
+- **Accessories**: Rebreathers (600 cr), Wrist Terminals (450 cr)
+- **Armor**: Ballistic Vests (2,200 cr)
+
 ---
 
 ## Crew Skills & Role System
@@ -342,13 +542,16 @@ A typical 3-person starting crew (captain + pilot + engineer) costs **7 credits/
 
 Every skill must map to a role archetype:
 
-| Skill           | Role          | Description                                                                                  |
-| --------------- | ------------- | -------------------------------------------------------------------------------------------- |
-| **Piloting**    | Pilot         | Navigation, ship control, spatial awareness. Handles helm operations and course plotting.    |
-| **Engineering** | Engineer      | Reactor maintenance, systems repair, technical expertise. Keeps ship systems operational.    |
-| **Strength**    | Gunner        | Combat capability, security, physical prowess. Handles weapons and boarding actions.         |
-| **Charisma**    | Quartermaster | Morale management, trade negotiations, crew welfare. Handles supplies and diplomacy.         |
-| **Loyalty**     | First Officer | Crew support, conflict mediation, reliability. Supports captain and maintains crew cohesion. |
+| Skill           | Role          | Description                                                                                         |
+| --------------- | ------------- | --------------------------------------------------------------------------------------------------- |
+| **Piloting**    | Pilot         | Ship handling, helm control, real-time maneuvering. Handles ship operations during flight.          |
+| **Astrogation** | Navigator     | Route plotting, hazard analysis, jump calculations. Handles course planning and scanner operations. |
+| **Engineering** | Engineer      | Reactor maintenance, systems repair, technical expertise. Keeps ship systems operational.           |
+| **Strength**    | Gunner        | Combat capability, security, physical prowess. Handles weapons and boarding actions.                |
+| **Charisma**    | Quartermaster | Morale management, trade negotiations, crew welfare. Handles supplies and diplomacy.                |
+| **Loyalty**     | First Officer | Crew support, conflict mediation, reliability. Supports captain and maintains crew cohesion.        |
+
+**Note**: Piloting and Astrogation are distinct skills. A bridge with both a skilled pilot AND a skilled navigator is ideal — the pilot handles the ship, the navigator plots the course. On smaller ships, one person may do both (poorly).
 
 ### Special Cases
 
@@ -358,7 +561,7 @@ Every skill must map to a role archetype:
 
 1. Calculate highest skill
 2. Assign role based on that skill
-3. If tie, prioritize: Piloting > Engineering > Strength > Charisma > Loyalty
+3. If tie, prioritize: Piloting > Astrogation > Engineering > Strength > Charisma > Loyalty
 4. Captain is always assigned manually (player character)
 
 ### Initial Stat Distribution

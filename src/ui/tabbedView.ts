@@ -1,4 +1,4 @@
-import type { GameData } from '../models';
+import type { GameData, CrewEquipmentId } from '../models';
 import type { PlayingTab } from './renderer';
 import { getShipClass } from '../shipClasses';
 import { renderShipTab } from './shipTab';
@@ -30,6 +30,9 @@ export interface TabbedViewCallbacks {
   onAbandonContract: () => void;
   onBuyFuel: () => void;
   onStartTrip: (destinationId: string) => void;
+  onHireCrew: (crewId: string) => void;
+  onBuyEquipment: (equipmentId: CrewEquipmentId) => void;
+  onSellEquipment: (itemId: string) => void;
 }
 
 export function renderTabbedView(

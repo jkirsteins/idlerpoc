@@ -1,4 +1,4 @@
-import type { GameData, ShipClassId } from '../models';
+import type { GameData, ShipClassId, CrewEquipmentId } from '../models';
 import {
   renderWizard,
   type WizardStep,
@@ -49,6 +49,9 @@ export interface RendererCallbacks {
   onAbandonContract: () => void;
   onBuyFuel: () => void;
   onStartTrip: (destinationId: string) => void;
+  onHireCrew: (crewId: string) => void;
+  onBuyEquipment: (equipmentId: CrewEquipmentId) => void;
+  onSellEquipment: (itemId: string) => void;
 }
 
 export function render(
@@ -138,6 +141,9 @@ function renderPlaying(
       onAbandonContract: callbacks.onAbandonContract,
       onBuyFuel: callbacks.onBuyFuel,
       onStartTrip: callbacks.onStartTrip,
+      onHireCrew: callbacks.onHireCrew,
+      onBuyEquipment: callbacks.onBuyEquipment,
+      onSellEquipment: callbacks.onSellEquipment,
     },
     state.selectedCrewId
   );

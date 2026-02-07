@@ -1,6 +1,7 @@
 export type CrewRole =
   | 'captain'
   | 'pilot'
+  | 'navigator'
   | 'engineer'
   | 'cook'
   | 'medic'
@@ -11,21 +12,37 @@ export type RoomType =
   | 'bridge'
   | 'cantina'
   | 'engine_room'
+  | 'reactor_room'
   | 'medbay'
   | 'cargo_hold'
   | 'armory'
-  | 'quarters';
+  | 'quarters'
+  | 'point_defense_station';
 
 export type ShipClassId =
   | 'station_keeper'
   | 'wayfarer'
   | 'corsair'
   | 'dreadnought'
-  | 'phantom';
+  | 'phantom'
+  | 'firebrand'
+  | 'leviathan';
 
 export type RoomState = 'operational' | 'damaged' | 'offline';
 
-export type EquipmentId = 'life_support' | 'air_filters';
+export type EquipmentId =
+  | 'life_support'
+  | 'air_filters'
+  | 'rad_shield_basic'
+  | 'rad_shield_heavy'
+  | 'heat_radiator_basic'
+  | 'heat_radiator_heavy'
+  | 'point_defense'
+  | 'deflector_shield'
+  | 'nav_scanner'
+  | 'mag_confinement'
+  | 'accel_couches'
+  | 'crash_couches';
 
 export type FactionId =
   | 'terran_alliance'
@@ -54,6 +71,7 @@ export type CrewEquipmentId =
 
 export type SkillId =
   | 'piloting'
+  | 'astrogation'
   | 'engineering'
   | 'strength'
   | 'charisma'
@@ -64,7 +82,11 @@ export type EngineId =
   | 'ntr_mk1'
   | 'ntr_mk2'
   | 'ntr_heavy'
-  | 'ntr_stealth';
+  | 'ntr_stealth'
+  | 'fdr_sunfire'
+  | 'fdr_hellion'
+  | 'fdr_torch'
+  | 'unas_m1_colossus';
 
 export type DriveState = 'off' | 'warming_up' | 'online';
 
@@ -102,6 +124,7 @@ export interface ShipLocation {
 
 export interface CrewSkills {
   piloting: number; // 1-10
+  astrogation: number; // 1-10
   engineering: number; // 1-10
   strength: number; // 1-10
   charisma: number; // 1-10
@@ -149,6 +172,8 @@ export interface CrewMember {
   isCaptain: boolean;
   equipment: CrewEquipmentInstance[];
   unspentSkillPoints: number;
+  unpaidTicks: number; // Accumulated ticks of unpaid salary
+  hireCost: number; // Cost to hire this crew member (reference)
 }
 
 export interface Room {
@@ -213,7 +238,12 @@ export type LogEntryType =
   | 'contract_accepted'
   | 'contract_abandoned'
   | 'day_advanced'
-  | 'refueled';
+  | 'refueled'
+  | 'salary_paid'
+  | 'crew_departed'
+  | 'crew_hired'
+  | 'equipment_bought'
+  | 'equipment_sold';
 
 export interface LogEntry {
   gameTime: number;
@@ -231,4 +261,5 @@ export interface GameData {
   log: LogEntry[];
   lastTickTimestamp: number; // real-world timestamp of last tick (milliseconds)
   lastQuestRegenDay: number; // game day when quests were last generated
+  hireableCrew: CrewMember[]; // Available crew for hire at current station
 }

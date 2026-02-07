@@ -26,9 +26,12 @@ npm run dev
   - Assign multiple crew to rooms (respecting room capacity)
   - Staging area for unassigned crew
   - Visual indicators for crew in preferred rooms and captain badge
-  - Crew skills (Piloting, Engineering, Strength, Charisma, Loyalty) and levels (1-20)
+  - Crew skills (Piloting, Astrogation, Engineering, Strength, Charisma, Loyalty) and levels (1-20)
   - Room-specific outputs (navigation, power, morale, health, etc.)
   - Skill-based role assignment system
+  - Crew salaries paid per tick during flight (0.5-1.5 credits/tick depending on role)
+  - Unpaid crew depart at next station
+  - Hire new crew at stations with hiring services
 - **Navigation System**:
   - World map with 8 locations (Earth, Gateway Station, Forge Station, Mars, etc.)
   - Visual navigation chart showing distances and reachable locations
@@ -38,8 +41,9 @@ npm run dev
   - Accept delivery, passenger, freight, supply, and standing freight contracts
   - Quest generation based on location size and ship capabilities
   - Automatic flight execution with multi-leg trips
-  - Payment per trip or on completion
+  - Payment per trip or on completion (rebalanced based on trip duration)
   - Contract pause/resume functionality
+  - Crew salary costs displayed on quest cards
 - **Time System**:
   - 1 tick = 1 real second = 30 game minutes
   - Time advances during flight, frozen when docked
@@ -53,7 +57,8 @@ npm run dev
   - Fuel consumption only during burns
   - Estimated travel times from seconds to hours
 - **Event Log**: Comprehensive log of all events (departures, arrivals, payments, contract completions)
-- **Resource Tracking**: Monitor credits, fuel, crew count, and power consumption
+- **Resource Tracking**: Monitor credits, fuel, crew count, crew costs per tick, and power consumption
+- **Equipment Trading**: Buy and sell crew equipment at stations with trade services (50% sell value)
 - **Real-time Simulation**: 1-second tick system for fuel consumption, engine warmup, flight physics, and equipment degradation
 - **Game Data Catalogs**:
   - 5 engine types (chemical to nuclear thermal) with thrust and delta-v specifications

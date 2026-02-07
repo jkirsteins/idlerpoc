@@ -17,6 +17,9 @@ import { generateStartingXP, getLevelForXP } from './levelSystem';
 import { generateSkillsForRole, deduceRoleFromSkills } from './crewRoles';
 import { generateAllLocationQuests } from './questGen';
 
+const HIRE_BASE_COST = 500;
+const HIRE_LEVEL_MULTIPLIER = 200;
+
 function generateId(): string {
   return Math.random().toString(36).substring(2, 11);
 }
@@ -43,6 +46,8 @@ function createCrewMember(
   // Deduce actual role from skills (unless captain)
   const role = isCaptain ? 'captain' : deduceRoleFromSkills(skills);
 
+  const hireCost = HIRE_BASE_COST + level * HIRE_LEVEL_MULTIPLIER;
+
   return {
     id: generateId(),
     name,
@@ -55,6 +60,8 @@ function createCrewMember(
     isCaptain,
     equipment: [],
     unspentSkillPoints: 0,
+    unpaidTicks: 0,
+    hireCost,
   };
 }
 
@@ -79,6 +86,33 @@ function createEngineInstance(shipClassId: ShipClassId): EngineInstance {
     state: 'off',
     warmupProgress: 0,
   };
+}
+
+/**
+ * Generate hireable crew candidates (2-3 random crew)
+ */
+export function generateHireableCrew(): CrewMember[] {
+  const count = 2 + Math.floor(Math.random() * 2); // 2-3 candidates
+  const candidates: CrewMember[] = [];
+
+  const availableRoles: CrewRole[] = [
+    'pilot',
+    'navigator',
+    'engineer',
+    'cook',
+    'medic',
+    'gunner',
+    'mechanic',
+  ];
+
+  for (let i = 0; i < count; i++) {
+    const role =
+      availableRoles[Math.floor(Math.random() * availableRoles.length)];
+    const name = generateCrewName();
+    candidates.push(createCrewMember(name, role, false));
+  }
+
+  return candidates;
 }
 
 export function createNewGame(
@@ -182,5 +216,6 @@ export function createNewGame(
     log: [],
     lastTickTimestamp: Date.now(),
     lastQuestRegenDay,
+    hireableCrew: generateHireableCrew(),
   };
 }

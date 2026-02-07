@@ -2,6 +2,7 @@ import type { GameData, Quest, FlightState } from '../models';
 import { formatDuration } from '../timeSystem';
 import { canAcceptQuest } from '../questGen';
 import { getGForce } from '../flightPhysics';
+import { getCrewRoleDefinition } from '../crewRoles';
 
 export interface WorkTabCallbacks {
   onAcceptQuest: (questId: string) => void;
@@ -211,6 +212,23 @@ function renderQuestCard(
   const gameSecondsPerTrip = quest.estimatedTripTicks * 1800; // 1 tick = 1800 game seconds
   timeInfo.textContent = `Time: ~${formatDuration(gameSecondsPerTrip)} per trip`;
   details.appendChild(timeInfo);
+
+  // Calculate crew cost for this trip
+  let totalCrewCost = 0;
+  for (const crew of gameData.ship.crew) {
+    const roleDef = getCrewRoleDefinition(crew.role);
+    if (roleDef) {
+      totalCrewCost += roleDef.salary;
+    }
+  }
+  const tripCrewCost = Math.round(totalCrewCost * quest.estimatedTripTicks);
+
+  if (tripCrewCost > 0) {
+    const crewCostInfo = document.createElement('div');
+    crewCostInfo.textContent = `Crew Salaries: ~${tripCrewCost} credits per trip`;
+    crewCostInfo.style.color = '#ffa500';
+    details.appendChild(crewCostInfo);
+  }
 
   card.appendChild(details);
 

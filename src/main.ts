@@ -1,6 +1,6 @@
 import './style.css';
-import type { ShipClassId, SkillId, GameData } from './models';
-import { createNewGame } from './gameFactory';
+import type { ShipClassId, SkillId, GameData, CrewEquipmentId } from './models';
+import { createNewGame, generateHireableCrew } from './gameFactory';
 import { saveGame, loadGame, clearGame } from './storage';
 import { render, type GameState, type RendererCallbacks } from './ui/renderer';
 import type { WizardStep, WizardDraft } from './ui/wizard';
@@ -16,6 +16,7 @@ import {
   abandonContract,
 } from './contractExec';
 import { addLog } from './logSystem';
+import { getCrewEquipmentDefinition } from './crewEquipment';
 
 const app = document.getElementById('app')!;
 
@@ -323,6 +324,9 @@ const callbacks: RendererCallbacks = {
       state.gameData.gameTime
     );
 
+    // Regenerate hireable crew
+    state.gameData.hireableCrew = generateHireableCrew();
+
     saveGame(state.gameData);
     renderApp();
   },
@@ -435,6 +439,115 @@ const callbacks: RendererCallbacks = {
       saveGame(state.gameData);
       renderApp();
     });
+  },
+
+  onHireCrew: (crewId) => {
+    if (state.phase !== 'playing') return;
+    if (state.gameData.ship.location.status !== 'docked') return;
+
+    const crew = state.gameData.hireableCrew.find((c) => c.id === crewId);
+    if (!crew) return;
+
+    // Check if can afford
+    if (state.gameData.ship.credits < crew.hireCost) return;
+
+    // Deduct credits
+    state.gameData.ship.credits -= crew.hireCost;
+
+    // Add to ship crew
+    state.gameData.ship.crew.push(crew);
+
+    // Remove from hireable crew
+    const index = state.gameData.hireableCrew.indexOf(crew);
+    if (index !== -1) {
+      state.gameData.hireableCrew.splice(index, 1);
+    }
+
+    // Log hire
+    addLog(
+      state.gameData.log,
+      state.gameData.gameTime,
+      'crew_hired',
+      `Hired ${crew.name} (${crew.role}) for ${crew.hireCost} credits`
+    );
+
+    saveGame(state.gameData);
+    renderApp();
+  },
+
+  onBuyEquipment: (equipmentId: CrewEquipmentId) => {
+    if (state.phase !== 'playing') return;
+    if (state.gameData.ship.location.status !== 'docked') return;
+
+    const equipDef = getCrewEquipmentDefinition(equipmentId);
+    if (!equipDef) return;
+
+    // Check if can afford
+    if (state.gameData.ship.credits < equipDef.value) return;
+
+    // Deduct credits
+    state.gameData.ship.credits -= equipDef.value;
+
+    // Add to cargo
+    state.gameData.ship.cargo.push({
+      id: Math.random().toString(36).substring(2, 11),
+      definitionId: equipmentId,
+    });
+
+    // Log purchase
+    addLog(
+      state.gameData.log,
+      state.gameData.gameTime,
+      'equipment_bought',
+      `Purchased ${equipDef.name} for ${equipDef.value} credits`
+    );
+
+    saveGame(state.gameData);
+    renderApp();
+  },
+
+  onSellEquipment: (itemId: string) => {
+    if (state.phase !== 'playing') return;
+    if (state.gameData.ship.location.status !== 'docked') return;
+
+    // Check if item is in cargo
+    let itemIndex = state.gameData.ship.cargo.findIndex((i) => i.id === itemId);
+    const isInCargo = itemIndex !== -1;
+    let item = isInCargo ? state.gameData.ship.cargo[itemIndex] : null;
+
+    // If not in cargo, check crew equipment
+    if (!item) {
+      for (const crew of state.gameData.ship.crew) {
+        itemIndex = crew.equipment.findIndex((i) => i.id === itemId);
+        if (itemIndex !== -1) {
+          item = crew.equipment[itemIndex];
+          crew.equipment.splice(itemIndex, 1);
+          break;
+        }
+      }
+    } else {
+      // Remove from cargo
+      state.gameData.ship.cargo.splice(itemIndex, 1);
+    }
+
+    if (!item) return;
+
+    const equipDef = getCrewEquipmentDefinition(item.definitionId);
+    const sellPrice = Math.floor(equipDef.value * 0.5);
+
+    // Add credits
+    state.gameData.ship.credits += sellPrice;
+
+    // Log sale
+    addLog(
+      state.gameData.log,
+      state.gameData.gameTime,
+      'equipment_sold',
+      `Sold ${equipDef.name} for ${sellPrice} credits`
+    );
+
+    saveGame(state.gameData);
+    renderApp();
   },
 };
 

@@ -2,7 +2,7 @@ import type { Quest, Ship, WorldLocation, World } from './models';
 import { getShipClass } from './shipClasses';
 import { getDistanceBetween } from './worldGen';
 import { calculateFuelCost } from './flightPhysics';
-import { gameSecondsToTicks } from './timeSystem';
+import { gameSecondsToTicks, GAME_SECONDS_PER_TICK } from './timeSystem';
 import { getEngineDefinition } from './engines';
 
 /**
@@ -47,9 +47,13 @@ function parseMaxRange(maxRangeStr: string): number {
 }
 
 /**
- * Calculate payment based on distance and cargo
+ * Calculate payment based on distance, cargo, and trip time
  */
-function calculatePayment(distanceKm: number, cargoKg: number = 0): number {
+function calculatePayment(
+  ship: Ship,
+  distanceKm: number,
+  cargoKg: number = 0
+): number {
   let basePayment: number;
 
   if (distanceKm < 1000) {
@@ -65,6 +69,12 @@ function calculatePayment(distanceKm: number, cargoKg: number = 0): number {
     const cargoFactor = 1 + (cargoKg / 10000) * 0.5; // +50% for 10,000 kg
     basePayment *= cargoFactor;
   }
+
+  // Apply time-based multiplier to account for crew costs during long trips
+  const tripTimeSecs = estimateTripTime(ship, distanceKm);
+  const tripTicks = tripTimeSecs / GAME_SECONDS_PER_TICK;
+  const timeMultiplier = 1 + Math.log2(Math.max(1, tripTicks / 10));
+  basePayment *= timeMultiplier;
 
   return Math.round(basePayment);
 }
@@ -143,7 +153,7 @@ function generateDeliveryQuest(
   // Cargo between 1,000 - 10,000 kg
   const cargoKg = Math.round(1000 + Math.random() * 9000);
 
-  const payment = calculatePayment(distanceKm, cargoKg);
+  const payment = calculatePayment(ship, distanceKm, cargoKg);
   const estimatedTime = estimateTripTime(ship, distanceKm);
   const shipClass = getShipClass(ship.classId);
   const maxRangeKm = shipClass ? parseMaxRange(shipClass.maxRange) : 0;
@@ -179,7 +189,7 @@ function generatePassengerQuest(
   const passengerName =
     PASSENGER_NAMES[Math.floor(Math.random() * PASSENGER_NAMES.length)];
 
-  const payment = calculatePayment(distanceKm);
+  const payment = calculatePayment(ship, distanceKm);
   const estimatedTime = estimateTripTime(ship, distanceKm);
   const shipClass = getShipClass(ship.classId);
   const maxRangeKm = shipClass ? parseMaxRange(shipClass.maxRange) : 0;
@@ -218,7 +228,7 @@ function generateFreightQuest(
   const trips = Math.floor(2 + Math.random() * 4); // 2-5 trips
 
   const paymentPerTrip = Math.round(
-    calculatePayment(distanceKm, cargoKg) * 0.8
+    calculatePayment(ship, distanceKm, cargoKg) * 0.8
   ); // 80% of one-off rate
   const estimatedTime = estimateTripTime(ship, distanceKm);
   const shipClass = getShipClass(ship.classId);
@@ -260,7 +270,9 @@ function generateSupplyQuest(
   const cargoCapacity = shipClass ? shipClass.cargoCapacity : 5000;
   const cargoPerTrip = Math.min(cargoCapacity * 0.8, 10000); // Use 80% of capacity
 
-  const payment = Math.round(calculatePayment(distanceKm, totalCargoKg) * 1.5); // 150% bonus for bulk
+  const payment = Math.round(
+    calculatePayment(ship, distanceKm, totalCargoKg) * 1.5
+  ); // 150% bonus for bulk
   const estimatedTime = estimateTripTime(ship, distanceKm);
   const maxRangeKm = shipClass ? parseMaxRange(shipClass.maxRange) : 0;
   const fuelCost = calculateFuelCost(distanceKm, maxRangeKm);
@@ -296,7 +308,7 @@ function generateStandingFreightQuest(
 
   const cargoKg = Math.round(1000 + Math.random() * 9000);
   const paymentPerTrip = Math.round(
-    calculatePayment(distanceKm, cargoKg) * 0.7
+    calculatePayment(ship, distanceKm, cargoKg) * 0.7
   ); // 70% of one-off rate
   const estimatedTime = estimateTripTime(ship, distanceKm);
   const shipClass = getShipClass(ship.classId);

@@ -179,6 +179,22 @@ function renderStatusBar(gameData: GameData): HTMLElement {
   crewCount.innerHTML = `<span class="status-label">Crew:</span><span class="status-value">${gameData.ship.crew.length}/${maxCrew}</span>`;
   statusBar.appendChild(crewCount);
 
+  // Calculate total crew cost per tick
+  let totalCrewCost = 0;
+  for (const crew of gameData.ship.crew) {
+    const roleDef = getCrewRoleDefinition(crew.role);
+    if (roleDef) {
+      totalCrewCost += roleDef.salary;
+    }
+  }
+
+  if (totalCrewCost > 0) {
+    const crewCost = document.createElement('div');
+    crewCost.className = 'status-item';
+    crewCost.innerHTML = `<span class="status-label">Crew Cost:</span><span class="status-value">${totalCrewCost.toFixed(1)} cr/tick</span>`;
+    statusBar.appendChild(crewCost);
+  }
+
   return statusBar;
 }
 

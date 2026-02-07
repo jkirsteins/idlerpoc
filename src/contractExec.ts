@@ -4,6 +4,7 @@ import { addLog } from './logSystem';
 import { getShipClass } from './shipClasses';
 import { generateAllLocationQuests } from './questGen';
 import { getDaysSinceEpoch } from './timeSystem';
+import { generateHireableCrew } from './gameFactory';
 
 /**
  * Contract Execution
@@ -22,6 +23,41 @@ function regenerateQuestsIfNewDay(gameData: GameData): void {
       gameData.world
     );
     gameData.lastQuestRegenDay = currentDay;
+
+    // Also regenerate hireable crew
+    gameData.hireableCrew = generateHireableCrew();
+  }
+}
+
+/**
+ * Remove unpaid crew on docking
+ */
+function removeUnpaidCrew(gameData: GameData): void {
+  const { ship, gameTime } = gameData;
+  const unpaidCrew = ship.crew.filter((c) => c.unpaidTicks > 0 && !c.isCaptain);
+
+  for (const crew of unpaidCrew) {
+    // Remove from ship.crew
+    const crewIndex = ship.crew.indexOf(crew);
+    if (crewIndex !== -1) {
+      ship.crew.splice(crewIndex, 1);
+    }
+
+    // Remove from all rooms
+    for (const room of ship.rooms) {
+      const roomIndex = room.assignedCrewIds.indexOf(crew.id);
+      if (roomIndex !== -1) {
+        room.assignedCrewIds.splice(roomIndex, 1);
+      }
+    }
+
+    // Log departure
+    addLog(
+      gameData.log,
+      gameTime,
+      'crew_departed',
+      `${crew.name} departed due to unpaid wages (${crew.unpaidTicks} unpaid ticks)`
+    );
   }
 }
 
@@ -105,6 +141,9 @@ export function completeLeg(gameData: GameData): void {
           `Arrived at ${destination.name}`
         );
 
+        // Remove unpaid crew
+        removeUnpaidCrew(gameData);
+
         // Regenerate quests if new day
         regenerateQuestsIfNewDay(gameData);
       }
@@ -159,6 +198,9 @@ export function completeLeg(gameData: GameData): void {
       ship.engine.warmupProgress = 0;
       gameData.activeContract = null;
 
+      // Remove unpaid crew
+      removeUnpaidCrew(gameData);
+
       // Regenerate quests if new day
       regenerateQuestsIfNewDay(gameData);
     } else {
@@ -197,6 +239,9 @@ export function completeLeg(gameData: GameData): void {
           'arrival',
           `Low fuel at ${arrivalLocation.name}! Contract "${quest.title}" paused - refuel to continue.`
         );
+
+        // Remove unpaid crew
+        removeUnpaidCrew(gameData);
         return;
       }
 
@@ -282,6 +327,9 @@ export function completeLeg(gameData: GameData): void {
       ship.engine.warmupProgress = 0;
       gameData.activeContract = null;
 
+      // Remove unpaid crew
+      removeUnpaidCrew(gameData);
+
       // Regenerate quests if new day
       regenerateQuestsIfNewDay(gameData);
     } else {
@@ -320,6 +368,9 @@ export function completeLeg(gameData: GameData): void {
           'arrival',
           `Low fuel at ${arrivalLocation.name}! Contract "${quest.title}" paused - refuel to continue.`
         );
+
+        // Remove unpaid crew
+        removeUnpaidCrew(gameData);
         return;
       }
 

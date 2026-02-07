@@ -1,11 +1,15 @@
-import type { GameData, CrewMember } from '../models';
+import type { GameData, CrewMember, CrewEquipmentId } from '../models';
 import type { TabbedViewCallbacks } from './tabbedView';
-import { getCrewEquipmentDefinition } from '../crewEquipment';
+import {
+  getCrewEquipmentDefinition,
+  getAllCrewEquipmentDefinitions,
+} from '../crewEquipment';
 import {
   getLevelForXP,
   getLevelProgress,
   getXPForNextLevel,
 } from '../levelSystem';
+import { getCrewRoleDefinition } from '../crewRoles';
 
 export function renderCrewTab(
   gameData: GameData,
@@ -33,6 +37,23 @@ export function renderCrewTab(
   }
 
   container.appendChild(layout);
+
+  // Add hiring section if docked at a hiring station
+  if (gameData.ship.location.status === 'docked') {
+    const dockedLocationId = gameData.ship.location.dockedAt;
+    const location = gameData.world.locations.find(
+      (l) => l.id === dockedLocationId
+    );
+    if (location && location.services.includes('hire')) {
+      container.appendChild(renderHiringSection(gameData, callbacks));
+    }
+
+    // Add equipment shop if docked at a trade station
+    if (location && location.services.includes('trade')) {
+      container.appendChild(renderEquipmentShop(gameData, callbacks));
+    }
+  }
+
   return container;
 }
 
@@ -70,6 +91,17 @@ function renderCrewList(
     levelDiv.className = 'crew-list-level';
     levelDiv.textContent = `Level ${crew.level}`;
     item.appendChild(levelDiv);
+
+    // Show unpaid badge if crew has unpaid ticks
+    if (crew.unpaidTicks > 0 && !crew.isCaptain) {
+      const unpaidBadge = document.createElement('div');
+      unpaidBadge.className = 'unpaid-badge';
+      unpaidBadge.textContent = '⚠️ UNPAID';
+      unpaidBadge.style.color = '#ff4444';
+      unpaidBadge.style.fontSize = '0.75rem';
+      unpaidBadge.style.fontWeight = 'bold';
+      item.appendChild(unpaidBadge);
+    }
 
     item.addEventListener('click', () => callbacks.onSelectCrew(crew.id));
     list.appendChild(item);
@@ -240,6 +272,32 @@ function renderStatsSection(crew: CrewMember): HTMLElement {
   attackRow.appendChild(attackLabel);
   attackRow.appendChild(attackValue);
   stats.appendChild(attackRow);
+
+  // Salary
+  const roleDef = getCrewRoleDefinition(crew.role);
+  if (roleDef) {
+    const salaryRow = document.createElement('div');
+    salaryRow.className = 'stat-row';
+    const salaryLabel = document.createElement('span');
+    salaryLabel.textContent = 'Salary:';
+    const salaryValue = document.createElement('span');
+    salaryValue.textContent =
+      roleDef.salary > 0 ? `${roleDef.salary} cr/tick` : 'None (Captain)';
+    salaryRow.appendChild(salaryLabel);
+    salaryRow.appendChild(salaryValue);
+    stats.appendChild(salaryRow);
+  }
+
+  // Unpaid warning
+  if (crew.unpaidTicks > 0 && !crew.isCaptain) {
+    const unpaidWarning = document.createElement('div');
+    unpaidWarning.className = 'unpaid-warning';
+    unpaidWarning.style.color = '#ff4444';
+    unpaidWarning.style.marginTop = '0.5rem';
+    unpaidWarning.style.fontWeight = 'bold';
+    unpaidWarning.textContent = `⚠️ ${crew.unpaidTicks} unpaid tick${crew.unpaidTicks > 1 ? 's' : ''} - will depart at next port!`;
+    stats.appendChild(unpaidWarning);
+  }
 
   section.appendChild(stats);
   return section;
@@ -491,4 +549,297 @@ function renderCargoSection(
 
   section.appendChild(cargoList);
   return section;
+}
+
+function renderHiringSection(
+  gameData: GameData,
+  callbacks: TabbedViewCallbacks
+): HTMLElement {
+  const section = document.createElement('div');
+  section.className = 'hiring-section';
+  section.style.marginTop = '2rem';
+  section.style.padding = '1rem';
+  section.style.border = '1px solid #444';
+  section.style.borderRadius = '4px';
+
+  const title = document.createElement('h3');
+  title.textContent = '🤝 Hire Crew';
+  section.appendChild(title);
+
+  if (gameData.hireableCrew.length === 0) {
+    const empty = document.createElement('p');
+    empty.textContent = 'No crew available for hire at this station.';
+    section.appendChild(empty);
+    return section;
+  }
+
+  const candidatesList = document.createElement('div');
+  candidatesList.style.display = 'flex';
+  candidatesList.style.flexDirection = 'column';
+  candidatesList.style.gap = '1rem';
+
+  for (const candidate of gameData.hireableCrew) {
+    const candidateDiv = document.createElement('div');
+    candidateDiv.style.display = 'flex';
+    candidateDiv.style.justifyContent = 'space-between';
+    candidateDiv.style.alignItems = 'center';
+    candidateDiv.style.padding = '0.75rem';
+    candidateDiv.style.border = '1px solid #333';
+    candidateDiv.style.borderRadius = '4px';
+
+    const infoDiv = document.createElement('div');
+
+    const nameRole = document.createElement('div');
+    nameRole.style.fontWeight = 'bold';
+    const roleDef = getCrewRoleDefinition(candidate.role);
+    nameRole.textContent = `${candidate.name} - ${roleDef?.name || candidate.role}`;
+    infoDiv.appendChild(nameRole);
+
+    const levelSalary = document.createElement('div');
+    levelSalary.style.fontSize = '0.9rem';
+    levelSalary.style.color = '#aaa';
+    levelSalary.textContent = `Level ${candidate.level} • Salary: ${roleDef?.salary || 0} cr/tick`;
+    infoDiv.appendChild(levelSalary);
+
+    const skills = document.createElement('div');
+    skills.style.fontSize = '0.85rem';
+    skills.style.color = '#888';
+    skills.textContent = `Skills: Pilot ${candidate.skills.piloting} | Eng ${candidate.skills.engineering} | Str ${candidate.skills.strength}`;
+    infoDiv.appendChild(skills);
+
+    candidateDiv.appendChild(infoDiv);
+
+    const hireDiv = document.createElement('div');
+    hireDiv.style.display = 'flex';
+    hireDiv.style.flexDirection = 'column';
+    hireDiv.style.alignItems = 'flex-end';
+    hireDiv.style.gap = '0.5rem';
+
+    const costLabel = document.createElement('div');
+    costLabel.style.fontSize = '0.9rem';
+    costLabel.style.color = '#4a9eff';
+    costLabel.textContent = `${candidate.hireCost} cr`;
+    hireDiv.appendChild(costLabel);
+
+    const hireButton = document.createElement('button');
+    hireButton.textContent = 'Hire';
+    hireButton.disabled = gameData.ship.credits < candidate.hireCost;
+    hireButton.addEventListener('click', () =>
+      callbacks.onHireCrew(candidate.id)
+    );
+    hireDiv.appendChild(hireButton);
+
+    candidateDiv.appendChild(hireDiv);
+    candidatesList.appendChild(candidateDiv);
+  }
+
+  section.appendChild(candidatesList);
+  return section;
+}
+
+function renderEquipmentShop(
+  gameData: GameData,
+  callbacks: TabbedViewCallbacks
+): HTMLElement {
+  const section = document.createElement('div');
+  section.className = 'equipment-shop';
+  section.style.marginTop = '2rem';
+  section.style.padding = '1rem';
+  section.style.border = '1px solid #444';
+  section.style.borderRadius = '4px';
+
+  const title = document.createElement('h3');
+  title.textContent = '🛒 Station Store';
+  section.appendChild(title);
+
+  const tabs = document.createElement('div');
+  tabs.style.display = 'flex';
+  tabs.style.gap = '1rem';
+  tabs.style.marginBottom = '1rem';
+
+  const buyTab = document.createElement('button');
+  buyTab.textContent = 'Buy Equipment';
+  buyTab.className = 'shop-tab active';
+  buyTab.addEventListener('click', () => {
+    buyTab.classList.add('active');
+    sellTab.classList.remove('active');
+    itemsDiv.innerHTML = '';
+    itemsDiv.appendChild(renderBuyList(gameData, callbacks));
+  });
+  tabs.appendChild(buyTab);
+
+  const sellTab = document.createElement('button');
+  sellTab.textContent = 'Sell Equipment';
+  sellTab.className = 'shop-tab';
+  sellTab.addEventListener('click', () => {
+    sellTab.classList.add('active');
+    buyTab.classList.remove('active');
+    itemsDiv.innerHTML = '';
+    itemsDiv.appendChild(renderSellList(gameData, callbacks));
+  });
+  tabs.appendChild(sellTab);
+
+  section.appendChild(tabs);
+
+  const itemsDiv = document.createElement('div');
+  itemsDiv.appendChild(renderBuyList(gameData, callbacks));
+  section.appendChild(itemsDiv);
+
+  return section;
+}
+
+function renderBuyList(
+  gameData: GameData,
+  callbacks: TabbedViewCallbacks
+): HTMLElement {
+  const list = document.createElement('div');
+  list.style.display = 'flex';
+  list.style.flexDirection = 'column';
+  list.style.gap = '0.75rem';
+
+  const allEquipment = getAllCrewEquipmentDefinitions();
+
+  for (const equipDef of allEquipment) {
+    const itemDiv = document.createElement('div');
+    itemDiv.style.display = 'flex';
+    itemDiv.style.justifyContent = 'space-between';
+    itemDiv.style.alignItems = 'center';
+    itemDiv.style.padding = '0.5rem';
+    itemDiv.style.border = '1px solid #333';
+    itemDiv.style.borderRadius = '4px';
+
+    const infoDiv = document.createElement('div');
+
+    const nameDiv = document.createElement('div');
+    nameDiv.style.fontWeight = 'bold';
+    nameDiv.textContent = `${equipDef.icon} ${equipDef.name}`;
+    infoDiv.appendChild(nameDiv);
+
+    const descDiv = document.createElement('div');
+    descDiv.style.fontSize = '0.85rem';
+    descDiv.style.color = '#888';
+    descDiv.textContent = equipDef.description;
+    infoDiv.appendChild(descDiv);
+
+    itemDiv.appendChild(infoDiv);
+
+    const buyDiv = document.createElement('div');
+    buyDiv.style.display = 'flex';
+    buyDiv.style.flexDirection = 'column';
+    buyDiv.style.alignItems = 'flex-end';
+    buyDiv.style.gap = '0.5rem';
+
+    const priceLabel = document.createElement('div');
+    priceLabel.style.color = '#4a9eff';
+    priceLabel.textContent = `${equipDef.value} cr`;
+    buyDiv.appendChild(priceLabel);
+
+    const buyButton = document.createElement('button');
+    buyButton.textContent = 'Buy';
+    buyButton.disabled = gameData.ship.credits < equipDef.value;
+    buyButton.addEventListener('click', () =>
+      callbacks.onBuyEquipment(equipDef.id)
+    );
+    buyDiv.appendChild(buyButton);
+
+    itemDiv.appendChild(buyDiv);
+    list.appendChild(itemDiv);
+  }
+
+  return list;
+}
+
+function renderSellList(
+  gameData: GameData,
+  callbacks: TabbedViewCallbacks
+): HTMLElement {
+  const list = document.createElement('div');
+  list.style.display = 'flex';
+  list.style.flexDirection = 'column';
+  list.style.gap = '0.75rem';
+
+  // Collect all sellable items (cargo + crew equipment)
+  const sellableItems: Array<{
+    id: string;
+    definitionId: CrewEquipmentId;
+    source: string;
+  }> = [];
+
+  // Add cargo items
+  for (const item of gameData.ship.cargo) {
+    sellableItems.push({
+      id: item.id,
+      definitionId: item.definitionId,
+      source: 'cargo',
+    });
+  }
+
+  // Add crew equipment
+  for (const crew of gameData.ship.crew) {
+    for (const item of crew.equipment) {
+      sellableItems.push({
+        id: item.id,
+        definitionId: item.definitionId,
+        source: `equipped by ${crew.name}`,
+      });
+    }
+  }
+
+  if (sellableItems.length === 0) {
+    const empty = document.createElement('p');
+    empty.textContent = 'No items available to sell.';
+    list.appendChild(empty);
+    return list;
+  }
+
+  for (const item of sellableItems) {
+    const equipDef = getCrewEquipmentDefinition(item.definitionId);
+    const sellPrice = Math.floor(equipDef.value * 0.5);
+
+    const itemDiv = document.createElement('div');
+    itemDiv.style.display = 'flex';
+    itemDiv.style.justifyContent = 'space-between';
+    itemDiv.style.alignItems = 'center';
+    itemDiv.style.padding = '0.5rem';
+    itemDiv.style.border = '1px solid #333';
+    itemDiv.style.borderRadius = '4px';
+
+    const infoDiv = document.createElement('div');
+
+    const nameDiv = document.createElement('div');
+    nameDiv.style.fontWeight = 'bold';
+    nameDiv.textContent = `${equipDef.icon} ${equipDef.name}`;
+    infoDiv.appendChild(nameDiv);
+
+    const sourceDiv = document.createElement('div');
+    sourceDiv.style.fontSize = '0.85rem';
+    sourceDiv.style.color = '#888';
+    sourceDiv.textContent = `Source: ${item.source}`;
+    infoDiv.appendChild(sourceDiv);
+
+    itemDiv.appendChild(infoDiv);
+
+    const sellDiv = document.createElement('div');
+    sellDiv.style.display = 'flex';
+    sellDiv.style.flexDirection = 'column';
+    sellDiv.style.alignItems = 'flex-end';
+    sellDiv.style.gap = '0.5rem';
+
+    const priceLabel = document.createElement('div');
+    priceLabel.style.color = '#6c6';
+    priceLabel.textContent = `${sellPrice} cr (50%)`;
+    sellDiv.appendChild(priceLabel);
+
+    const sellButton = document.createElement('button');
+    sellButton.textContent = 'Sell';
+    sellButton.addEventListener('click', () =>
+      callbacks.onSellEquipment(item.id)
+    );
+    sellDiv.appendChild(sellButton);
+
+    itemDiv.appendChild(sellDiv);
+    list.appendChild(itemDiv);
+  }
+
+  return list;
 }
