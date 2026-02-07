@@ -9,7 +9,9 @@
       "Bash(grep:*)",
       "Bash(wc:*)",
       "Bash(ls:*)",
-      "Bash(sort:*)"
+      "Bash(sort:*)",
+      "Bash(find:*)",
+      "Bash(tmux capture-pane:*)"
     ]
   }
 }
