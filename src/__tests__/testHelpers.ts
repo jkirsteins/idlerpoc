@@ -135,7 +135,7 @@ export function createTestShip(overrides: Partial<Ship> = {}): Ship {
     isCaptain: true,
   });
 
-  const defaultShip = {
+  const defaultShip: Ship = {
     id: uid(),
     name: 'Test Ship',
     classId: 'wayfarer' as ShipClassId,

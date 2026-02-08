@@ -20,6 +20,7 @@ export type PlayingTab =
   | 'ship'
   | 'crew'
   | 'work'
+  | 'nav'
   | 'fleet'
   | 'log'
   | 'settings';
@@ -65,6 +66,10 @@ export interface RendererCallbacks {
   onAdvanceDay: () => void;
   onTogglePause?: () => void;
   onSetSpeed?: (speed: 1 | 2 | 5) => void;
+  onAutoPauseSettingChange?: (
+    setting: keyof GameData['autoPauseSettings'],
+    value: boolean
+  ) => void;
   onDockAtNearestPort: () => void;
   onResumeContract: () => void;
   onAbandonContract: () => void;

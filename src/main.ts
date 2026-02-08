@@ -186,6 +186,13 @@ const callbacks: RendererCallbacks = {
     renderApp();
   },
 
+  onAutoPauseSettingChange: (setting, value) => {
+    if (state.phase !== 'playing') return;
+    state.gameData.autoPauseSettings[setting] = value;
+    saveGame(state.gameData);
+    renderApp();
+  },
+
   onTabChange: (tab) => {
     if (state.phase === 'playing') {
       state = { ...state, activeTab: tab };

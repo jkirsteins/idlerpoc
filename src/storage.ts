@@ -48,6 +48,22 @@ export function loadGame(): GameData | null {
       loaded.visitedLocations = [];
     }
 
+    // Backfill time system fields for old saves
+    if (loaded.isPaused === undefined) {
+      loaded.isPaused = false;
+    }
+    if (loaded.timeSpeed === undefined) {
+      loaded.timeSpeed = 1;
+    }
+    if (!loaded.autoPauseSettings) {
+      loaded.autoPauseSettings = {
+        onArrival: true,
+        onContractComplete: true,
+        onCriticalAlert: true,
+        onLowFuel: true,
+      };
+    }
+
     // Backfill ship metrics for old saves
     if (loaded.ships) {
       for (const ship of loaded.ships) {

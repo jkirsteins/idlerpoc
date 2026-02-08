@@ -3,6 +3,10 @@ import { SHIP_CLASSES } from '../shipClasses';
 
 export interface SettingsTabCallbacks {
   onReset: () => void;
+  onAutoPauseSettingChange?: (
+    setting: keyof GameData['autoPauseSettings'],
+    value: boolean
+  ) => void;
 }
 
 export function renderSettingsTab(
@@ -117,6 +121,90 @@ export function renderSettingsTab(
   }
 
   container.appendChild(statsSection);
+
+  // Auto-Pause Settings Section
+  const autoPauseSection = document.createElement('div');
+  autoPauseSection.className = 'settings-section';
+  autoPauseSection.style.marginTop = '2rem';
+
+  const autoPauseTitle = document.createElement('h4');
+  autoPauseTitle.textContent = 'Auto-Pause Settings';
+  autoPauseTitle.style.marginBottom = '1rem';
+  autoPauseTitle.style.color = '#4a9eff';
+  autoPauseSection.appendChild(autoPauseTitle);
+
+  const autoPauseDesc = document.createElement('p');
+  autoPauseDesc.textContent =
+    'Automatically pause the game when certain events occur:';
+  autoPauseDesc.className = 'settings-description';
+  autoPauseDesc.style.marginBottom = '1rem';
+  autoPauseSection.appendChild(autoPauseDesc);
+
+  // Auto-pause checkboxes
+  const pauseSettings = [
+    {
+      key: 'onArrival' as const,
+      label: 'Pause on ship arrival',
+      description: 'Pause when any ship arrives at a destination',
+    },
+    {
+      key: 'onContractComplete' as const,
+      label: 'Pause on contract completion',
+      description: 'Pause when contracts or trips are completed',
+    },
+    {
+      key: 'onCriticalAlert' as const,
+      label: 'Pause on critical alerts',
+      description: 'Pause when critical situations occur',
+    },
+    {
+      key: 'onLowFuel' as const,
+      label: 'Pause on low fuel',
+      description: 'Pause when fuel drops below 10%',
+    },
+  ];
+
+  for (const setting of pauseSettings) {
+    const row = document.createElement('div');
+    row.style.marginBottom = '0.75rem';
+
+    const label = document.createElement('label');
+    label.style.display = 'flex';
+    label.style.alignItems = 'flex-start';
+    label.style.cursor = 'pointer';
+
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.checked = gameData.autoPauseSettings[setting.key];
+    checkbox.style.marginTop = '2px';
+    checkbox.style.marginRight = '0.5rem';
+    checkbox.addEventListener('change', () => {
+      if (callbacks.onAutoPauseSettingChange) {
+        callbacks.onAutoPauseSettingChange(setting.key, checkbox.checked);
+      }
+    });
+
+    const textDiv = document.createElement('div');
+    const labelText = document.createElement('div');
+    labelText.textContent = setting.label;
+    labelText.style.fontWeight = '500';
+    labelText.style.color = '#fff';
+    textDiv.appendChild(labelText);
+
+    const descText = document.createElement('div');
+    descText.textContent = setting.description;
+    descText.style.fontSize = '12px';
+    descText.style.color = '#aaa';
+    descText.style.marginTop = '2px';
+    textDiv.appendChild(descText);
+
+    label.appendChild(checkbox);
+    label.appendChild(textDiv);
+    row.appendChild(label);
+    autoPauseSection.appendChild(row);
+  }
+
+  container.appendChild(autoPauseSection);
 
   // Reset Section
   const resetSection = document.createElement('div');
