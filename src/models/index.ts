@@ -233,7 +233,8 @@ export type QuestType =
   | 'passenger'
   | 'freight'
   | 'supply'
-  | 'standing_freight';
+  | 'standing_freight'
+  | 'trade_route';
 
 export interface Quest {
   id: string;
