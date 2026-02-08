@@ -94,6 +94,76 @@ export function createTabbedView(
   let currentSelectedCrewId = selectedCrewId;
   let activeTabComponent: Component | null = null;
 
+  // ── Stable tab bar (created once, updated in-place to preserve scroll) ──
+  const tabBarEl = document.createElement('div');
+  tabBarEl.className = 'tab-bar';
+
+  const tabDefs: Array<{ label: string; tab: PlayingTab }> = [
+    { label: 'Ship', tab: 'ship' },
+    { label: 'Crew', tab: 'crew' },
+    { label: 'Work', tab: 'work' },
+    { label: 'Nav', tab: 'nav' },
+    { label: 'Fleet', tab: 'fleet' },
+    { label: 'Log', tab: 'log' },
+    { label: 'Settings', tab: 'settings' },
+  ];
+
+  const tabButtonRefs: Array<{
+    button: HTMLButtonElement;
+    badge: HTMLSpanElement;
+    tab: PlayingTab;
+  }> = [];
+
+  for (const def of tabDefs) {
+    const button = document.createElement('button');
+    button.className = 'tab-button';
+    button.style.position = 'relative';
+
+    const textSpan = document.createElement('span');
+    textSpan.textContent = def.label;
+    button.appendChild(textSpan);
+
+    const badge = document.createElement('span');
+    badge.className = 'tab-badge';
+    badge.style.display = 'none';
+    button.appendChild(badge);
+
+    button.addEventListener('click', () => callbacks.onTabChange(def.tab));
+    tabBarEl.appendChild(button);
+    tabButtonRefs.push({ button, badge, tab: def.tab });
+  }
+
+  tabBarArea.appendChild(tabBarEl);
+
+  function updateTabBar(gameData: GameData) {
+    const activeShip = getActiveShip(gameData);
+    const unspentSkillPoints = activeShip.crew.reduce(
+      (sum, c) => sum + c.unspentSkillPoints,
+      0
+    );
+    const unreadCount = Math.max(0, gameData.log.length - lastViewedLogCount);
+
+    for (const ref of tabButtonRefs) {
+      if (ref.tab === currentTab) {
+        ref.button.classList.add('active');
+      } else {
+        ref.button.classList.remove('active');
+      }
+
+      let badgeCount = 0;
+      if (ref.tab === 'crew') badgeCount = unspentSkillPoints;
+      if (ref.tab === 'log') badgeCount = unreadCount;
+
+      if (badgeCount > 0) {
+        ref.badge.textContent = badgeCount.toString();
+        ref.badge.style.display = '';
+      } else {
+        ref.badge.textContent = '';
+        ref.badge.style.display = 'none';
+      }
+    }
+  }
+
   function makeTabComponent(tab: PlayingTab, gameData: GameData): Component {
     switch (tab) {
       case 'ship':
@@ -146,7 +216,7 @@ export function createTabbedView(
   function rebuild(gameData: GameData) {
     // Rebuild header and tab bar (always visible, cheap to recreate)
     headerArea.replaceChildren(renderShipHeader(gameData, callbacks));
-    tabBarArea.replaceChildren(renderTabBar(gameData, currentTab, callbacks));
+    updateTabBar(gameData);
 
     if (currentTab === 'log') {
       lastViewedLogCount = gameData.log.length;
@@ -499,67 +569,4 @@ function renderGlobalStatusBar(
   statusBar.appendChild(actionsDiv);
 
   return statusBar;
-}
-
-function renderTabBar(
-  gameData: GameData,
-  activeTab: PlayingTab,
-  callbacks: TabbedViewCallbacks
-): HTMLElement {
-  const tabBar = document.createElement('div');
-  tabBar.className = 'tab-bar';
-
-  // Helper to create tab with optional badge
-  function createTabButton(
-    label: string,
-    tab: PlayingTab,
-    badgeCount?: number
-  ): HTMLElement {
-    const button = document.createElement('button');
-    button.className = activeTab === tab ? 'tab-button active' : 'tab-button';
-    button.style.position = 'relative';
-
-    const textSpan = document.createElement('span');
-    textSpan.textContent = label;
-    button.appendChild(textSpan);
-
-    if (badgeCount && badgeCount > 0) {
-      const badge = document.createElement('span');
-      badge.className = 'tab-badge';
-      badge.textContent = badgeCount.toString();
-      button.appendChild(badge);
-    }
-
-    button.addEventListener('click', () => callbacks.onTabChange(tab));
-    return button;
-  }
-
-  // Ship tab
-  tabBar.appendChild(createTabButton('Ship', 'ship'));
-
-  // Crew tab with skill points badge
-  const activeShip = getActiveShip(gameData);
-  const unspentSkillPoints = activeShip.crew.reduce(
-    (sum, c) => sum + c.unspentSkillPoints,
-    0
-  );
-  tabBar.appendChild(createTabButton('Crew', 'crew', unspentSkillPoints));
-
-  // Work tab
-  tabBar.appendChild(createTabButton('Work', 'work'));
-
-  // Nav tab
-  tabBar.appendChild(createTabButton('Nav', 'nav'));
-
-  // Fleet tab
-  tabBar.appendChild(createTabButton('Fleet', 'fleet'));
-
-  // Log tab with unread badge
-  const unreadCount = Math.max(0, gameData.log.length - lastViewedLogCount);
-  tabBar.appendChild(createTabButton('Log', 'log', unreadCount));
-
-  // Settings tab
-  tabBar.appendChild(createTabButton('Settings', 'settings'));
-
-  return tabBar;
 }
