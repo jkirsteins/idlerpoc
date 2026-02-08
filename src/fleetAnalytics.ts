@@ -1,7 +1,11 @@
 import type { GameData, Ship, Quest } from './models';
 import { getShipClass } from './shipClasses';
 import { getEngineDefinition } from './engines';
-import { computeMaxRange, calculateFuelCost } from './flightPhysics';
+import {
+  calculateFuelMassRequired,
+  getCurrentShipMass,
+  getSpecificImpulse,
+} from './flightPhysics';
 import { getCrewRoleDefinition } from './crewRoles';
 import { getDistanceBetween } from './worldGen';
 import { TICKS_PER_DAY } from './timeSystem';
@@ -78,10 +82,11 @@ export function getShipHealthAlerts(ship: Ship): ShipHealthAlert[] {
   const alerts: ShipHealthAlert[] = [];
 
   // Critical: No fuel
-  if (ship.fuel < 10) {
+  const fuelPercent = (ship.fuelKg / ship.maxFuelKg) * 100;
+  if (fuelPercent < 10) {
     alerts.push({
       severity: 'critical',
-      message: `Fuel critically low: ${Math.round(ship.fuel)}%`,
+      message: `Fuel critically low: ${Math.round(fuelPercent)}% (${Math.round(ship.fuelKg).toLocaleString()} kg)`,
       action: 'Refuel immediately',
     });
   }
@@ -98,10 +103,10 @@ export function getShipHealthAlerts(ship: Ship): ShipHealthAlert[] {
   }
 
   // Warning: Low fuel (relative to range)
-  if (ship.fuel >= 10 && ship.fuel < 30) {
+  if (fuelPercent >= 10 && fuelPercent < 30) {
     alerts.push({
       severity: 'warning',
-      message: `Fuel low: ${Math.round(ship.fuel)}%`,
+      message: `Fuel low: ${Math.round(fuelPercent)}% (${Math.round(ship.fuelKg).toLocaleString()} kg)`,
       action: 'Refuel soon',
     });
   }
@@ -194,11 +199,13 @@ export function getShipPerformance(ship: Ship): ShipPerformance {
  * Get contextual fuel information
  */
 export function getFuelContext(ship: Ship, gameData: GameData): string {
+  const fuelPercent = (ship.fuelKg / ship.maxFuelKg) * 100;
+  const fuelKg = Math.round(ship.fuelKg).toLocaleString();
+
   const shipClass = getShipClass(ship.classId);
-  if (!shipClass) return `${Math.round(ship.fuel)}%`;
+  if (!shipClass) return `${Math.round(fuelPercent)}% (${fuelKg} kg)`;
 
   const engineDef = getEngineDefinition(ship.engine.definitionId);
-  const maxRangeKm = computeMaxRange(shipClass, engineDef);
 
   // Find nearest location for reference
   let nearestDist = Infinity;
@@ -222,12 +229,25 @@ export function getFuelContext(ship: Ship, gameData: GameData): string {
   }
 
   if (nearestName && nearestDist < Infinity) {
-    const fuelCost = calculateFuelCost(nearestDist, maxRangeKm);
-    const trips = ship.fuel / fuelCost;
-    return `${Math.round(ship.fuel)}% (${trips.toFixed(1)} trips to ${nearestName})`;
+    // Calculate fuel needed for trip
+    const distanceMeters = nearestDist * 1000;
+    const currentMass = getCurrentShipMass(ship);
+    const thrust = engineDef.thrust;
+    const acceleration = thrust / currentMass;
+    const requiredDeltaV = 2 * Math.sqrt(distanceMeters * acceleration);
+    const dryMass = shipClass.mass + ship.crew.length * 80;
+    const specificImpulse = getSpecificImpulse(engineDef);
+    const fuelNeededKg = calculateFuelMassRequired(
+      dryMass,
+      requiredDeltaV,
+      specificImpulse
+    );
+
+    const trips = ship.fuelKg / fuelNeededKg;
+    return `${Math.round(fuelPercent)}% (${fuelKg} kg, ${trips.toFixed(1)} trips to ${nearestName})`;
   }
 
-  return `${Math.round(ship.fuel)}%`;
+  return `${Math.round(fuelPercent)}% (${fuelKg} kg)`;
 }
 
 /**
@@ -266,20 +286,32 @@ export function matchShipToContract(
 
   // Check range sufficiency
   const engineDef = getEngineDefinition(ship.engine.definitionId);
-  const maxRangeKm = computeMaxRange(shipClass, engineDef);
   const origin = gameData.world.locations.find((l) => l.id === quest.origin);
   const dest = gameData.world.locations.find((l) => l.id === quest.destination);
 
   if (origin && dest) {
     const dist = getDistanceBetween(origin, dest);
-    const fuelCost = calculateFuelCost(dist, maxRangeKm);
 
-    if (ship.fuel < fuelCost * 1.2) {
+    // Calculate fuel needed
+    const distanceMeters = dist * 1000;
+    const currentMass = getCurrentShipMass(ship);
+    const thrust = engineDef.thrust;
+    const acceleration = thrust / currentMass;
+    const requiredDeltaV = 2 * Math.sqrt(distanceMeters * acceleration);
+    const dryMass = shipClass.mass + ship.crew.length * 80;
+    const specificImpulse = getSpecificImpulse(engineDef);
+    const fuelNeededKg = calculateFuelMassRequired(
+      dryMass,
+      requiredDeltaV,
+      specificImpulse
+    );
+
+    if (ship.fuelKg < fuelNeededKg * 1.2) {
       score -= 1;
       reasons.push('❌ Insufficient fuel for trip');
-    } else if (dist > maxRangeKm * 0.9) {
+    } else if (fuelNeededKg > ship.maxFuelKg * 0.9) {
       score -= 0.5;
-      reasons.push('⚠️ Trip uses 90%+ of max range');
+      reasons.push('⚠️ Trip uses 90%+ of tank capacity');
     } else {
       score += 0.5;
       reasons.push('✅ Range sufficient');
@@ -331,8 +363,22 @@ export function matchShipToContract(
   // Subtract estimated fuel costs
   if (origin && dest) {
     const dist = getDistanceBetween(origin, dest);
-    const fuelCost = calculateFuelCost(dist, maxRangeKm);
-    const fuelCreditCost = fuelCost * 5; // 5 credits per fuel %
+
+    // Calculate fuel needed in kg
+    const distanceMeters = dist * 1000;
+    const currentMass = getCurrentShipMass(ship);
+    const thrust = engineDef.thrust;
+    const acceleration = thrust / currentMass;
+    const requiredDeltaV = 2 * Math.sqrt(distanceMeters * acceleration);
+    const dryMass = shipClass.mass + ship.crew.length * 80;
+    const specificImpulse = getSpecificImpulse(engineDef);
+    const fuelNeededKg = calculateFuelMassRequired(
+      dryMass,
+      requiredDeltaV,
+      specificImpulse
+    );
+
+    const fuelCreditCost = fuelNeededKg * 0.5; // 0.5 credits per kg
     const trips = quest.tripsRequired === -1 ? 5 : quest.tripsRequired || 1;
     estimatedProfit -= fuelCreditCost * trips * 2; // Round trip
   }

@@ -214,7 +214,8 @@ export interface Ship {
   classId: ShipClassId;
   rooms: Room[];
   crew: CrewMember[];
-  fuel: number;
+  fuelKg: number; // Current fuel mass in kilograms
+  maxFuelKg: number; // Fuel tank capacity in kilograms
   equipment: EquipmentInstance[];
   equipmentSlots: EquipmentSlotDef[];
   location: ShipLocation;

@@ -26,6 +26,7 @@ import {
 } from './gameTick';
 import { getLevelForXP } from './levelSystem';
 import { deduceRoleFromSkills } from './crewRoles';
+import { createRefuelDialog, getFuelPricePerKg } from './ui/refuelDialog';
 import {
   advanceToNextDayStart,
   getDaysSinceEpoch,
@@ -646,26 +647,49 @@ const callbacks: RendererCallbacks = {
     );
     if (!location || !location.services.includes('refuel')) return;
 
-    const fuelNeeded = 100 - ship.fuel;
-    if (fuelNeeded <= 0) return;
-
-    const cost = Math.round(fuelNeeded * 5);
-
-    if (state.gameData.credits >= cost) {
-      state.gameData.credits -= cost;
-      ship.fuel = 100;
-
-      addLog(
-        state.gameData.log,
-        state.gameData.gameTime,
-        'refueled',
-        `Purchased ${Math.round(fuelNeeded)}% fuel for ${cost} credits`,
-        ship.name
-      );
-
-      saveGame(state.gameData);
-      renderApp();
+    const maxPurchaseKg = ship.maxFuelKg - ship.fuelKg;
+    if (maxPurchaseKg <= 0) {
+      // Already full
+      return;
     }
+
+    // Show refuel dialog
+    const dialog = createRefuelDialog(state.gameData, location, {
+      onConfirm: (fuelKg: number) => {
+        if (state.phase !== 'playing') return;
+
+        const pricePerKg = getFuelPricePerKg(location);
+        const totalCost = Math.round(fuelKg * pricePerKg);
+
+        if (state.gameData.credits >= totalCost && fuelKg > 0) {
+          // Deduct credits
+          state.gameData.credits -= totalCost;
+
+          // Add fuel
+          ship.fuelKg = Math.min(ship.maxFuelKg, ship.fuelKg + fuelKg);
+
+          // Track fuel costs in metrics
+          ship.metrics.fuelCostsPaid += totalCost;
+
+          // Log the purchase
+          addLog(
+            state.gameData.log,
+            state.gameData.gameTime,
+            'refueled',
+            `Purchased ${Math.round(fuelKg).toLocaleString()} kg fuel for ${totalCost.toLocaleString()} credits`,
+            ship.name
+          );
+
+          saveGame(state.gameData);
+          renderApp();
+        }
+      },
+      onCancel: () => {
+        // Dialog closed, no action needed
+      },
+    });
+
+    document.body.appendChild(dialog);
   },
 
   onStartTrip: (destinationId: string) => {
@@ -1085,7 +1109,8 @@ function checkAutoPause(gameData: GameData, prevGameTime: number): boolean {
   // Check for low fuel
   if (settings.onLowFuel) {
     for (const ship of gameData.ships) {
-      if (ship.fuel < 10 && ship.location.status === 'in_flight') {
+      const fuelPercent = (ship.fuelKg / ship.maxFuelKg) * 100;
+      if (fuelPercent < 10 && ship.location.status === 'in_flight') {
         gameData.isPaused = true;
         return true;
       }

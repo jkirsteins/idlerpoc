@@ -18,6 +18,8 @@ import { generateStartingXP, getLevelForXP } from './levelSystem';
 import { generateSkillsForRole, deduceRoleFromSkills } from './crewRoles';
 import { generateAllLocationQuests } from './questGen';
 import { getEquipmentDefinition, canEquipInSlot } from './equipment';
+import { calculateFuelTankCapacity } from './flightPhysics';
+import { getEngineDefinition } from './engines';
 
 const HIRE_BASE_COST = 500;
 const HIRE_LEVEL_MULTIPLIER = 200;
@@ -234,13 +236,21 @@ function createStartingShip(
     definitionId: 'sidearm',
   }));
 
+  // Calculate fuel tank capacity based on ship class cargo capacity
+  const engineDef = getEngineDefinition(engine.definitionId);
+  const maxFuelKg = calculateFuelTankCapacity(
+    shipClass.cargoCapacity,
+    engineDef
+  );
+
   return {
     id: generateId(),
     name: shipName,
     classId: shipClassId,
     rooms,
     crew,
-    fuel: 100,
+    fuelKg: maxFuelKg, // Start with full tank
+    maxFuelKg,
     equipment,
     equipmentSlots,
     location: {
@@ -283,13 +293,21 @@ export function createAdditionalShip(
   const { equipmentSlots, equipment } = createShipEquipment(shipClassId);
   const engine = createEngineInstance(shipClassId);
 
+  // Calculate fuel tank capacity based on ship class cargo capacity
+  const engineDef = getEngineDefinition(engine.definitionId);
+  const maxFuelKg = calculateFuelTankCapacity(
+    shipClass.cargoCapacity,
+    engineDef
+  );
+
   return {
     id: generateId(),
     name: shipName,
     classId: shipClassId,
     rooms,
     crew: [],
-    fuel: 100,
+    fuelKg: maxFuelKg, // Start with full tank
+    maxFuelKg,
     equipment,
     equipmentSlots,
     location: {

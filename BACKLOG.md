@@ -24,6 +24,19 @@ This file tracks deferred features and known gaps that are not currently priorit
 - **Encounter Heat Map**: Visual overlay on navigation map showing danger zones.
 - **Log Entry Click-to-Expand**: Expandable log entries showing detailed encounter outcome breakdown.
 
+## Deferred Fuel/Cargo System Features
+
+- **Manual Fuel/Cargo Allocation**: Allow players to adjust fuel/cargo split before departure. Needs slider UI, presets, and validation. See `docs/fuel-cargo-tradeoff-design.md` Option 2.
+- **Fuel Reserve System**: Warn when fuel below safety threshold (e.g., 20% of route requirement). Add "Reserve Fuel Lock" toggle.
+- **Modular Fuel Tanks**: Purchasable tank upgrades (Extended Range Tank, Cargo Maximizer). Requires equipment installation UI.
+- **Fuel Trading Mechanics**: Buy fuel at low prices, sell at high prices for speculation gameplay. Requires cargo system integration.
+- **Emergency Fuel Delivery**: Rescue mechanic for stranded ships (distress beacon, fuel cost + delivery fee).
+- **Fuel Efficiency Upgrades**: Engine modifications to reduce fuel consumption (e.g., "Optimized Nozzles" equipment).
+- **Alternative Propellant Support**: Chemical bipropellant vs monopropellant, ion drives, etc. Needs fuel type system per engine.
+- **Hub Station Route Bonuses**: +10% payment for multi-leg routes using major stations as waypoints. Rewards emergent route planning.
+- **Standing Freight Distance Multiplier**: Increase standing freight pay multiplier for long routes (0.7x → 0.9x). See `docs/quest-economics-validation.md`.
+- **Quest Card Fuel Cost Display**: Show estimated fuel cost in kg and credits on quest cards for informed decision-making.
+
 ## Other Known Gaps
 
 - **Equipment Repair at Stations**: Degraded equipment cannot currently be repaired.

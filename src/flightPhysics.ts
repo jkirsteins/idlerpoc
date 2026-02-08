@@ -7,8 +7,114 @@ import { GAME_SECONDS_PER_TICK } from './timeSystem';
 /**
  * Flight Physics
  *
- * Burn-coast-burn flight profile for low-thrust ships
+ * Burn-coast-burn flight profile with realistic Tsiolkovsky rocket equation.
+ * Fuel has mass, ship mass changes as fuel burns, and range emerges from
+ * the interaction of these systems.
  */
+
+/**
+ * Standard gravity constant for Isp calculations
+ */
+const G0 = 9.81; // m/s²
+
+/**
+ * Calculate fuel tank capacity based on ship class cargo capacity
+ *
+ * Design Decision (from fuel-cargo-tradeoff-design.md):
+ * Fuel tanks and cargo holds compete for the same internal volume.
+ * We use a 70/30 split: 70% for fuel, 30% for cargo.
+ *
+ * This creates strategic range pressure and progression gameplay:
+ * - Wayfarer (40,000 kg capacity) → 28,000 kg fuel → can reach Gateway but NOT Meridian
+ * - Forces refueling stops at intermediate stations
+ * - Creates demand for larger ships with more capacity
+ *
+ * Note: The 3:1 reaction mass ratio from WORLDRULES.md describes fuel CONSUMPTION
+ * during missions, not tank capacity. Tank size is constrained by ship design.
+ */
+export function calculateFuelTankCapacity(
+  cargoCapacity: number,
+  _engineDef: EngineDefinition
+): number {
+  // Fixed 70/30 fuel/cargo split for MVP
+  // Future: Could vary by ship class or be player-configurable
+  const FUEL_FRACTION = 0.7;
+
+  return cargoCapacity * FUEL_FRACTION;
+}
+
+/**
+ * Calculate current ship mass including fuel, cargo, and crew
+ */
+export function getCurrentShipMass(ship: Ship): number {
+  const shipClass = getShipClass(ship.classId);
+  if (!shipClass) {
+    throw new Error(`Unknown ship class: ${ship.classId}`);
+  }
+
+  const dryMass = shipClass.mass;
+  const fuelMass = ship.fuelKg;
+
+  // Calculate cargo mass (crew equipment in cargo hold)
+  const cargoMass = ship.cargo.reduce((sum, _item) => {
+    // Approximate mass for crew equipment (will be refined later)
+    return sum + 10; // ~10kg per item average
+  }, 0);
+
+  // Calculate crew mass (~80kg per person)
+  const crewMass = ship.crew.length * 80;
+
+  return dryMass + fuelMass + cargoMass + crewMass;
+}
+
+/**
+ * Tsiolkovsky rocket equation: Calculate delta-v from mass ratio and Isp
+ *
+ * Δv = Isp × g₀ × ln(m_wet / m_dry)
+ *
+ * Where:
+ * - Isp = specific impulse (seconds)
+ * - g₀ = standard gravity (9.81 m/s²)
+ * - m_wet = initial mass (with fuel)
+ * - m_dry = final mass (without fuel)
+ */
+export function calculateDeltaV(
+  wetMass: number,
+  dryMass: number,
+  specificImpulse: number
+): number {
+  if (wetMass <= dryMass || dryMass <= 0) {
+    return 0;
+  }
+
+  const massRatio = wetMass / dryMass;
+  return specificImpulse * G0 * Math.log(massRatio);
+}
+
+/**
+ * Calculate specific impulse from engine definition
+ * Derived from maxDeltaV assuming full fuel load
+ */
+export function getSpecificImpulse(engineDef: EngineDefinition): number {
+  // Approximate Isp values based on engine type
+  // These match WORLDRULES.md specifications
+
+  if (engineDef.type.includes('Chemical')) {
+    return 450; // LOX/LH2 bipropellant
+  } else if (engineDef.type.includes('Fission')) {
+    return 900; // Nuclear thermal rocket (WORLDRULES line 124)
+  } else if (engineDef.type.includes('Fusion (D-D)')) {
+    return 50000; // D-D fusion
+  } else if (engineDef.type.includes('Fusion (D-He3)')) {
+    return 100000; // D-He3 fusion (more efficient)
+  } else if (engineDef.type.includes('Military')) {
+    return 200000; // Advanced military fusion
+  }
+
+  // Fallback: derive from maxDeltaV assuming 3:1 mass ratio
+  // Δv = Isp × g₀ × ln(4), so Isp = Δv / (g₀ × ln(4))
+  return engineDef.maxDeltaV / (G0 * Math.log(4));
+}
 
 /**
  * Constants for mission endurance calculations
@@ -35,21 +141,38 @@ export function computeMissionEndurance(shipClass: ShipClass): number {
 
 /**
  * Compute maximum range derived from engine capability, ship mass, and mission endurance
+ * Uses Tsiolkovsky rocket equation for realistic fuel consumption
  * Returns range in kilometers
  */
 export function computeMaxRange(
   shipClass: ShipClass,
   engineDef: EngineDefinition
 ): number {
-  const mass = shipClass.mass;
+  const dryMass = shipClass.mass;
   const thrust = engineDef.thrust;
-  const maxDeltaV = engineDef.maxDeltaV;
-  const acceleration = thrust / mass;
+  const maxFuelKg = calculateFuelTankCapacity(
+    shipClass.cargoCapacity,
+    engineDef
+  );
+  const specificImpulse = getSpecificImpulse(engineDef);
 
-  // 50% fuel allocation for one-way trip
+  // Calculate maximum delta-v with full fuel tank
+  const wetMass = dryMass + maxFuelKg;
+  const maxDeltaV = calculateDeltaV(wetMass, dryMass, specificImpulse);
+
+  // Use 50% of delta-v budget for one-way trip (need to decelerate at destination)
   const allocatedDeltaV = 0.5 * maxDeltaV;
-  const v_cruise = allocatedDeltaV / 2; // Half for accel, half for decel
-  const burnTime = v_cruise / acceleration;
+
+  // Cruise velocity: half delta-v for accel, half for decel
+  const v_cruise = allocatedDeltaV / 2;
+
+  // Acceleration at start of journey (full fuel load)
+  const initialAcceleration = thrust / wetMass;
+
+  // Approximate burn time using initial acceleration
+  // (In reality, acceleration increases as fuel burns, but we use average)
+  const burnTime = v_cruise / initialAcceleration;
+
   const endurance = computeMissionEndurance(shipClass);
 
   let rangeMeters: number;
@@ -57,11 +180,11 @@ export function computeMaxRange(
   if (endurance <= 2 * burnTime) {
     // Can't complete full burn-coast-burn cycle
     // Mini-brachistochrone constrained by endurance
-    rangeMeters = 0.25 * acceleration * endurance * endurance;
+    rangeMeters = 0.25 * initialAcceleration * endurance * endurance;
   } else {
     // Full burn-coast-burn
     const coastTime = endurance - 2 * burnTime;
-    const burnDist = acceleration * burnTime * burnTime;
+    const burnDist = initialAcceleration * burnTime * burnTime;
     const coastDist = v_cruise * coastTime;
     rangeMeters = burnDist + coastDist;
   }
@@ -70,18 +193,51 @@ export function computeMaxRange(
 }
 
 /**
- * Calculate fuel cost percentage for a one-way trip
+ * Calculate fuel mass required for a trip using Tsiolkovsky rocket equation
+ *
+ * Given a required delta-v, calculate how much fuel mass is needed:
+ * Δv = Isp × g₀ × ln(m_wet / m_dry)
+ * => m_wet / m_dry = exp(Δv / (Isp × g₀))
+ * => m_fuel = m_dry × (exp(Δv / (Isp × g₀)) - 1)
+ *
+ * Returns fuel mass in kilograms
+ */
+export function calculateFuelMassRequired(
+  dryMass: number,
+  requiredDeltaV: number,
+  specificImpulse: number
+): number {
+  if (requiredDeltaV <= 0 || specificImpulse <= 0) {
+    return 0;
+  }
+
+  const massRatio = Math.exp(requiredDeltaV / (specificImpulse * G0));
+  const fuelMass = dryMass * (massRatio - 1);
+
+  return fuelMass;
+}
+
+/**
+ * TEMPORARY STUB: Calculate fuel cost for a trip
+ * TODO: Replace with proper implementation using Tsiolkovsky equation
+ * Returns fuel mass in kg required for the trip
  */
 export function calculateFuelCost(
   distanceKm: number,
   maxRangeKm: number
 ): number {
+  // Simple linear approximation for now
+  // This should be replaced with proper Tsiolkovsky calculation
   if (maxRangeKm === 0) return 0;
-  return (distanceKm / maxRangeKm) * 50; // Max range trip costs 50% one-way
+  const fraction = distanceKm / maxRangeKm;
+  // With corrected fuel capacity (28,000 kg for Wayfarer),
+  // assume max range uses ~90% of fuel (25,200 kg)
+  return fraction * 25200; // Linear approximation of fuel usage
 }
 
 /**
  * Initialize a new flight from origin to destination
+ * Uses current ship mass (including fuel) for acceleration calculations
  */
 export function initializeFlight(
   ship: Ship,
@@ -99,21 +255,31 @@ export function initializeFlight(
   const distanceKm = getDistanceBetween(origin, destination);
   const distanceMeters = distanceKm * 1000;
 
-  // Get ship parameters
-  const mass = shipClass.mass;
+  // Get current ship mass (including fuel, cargo, crew)
+  const currentMass = getCurrentShipMass(ship);
   const thrust = engineDef.thrust;
-  const maxDeltaV = engineDef.maxDeltaV;
-  const acceleration = thrust / mass;
+  const specificImpulse = getSpecificImpulse(engineDef);
 
-  // Use fixed cruise velocity (same as computeMaxRange)
-  // 50% fuel budget for one-way trip
-  const allocatedDeltaV = 0.5 * maxDeltaV;
+  // Calculate available delta-v with current fuel
+  const dryMass = shipClass.mass + ship.crew.length * 80; // dry mass + crew
+  const wetMass = currentMass;
+  const availableDeltaV = calculateDeltaV(wetMass, dryMass, specificImpulse);
+
+  // Use 50% of available delta-v for this trip (need margin for deceleration)
+  const allocatedDeltaV = Math.min(
+    availableDeltaV * 0.5,
+    0.5 * engineDef.maxDeltaV
+  );
 
   // Calculate cruise velocity (half delta-v for accel, half for decel)
   const v_cruise = allocatedDeltaV / 2;
 
+  // Initial acceleration (will change as fuel burns, but use for planning)
+  const initialAcceleration = thrust / currentMass;
+
   // Check if this is a short trip (mini-brachistochrone)
-  const dv_brachistochrone = 2 * Math.sqrt(distanceMeters * acceleration);
+  const dv_brachistochrone =
+    2 * Math.sqrt(distanceMeters * initialAcceleration);
 
   let burnTime: number;
   let coastTime: number;
@@ -121,13 +287,13 @@ export function initializeFlight(
 
   if (dv_brachistochrone <= allocatedDeltaV) {
     // Short trip: never reaches cruise velocity, no coast phase
-    totalTime = 2 * Math.sqrt(distanceMeters / acceleration);
+    totalTime = 2 * Math.sqrt(distanceMeters / initialAcceleration);
     burnTime = totalTime / 2;
     coastTime = 0;
   } else {
     // Long trip: burn-coast-burn
-    burnTime = v_cruise / acceleration;
-    const burnDistance = 0.5 * acceleration * burnTime * burnTime;
+    burnTime = v_cruise / initialAcceleration;
+    const burnDistance = 0.5 * initialAcceleration * burnTime * burnTime;
     const coastDistance = distanceMeters - 2 * burnDistance;
     coastTime = coastDistance / v_cruise;
     totalTime = 2 * burnTime + coastTime;
@@ -144,14 +310,32 @@ export function initializeFlight(
     coastTime,
     elapsedTime: 0,
     totalTime,
-    acceleration,
+    acceleration: initialAcceleration,
     dockOnArrival,
   };
 }
 
 /**
+ * Calculate fuel consumption rate in kg/s during a burn phase
+ *
+ * Uses the rocket equation in differential form:
+ * dm/dt = -F / (Isp × g₀)
+ *
+ * Where F is thrust, Isp is specific impulse
+ */
+export function calculateFuelFlowRate(
+  thrust: number,
+  specificImpulse: number
+): number {
+  return thrust / (specificImpulse * G0);
+}
+
+/**
  * Advance flight state by one tick (1,800 game seconds)
  * Returns true if flight is complete
+ *
+ * Note: Acceleration is fixed based on initial mass for this flight.
+ * Future enhancement: dynamically recalculate as fuel burns within flight.
  */
 export function advanceFlight(flight: FlightState): boolean {
   const dt = GAME_SECONDS_PER_TICK;

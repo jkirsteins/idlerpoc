@@ -15,6 +15,11 @@ import {
   type ShipStatus,
 } from '../fleetAnalytics';
 import type { Component } from './component';
+import {
+  formatFuelMass,
+  calculateFuelPercentage,
+  getFuelColorHex,
+} from './fuelFormatting';
 
 export interface FleetTabCallbacks {
   onSelectShip: (shipId: string) => void;
@@ -347,15 +352,15 @@ function renderFleetMap(
         if (shipClass) {
           const maxRangeKm = computeMaxRange(shipClass, engineDef);
           const distanceKm = getDistanceBetween(currentLocation, location);
-          const fuelCost = calculateFuelCost(distanceKm, maxRangeKm);
+          const fuelCostKg = calculateFuelCost(distanceKm, maxRangeKm);
 
-          if (fuelCost <= ship.fuel) {
+          if (fuelCostKg <= ship.fuelKg) {
             cell.textContent = '✓';
-            cell.title = `Can reach (${fuelCost.toFixed(0)}% fuel)`;
+            cell.title = `Can reach (${formatFuelMass(fuelCostKg)} fuel)`;
             cell.style.color = '#4ade80';
           } else {
             cell.textContent = '✗';
-            cell.title = `Insufficient fuel (need ${fuelCost.toFixed(0)}%, have ${ship.fuel.toFixed(0)}%)`;
+            cell.title = `Insufficient fuel (need ${formatFuelMass(fuelCostKg)}, have ${formatFuelMass(ship.fuelKg)})`;
             cell.style.color = '#ff4444';
           }
         }
@@ -761,8 +766,8 @@ function renderEnhancedShipCard(
 
   // Fuel with context
   const fuelContext = getFuelContext(ship, gameData);
-  const fuelColor =
-    ship.fuel < 20 ? '#ff4444' : ship.fuel < 50 ? '#fbbf24' : '#4ade80';
+  const fuelPercentage = calculateFuelPercentage(ship.fuelKg, ship.maxFuelKg);
+  const fuelColor = getFuelColorHex(fuelPercentage);
   const fuelLine = document.createElement('div');
   fuelLine.innerHTML = `<span style="color: #888;">Fuel:</span> <span style="color: ${fuelColor};">${fuelContext}</span>`;
   statsDiv.appendChild(fuelLine);

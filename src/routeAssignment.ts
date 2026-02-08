@@ -141,14 +141,15 @@ export function checkAutoRefuel(
   }
 
   const threshold = ship.routeAssignment.autoRefuelThreshold;
+  const fuelPercentage = (ship.fuelKg / ship.maxFuelKg) * 100;
 
-  if (ship.fuel < threshold) {
-    // Calculate refuel amount and cost
-    const fuelNeeded = 100 - ship.fuel;
-    const fuelCost = Math.round(fuelNeeded * 5); // 5 credits per %
+  if (fuelPercentage < threshold) {
+    // Calculate refuel amount and cost (0.5 cr per kg)
+    const fuelNeededKg = ship.maxFuelKg - ship.fuelKg;
+    const fuelCost = Math.round(fuelNeededKg * 0.5); // 0.5 credits per kg
 
     if (gameData.credits >= fuelCost) {
-      ship.fuel = 100;
+      ship.fuelKg = ship.maxFuelKg;
       gameData.credits -= fuelCost;
 
       // Track refuel cost in ship metrics

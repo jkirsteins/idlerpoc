@@ -22,6 +22,7 @@ import {
 } from '../flightPhysics';
 import { formatDualTime } from '../timeSystem';
 import type { Component } from './component';
+import { formatFuelMass } from './fuelFormatting';
 
 export interface NavigationViewCallbacks {
   onToggleNavigation: () => void;
@@ -187,13 +188,13 @@ export function createNavigationView(
 
             const distanceKm = getDistanceBetween(currentLocation, location);
             const maxRangeKm = computeMaxRange(shipClass, engineDef);
-            const fuelCost = calculateFuelCost(distanceKm, maxRangeKm);
+            const fuelCostKg = calculateFuelCost(distanceKm, maxRangeKm);
 
             const travelInfo = document.createElement('div');
             travelInfo.style.fontSize = '0.85em';
             travelInfo.style.color = '#4ade80';
             travelInfo.style.marginTop = '0.25rem';
-            travelInfo.innerHTML = `⏱ Travel Time: ${travelTime} | ⛽ Fuel Cost: ~${fuelCost.toFixed(1)}%`;
+            travelInfo.innerHTML = `⏱ Travel Time: ${travelTime} | ⛽ Fuel Cost: ~${formatFuelMass(fuelCostKg)}`;
             item.appendChild(travelInfo);
           } catch {
             // Silently skip if travel estimate fails

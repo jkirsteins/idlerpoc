@@ -20,7 +20,7 @@ UI components follow a **mount-once / update-on-tick** pattern (see `src/ui/comp
 
 # Additional rules
 
-- Consult README for project scope before starting work.
+- Consult README for project scope before starting work. See if any other markdown files (\*.md pattern, in root and in docs/ folder) might be relevant. If so, read them.
 - Always consider WORLDRULES.md for our game world constraints. Apply these to any game design decisions.
 - Update README to reflect project goals/scope before commits.
 - README: high-level only. Infer architecture from code; detailed docs go in docs/.

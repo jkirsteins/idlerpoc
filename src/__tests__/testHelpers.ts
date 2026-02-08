@@ -141,7 +141,8 @@ export function createTestShip(overrides: Partial<Ship> = {}): Ship {
     classId: 'wayfarer' as ShipClassId,
     rooms: [bridge, engineRoom],
     crew: [captain, bridgeCrew],
-    fuel: 80,
+    fuelKg: 22400, // 80% of 28,000 kg max fuel (Wayfarer)
+    maxFuelKg: 28000, // 70% of 40,000 kg cargo capacity
     equipment: [
       createTestEquipment({ definitionId: 'life_support' }),
       createTestEquipment({ definitionId: 'air_filters' }),

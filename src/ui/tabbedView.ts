@@ -22,6 +22,7 @@ import {
   calculatePositionDanger,
   getThreatLevel,
 } from '../encounterSystem';
+import { formatFuelMass, calculateFuelPercentage } from './fuelFormatting';
 
 // Track credits for delta display
 let previousCredits: number | null = null;
@@ -540,11 +541,18 @@ function renderGlobalStatusBar(
     const dockedAt = ship.location.dockedAt;
     const location = gameData.world.locations.find((l) => l.id === dockedAt);
 
-    if (location?.services.includes('refuel') && ship.fuel < 100) {
-      const fuelNeeded = 100 - ship.fuel;
-      const cost = Math.round(fuelNeeded * 5);
+    if (location?.services.includes('refuel') && ship.fuelKg < ship.maxFuelKg) {
+      const fuelNeededKg = ship.maxFuelKg - ship.fuelKg;
+      // TODO: This should use proper per-kg pricing from location (task #6)
+      // For now, keeping legacy percentage-based pricing converted to kg
+      const fuelPercentage = calculateFuelPercentage(
+        ship.fuelKg,
+        ship.maxFuelKg
+      );
+      const percentNeeded = 100 - fuelPercentage;
+      const cost = Math.round(percentNeeded * 5);
       const refuelBtn = document.createElement('button');
-      refuelBtn.textContent = `Buy Fuel (${Math.round(fuelNeeded)}% → ${cost} cr)`;
+      refuelBtn.textContent = `Buy Fuel (${formatFuelMass(fuelNeededKg)} → ${cost} cr)`;
       refuelBtn.className = 'global-status-btn';
       refuelBtn.disabled = gameData.credits < cost;
       refuelBtn.addEventListener('click', () => callbacks.onBuyFuel());

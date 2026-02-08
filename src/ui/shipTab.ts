@@ -13,6 +13,11 @@ import { formatDualTime, GAME_SECONDS_PER_TICK } from '../timeSystem';
 import { renderStatBar } from './components/statBar';
 import { attachTooltip, formatPowerTooltip } from './components/tooltip';
 import type { Component } from './component';
+import {
+  formatFuelMass,
+  calculateFuelPercentage,
+  getFuelColorClass,
+} from './fuelFormatting';
 
 export interface ShipTabCallbacks {
   onCrewAssign: (crewId: string, roomId: string) => void;
@@ -97,18 +102,13 @@ export function createShipTab(
 
 function renderFuelBar(gameData: GameData): HTMLElement {
   const ship = getActiveShip(gameData);
-  const fuel = ship.fuel;
-  let colorClass = 'bar-good';
-  if (fuel <= 20) {
-    colorClass = 'bar-danger';
-  } else if (fuel <= 50) {
-    colorClass = 'bar-warning';
-  }
+  const fuelPercentage = calculateFuelPercentage(ship.fuelKg, ship.maxFuelKg);
+  const colorClass = getFuelColorClass(fuelPercentage);
 
   return renderStatBar({
     label: 'FUEL',
-    percentage: fuel,
-    valueLabel: `${fuel.toFixed(1)}%`,
+    percentage: fuelPercentage,
+    valueLabel: `${formatFuelMass(ship.fuelKg)} / ${formatFuelMass(ship.maxFuelKg)}`,
     colorClass,
     mode: 'full',
   });

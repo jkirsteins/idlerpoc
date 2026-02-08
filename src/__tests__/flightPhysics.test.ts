@@ -11,7 +11,8 @@ describe('flightPhysics', () => {
     it('should produce longer travel time for farther destinations', () => {
       const ship = createTestShip({
         classId: 'wayfarer',
-        fuel: 100,
+        fuelKg: 28000, // Full tank
+        maxFuelKg: 28000,
       });
       const world = generateWorld();
 
@@ -48,7 +49,8 @@ describe('flightPhysics', () => {
     it('should show that 50x distance difference produces meaningful time difference', () => {
       const ship = createTestShip({
         classId: 'wayfarer',
-        fuel: 100,
+        fuelKg: 28000, // Full tank
+        maxFuelKg: 28000,
       });
       const world = generateWorld();
 
@@ -81,12 +83,15 @@ describe('flightPhysics', () => {
     it('should verify mini-brachistochrone branch for very short distances', () => {
       const ship = createTestShip({
         classId: 'wayfarer',
-        fuel: 100,
+        fuelKg: 28000, // Full tank
+        maxFuelKg: 28000,
       });
 
       const shipClass = getShipClass(ship.classId)!;
       const engineDef = getEngineDefinition(ship.engine.definitionId);
-      const acceleration = engineDef.thrust / shipClass.mass;
+      // Use total mass (dry + fuel + cargo + crew) like initializeFlight does
+      const totalMass = shipClass.mass + ship.fuelKg + ship.crew.length * 80;
+      const acceleration = engineDef.thrust / totalMass;
 
       // Create two very close locations
       const origin: WorldLocation = {
@@ -124,7 +129,8 @@ describe('flightPhysics', () => {
     it('should verify burn-coast-burn branch for longer distances', () => {
       const ship = createTestShip({
         classId: 'wayfarer',
-        fuel: 100,
+        fuelKg: 28000, // Full tank
+        maxFuelKg: 28000,
       });
       const world = generateWorld();
 
@@ -151,14 +157,26 @@ describe('flightPhysics', () => {
     it('should use same cruise velocity logic as computeMaxRange', () => {
       const ship = createTestShip({
         classId: 'wayfarer',
-        fuel: 100,
+        fuelKg: 28000, // Full tank
+        maxFuelKg: 28000,
       });
       const world = generateWorld();
 
+      const shipClass = getShipClass(ship.classId)!;
       const engineDef = getEngineDefinition(ship.engine.definitionId);
 
-      // Get the cruise velocity that computeMaxRange uses
-      const allocatedDeltaV = 0.5 * engineDef.maxDeltaV;
+      // With realistic physics, delta-v comes from Tsiolkovsky equation
+      // Calculate expected delta-v with current fuel
+      const dryMass = shipClass.mass + ship.crew.length * 80;
+      const wetMass = dryMass + ship.fuelKg;
+      const specificImpulse = 900; // NTR-200 from WORLDRULES.md
+      const G0 = 9.81;
+      const availableDeltaV =
+        specificImpulse * G0 * Math.log(wetMass / dryMass);
+      const allocatedDeltaV = Math.min(
+        availableDeltaV * 0.5,
+        0.5 * engineDef.maxDeltaV
+      );
       const expectedCruiseVelocity = allocatedDeltaV / 2;
 
       // Initialize a long-distance flight
@@ -179,7 +197,8 @@ describe('flightPhysics', () => {
     it('should advance flight state correctly over time', () => {
       const ship = createTestShip({
         classId: 'wayfarer',
-        fuel: 100,
+        fuelKg: 28000, // Full tank
+        maxFuelKg: 28000,
       });
       const world = generateWorld();
 

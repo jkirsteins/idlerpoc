@@ -3,12 +3,11 @@ import { getEngineDefinition } from './engines';
 import {
   advanceFlight,
   isEngineBurning,
-  computeMaxRange,
-  calculateFuelCost,
+  calculateFuelFlowRate,
+  getSpecificImpulse,
 } from './flightPhysics';
 import { completeLeg } from './contractExec';
 import { GAME_SECONDS_PER_TICK } from './timeSystem';
-import { getShipClass } from './shipClasses';
 import { getCrewRoleDefinition } from './crewRoles';
 import { getEquipmentDefinition } from './equipment';
 import {
@@ -16,7 +15,6 @@ import {
   checkThresholdCrossing,
   getDegradationDescription,
 } from './gravitySystem';
-import { getDistanceBetween } from './worldGen';
 import { calculateEncounterChance } from './encounterSystem';
 import { applyPassiveXP, logLevelUps } from './skillProgression';
 
@@ -174,38 +172,23 @@ function applyShipTick(gameData: GameData, ship: Ship): boolean {
     if (ship.activeFlightPlan && ship.engine.state === 'online') {
       const flightComplete = advanceFlight(ship.activeFlightPlan);
 
-      // Fuel consumption during burn phases
+      // Fuel consumption during burn phases (mass-based)
       const engineBurning = isEngineBurning(ship.activeFlightPlan);
       if (
         engineBurning &&
         ship.engine.state === 'online' &&
         engineRoomStaffed
       ) {
-        const flight = ship.activeFlightPlan;
-        const origin = gameData.world.locations.find(
-          (l) => l.id === flight.origin
+        // Calculate fuel flow rate using rocket equation
+        const specificImpulse = getSpecificImpulse(engineDef);
+        const fuelFlowRateKgPerSec = calculateFuelFlowRate(
+          engineDef.thrust,
+          specificImpulse
         );
-        const destination = gameData.world.locations.find(
-          (l) => l.id === flight.destination
-        );
 
-        if (origin && destination) {
-          const shipClass = getShipClass(ship.classId);
-          if (shipClass) {
-            const distanceKm = getDistanceBetween(origin, destination);
-            const maxRangeKm = computeMaxRange(shipClass, engineDef);
-            const totalFuelCostPercent = calculateFuelCost(
-              distanceKm,
-              maxRangeKm
-            );
-
-            const totalBurnTime = flight.burnTime * 2;
-            const fuelPerSecondOfBurn = totalFuelCostPercent / totalBurnTime;
-            const fuelThisTick = fuelPerSecondOfBurn * GAME_SECONDS_PER_TICK;
-
-            ship.fuel = Math.max(0, ship.fuel - fuelThisTick);
-          }
-        }
+        // Consume fuel for this tick
+        const fuelConsumedKg = fuelFlowRateKgPerSec * GAME_SECONDS_PER_TICK;
+        ship.fuelKg = Math.max(0, ship.fuelKg - fuelConsumedKg);
       }
 
       changed = true;

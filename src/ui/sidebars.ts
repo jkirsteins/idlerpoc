@@ -11,6 +11,11 @@ import { getRoomDefinition } from '../rooms';
 import { renderStatBar } from './components/statBar';
 import { attachTooltip, formatPowerTooltip } from './components/tooltip';
 import type { Component } from './component';
+import {
+  formatFuelMass,
+  calculateFuelPercentage,
+  getFuelColorClass,
+} from './fuelFormatting';
 
 interface SidebarCallbacks {
   onBuyFuel?: () => void;
@@ -165,11 +170,12 @@ export function createLeftSidebar(
     fuelLabel.textContent = 'Fuel';
     fuelSection.appendChild(fuelLabel);
 
+    const fuelPercentage = calculateFuelPercentage(ship.fuelKg, ship.maxFuelKg);
     fuelSection.appendChild(
       renderStatBar({
-        label: `${ship.fuel.toFixed(1)}%`,
-        percentage: ship.fuel,
-        colorClass: getFuelColorClass(ship.fuel),
+        label: formatFuelMass(ship.fuelKg),
+        percentage: fuelPercentage,
+        colorClass: getFuelColorClass(fuelPercentage),
         mode: 'compact',
       })
     );
@@ -299,7 +305,7 @@ export function createLeftSidebar(
     if (
       callbacks.onBuyFuel &&
       ship.location.status === 'docked' &&
-      ship.fuel < 100
+      ship.fuelKg < ship.maxFuelKg
     ) {
       const refuelBtn = document.createElement('button');
       refuelBtn.textContent = 'Refuel';
@@ -540,12 +546,6 @@ export function createRightSidebar(gameData: GameData): Component {
 }
 
 // Helper functions
-
-function getFuelColorClass(fuel: number): string {
-  if (fuel <= 20) return 'bar-danger';
-  if (fuel <= 50) return 'bar-warning';
-  return 'bar-good';
-}
 
 function getRadiationData(gameData: GameData): {
   percentage: number;

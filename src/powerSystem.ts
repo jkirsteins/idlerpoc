@@ -38,7 +38,7 @@ export function computePowerStatus(ship: Ship): PowerStatus {
   } else if (
     ship.engine.state === 'online' &&
     engineRoomStaffed &&
-    ship.fuel > 0
+    ship.fuelKg > 0
   ) {
     // Undocked + engine online + staffed + has fuel
     totalOutput = engineDef.powerOutput;

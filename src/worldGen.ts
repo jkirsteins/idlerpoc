@@ -38,7 +38,8 @@ export function isLocationReachable(
 
   // Calculate effective range based on current fuel (fuel affects how far you can go)
   // At 100% fuel, you can go max range. At 50% fuel, you can go half max range.
-  const effectiveRange = maxRange * (ship.fuel / 100);
+  const fuelPercent = (ship.fuelKg / ship.maxFuelKg) * 100;
+  const effectiveRange = maxRange * (fuelPercent / 100);
 
   // Check if destination has refuel services
   const hasRefuel = location.services.includes('refuel');
@@ -86,7 +87,8 @@ export function getUnreachableReason(
   }
 
   // Calculate effective range based on current fuel
-  const effectiveRange = maxRange * (ship.fuel / 100);
+  const fuelPercent = (ship.fuelKg / ship.maxFuelKg) * 100;
+  const effectiveRange = maxRange * (fuelPercent / 100);
 
   // Check if we have enough fuel
   if (effectiveRange < requiredRange) {

@@ -1,11 +1,36 @@
 import type { Quest, Ship, WorldLocation, World } from './models';
 import { getShipClass } from './shipClasses';
 import { getDistanceBetween } from './worldGen';
-import { calculateFuelCost, computeMaxRange } from './flightPhysics';
+import {
+  calculateFuelMassRequired,
+  getCurrentShipMass,
+  getSpecificImpulse,
+} from './flightPhysics';
 import { gameSecondsToTicks, GAME_SECONDS_PER_TICK } from './timeSystem';
 import { getEngineDefinition } from './engines';
 import { getCrewRoleDefinition } from './crewRoles';
 import { calculatePositionDanger } from './encounterSystem';
+
+// Fuel pricing constant (credits per kg)
+const FUEL_PRICE_PER_KG = 0.5; // Will be configurable per station in future
+
+/**
+ * Helper: Calculate fuel mass required for a trip in kg
+ */
+function calculateTripFuelKg(ship: Ship, distanceKm: number): number {
+  const shipClass = getShipClass(ship.classId);
+  const engineDef = getEngineDefinition(ship.engine.definitionId);
+
+  const distanceMeters = distanceKm * 1000;
+  const currentMass = getCurrentShipMass(ship);
+  const thrust = engineDef.thrust;
+  const acceleration = thrust / currentMass;
+  const requiredDeltaV = 2 * Math.sqrt(distanceMeters * acceleration);
+  const dryMass = shipClass ? shipClass.mass + ship.crew.length * 80 : 200000;
+  const specificImpulse = getSpecificImpulse(engineDef);
+
+  return calculateFuelMassRequired(dryMass, requiredDeltaV, specificImpulse);
+}
 
 /**
  * Quest Generation
@@ -64,11 +89,23 @@ function calculatePayment(
 
   const shipClass = getShipClass(ship.classId);
   const engineDef = getEngineDefinition(ship.engine.definitionId);
-  const maxRangeKm = shipClass ? computeMaxRange(shipClass, engineDef) : 1;
-  const fuelCostPercent = calculateFuelCost(distanceKm, maxRangeKm);
+
+  // Calculate fuel cost in credits
+  const distanceMeters = distanceKm * 1000;
+  const currentMass = getCurrentShipMass(ship);
+  const thrust = engineDef.thrust;
+  const acceleration = thrust / currentMass;
+  const requiredDeltaV = 2 * Math.sqrt(distanceMeters * acceleration);
+  const dryMass = shipClass ? shipClass.mass + ship.crew.length * 80 : 200000;
+  const specificImpulse = getSpecificImpulse(engineDef);
+  const fuelKgRequired = calculateFuelMassRequired(
+    dryMass,
+    requiredDeltaV,
+    specificImpulse
+  );
 
   const crewCost = crewSalaryPerTick * roundTripTicks;
-  const fuelCost = fuelCostPercent * 2 * 5; // Round trip, 5 cr per fuel %
+  const fuelCost = fuelKgRequired * 2 * FUEL_PRICE_PER_KG; // Round trip
   const totalCost = crewCost + fuelCost;
 
   // 2. Cost floor: 130-200% of operating costs
@@ -171,19 +208,13 @@ function isDestinationReachable(
   origin: WorldLocation,
   destination: WorldLocation
 ): boolean {
-  const shipClass = getShipClass(ship.classId);
-  if (!shipClass) return false;
-
-  const engineDef = getEngineDefinition(ship.engine.definitionId);
-  const maxRangeKm = computeMaxRange(shipClass, engineDef);
   const distanceKm = getDistanceBetween(origin, destination);
 
-  // Need enough range for round trip (fuel cost is 50% per one-way at max range)
-  const fuelCostPercent = calculateFuelCost(distanceKm, maxRangeKm);
-  const roundTripFuelCost = fuelCostPercent * 2;
+  // Calculate fuel required for round trip
+  const fuelKgRequired = calculateTripFuelKg(ship, distanceKm) * 2; // Round trip
 
-  // Destination must be reachable with at least some fuel margin
-  return roundTripFuelCost <= 100 && distanceKm > 0;
+  // Destination must be reachable with current fuel capacity
+  return fuelKgRequired <= ship.maxFuelKg && distanceKm > 0;
 }
 
 /**
@@ -202,10 +233,7 @@ function generateDeliveryQuest(
 
   const payment = calculatePayment(ship, distanceKm, cargoKg);
   const estimatedTime = estimateTripTime(ship, distanceKm);
-  const shipClass = getShipClass(ship.classId);
-  const engineDef = getEngineDefinition(ship.engine.definitionId);
-  const maxRangeKm = shipClass ? computeMaxRange(shipClass, engineDef) : 0;
-  const fuelCost = calculateFuelCost(distanceKm, maxRangeKm);
+  const fuelKgRequired = calculateTripFuelKg(ship, distanceKm);
 
   return {
     id: generateId(),
@@ -220,7 +248,7 @@ function generateDeliveryQuest(
     paymentPerTrip: 0,
     paymentOnCompletion: payment,
     expiresAfterDays: 7,
-    estimatedFuelPerTrip: fuelCost * 2, // Round trip
+    estimatedFuelPerTrip: fuelKgRequired * 2, // Round trip in kg
     estimatedTripTicks: gameSecondsToTicks(estimatedTime * 2),
   };
 }
@@ -239,10 +267,7 @@ function generatePassengerQuest(
 
   const payment = calculatePayment(ship, distanceKm);
   const estimatedTime = estimateTripTime(ship, distanceKm);
-  const shipClass = getShipClass(ship.classId);
-  const engineDef = getEngineDefinition(ship.engine.definitionId);
-  const maxRangeKm = shipClass ? computeMaxRange(shipClass, engineDef) : 0;
-  const fuelCost = calculateFuelCost(distanceKm, maxRangeKm);
+  const fuelKgRequired = calculateTripFuelKg(ship, distanceKm);
 
   return {
     id: generateId(),
@@ -257,7 +282,7 @@ function generatePassengerQuest(
     paymentPerTrip: 0,
     paymentOnCompletion: payment,
     expiresAfterDays: 3,
-    estimatedFuelPerTrip: fuelCost * 2,
+    estimatedFuelPerTrip: fuelKgRequired * 2, // Round trip in kg
     estimatedTripTicks: gameSecondsToTicks(estimatedTime * 2),
   };
 }
@@ -280,10 +305,7 @@ function generateFreightQuest(
     calculatePayment(ship, distanceKm, cargoKg) * 0.8
   ); // 80% of one-off rate
   const estimatedTime = estimateTripTime(ship, distanceKm);
-  const shipClass = getShipClass(ship.classId);
-  const engineDef = getEngineDefinition(ship.engine.definitionId);
-  const maxRangeKm = shipClass ? computeMaxRange(shipClass, engineDef) : 0;
-  const fuelCost = calculateFuelCost(distanceKm, maxRangeKm);
+  const fuelKgRequired = calculateTripFuelKg(ship, distanceKm);
 
   return {
     id: generateId(),
@@ -298,7 +320,7 @@ function generateFreightQuest(
     paymentPerTrip,
     paymentOnCompletion: 0,
     expiresAfterDays: 14,
-    estimatedFuelPerTrip: fuelCost * 2,
+    estimatedFuelPerTrip: fuelKgRequired * 2, // Round trip in kg
     estimatedTripTicks: gameSecondsToTicks(estimatedTime * 2),
   };
 }
@@ -324,9 +346,7 @@ function generateSupplyQuest(
     calculatePayment(ship, distanceKm, totalCargoKg) * 1.5
   ); // 150% bonus for bulk
   const estimatedTime = estimateTripTime(ship, distanceKm);
-  const engineDef = getEngineDefinition(ship.engine.definitionId);
-  const maxRangeKm = shipClass ? computeMaxRange(shipClass, engineDef) : 0;
-  const fuelCost = calculateFuelCost(distanceKm, maxRangeKm);
+  const fuelKgRequired = calculateTripFuelKg(ship, distanceKm);
 
   return {
     id: generateId(),
@@ -341,7 +361,7 @@ function generateSupplyQuest(
     paymentPerTrip: 0,
     paymentOnCompletion: payment,
     expiresAfterDays: 30,
-    estimatedFuelPerTrip: fuelCost * 2,
+    estimatedFuelPerTrip: fuelKgRequired * 2, // Round trip in kg
     estimatedTripTicks: gameSecondsToTicks(estimatedTime * 2),
   };
 }
@@ -362,10 +382,7 @@ function generateStandingFreightQuest(
     calculatePayment(ship, distanceKm, cargoKg) * 0.7
   ); // 70% of one-off rate
   const estimatedTime = estimateTripTime(ship, distanceKm);
-  const shipClass = getShipClass(ship.classId);
-  const engineDef = getEngineDefinition(ship.engine.definitionId);
-  const maxRangeKm = shipClass ? computeMaxRange(shipClass, engineDef) : 0;
-  const fuelCost = calculateFuelCost(distanceKm, maxRangeKm);
+  const fuelKgRequired = calculateTripFuelKg(ship, distanceKm);
 
   return {
     id: generateId(),
@@ -380,7 +397,7 @@ function generateStandingFreightQuest(
     paymentPerTrip,
     paymentOnCompletion: 0,
     expiresAfterDays: 0, // Never expires
-    estimatedFuelPerTrip: fuelCost * 2,
+    estimatedFuelPerTrip: fuelKgRequired * 2, // Round trip in kg
     estimatedTripTicks: gameSecondsToTicks(estimatedTime * 2),
   };
 }
@@ -475,13 +492,10 @@ function calculateTradeRoutePayment(
     return sum + (roleDef?.salary ?? 0);
   }, 0);
 
-  const shipClass = getShipClass(ship.classId);
-  const engineDef = getEngineDefinition(ship.engine.definitionId);
-  const maxRangeKm = shipClass ? computeMaxRange(shipClass, engineDef) : 1;
-  const fuelCostPercent = calculateFuelCost(distanceKm, maxRangeKm);
+  const fuelKgRequired = calculateTripFuelKg(ship, distanceKm);
 
   const crewCost = crewSalaryPerTick * roundTripTicks;
-  const fuelCost = fuelCostPercent * 2 * 5; // round trip, 5 cr per fuel %
+  const fuelCost = fuelKgRequired * 2 * FUEL_PRICE_PER_KG; // Round trip in kg
   const totalCost = crewCost + fuelCost;
 
   // Fixed at 150% of operating costs (no randomness unlike regular quests)
@@ -562,10 +576,7 @@ export function generatePersistentTradeRoutes(
     );
 
     const estimatedTime = estimateTripTime(ship, distanceKm);
-    const shipClass = getShipClass(ship.classId);
-    const engineDef = getEngineDefinition(ship.engine.definitionId);
-    const maxRangeKm = shipClass ? computeMaxRange(shipClass, engineDef) : 0;
-    const fuelCost = calculateFuelCost(distanceKm, maxRangeKm);
+    const fuelKgRequired = calculateTripFuelKg(ship, distanceKm);
 
     routes.push({
       id: `trade_${location.id}_${partner.id}`,
@@ -580,7 +591,7 @@ export function generatePersistentTradeRoutes(
       paymentPerTrip,
       paymentOnCompletion: 0,
       expiresAfterDays: 0, // Never expires
-      estimatedFuelPerTrip: fuelCost * 2, // Round trip
+      estimatedFuelPerTrip: fuelKgRequired * 2, // Round trip in kg
       estimatedTripTicks: gameSecondsToTicks(estimatedTime * 2),
     });
   }
@@ -689,10 +700,10 @@ export function canAcceptQuest(
   }
 
   // Check fuel for at least one round trip
-  if (quest.estimatedFuelPerTrip > ship.fuel) {
+  if (quest.estimatedFuelPerTrip > ship.fuelKg) {
     return {
       canAccept: false,
-      reason: `Insufficient fuel for trip (need ${Math.round(quest.estimatedFuelPerTrip)}%, have ${Math.round(ship.fuel)}%)`,
+      reason: `Insufficient fuel for trip (need ${Math.round(quest.estimatedFuelPerTrip).toLocaleString()} kg, have ${Math.round(ship.fuelKg).toLocaleString()} kg)`,
     };
   }
 

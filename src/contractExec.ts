@@ -1,8 +1,9 @@
 import type { GameData, Ship, ActiveContract, Quest } from './models';
 import {
   initializeFlight,
-  computeMaxRange,
-  calculateFuelCost,
+  calculateFuelMassRequired,
+  getCurrentShipMass,
+  getSpecificImpulse,
 } from './flightPhysics';
 import { addLog } from './logSystem';
 import { getShipClass } from './shipClasses';
@@ -276,10 +277,24 @@ export function completeLeg(gameData: GameData, ship: Ship): void {
       const shipClass = getShipClass(ship.classId);
       if (!shipClass) return;
       const engineDef = getEngineDefinition(ship.engine.definitionId);
-      const maxRangeKm = computeMaxRange(shipClass, engineDef);
-      const requiredFuel = calculateFuelCost(distanceKm, maxRangeKm);
 
-      if (ship.fuel < requiredFuel * 1.1) {
+      // Calculate required delta-v for this trip
+      const distanceMeters = distanceKm * 1000;
+      const currentMass = getCurrentShipMass(ship);
+      const thrust = engineDef.thrust;
+      const acceleration = thrust / currentMass;
+      const requiredDeltaV = 2 * Math.sqrt(distanceMeters * acceleration);
+
+      // Calculate fuel mass required
+      const dryMass = shipClass.mass + ship.crew.length * 80;
+      const specificImpulse = getSpecificImpulse(engineDef);
+      const requiredFuelKg = calculateFuelMassRequired(
+        dryMass,
+        requiredDeltaV,
+        specificImpulse
+      );
+
+      if (ship.fuelKg < requiredFuelKg * 1.1) {
         activeContract.paused = true;
         ship.location.status = 'docked';
         ship.location.dockedAt = arrivalLocation.id;
@@ -426,10 +441,24 @@ export function completeLeg(gameData: GameData, ship: Ship): void {
       const shipClass = getShipClass(ship.classId);
       if (!shipClass) return;
       const engineDef = getEngineDefinition(ship.engine.definitionId);
-      const maxRangeKm = computeMaxRange(shipClass, engineDef);
-      const requiredFuel = calculateFuelCost(distanceKm, maxRangeKm);
 
-      if (ship.fuel < requiredFuel * 1.1) {
+      // Calculate required delta-v for this trip
+      const distanceMeters = distanceKm * 1000;
+      const currentMass = getCurrentShipMass(ship);
+      const thrust = engineDef.thrust;
+      const acceleration = thrust / currentMass;
+      const requiredDeltaV = 2 * Math.sqrt(distanceMeters * acceleration);
+
+      // Calculate fuel mass required
+      const dryMass = shipClass.mass + ship.crew.length * 80;
+      const specificImpulse = getSpecificImpulse(engineDef);
+      const requiredFuelKg = calculateFuelMassRequired(
+        dryMass,
+        requiredDeltaV,
+        specificImpulse
+      );
+
+      if (ship.fuelKg < requiredFuelKg * 1.1) {
         activeContract.paused = true;
         ship.location.status = 'docked';
         ship.location.dockedAt = arrivalLocation.id;

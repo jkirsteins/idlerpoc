@@ -17,6 +17,7 @@ import { createTabbedView, type TabbedViewState } from './tabbedView';
 import { renderCatchUpReport } from './catchUpReport';
 import { renderToasts } from './toastSystem';
 import { createLeftSidebar, createRightSidebar } from './sidebars';
+import { calculateFuelPercentage, getFuelColorHex } from './fuelFormatting';
 
 export type PlayingTab =
   | 'ship'
@@ -452,9 +453,9 @@ function buildMobileHeaderBarChildren(
 
   const fuel = document.createElement('div');
   fuel.className = 'mobile-header-stat';
-  const fuelColor =
-    ship.fuel <= 20 ? '#e94560' : ship.fuel <= 50 ? '#ffc107' : '#4caf50';
-  fuel.innerHTML = `<span class="mobile-header-label">FUEL</span> <span class="mobile-header-value" style="color:${fuelColor}">${ship.fuel.toFixed(0)}%</span>`;
+  const fuelPercentage = calculateFuelPercentage(ship.fuelKg, ship.maxFuelKg);
+  const fuelColor = getFuelColorHex(fuelPercentage);
+  fuel.innerHTML = `<span class="mobile-header-label">FUEL</span> <span class="mobile-header-value" style="color:${fuelColor}">${Math.round(ship.fuelKg).toLocaleString()} kg</span>`;
 
   const playPause = document.createElement('button');
   playPause.className = 'mobile-header-playpause';

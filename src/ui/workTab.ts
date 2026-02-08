@@ -17,6 +17,7 @@ import {
 } from '../encounterSystem';
 import { renderThreatBadge } from './threatBadge';
 import type { Component } from './component';
+import { formatFuelMass, calculateFuelPercentage } from './fuelFormatting';
 
 export interface WorkTabCallbacks {
   onAcceptQuest: (questId: string) => void;
@@ -274,7 +275,14 @@ function renderQuestCard(
   }
 
   const fuelInfo = document.createElement('div');
-  fuelInfo.textContent = `Fuel: ~${Math.round(quest.estimatedFuelPerTrip)}% per trip`;
+  // TODO: quest.estimatedFuelPerTrip needs to be in kg from quest generation
+  // For now, assuming it's already in kg if the value is > 100, otherwise treat as %
+  if (quest.estimatedFuelPerTrip > 100) {
+    fuelInfo.textContent = `Fuel: ~${formatFuelMass(quest.estimatedFuelPerTrip)} per trip`;
+  } else {
+    // Legacy percentage display (will be removed once quest gen is updated)
+    fuelInfo.textContent = `Fuel: ~${Math.round(quest.estimatedFuelPerTrip)}% per trip`;
+  }
   details.appendChild(fuelInfo);
 
   const timeInfo = document.createElement('div');
@@ -442,14 +450,15 @@ function renderActiveContract(
   const fuelGauge = document.createElement('div');
   fuelGauge.className = 'fuel-gauge';
   const fuelLabel = document.createElement('div');
-  fuelLabel.textContent = `Fuel: ${Math.round(ship.fuel)}%`;
+  fuelLabel.textContent = `Fuel: ${formatFuelMass(ship.fuelKg)}`;
   fuelGauge.appendChild(fuelLabel);
 
   const fuelBar = document.createElement('div');
   fuelBar.className = 'fuel-bar';
   const fuelFill = document.createElement('div');
   fuelFill.className = 'fuel-fill';
-  fuelFill.style.width = `${ship.fuel}%`;
+  const fuelPercentage = calculateFuelPercentage(ship.fuelKg, ship.maxFuelKg);
+  fuelFill.style.width = `${fuelPercentage}%`;
   fuelBar.appendChild(fuelFill);
   fuelGauge.appendChild(fuelBar);
 
