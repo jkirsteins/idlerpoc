@@ -105,11 +105,15 @@ export function shipHasGravity(ship: Ship): boolean {
 }
 
 /**
- * Apply gravity tick accumulation during flight
+ * Apply gravity tick accumulation during flight and orbiting
  */
 export function applyGravityTick(ship: Ship): void {
-  // Only accumulate during flight
-  if (ship.location.status !== 'in_flight') return;
+  // Only accumulate during flight and orbiting
+  if (
+    ship.location.status !== 'in_flight' &&
+    ship.location.status !== 'orbiting'
+  )
+    return;
 
   const gravitySource = getGravitySource(ship);
 

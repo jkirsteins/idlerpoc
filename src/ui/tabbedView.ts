@@ -312,6 +312,11 @@ function renderGlobalStatusBar(
     const location = gameData.world.locations.find((l) => l.id === dockedAt);
     const locationName = location?.name || dockedAt;
     statusText.textContent = `Docked at ${locationName}`;
+  } else if (ship.location.status === 'orbiting') {
+    const orbitingAt = ship.location.orbitingAt;
+    const location = gameData.world.locations.find((l) => l.id === orbitingAt);
+    const locationName = location?.name || orbitingAt;
+    statusText.textContent = `Orbiting ${locationName}`;
   } else {
     if (ship.location.flight) {
       const destId = ship.location.flight.destination;
@@ -424,9 +429,11 @@ function renderGlobalStatusBar(
     }
   }
 
-  // Advance Day button (only when docked with no contract)
+  // Advance Day button (only when docked or orbiting with no contract)
   const canAdvanceDay =
-    ship.location.status === 'docked' && !ship.activeContract;
+    (ship.location.status === 'docked' ||
+      ship.location.status === 'orbiting') &&
+    !ship.activeContract;
 
   if (canAdvanceDay) {
     const advanceDayBtn = document.createElement('button');

@@ -63,6 +63,11 @@ export function renderLeftSidebar(
       (l) => l.id === ship.location.flight!.destination
     );
     locationValue.textContent = `${origin?.name || '?'} → ${destination?.name || '?'}`;
+  } else if (ship.location.status === 'orbiting' && ship.location.orbitingAt) {
+    const location = gameData.world.locations.find(
+      (l) => l.id === ship.location.orbitingAt
+    );
+    locationValue.textContent = `Orbiting ${location?.name || 'Unknown'}`;
   } else if (ship.location.dockedAt) {
     const location = gameData.world.locations.find(
       (l) => l.id === ship.location.dockedAt
@@ -197,8 +202,11 @@ export function renderLeftSidebar(
 
   let hasActions = false;
 
-  // Navigation button (when docked)
-  if (callbacks.onToggleNavigation && ship.location.status === 'docked') {
+  // Navigation button (when docked or orbiting)
+  if (
+    callbacks.onToggleNavigation &&
+    (ship.location.status === 'docked' || ship.location.status === 'orbiting')
+  ) {
     const navBtn = document.createElement('button');
     navBtn.textContent = 'Navigate';
     navBtn.className = 'small-button';
@@ -237,10 +245,15 @@ export function renderLeftSidebar(
     hasActions = true;
   }
 
-  // Dock button (when in flight)
-  if (callbacks.onDock && ship.location.status === 'in_flight') {
+  // Dock button (when in flight or orbiting)
+  if (
+    callbacks.onDock &&
+    (ship.location.status === 'in_flight' ||
+      ship.location.status === 'orbiting')
+  ) {
     const dockBtn = document.createElement('button');
-    dockBtn.textContent = 'Dock at Nearest Port';
+    dockBtn.textContent =
+      ship.location.status === 'orbiting' ? 'Dock' : 'Dock at Nearest Port';
     dockBtn.className = 'small-button';
     dockBtn.style.width = '100%';
     dockBtn.style.marginBottom = '8px';

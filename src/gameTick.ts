@@ -140,7 +140,10 @@ function applyShipTick(gameData: GameData, ship: Ship): boolean {
   // Track flight vs idle time
   if (ship.location.status === 'in_flight') {
     ship.metrics.totalFlightTicks++;
-  } else if (ship.location.status === 'docked') {
+  } else if (
+    ship.location.status === 'docked' ||
+    ship.location.status === 'orbiting'
+  ) {
     ship.metrics.totalIdleTicks++;
   }
 
@@ -343,8 +346,11 @@ function applyShipTick(gameData: GameData, ship: Ship): boolean {
     }
   }
 
-  // Gravity exposure (during flight)
-  if (ship.location.status === 'in_flight') {
+  // Gravity exposure (during flight and orbiting)
+  if (
+    ship.location.status === 'in_flight' ||
+    ship.location.status === 'orbiting'
+  ) {
     const previousExposures = new Map<string, number>();
     for (const crew of ship.crew) {
       previousExposures.set(crew.id, crew.zeroGExposure);

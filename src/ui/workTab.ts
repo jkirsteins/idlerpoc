@@ -40,7 +40,11 @@ export function renderWorkTab(
   console.log('renderWorkTab - status:', ship.location.status);
   console.log('renderWorkTab - activeContract:', activeContract);
 
-  if (ship.location.status === 'docked' && !activeContract) {
+  if (
+    (ship.location.status === 'docked' ||
+      ship.location.status === 'orbiting') &&
+    !activeContract
+  ) {
     console.log('renderWorkTab - Rendering available work');
     const workContent = renderAvailableWork(gameData, callbacks);
     console.log(
@@ -73,7 +77,7 @@ function renderAvailableWork(
   container.className = 'available-work';
 
   const ship = getActiveShip(gameData);
-  const location = ship.location.dockedAt;
+  const location = ship.location.dockedAt || ship.location.orbitingAt;
 
   console.log('Work tab - location:', location);
   console.log('Work tab - ship status:', ship.location.status);

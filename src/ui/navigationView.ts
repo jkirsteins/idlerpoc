@@ -62,15 +62,20 @@ export function renderNavigationView(
   const mapArea = document.createElement('div');
   mapArea.className = 'nav-map';
 
-  // Get current location (either docked location or flight origin/destination)
+  // Get current location (either docked location, orbiting location, or flight origin/destination)
   const currentLocationId =
-    ship.location.dockedAt || ship.location.flight?.destination || 'earth';
+    ship.location.dockedAt ||
+    ship.location.orbitingAt ||
+    ship.location.flight?.destination ||
+    'earth';
   const currentLocation =
     gameData.world.locations.find((loc) => loc.id === currentLocationId) ||
     gameData.world.locations[0];
 
   const canStartTrips =
-    ship.location.status === 'docked' && !ship.activeContract;
+    (ship.location.status === 'docked' ||
+      ship.location.status === 'orbiting') &&
+    !ship.activeContract;
 
   for (const location of gameData.world.locations) {
     const marker = document.createElement('div');

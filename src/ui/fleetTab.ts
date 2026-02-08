@@ -158,7 +158,10 @@ function renderFleetPerformanceDashboard(gameData: GameData): HTMLElement {
 
     if (ship.activeContract && !ship.activeContract.paused) {
       activeShips++;
-    } else if (ship.location.status === 'docked') {
+    } else if (
+      ship.location.status === 'docked' ||
+      ship.location.status === 'orbiting'
+    ) {
       idleShips++;
     }
 
@@ -453,6 +456,10 @@ function renderEnhancedShipCard(
     const dockedAt = ship.location.dockedAt;
     const location = gameData.world.locations.find((l) => l.id === dockedAt);
     locationDiv.innerHTML = `<span style="color: #4ade80;">●</span> Docked at ${location?.name || dockedAt}`;
+  } else if (ship.location.status === 'orbiting') {
+    const orbitingAt = ship.location.orbitingAt;
+    const location = gameData.world.locations.find((l) => l.id === orbitingAt);
+    locationDiv.innerHTML = `<span style="color: #60a5fa;">●</span> Orbiting ${location?.name || orbitingAt}`;
   } else if (ship.location.flight) {
     const destId = ship.location.flight.destination;
     const destination = gameData.world.locations.find((l) => l.id === destId);

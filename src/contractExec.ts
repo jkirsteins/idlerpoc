@@ -147,6 +147,7 @@ export function acceptQuest(
 
   ship.location.status = 'in_flight';
   delete ship.location.dockedAt;
+  delete ship.location.orbitingAt;
 
   ship.location.flight = initializeFlight(ship, origin, destination, false);
 
@@ -282,6 +283,7 @@ export function completeLeg(gameData: GameData, ship: Ship): void {
         activeContract.paused = true;
         ship.location.status = 'docked';
         ship.location.dockedAt = arrivalLocation.id;
+        delete ship.location.orbitingAt;
         delete ship.location.flight;
         ship.engine.state = 'off';
         ship.engine.warmupProgress = 0;
@@ -390,6 +392,7 @@ export function completeLeg(gameData: GameData, ship: Ship): void {
 
       ship.location.status = 'docked';
       ship.location.dockedAt = arrivalLocation.id;
+      delete ship.location.orbitingAt;
       delete ship.location.flight;
       ship.engine.state = 'off';
       ship.engine.warmupProgress = 0;
@@ -430,6 +433,7 @@ export function completeLeg(gameData: GameData, ship: Ship): void {
         activeContract.paused = true;
         ship.location.status = 'docked';
         ship.location.dockedAt = arrivalLocation.id;
+        delete ship.location.orbitingAt;
         delete ship.location.flight;
         ship.engine.state = 'off';
         ship.engine.warmupProgress = 0;
@@ -511,6 +515,7 @@ export function resumeContract(gameData: GameData, ship: Ship): void {
   ship.activeContract.paused = false;
   ship.location.status = 'in_flight';
   delete ship.location.dockedAt;
+  delete ship.location.orbitingAt;
 
   ship.location.flight = initializeFlight(
     ship,

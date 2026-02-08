@@ -59,8 +59,12 @@ export function getShipStatus(ship: Ship): ShipStatus {
     return 'maintenance';
   }
 
-  // Docked with crew but no contract = idle (wasting money)
-  if (ship.location.status === 'docked' && ship.crew.length > 1) {
+  // Docked or orbiting with crew but no contract = idle (wasting money)
+  if (
+    (ship.location.status === 'docked' ||
+      ship.location.status === 'orbiting') &&
+    ship.crew.length > 1
+  ) {
     return 'idle';
   }
 
@@ -201,10 +205,12 @@ export function getFuelContext(ship: Ship, gameData: GameData): string {
   let nearestName = '';
 
   for (const loc of gameData.world.locations) {
-    if (ship.location.dockedAt === loc.id) continue;
+    const currentLocationId =
+      ship.location.dockedAt || ship.location.orbitingAt;
+    if (currentLocationId === loc.id) continue;
 
     const currentLoc = gameData.world.locations.find(
-      (l) => l.id === ship.location.dockedAt
+      (l) => l.id === currentLocationId
     );
     if (!currentLoc) continue;
 
@@ -247,7 +253,8 @@ export function matchShipToContract(
   }
 
   // Check if ship is at origin
-  const atOrigin = ship.location.dockedAt === quest.origin;
+  const currentLocationId = ship.location.dockedAt || ship.location.orbitingAt;
+  const atOrigin = currentLocationId === quest.origin;
   if (atOrigin) {
     score += 1;
     reasons.push('✅ At origin (no travel needed)');
