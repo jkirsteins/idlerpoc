@@ -9,6 +9,7 @@ import { renderFleetTab } from './fleetTab';
 import { renderLogTab } from './logTab';
 import { renderSettingsTab } from './settingsTab';
 import { renderFleetPanel } from './fleetPanel';
+import { renderNavigationView } from './navigationView';
 import {
   formatGameDate,
   TICKS_PER_DAY,
@@ -126,6 +127,12 @@ export function renderTabbedView(
       renderFleetTab(gameData, {
         onSelectShip: callbacks.onSelectShip,
         onBuyShip: callbacks.onBuyShip,
+        onNavigateShip: (shipId: string) => {
+          // Switch to the selected ship
+          callbacks.onSelectShip(shipId);
+          // Switch to the Nav tab
+          callbacks.onTabChange('nav');
+        },
       })
     );
   } else if (activeTab === 'log') {

@@ -1,5 +1,6 @@
 import type { GameData } from '../models';
 import { getActiveShip } from '../models';
+import type { PlayingTab } from './renderer';
 import { computePowerStatus } from '../powerSystem';
 import { getEngineDefinition } from '../engines';
 import { getEquipmentDefinition } from '../equipment';
@@ -18,7 +19,7 @@ interface SidebarCallbacks {
   onAdvanceDay?: () => void;
   onTogglePause?: () => void;
   onSetSpeed?: (speed: 1 | 2 | 5) => void;
-  onTabChange?: (tab: string) => void;
+  onTabChange?: (tab: PlayingTab) => void;
 }
 
 export function renderLeftSidebar(

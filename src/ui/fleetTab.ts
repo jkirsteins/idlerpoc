@@ -2,7 +2,8 @@ import type { GameData, Ship } from '../models';
 import { getActiveShip } from '../models';
 import { getShipClass, SHIP_CLASSES } from '../shipClasses';
 import { getEngineDefinition } from '../engines';
-import { computeMaxRange } from '../flightPhysics';
+import { computeMaxRange, calculateFuelCost } from '../flightPhysics';
+import { getDistanceBetween } from '../worldGen';
 import { renderFleetPanel } from './fleetPanel';
 import { formatDualTime } from '../timeSystem';
 import {
@@ -17,6 +18,7 @@ import {
 export interface FleetTabCallbacks {
   onSelectShip: (shipId: string) => void;
   onBuyShip: (classId: string, shipName: string) => void;
+  onNavigateShip?: (shipId: string) => void;
 }
 
 /**
@@ -44,6 +46,9 @@ export function renderFleetTab(
   const container = document.createElement('div');
   container.className = 'fleet-tab';
   container.style.padding = '1rem';
+
+  // Fleet Map (always show, even with 1 ship)
+  container.appendChild(renderFleetMap(gameData, callbacks));
 
   // Show fleet panel and stats only if there are multiple ships
   if (gameData.ships.length > 1) {
@@ -78,7 +83,7 @@ export function renderFleetTab(
     // Ship Comparison View with Enhanced Cards
     container.appendChild(renderEnhancedShipComparison(gameData, callbacks));
   } else {
-    // Single ship - show welcome message
+    // Single ship - show welcome message and ship card
     const welcomeSection = document.createElement('div');
     welcomeSection.style.marginBottom = '1.5rem';
     welcomeSection.style.padding = '1rem';
@@ -100,6 +105,11 @@ export function renderFleetTab(
     welcomeSection.appendChild(message);
 
     container.appendChild(welcomeSection);
+
+    // Show the single ship card
+    container.appendChild(
+      renderEnhancedShipCard(gameData, gameData.ships[0], callbacks)
+    );
   }
 
   // Ship Purchase Section (only when docked)
@@ -121,6 +131,238 @@ export function renderFleetTab(
   }
 
   return container;
+}
+
+/**
+ * Render Fleet Map - Strategic overview of all ships' positions
+ */
+function renderFleetMap(
+  gameData: GameData,
+  callbacks: FleetTabCallbacks
+): HTMLElement {
+  const section = document.createElement('div');
+  section.className = 'fleet-map-section';
+  section.style.marginBottom = '1.5rem';
+  section.style.padding = '1rem';
+  section.style.background = 'rgba(0, 0, 0, 0.3)';
+  section.style.border = '1px solid #444';
+  section.style.borderRadius = '4px';
+
+  const title = document.createElement('h3');
+  title.textContent = 'Fleet Map';
+  title.style.marginBottom = '0.75rem';
+  section.appendChild(title);
+
+  // Visual map showing all locations and ships
+  const mapContainer = document.createElement('div');
+  mapContainer.style.position = 'relative';
+  mapContainer.style.height = '200px';
+  mapContainer.style.background = 'rgba(0, 0, 0, 0.5)';
+  mapContainer.style.borderRadius = '4px';
+  mapContainer.style.border = '1px solid #666';
+  mapContainer.style.marginBottom = '1rem';
+
+  // Render location markers
+  for (const location of gameData.world.locations) {
+    const marker = document.createElement('div');
+    marker.style.position = 'absolute';
+    marker.style.left = `${location.x}%`;
+    marker.style.top = `${location.y}%`;
+    marker.style.transform = 'translate(-50%, -50%)';
+    marker.style.display = 'flex';
+    marker.style.flexDirection = 'column';
+    marker.style.alignItems = 'center';
+    marker.style.gap = '4px';
+
+    // Location dot
+    const dot = document.createElement('div');
+    dot.style.width = '8px';
+    dot.style.height = '8px';
+    dot.style.borderRadius = '50%';
+    dot.style.background = '#666';
+    dot.style.border = '1px solid #888';
+    marker.appendChild(dot);
+
+    // Location name
+    const name = document.createElement('div');
+    name.style.fontSize = '0.7rem';
+    name.style.color = '#888';
+    name.style.whiteSpace = 'nowrap';
+    name.textContent = location.name;
+    marker.appendChild(name);
+
+    mapContainer.appendChild(marker);
+  }
+
+  // Render ship markers on top of locations
+  for (const ship of gameData.ships) {
+    let shipX = 50;
+    let shipY = 50;
+    let locationName = '';
+
+    if (ship.location.status === 'docked' && ship.location.dockedAt) {
+      const location = gameData.world.locations.find(
+        (l) => l.id === ship.location.dockedAt
+      );
+      if (location) {
+        shipX = location.x;
+        shipY = location.y;
+        locationName = location.name;
+      }
+    } else if (
+      ship.location.status === 'orbiting' &&
+      ship.location.orbitingAt
+    ) {
+      const location = gameData.world.locations.find(
+        (l) => l.id === ship.location.orbitingAt
+      );
+      if (location) {
+        shipX = location.x;
+        shipY = location.y;
+        locationName = location.name;
+      }
+    } else if (ship.activeFlightPlan) {
+      // Calculate position between origin and destination based on progress
+      const origin = gameData.world.locations.find(
+        (l) => l.id === ship.activeFlightPlan!.origin
+      );
+      const destination = gameData.world.locations.find(
+        (l) => l.id === ship.activeFlightPlan!.destination
+      );
+      if (origin && destination) {
+        const progress =
+          ship.activeFlightPlan.distanceCovered /
+          ship.activeFlightPlan.totalDistance;
+        shipX = origin.x + (destination.x - origin.x) * progress;
+        shipY = origin.y + (destination.y - origin.y) * progress;
+        locationName = `→ ${destination.name}`;
+      }
+    }
+
+    const shipMarker = document.createElement('div');
+    shipMarker.style.position = 'absolute';
+    shipMarker.style.left = `${shipX}%`;
+    shipMarker.style.top = `${shipY}%`;
+    shipMarker.style.transform = 'translate(-50%, -50%)';
+    shipMarker.style.cursor = 'pointer';
+    shipMarker.style.zIndex = '10';
+    shipMarker.title = `${ship.name} - ${locationName || 'Unknown'}`;
+
+    // Ship icon
+    const shipIcon = document.createElement('div');
+    shipIcon.style.fontSize = '1.2rem';
+    shipIcon.textContent = '🚀';
+    if (ship.id === gameData.activeShipId) {
+      shipIcon.style.filter = 'drop-shadow(0 0 4px #4a9eff)';
+    }
+
+    shipMarker.appendChild(shipIcon);
+    shipMarker.addEventListener('click', () => {
+      callbacks.onSelectShip(ship.id);
+    });
+
+    mapContainer.appendChild(shipMarker);
+  }
+
+  section.appendChild(mapContainer);
+
+  // Location capability comparison
+  const capabilitySection = document.createElement('div');
+  capabilitySection.style.fontSize = '0.85rem';
+
+  const capabilityTitle = document.createElement('div');
+  capabilityTitle.style.fontWeight = 'bold';
+  capabilityTitle.style.marginBottom = '0.5rem';
+  capabilityTitle.style.color = '#aaa';
+  capabilityTitle.textContent = 'Reachability Matrix';
+  capabilitySection.appendChild(capabilityTitle);
+
+  // Create a grid showing which ships can reach which locations
+  const grid = document.createElement('div');
+  grid.style.display = 'grid';
+  grid.style.gridTemplateColumns = `120px repeat(${gameData.ships.length}, 1fr)`;
+  grid.style.gap = '4px';
+  grid.style.fontSize = '0.75rem';
+
+  // Header row
+  const headerCell = document.createElement('div');
+  headerCell.style.padding = '4px';
+  headerCell.style.fontWeight = 'bold';
+  headerCell.style.color = '#888';
+  headerCell.textContent = 'Location';
+  grid.appendChild(headerCell);
+
+  for (const ship of gameData.ships) {
+    const shipHeader = document.createElement('div');
+    shipHeader.style.padding = '4px';
+    shipHeader.style.fontWeight = 'bold';
+    shipHeader.style.color =
+      ship.id === gameData.activeShipId ? '#4a9eff' : '#aaa';
+    shipHeader.style.textAlign = 'center';
+    shipHeader.style.whiteSpace = 'nowrap';
+    shipHeader.style.overflow = 'hidden';
+    shipHeader.style.textOverflow = 'ellipsis';
+    shipHeader.textContent = ship.name;
+    shipHeader.title = ship.name;
+    grid.appendChild(shipHeader);
+  }
+
+  // Data rows
+  for (const location of gameData.world.locations) {
+    const locationCell = document.createElement('div');
+    locationCell.style.padding = '4px';
+    locationCell.style.color = '#aaa';
+    locationCell.textContent = location.name;
+    grid.appendChild(locationCell);
+
+    for (const ship of gameData.ships) {
+      const cell = document.createElement('div');
+      cell.style.padding = '4px';
+      cell.style.textAlign = 'center';
+
+      // Determine current location for this ship
+      const currentLocationId =
+        ship.location.dockedAt ||
+        ship.location.orbitingAt ||
+        ship.activeFlightPlan?.destination ||
+        'earth';
+      const currentLocation = gameData.world.locations.find(
+        (l) => l.id === currentLocationId
+      );
+
+      if (currentLocation && location.id === currentLocationId) {
+        cell.textContent = '📍';
+        cell.title = 'Current location';
+        cell.style.color = '#4ade80';
+      } else if (currentLocation) {
+        // Check if ship can reach this location
+        const shipClass = getShipClass(ship.classId);
+        const engineDef = getEngineDefinition(ship.engine.definitionId);
+        if (shipClass) {
+          const maxRangeKm = computeMaxRange(shipClass, engineDef);
+          const distanceKm = getDistanceBetween(currentLocation, location);
+          const fuelCost = calculateFuelCost(distanceKm, maxRangeKm);
+
+          if (fuelCost <= ship.fuel) {
+            cell.textContent = '✓';
+            cell.title = `Can reach (${fuelCost.toFixed(0)}% fuel)`;
+            cell.style.color = '#4ade80';
+          } else {
+            cell.textContent = '✗';
+            cell.title = `Insufficient fuel (need ${fuelCost.toFixed(0)}%, have ${ship.fuel.toFixed(0)}%)`;
+            cell.style.color = '#ff4444';
+          }
+        }
+      }
+
+      grid.appendChild(cell);
+    }
+  }
+
+  capabilitySection.appendChild(grid);
+  section.appendChild(capabilitySection);
+
+  return section;
 }
 
 /**
@@ -543,6 +785,46 @@ function renderEnhancedShipCard(
   }
 
   card.appendChild(statsDiv);
+
+  // Navigation action button
+  if (callbacks.onNavigateShip) {
+    const navButton = document.createElement('button');
+    navButton.style.marginTop = '0.75rem';
+    navButton.style.width = '100%';
+    navButton.style.padding = '0.5rem';
+    navButton.style.background = '#4a9eff';
+    navButton.style.border = 'none';
+    navButton.style.borderRadius = '4px';
+    navButton.style.color = 'white';
+    navButton.style.fontWeight = 'bold';
+    navButton.style.cursor = 'pointer';
+    navButton.textContent = '🧭 Navigate This Ship';
+
+    // Disable if ship is in flight or has active contract
+    const canNavigate =
+      (ship.location.status === 'docked' ||
+        ship.location.status === 'orbiting') &&
+      !ship.activeContract;
+
+    if (!canNavigate) {
+      navButton.disabled = true;
+      navButton.style.opacity = '0.5';
+      navButton.style.cursor = 'not-allowed';
+      if (ship.activeContract) {
+        navButton.title = 'Complete or abandon contract to navigate freely';
+      } else {
+        navButton.title = 'Ship must be docked or orbiting to plan routes';
+      }
+    } else {
+      navButton.title = 'Switch to this ship and open Navigation Chart';
+      navButton.addEventListener('click', (e) => {
+        e.stopPropagation(); // Prevent card click
+        callbacks.onNavigateShip!(ship.id);
+      });
+    }
+
+    card.appendChild(navButton);
+  }
 
   return card;
 }
