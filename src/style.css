@@ -2802,13 +2802,15 @@ button:disabled:hover {
     margin-top: 36px;
   }
 
-  /* Tab bar: horizontal scroll */
+  /* Tab bar: horizontal scroll only */
   .tab-bar {
     overflow-x: auto;
+    overflow-y: hidden;
     -webkit-overflow-scrolling: touch;
     scrollbar-width: none;
     flex-wrap: nowrap;
     gap: 4px;
+    padding-top: 12px; /* space for tab badges */
   }
 
   .tab-bar::-webkit-scrollbar {
