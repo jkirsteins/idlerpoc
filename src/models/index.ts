@@ -109,7 +109,7 @@ export interface EquipmentInstance {
   degradation: number; // 0 = new, 100 = worn out
 }
 
-export type ShipStatus = 'docked' | 'in_flight';
+export type ShipStatus = 'docked' | 'in_flight' | 'orbiting';
 
 export type FlightPhase = 'accelerating' | 'coasting' | 'decelerating';
 
@@ -131,6 +131,7 @@ export interface FlightState {
 export interface ShipLocation {
   status: ShipStatus;
   dockedAt?: string; // e.g. "Earth" — set when docked
+  orbitingAt?: string; // e.g. "Earth" — set when orbiting
   destination?: string; // e.g. "Mars" — set when in_flight (future use)
   flight?: FlightState; // flight state when in_flight
 }
@@ -221,6 +222,7 @@ export interface Ship {
   engine: EngineInstance;
   cargo: CrewEquipmentInstance[];
   activeContract: ActiveContract | null;
+  routeAssignment: RouteAssignment | null; // Automated route for standing freight
   lastEncounterTime?: number; // gameTime of last encounter (for cooldown)
   metrics: ShipMetrics; // Performance tracking for fleet management
   role?: 'courier' | 'freighter' | 'scout' | 'combat' | 'luxury'; // Player-assigned specialization
@@ -257,6 +259,18 @@ export interface ActiveContract {
   creditsEarned: number; // running total
   leg: 'outbound' | 'inbound';
   paused: boolean; // docked mid-contract
+}
+
+export interface RouteAssignment {
+  questId: string; // Standing freight quest being automated
+  originId: string; // Route origin location
+  destinationId: string; // Route destination location
+  autoRefuel: boolean; // Auto-purchase fuel at stations
+  autoRefuelThreshold: number; // Trigger refuel when fuel < threshold% (default 30%)
+  totalTripsCompleted: number; // Lifetime counter for this route
+  creditsEarned: number; // Lifetime earnings for this route
+  assignedAt: number; // gameTime when route was assigned
+  lastTripCompletedAt: number; // gameTime of last trip completion
 }
 
 export type LogEntryType =

@@ -22,7 +22,7 @@ import { getEquipmentDefinition, canEquipInSlot } from './equipment';
 const HIRE_BASE_COST = 500;
 const HIRE_LEVEL_MULTIPLIER = 200;
 
-function generateId(): string {
+export function generateId(): string {
   return Math.random().toString(36).substring(2, 11);
 }
 
@@ -250,6 +250,7 @@ function createStartingShip(
     engine,
     cargo,
     activeContract: null,
+    routeAssignment: null,
     metrics: {
       creditsEarned: 0,
       fuelCostsPaid: 0,
@@ -297,6 +298,7 @@ export function createAdditionalShip(
     engine,
     cargo: [],
     activeContract: null,
+    routeAssignment: null,
     metrics: {
       creditsEarned: 0,
       fuelCostsPaid: 0,

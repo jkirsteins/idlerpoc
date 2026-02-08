@@ -39,6 +39,7 @@ import {
   resumeContract,
   abandonContract,
 } from './contractExec';
+import { assignShipToRoute, unassignShipFromRoute } from './routeAssignment';
 import { addLog } from './logSystem';
 import { getCrewEquipmentDefinition } from './crewEquipment';
 import {
@@ -236,7 +237,11 @@ const callbacks: RendererCallbacks = {
     const bridge = ship.rooms.find((r) => r.type === 'bridge');
     if (!bridge || bridge.assignedCrewIds.length === 0) return;
 
-    ship.location.status = 'in_flight';
+    // Save current location before transitioning to orbiting
+    const currentLocation = ship.location.dockedAt;
+
+    ship.location.status = 'orbiting';
+    ship.location.orbitingAt = currentLocation;
     delete ship.location.dockedAt;
 
     ship.engine.state = 'warming_up';
@@ -250,11 +255,46 @@ const callbacks: RendererCallbacks = {
     if (state.phase !== 'playing') return;
     const ship = getActiveShip(state.gameData);
 
-    ship.location.status = 'docked';
-    ship.location.dockedAt = 'earth';
+    // Determine where to dock based on ship state
+    let dockLocation: string;
 
+    if (ship.location.status === 'orbiting' && ship.location.orbitingAt) {
+      // Orbiting - dock at orbited location
+      dockLocation = ship.location.orbitingAt;
+    } else if (ship.location.flight) {
+      // In flight - dock at the nearest location (destination if far along, origin if just started)
+      const progress =
+        ship.location.flight.distanceCovered /
+        ship.location.flight.totalDistance;
+
+      // If more than halfway to destination, dock at destination; otherwise dock at origin
+      dockLocation =
+        progress > 0.5
+          ? ship.location.flight.destination
+          : ship.location.flight.origin;
+
+      delete ship.location.flight;
+    } else if (ship.location.dockedAt) {
+      // Already docked - no-op
+      dockLocation = ship.location.dockedAt;
+    } else {
+      // Shouldn't happen, but handle gracefully
+      console.warn(
+        'Ship has no flight and no dockedAt - cannot determine location'
+      );
+      return;
+    }
+
+    ship.location.status = 'docked';
+    ship.location.dockedAt = dockLocation;
+    delete ship.location.orbitingAt;
     ship.engine.state = 'off';
     ship.engine.warmupProgress = 0;
+
+    // Clear route assignment if manually docking
+    if (ship.routeAssignment) {
+      unassignShipFromRoute(state.gameData, ship);
+    }
 
     saveGame(state.gameData);
     renderApp();
@@ -384,7 +424,7 @@ const callbacks: RendererCallbacks = {
     if (state.phase !== 'playing') return;
     const ship = getActiveShip(state.gameData);
 
-    const currentLocation = ship.location.dockedAt;
+    const currentLocation = ship.location.dockedAt || ship.location.orbitingAt;
     if (!currentLocation) return;
 
     const locationQuests =
@@ -405,7 +445,11 @@ const callbacks: RendererCallbacks = {
   onAdvanceDay: () => {
     if (state.phase !== 'playing') return;
     const ship = getActiveShip(state.gameData);
-    if (ship.location.status !== 'docked') return;
+    if (
+      ship.location.status !== 'docked' &&
+      ship.location.status !== 'orbiting'
+    )
+      return;
     if (ship.activeContract) return;
 
     // Deduct fleet-wide crew salaries for 1 day (48 ticks)
@@ -513,7 +557,18 @@ const callbacks: RendererCallbacks = {
     if (state.phase !== 'playing') return;
     const ship = getActiveShip(state.gameData);
 
-    pauseContract(ship);
+    // If orbiting, dock directly at the orbited location (no need to pause contract)
+    if (ship.location.status === 'orbiting' && ship.location.orbitingAt) {
+      ship.location.status = 'docked';
+      ship.location.dockedAt = ship.location.orbitingAt;
+      delete ship.location.orbitingAt;
+      ship.engine.state = 'off';
+      ship.engine.warmupProgress = 0;
+    } else {
+      // In flight - pause contract and dock on arrival
+      pauseContract(ship);
+    }
+
     saveGame(state.gameData);
     renderApp();
   },
@@ -532,6 +587,41 @@ const callbacks: RendererCallbacks = {
     const ship = getActiveShip(state.gameData);
 
     abandonContract(state.gameData, ship);
+    saveGame(state.gameData);
+    renderApp();
+  },
+
+  onAssignRoute: (questId) => {
+    if (state.phase !== 'playing') return;
+    const ship = getActiveShip(state.gameData);
+
+    const currentLocation = ship.location.dockedAt;
+    if (!currentLocation) return;
+
+    const locationQuests =
+      state.gameData.availableQuests[currentLocation] || [];
+    const quest = locationQuests.find((q) => q.id === questId);
+    if (!quest) return;
+
+    const result = assignShipToRoute(state.gameData, ship, questId);
+    if (result.success) {
+      // Remove quest from available quests (it's now being automated)
+      const questIndex = locationQuests.indexOf(quest);
+      if (questIndex !== -1) {
+        locationQuests.splice(questIndex, 1);
+      }
+      saveGame(state.gameData);
+      renderApp();
+    } else {
+      console.error('Failed to assign route:', result.error);
+    }
+  },
+
+  onUnassignRoute: () => {
+    if (state.phase !== 'playing') return;
+    const ship = getActiveShip(state.gameData);
+
+    unassignShipFromRoute(state.gameData, ship);
     saveGame(state.gameData);
     renderApp();
   },
@@ -574,14 +664,19 @@ const callbacks: RendererCallbacks = {
   onStartTrip: (destinationId: string) => {
     if (state.phase !== 'playing') return;
     const ship = getActiveShip(state.gameData);
-    if (ship.location.status !== 'docked') return;
+    if (
+      ship.location.status !== 'docked' &&
+      ship.location.status !== 'orbiting'
+    )
+      return;
     if (ship.activeContract) return;
 
     // Check minimum crew on bridge
     const bridge = ship.rooms.find((r) => r.type === 'bridge');
     if (!bridge || bridge.assignedCrewIds.length === 0) return;
 
-    const currentLocationId = ship.location.dockedAt;
+    const currentLocationId =
+      ship.location.dockedAt || ship.location.orbitingAt;
     if (!currentLocationId) return;
 
     const origin = state.gameData.world.locations.find(
@@ -598,6 +693,7 @@ const callbacks: RendererCallbacks = {
 
       ship.location.status = 'in_flight';
       delete ship.location.dockedAt;
+      delete ship.location.orbitingAt;
 
       ship.location.flight = initializeFlight(ship, origin, destination, true);
 

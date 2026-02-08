@@ -60,6 +60,8 @@ export interface RendererCallbacks {
   onEquipItem: (crewId: string, itemId: string) => void;
   onUnequipItem: (crewId: string, itemId: string) => void;
   onAcceptQuest: (questId: string) => void;
+  onAssignRoute: (questId: string) => void;
+  onUnassignRoute: () => void;
   onAdvanceDay: () => void;
   onDockAtNearestPort: () => void;
   onResumeContract: () => void;
@@ -216,6 +218,8 @@ function renderPlayingLayout(
         onEquipItem: callbacks.onEquipItem,
         onUnequipItem: callbacks.onUnequipItem,
         onAcceptQuest: callbacks.onAcceptQuest,
+        onAssignRoute: callbacks.onAssignRoute,
+        onUnassignRoute: callbacks.onUnassignRoute,
         onAdvanceDay: callbacks.onAdvanceDay,
         onDockAtNearestPort: callbacks.onDockAtNearestPort,
         onResumeContract: callbacks.onResumeContract,

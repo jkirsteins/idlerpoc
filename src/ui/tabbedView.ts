@@ -44,6 +44,8 @@ export interface TabbedViewCallbacks {
   onEquipItem: (crewId: string, itemId: string) => void;
   onUnequipItem: (crewId: string, itemId: string) => void;
   onAcceptQuest: (questId: string) => void;
+  onAssignRoute: (questId: string) => void;
+  onUnassignRoute: () => void;
   onAdvanceDay: () => void;
   onDockAtNearestPort: () => void;
   onResumeContract: () => void;
@@ -105,6 +107,8 @@ export function renderTabbedView(
     container.appendChild(
       renderWorkTab(gameData, {
         onAcceptQuest: callbacks.onAcceptQuest,
+        onAssignRoute: callbacks.onAssignRoute,
+        onUnassignRoute: callbacks.onUnassignRoute,
         onDockAtNearestPort: callbacks.onDockAtNearestPort,
         onResumeContract: callbacks.onResumeContract,
         onAbandonContract: callbacks.onAbandonContract,

@@ -12,6 +12,7 @@ import { generateHireableCrewByLocation } from './gameFactory';
 import { getEngineDefinition } from './engines';
 import { getDistanceBetween } from './worldGen';
 import { awardEventXP, logLevelUps } from './skillProgression';
+import { checkAutoRefuel, autoRestartRouteTrip } from './routeAssignment';
 
 /**
  * Contract Execution
@@ -171,29 +172,33 @@ export function completeLeg(gameData: GameData, ship: Ship): void {
   // Handle manual trip completion (no contract)
   if (!activeContract && ship.location.flight) {
     const flight = ship.location.flight;
-    if (flight.dockOnArrival) {
-      const destination = world.locations.find(
-        (l) => l.id === flight.destination
-      );
-      if (destination) {
+    const destination = world.locations.find(
+      (l) => l.id === flight.destination
+    );
+    if (destination) {
+      if (flight.dockOnArrival) {
         ship.location.status = 'docked';
         ship.location.dockedAt = destination.id;
-        delete ship.location.flight;
-        ship.engine.state = 'off';
-        ship.engine.warmupProgress = 0;
-
-        addLog(
-          gameData.log,
-          gameTime,
-          'arrival',
-          `Arrived at ${destination.name}`,
-          ship.name
-        );
-
-        checkFirstArrival(gameData, ship, destination.id);
-        removeUnpaidCrew(gameData, ship);
-        regenerateQuestsIfNewDay(gameData, ship);
+        delete ship.location.orbitingAt;
+      } else {
+        ship.location.status = 'orbiting';
+        ship.location.orbitingAt = destination.id;
       }
+      delete ship.location.flight;
+      ship.engine.state = 'off';
+      ship.engine.warmupProgress = 0;
+
+      addLog(
+        gameData.log,
+        gameTime,
+        'arrival',
+        `Arrived at ${destination.name}`,
+        ship.name
+      );
+
+      checkFirstArrival(gameData, ship, destination.id);
+      removeUnpaidCrew(gameData, ship);
+      regenerateQuestsIfNewDay(gameData, ship);
     }
     return;
   }
@@ -251,6 +256,7 @@ export function completeLeg(gameData: GameData, ship: Ship): void {
 
       ship.location.status = 'docked';
       ship.location.dockedAt = arrivalLocation.id;
+      delete ship.location.orbitingAt;
       delete ship.location.flight;
       ship.engine.state = 'off';
       ship.engine.warmupProgress = 0;
@@ -324,6 +330,13 @@ export function completeLeg(gameData: GameData, ship: Ship): void {
       // Track per-ship earnings
       ship.metrics.creditsEarned += quest.paymentPerTrip;
 
+      // Track route assignment earnings
+      if (ship.routeAssignment) {
+        ship.routeAssignment.totalTripsCompleted++;
+        ship.routeAssignment.creditsEarned += quest.paymentPerTrip;
+        ship.routeAssignment.lastTripCompletedAt = gameTime;
+      }
+
       addLog(
         gameData.log,
         gameTime,
@@ -380,11 +393,26 @@ export function completeLeg(gameData: GameData, ship: Ship): void {
       delete ship.location.flight;
       ship.engine.state = 'off';
       ship.engine.warmupProgress = 0;
+
+      // Check for route assignment auto-restart BEFORE clearing contract
+      const hasRouteAssignment = ship.routeAssignment !== null;
+
       ship.activeContract = null;
 
       checkFirstArrival(gameData, ship, arrivalLocation.id);
       removeUnpaidCrew(gameData, ship);
       regenerateQuestsIfNewDay(gameData, ship);
+
+      // Auto-restart route if ship is assigned to automated route
+      if (hasRouteAssignment) {
+        // Check auto-refuel before starting next trip
+        checkAutoRefuel(gameData, ship, arrivalLocation.id);
+
+        // Auto-restart next trip (only if route still assigned - may be removed by failed refuel)
+        if (ship.routeAssignment) {
+          autoRestartRouteTrip(gameData, ship);
+        }
+      }
     } else {
       activeContract.leg = 'outbound';
 

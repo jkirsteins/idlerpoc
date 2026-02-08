@@ -19,6 +19,8 @@ import { renderThreatBadge } from './threatBadge';
 
 export interface WorkTabCallbacks {
   onAcceptQuest: (questId: string) => void;
+  onAssignRoute: (questId: string) => void;
+  onUnassignRoute: () => void;
   onDockAtNearestPort: () => void;
   onResumeContract: () => void;
   onAbandonContract: () => void;
@@ -288,13 +290,32 @@ function renderQuestCard(
 
   // Accept button or reason
   if (canAccept) {
+    const buttonContainer = document.createElement('div');
+    buttonContainer.className = 'quest-buttons';
+    buttonContainer.style.display = 'flex';
+    buttonContainer.style.gap = '8px';
+
     const acceptBtn = document.createElement('button');
     acceptBtn.className = 'accept-quest-button';
     acceptBtn.textContent = 'Accept';
     acceptBtn.addEventListener('click', () =>
       callbacks.onAcceptQuest(quest.id)
     );
-    card.appendChild(acceptBtn);
+    buttonContainer.appendChild(acceptBtn);
+
+    // Add "Assign Route" button for standing freight
+    if (quest.type === 'standing_freight') {
+      const assignBtn = document.createElement('button');
+      assignBtn.className = 'assign-route-button';
+      assignBtn.textContent = 'Assign Route';
+      assignBtn.style.backgroundColor = '#4a90e2';
+      assignBtn.addEventListener('click', () =>
+        callbacks.onAssignRoute(quest.id)
+      );
+      buttonContainer.appendChild(assignBtn);
+    }
+
+    card.appendChild(buttonContainer);
   } else if (reason) {
     const reasonDiv = document.createElement('div');
     reasonDiv.className = 'quest-reason';
@@ -317,6 +338,11 @@ function renderActiveContract(
 
   if (!activeContract) {
     return container;
+  }
+
+  // Show route assignment info if ship is on automated route
+  if (ship.routeAssignment) {
+    container.appendChild(renderRouteAssignmentInfo(gameData, callbacks));
   }
 
   const quest = activeContract.quest;
@@ -588,6 +614,66 @@ function renderPausedContract(
   abandonBtn.textContent = 'Abandon contract';
   abandonBtn.addEventListener('click', () => callbacks.onAbandonContract());
   actions.appendChild(abandonBtn);
+
+  container.appendChild(actions);
+
+  return container;
+}
+
+function renderRouteAssignmentInfo(
+  gameData: GameData,
+  callbacks: WorkTabCallbacks
+): HTMLElement {
+  const container = document.createElement('div');
+  container.className = 'route-assignment-info';
+  container.style.padding = '12px';
+  container.style.marginBottom = '12px';
+  container.style.border = '2px solid #4a90e2';
+  container.style.borderRadius = '4px';
+  container.style.backgroundColor = 'rgba(74, 144, 226, 0.1)';
+
+  const ship = getActiveShip(gameData);
+  const assignment = ship.routeAssignment;
+
+  if (!assignment) return container;
+
+  const originLoc = gameData.world.locations.find(
+    (l) => l.id === assignment.originId
+  );
+  const destLoc = gameData.world.locations.find(
+    (l) => l.id === assignment.destinationId
+  );
+
+  // Header
+  const header = document.createElement('div');
+  header.style.fontSize = '14px';
+  header.style.fontWeight = 'bold';
+  header.style.color = '#4a90e2';
+  header.style.marginBottom = '8px';
+  header.textContent = '🔄 Automated Route Assignment';
+  container.appendChild(header);
+
+  // Route info
+  const routeInfo = document.createElement('div');
+  routeInfo.style.fontSize = '12px';
+  routeInfo.style.marginBottom = '8px';
+  routeInfo.innerHTML = `
+    <div><strong>Route:</strong> ${originLoc?.name || 'Unknown'} ↔ ${destLoc?.name || 'Unknown'}</div>
+    <div><strong>Trips Completed:</strong> ${assignment.totalTripsCompleted}</div>
+    <div><strong>Credits Earned:</strong> ${assignment.creditsEarned.toLocaleString()}</div>
+    <div><strong>Auto-Refuel:</strong> ${assignment.autoRefuel ? `Enabled (< ${assignment.autoRefuelThreshold}%)` : 'Disabled'}</div>
+  `;
+  container.appendChild(routeInfo);
+
+  // End assignment button
+  const actions = document.createElement('div');
+  actions.style.marginTop = '8px';
+
+  const unassignBtn = document.createElement('button');
+  unassignBtn.className = 'abandon-button';
+  unassignBtn.textContent = 'End Route Assignment';
+  unassignBtn.addEventListener('click', () => callbacks.onUnassignRoute());
+  actions.appendChild(unassignBtn);
 
   container.appendChild(actions);
 

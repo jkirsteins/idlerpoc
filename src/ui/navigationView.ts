@@ -241,10 +241,18 @@ export function renderNavigationView(
       currentBadge.textContent = 'Current Location';
       item.appendChild(currentBadge);
     } else if (!canStartTrips) {
-      // Active contract or in-flight - show status
+      // Active contract, route assignment, or in-flight - show status
       const statusText = document.createElement('div');
       statusText.className = 'nav-travel-disabled-reason';
-      statusText.textContent = 'Contract in progress';
+
+      if (ship.activeContract || ship.routeAssignment) {
+        statusText.textContent = 'Contract in progress';
+      } else if (ship.location.status === 'in_flight') {
+        statusText.textContent = 'In flight';
+      } else {
+        statusText.textContent = 'Unavailable';
+      }
+
       item.appendChild(statusText);
     } else if (reachable && callbacks.onStartTrip) {
       // Reachable - show travel button
