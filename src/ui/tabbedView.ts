@@ -20,6 +20,13 @@ import {
   getThreatLevel,
 } from '../encounterSystem';
 
+// Track credits for delta display
+let previousCredits: number | null = null;
+let creditDeltaTimeout: number | null = null;
+
+// Track last viewed log entry count for unread badge
+let lastViewedLogCount = 0;
+
 export interface TabbedViewCallbacks {
   onReset: () => void;
   onTabChange: (tab: PlayingTab) => void;
@@ -68,7 +75,12 @@ export function renderTabbedView(
   container.appendChild(renderShipHeader(gameData, callbacks));
 
   // Tab bar
-  container.appendChild(renderTabBar(activeTab, callbacks));
+  container.appendChild(renderTabBar(gameData, activeTab, callbacks));
+
+  // Update last viewed log count when on log tab
+  if (activeTab === 'log') {
+    lastViewedLogCount = gameData.log.length;
+  }
 
   // Tab content
   if (activeTab === 'ship') {
@@ -201,10 +213,51 @@ function renderGlobalStatusBar(
   statsDiv.style.display = 'flex';
   statsDiv.style.gap = '2rem';
 
-  // Credits
+  // Credits with delta display
+  const creditsContainer = document.createElement('div');
+  creditsContainer.style.position = 'relative';
+  creditsContainer.style.display = 'inline-block';
+
   const creditsDiv = document.createElement('div');
   creditsDiv.innerHTML = `<span style="color: #888;">Credits:</span> <span style="color: #4a9eff; font-weight: bold;">${Math.round(gameData.credits).toLocaleString()}</span>`;
-  statsDiv.appendChild(creditsDiv);
+  creditsContainer.appendChild(creditsDiv);
+
+  // Show credit delta if credits changed
+  const currentCredits = Math.round(gameData.credits);
+  if (previousCredits !== null && previousCredits !== currentCredits) {
+    const delta = currentCredits - previousCredits;
+    const deltaEl = document.createElement('div');
+    deltaEl.className = 'credit-delta';
+    deltaEl.style.position = 'absolute';
+    deltaEl.style.left = '100%';
+    deltaEl.style.top = '0';
+    deltaEl.style.marginLeft = '0.5rem';
+    deltaEl.style.fontSize = '0.9rem';
+    deltaEl.style.fontWeight = 'bold';
+    deltaEl.style.whiteSpace = 'nowrap';
+    deltaEl.style.animation = 'credit-delta-float 2s ease-out forwards';
+
+    if (delta > 0) {
+      deltaEl.textContent = `+${delta.toLocaleString()}`;
+      deltaEl.style.color = '#4ade80';
+    } else {
+      deltaEl.textContent = delta.toLocaleString();
+      deltaEl.style.color = '#ef4444';
+    }
+
+    creditsContainer.appendChild(deltaEl);
+
+    // Clear old timeout and set new one
+    if (creditDeltaTimeout !== null) {
+      clearTimeout(creditDeltaTimeout);
+    }
+    creditDeltaTimeout = window.setTimeout(() => {
+      creditDeltaTimeout = null;
+    }, 2000);
+  }
+  previousCredits = currentCredits;
+
+  statsDiv.appendChild(creditsContainer);
 
   // Crew count
   const shipClass = getShipClass(ship.classId);
@@ -377,44 +430,58 @@ function renderGlobalStatusBar(
 }
 
 function renderTabBar(
+  gameData: GameData,
   activeTab: PlayingTab,
   callbacks: TabbedViewCallbacks
 ): HTMLElement {
   const tabBar = document.createElement('div');
   tabBar.className = 'tab-bar';
 
-  const shipTab = document.createElement('button');
-  shipTab.className = activeTab === 'ship' ? 'tab-button active' : 'tab-button';
-  shipTab.textContent = 'Ship';
-  shipTab.addEventListener('click', () => callbacks.onTabChange('ship'));
-  tabBar.appendChild(shipTab);
+  // Helper to create tab with optional badge
+  function createTab(
+    label: string,
+    tab: PlayingTab,
+    badgeCount?: number
+  ): HTMLElement {
+    const button = document.createElement('button');
+    button.className = activeTab === tab ? 'tab-button active' : 'tab-button';
+    button.style.position = 'relative';
 
-  const crewTab = document.createElement('button');
-  crewTab.className = activeTab === 'crew' ? 'tab-button active' : 'tab-button';
-  crewTab.textContent = 'Crew';
-  crewTab.addEventListener('click', () => callbacks.onTabChange('crew'));
-  tabBar.appendChild(crewTab);
+    const textSpan = document.createElement('span');
+    textSpan.textContent = label;
+    button.appendChild(textSpan);
 
-  const workTab = document.createElement('button');
-  workTab.className = activeTab === 'work' ? 'tab-button active' : 'tab-button';
-  workTab.textContent = 'Work';
-  workTab.addEventListener('click', () => callbacks.onTabChange('work'));
-  tabBar.appendChild(workTab);
+    if (badgeCount && badgeCount > 0) {
+      const badge = document.createElement('span');
+      badge.className = 'tab-badge';
+      badge.textContent = badgeCount.toString();
+      button.appendChild(badge);
+    }
 
-  const logTab = document.createElement('button');
-  logTab.className = activeTab === 'log' ? 'tab-button active' : 'tab-button';
-  logTab.textContent = 'Log';
-  logTab.addEventListener('click', () => callbacks.onTabChange('log'));
-  tabBar.appendChild(logTab);
+    button.addEventListener('click', () => callbacks.onTabChange(tab));
+    return button;
+  }
 
-  const settingsTab = document.createElement('button');
-  settingsTab.className =
-    activeTab === 'settings' ? 'tab-button active' : 'tab-button';
-  settingsTab.textContent = 'Settings';
-  settingsTab.addEventListener('click', () =>
-    callbacks.onTabChange('settings')
+  // Ship tab
+  tabBar.appendChild(createTab('Ship', 'ship'));
+
+  // Crew tab with skill points badge
+  const activeShip = getActiveShip(gameData);
+  const unspentSkillPoints = activeShip.crew.reduce(
+    (sum, c) => sum + c.unspentSkillPoints,
+    0
   );
-  tabBar.appendChild(settingsTab);
+  tabBar.appendChild(createTab('Crew', 'crew', unspentSkillPoints));
+
+  // Work tab
+  tabBar.appendChild(createTab('Work', 'work'));
+
+  // Log tab with unread badge
+  const unreadCount = Math.max(0, gameData.log.length - lastViewedLogCount);
+  tabBar.appendChild(createTab('Log', 'log', unreadCount));
+
+  // Settings tab
+  tabBar.appendChild(createTab('Settings', 'settings'));
 
   return tabBar;
 }

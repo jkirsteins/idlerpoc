@@ -1,5 +1,5 @@
 import type { CatchUpReport } from '../models';
-import { formatDuration, GAME_SECONDS_PER_TICK } from '../timeSystem';
+import { formatDualTime, GAME_SECONDS_PER_TICK } from '../timeSystem';
 
 /**
  * Render the catch-up report modal shown after fast-forward with encounters.
@@ -22,7 +22,7 @@ export function renderCatchUpReport(
   const duration = document.createElement('div');
   duration.className = 'catchup-duration';
   const elapsedSeconds = report.totalTicks * GAME_SECONDS_PER_TICK;
-  duration.textContent = `${formatDuration(elapsedSeconds)} elapsed`;
+  duration.textContent = `${formatDualTime(elapsedSeconds)} elapsed`;
   header.appendChild(duration);
 
   container.appendChild(header);

@@ -13,7 +13,8 @@
       "Bash(find:*)",
       "Bash(tmux capture-pane:*)",
       "Bash(npm run check:*)",
-      "Bash(npm run:*)"
+      "Bash(npm run:*)",
+      "Bash(/Volumes/X10/Projects/sellgame/src/style.css << 'EOF'\n\n/* Credit Delta Animation */\n@keyframes credit-delta-float {\n  0% {\n    opacity: 0;\n    transform: translateY\\(0\\);\n  }\n  10% {\n    opacity: 1;\n  }\n  90% {\n    opacity: 1;\n  }\n  100% {\n    opacity: 0;\n    transform: translateY\\(-10px\\);\n  }\n}\n\n.credit-delta {\n  pointer-events: none;\n}\nEOF)"
     ]
   }
 }

@@ -2227,3 +2227,52 @@ button:disabled:hover {
     opacity: 0;
   }
 }
+
+/* Credit Delta Animation */
+@keyframes credit-delta-float {
+  0% {
+    opacity: 0;
+    transform: translateY(0);
+  }
+  10% {
+    opacity: 1;
+  }
+  90% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+}
+
+.credit-delta {
+  pointer-events: none;
+}
+
+/* Tab Badges */
+.tab-badge {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  background: #ef4444;
+  color: white;
+  font-size: 0.7rem;
+  font-weight: bold;
+  padding: 2px 6px;
+  border-radius: 10px;
+  min-width: 18px;
+  text-align: center;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  animation: tab-badge-pulse 2s ease-in-out infinite;
+}
+
+@keyframes tab-badge-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.1);
+  }
+}

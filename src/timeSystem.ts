@@ -148,3 +148,14 @@ export function formatRealDuration(realSeconds: number): string {
     return `${hours}h ${minutes}m`;
   }
 }
+
+/**
+ * Format duration showing both game time and real-world time.
+ * Example: "2.5d (irl 3m)"
+ */
+export function formatDualTime(gameSeconds: number): string {
+  const gamePart = formatDuration(gameSeconds);
+  const realSeconds = gameSeconds / GAME_SECONDS_PER_TICK; // 1 tick = 1 real second
+  const realPart = formatRealDuration(realSeconds);
+  return `${gamePart} (irl ${realPart})`;
+}
