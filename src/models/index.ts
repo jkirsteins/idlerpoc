@@ -311,6 +311,26 @@ export interface EncounterResult {
 
 export type ThreatLevel = 'clear' | 'caution' | 'danger' | 'critical';
 
+/**
+ * Toast notification for real-time event feedback
+ */
+export type ToastType =
+  | 'encounter_evaded'
+  | 'encounter_negotiated'
+  | 'encounter_victory'
+  | 'encounter_harassment'
+  | 'encounter_boarding'
+  | 'level_up'
+  | 'credits_gained'
+  | 'credits_lost';
+
+export interface Toast {
+  id: string;
+  type: ToastType;
+  message: string;
+  expiresAt: number; // timestamp when toast should be removed
+}
+
 export interface CatchUpShipReport {
   shipId: string;
   shipName: string;

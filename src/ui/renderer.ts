@@ -3,6 +3,7 @@ import type {
   ShipClassId,
   CrewEquipmentId,
   CatchUpReport,
+  Toast,
 } from '../models';
 import {
   renderWizard,
@@ -12,6 +13,7 @@ import {
 } from './wizard';
 import { renderTabbedView } from './tabbedView';
 import { renderCatchUpReport } from './catchUpReport';
+import { renderToasts } from './toastSystem';
 
 export type PlayingTab = 'ship' | 'crew' | 'work' | 'log' | 'settings';
 
@@ -25,6 +27,7 @@ export type GameState =
       showNavigation?: boolean;
       selectedCrewId?: string;
       catchUpReport?: CatchUpReport;
+      toasts?: Toast[];
     };
 
 export interface RendererCallbacks {
@@ -142,39 +145,52 @@ function renderPlaying(
     return renderCatchUpReport(state.catchUpReport, callbacks.onDismissCatchUp);
   }
 
-  return renderTabbedView(
-    state.gameData,
-    state.activeTab,
-    state.showNavigation || false,
-    {
-      onReset: callbacks.onReset,
-      onTabChange: callbacks.onTabChange,
-      onCrewAssign: callbacks.onCrewAssign,
-      onCrewUnassign: callbacks.onCrewUnassign,
-      onUndock: callbacks.onUndock,
-      onDock: callbacks.onDock,
-      onEngineOn: callbacks.onEngineOn,
-      onEngineOff: callbacks.onEngineOff,
-      onToggleNavigation: callbacks.onToggleNavigation,
-      onSelectCrew: callbacks.onSelectCrew,
-      onLevelUp: callbacks.onLevelUp,
-      onAssignSkillPoint: callbacks.onAssignSkillPoint,
-      onEquipItem: callbacks.onEquipItem,
-      onUnequipItem: callbacks.onUnequipItem,
-      onAcceptQuest: callbacks.onAcceptQuest,
-      onAdvanceDay: callbacks.onAdvanceDay,
-      onDockAtNearestPort: callbacks.onDockAtNearestPort,
-      onResumeContract: callbacks.onResumeContract,
-      onAbandonContract: callbacks.onAbandonContract,
-      onBuyFuel: callbacks.onBuyFuel,
-      onStartTrip: callbacks.onStartTrip,
-      onHireCrew: callbacks.onHireCrew,
-      onBuyEquipment: callbacks.onBuyEquipment,
-      onSellEquipment: callbacks.onSellEquipment,
-      onSelectShip: callbacks.onSelectShip,
-      onBuyShip: callbacks.onBuyShip,
-      onTransferCrew: callbacks.onTransferCrew,
-    },
-    state.selectedCrewId
+  const container = document.createElement('div');
+  container.style.position = 'relative';
+
+  // Main game view
+  container.appendChild(
+    renderTabbedView(
+      state.gameData,
+      state.activeTab,
+      state.showNavigation || false,
+      {
+        onReset: callbacks.onReset,
+        onTabChange: callbacks.onTabChange,
+        onCrewAssign: callbacks.onCrewAssign,
+        onCrewUnassign: callbacks.onCrewUnassign,
+        onUndock: callbacks.onUndock,
+        onDock: callbacks.onDock,
+        onEngineOn: callbacks.onEngineOn,
+        onEngineOff: callbacks.onEngineOff,
+        onToggleNavigation: callbacks.onToggleNavigation,
+        onSelectCrew: callbacks.onSelectCrew,
+        onLevelUp: callbacks.onLevelUp,
+        onAssignSkillPoint: callbacks.onAssignSkillPoint,
+        onEquipItem: callbacks.onEquipItem,
+        onUnequipItem: callbacks.onUnequipItem,
+        onAcceptQuest: callbacks.onAcceptQuest,
+        onAdvanceDay: callbacks.onAdvanceDay,
+        onDockAtNearestPort: callbacks.onDockAtNearestPort,
+        onResumeContract: callbacks.onResumeContract,
+        onAbandonContract: callbacks.onAbandonContract,
+        onBuyFuel: callbacks.onBuyFuel,
+        onStartTrip: callbacks.onStartTrip,
+        onHireCrew: callbacks.onHireCrew,
+        onBuyEquipment: callbacks.onBuyEquipment,
+        onSellEquipment: callbacks.onSellEquipment,
+        onSelectShip: callbacks.onSelectShip,
+        onBuyShip: callbacks.onBuyShip,
+        onTransferCrew: callbacks.onTransferCrew,
+      },
+      state.selectedCrewId
+    )
   );
+
+  // Toast notifications overlay
+  if (state.toasts && state.toasts.length > 0) {
+    container.appendChild(renderToasts(state.toasts));
+  }
+
+  return container;
 }

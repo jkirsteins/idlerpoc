@@ -7,6 +7,8 @@ import type {
   CrewEquipmentId,
   CatchUpReport,
   CatchUpShipReport,
+  Toast,
+  EncounterResult,
 } from './models';
 import { getActiveShip } from './models';
 import {
@@ -838,6 +840,57 @@ window.addEventListener('wizard-next', ((
   renderApp();
 }) as EventListener);
 
+/**
+ * Create toast notifications from encounter results.
+ */
+function createEncounterToasts(encounterResults: EncounterResult[]): Toast[] {
+  const toasts: Toast[] = [];
+  const now = Date.now();
+
+  for (const result of encounterResults) {
+    const ship =
+      state.phase === 'playing'
+        ? state.gameData.ships.find((s) => s.id === result.shipId)
+        : null;
+    const shipName = ship?.name || 'Unknown Ship';
+
+    let message = '';
+    let type: Toast['type'] = 'encounter_evaded';
+
+    switch (result.type) {
+      case 'evaded':
+        message = `${shipName}: Pirates evaded!`;
+        type = 'encounter_evaded';
+        break;
+      case 'negotiated':
+        message = `${shipName}: Negotiated passage (-${result.creditsLost || 0} cr)`;
+        type = 'encounter_negotiated';
+        break;
+      case 'victory':
+        message = `${shipName}: Pirates defeated! (+${result.creditsGained || 0} cr)`;
+        type = 'encounter_victory';
+        break;
+      case 'harassment':
+        message = `${shipName}: Harassed by pirates (-${result.creditsLost || 0} cr)`;
+        type = 'encounter_harassment';
+        break;
+      case 'boarding':
+        message = `${shipName}: Boarded! (-${result.creditsLost || 0} cr)`;
+        type = 'encounter_boarding';
+        break;
+    }
+
+    toasts.push({
+      id: `toast-${now}-${result.shipId}-${result.type}`,
+      type,
+      message,
+      expiresAt: now + 5000, // 5 seconds
+    });
+  }
+
+  return toasts;
+}
+
 function startTickSystem(): void {
   if (tickInterval !== null) return;
 
@@ -845,7 +898,32 @@ function startTickSystem(): void {
     if (state.phase === 'playing') {
       const changed = applyTick(state.gameData);
       state.gameData.lastTickTimestamp = Date.now();
-      if (changed) {
+
+      // Check for encounter results during normal play
+      const encounterResults = drainEncounterResults();
+      if (encounterResults.length > 0) {
+        const newToasts = createEncounterToasts(encounterResults);
+        const existingToasts = state.toasts || [];
+        const now = Date.now();
+
+        // Remove expired toasts and add new ones
+        state.toasts = [
+          ...existingToasts.filter((t) => t.expiresAt > now),
+          ...newToasts,
+        ];
+
+        saveGame(state.gameData);
+        renderApp();
+      } else if (changed) {
+        // Clean up expired toasts on regular renders
+        const now = Date.now();
+        const activeToasts = (state.toasts || []).filter(
+          (t) => t.expiresAt > now
+        );
+        if (activeToasts.length !== (state.toasts || []).length) {
+          state.toasts = activeToasts;
+        }
+
         saveGame(state.gameData);
         renderApp();
       }

@@ -2123,3 +2123,107 @@ button:disabled:hover {
   border-radius: 4px;
   margin-bottom: 1rem;
 }
+
+/* Toast Notification System */
+.toast-container {
+  position: fixed;
+  bottom: 2rem;
+  right: 2rem;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 0.75rem;
+  pointer-events: none;
+  max-width: 400px;
+}
+
+.toast {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem 1.25rem;
+  background: rgba(22, 33, 62, 0.95);
+  border: 2px solid;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(8px);
+  animation:
+    toast-slide-in 0.3s ease-out,
+    toast-fade-out 0.5s ease-in 4.5s;
+  pointer-events: auto;
+  min-width: 300px;
+}
+
+.toast-icon {
+  font-size: 1.5rem;
+  flex-shrink: 0;
+}
+
+.toast-message {
+  flex: 1;
+  font-size: 0.95rem;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+/* Toast type-specific colors */
+.toast-encounter_evaded {
+  border-color: #4ade80;
+  background: rgba(74, 222, 128, 0.15);
+}
+
+.toast-encounter_negotiated {
+  border-color: #fbbf24;
+  background: rgba(251, 191, 36, 0.15);
+}
+
+.toast-encounter_victory {
+  border-color: #60a5fa;
+  background: rgba(96, 165, 250, 0.15);
+}
+
+.toast-encounter_harassment {
+  border-color: #fb923c;
+  background: rgba(251, 146, 60, 0.15);
+}
+
+.toast-encounter_boarding {
+  border-color: #ef4444;
+  background: rgba(239, 68, 68, 0.15);
+}
+
+.toast-level_up {
+  border-color: #a78bfa;
+  background: rgba(167, 139, 250, 0.15);
+}
+
+.toast-credits_gained {
+  border-color: #4ade80;
+  background: rgba(74, 222, 128, 0.15);
+}
+
+.toast-credits_lost {
+  border-color: #ef4444;
+  background: rgba(239, 68, 68, 0.15);
+}
+
+/* Toast animations */
+@keyframes toast-slide-in {
+  from {
+    transform: translateX(120%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes toast-fade-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
