@@ -1,100 +1,106 @@
 import type { GameData, LogEntry, LogEntryType } from '../models';
 import { formatGameDateTime } from '../timeSystem';
+import type { Component } from './component';
 
 type LogFilter = 'all' | 'combat' | 'financial' | 'navigation' | 'crew';
 
-export function renderLogTab(gameData: GameData): HTMLElement {
+export function createLogTab(gameData: GameData): Component {
   const container = document.createElement('div');
   container.className = 'log-tab';
 
-  const heading = document.createElement('h3');
-  heading.textContent = 'Event Log';
-  container.appendChild(heading);
-
-  // Filter state
+  // Filter state persists across tick updates
   let currentFilter: LogFilter = 'all';
 
-  // Filter buttons
-  const filterBar = document.createElement('div');
-  filterBar.className = 'log-filter-bar';
-  filterBar.style.display = 'flex';
-  filterBar.style.gap = '0.5rem';
-  filterBar.style.marginBottom = '1rem';
-  filterBar.style.flexWrap = 'wrap';
+  function rebuild(gameData: GameData) {
+    container.replaceChildren();
 
-  const filters: LogFilter[] = [
-    'all',
-    'combat',
-    'financial',
-    'navigation',
-    'crew',
-  ];
-  const filterButtons: Partial<Record<LogFilter, HTMLButtonElement>> = {};
+    const heading = document.createElement('h3');
+    heading.textContent = 'Event Log';
+    container.appendChild(heading);
 
-  const updateLogDisplay = () => {
-    // Clear log list
-    logList.innerHTML = '';
+    // Filter buttons
+    const filterBar = document.createElement('div');
+    filterBar.className = 'log-filter-bar';
+    filterBar.style.display = 'flex';
+    filterBar.style.gap = '0.5rem';
+    filterBar.style.marginBottom = '1rem';
+    filterBar.style.flexWrap = 'wrap';
 
-    if (gameData.log.length === 0) {
-      const noLogs = document.createElement('p');
-      noLogs.className = 'no-logs';
-      noLogs.textContent = 'No events yet.';
-      logList.appendChild(noLogs);
-      return;
-    }
+    const filters: LogFilter[] = [
+      'all',
+      'combat',
+      'financial',
+      'navigation',
+      'crew',
+    ];
+    const filterButtons: Partial<Record<LogFilter, HTMLButtonElement>> = {};
 
-    // Filter and display logs
-    const reversedLog = [...gameData.log].reverse();
-    const filtered = reversedLog.filter((entry) =>
-      matchesFilter(entry.type, currentFilter)
-    );
+    const updateLogDisplay = () => {
+      // Clear log list
+      logList.innerHTML = '';
 
-    if (filtered.length === 0) {
-      const noLogs = document.createElement('p');
-      noLogs.className = 'no-logs';
-      noLogs.textContent = `No ${currentFilter} events.`;
-      logList.appendChild(noLogs);
-      return;
-    }
-
-    for (const entry of filtered) {
-      logList.appendChild(renderLogEntry(entry));
-    }
-  };
-
-  for (const filter of filters) {
-    const btn = document.createElement('button');
-    btn.className =
-      filter === currentFilter ? 'filter-btn active' : 'filter-btn';
-    btn.textContent = filter.charAt(0).toUpperCase() + filter.slice(1);
-    btn.style.padding = '0.4rem 0.8rem';
-    btn.style.fontSize = '0.85rem';
-    btn.addEventListener('click', () => {
-      currentFilter = filter;
-      // Update button states
-      for (const f of filters) {
-        const btn = filterButtons[f];
-        if (btn) {
-          btn.className =
-            f === currentFilter ? 'filter-btn active' : 'filter-btn';
-        }
+      if (gameData.log.length === 0) {
+        const noLogs = document.createElement('p');
+        noLogs.className = 'no-logs';
+        noLogs.textContent = 'No events yet.';
+        logList.appendChild(noLogs);
+        return;
       }
-      updateLogDisplay();
-    });
-    filterButtons[filter] = btn;
-    filterBar.appendChild(btn);
+
+      // Filter and display logs
+      const reversedLog = [...gameData.log].reverse();
+      const filtered = reversedLog.filter((entry) =>
+        matchesFilter(entry.type, currentFilter)
+      );
+
+      if (filtered.length === 0) {
+        const noLogs = document.createElement('p');
+        noLogs.className = 'no-logs';
+        noLogs.textContent = `No ${currentFilter} events.`;
+        logList.appendChild(noLogs);
+        return;
+      }
+
+      for (const entry of filtered) {
+        logList.appendChild(renderLogEntry(entry));
+      }
+    };
+
+    for (const filter of filters) {
+      const btn = document.createElement('button');
+      btn.className =
+        filter === currentFilter ? 'filter-btn active' : 'filter-btn';
+      btn.textContent = filter.charAt(0).toUpperCase() + filter.slice(1);
+      btn.style.padding = '0.4rem 0.8rem';
+      btn.style.fontSize = '0.85rem';
+      btn.addEventListener('click', () => {
+        currentFilter = filter;
+        // Update button states
+        for (const f of filters) {
+          const btn = filterButtons[f];
+          if (btn) {
+            btn.className =
+              f === currentFilter ? 'filter-btn active' : 'filter-btn';
+          }
+        }
+        updateLogDisplay();
+      });
+      filterButtons[filter] = btn;
+      filterBar.appendChild(btn);
+    }
+
+    container.appendChild(filterBar);
+
+    const logList = document.createElement('div');
+    logList.className = 'log-list';
+
+    updateLogDisplay();
+
+    container.appendChild(logList);
   }
 
-  container.appendChild(filterBar);
-
-  const logList = document.createElement('div');
-  logList.className = 'log-list';
-
-  updateLogDisplay();
-
-  container.appendChild(logList);
-
-  return container;
+  rebuild(gameData);
+  return { el: container, update: rebuild };
 }
 
 /**

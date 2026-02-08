@@ -1,15 +1,16 @@
 import type { GameData, CrewEquipmentId } from '../models';
 import { getActiveShip } from '../models';
 import type { PlayingTab } from './renderer';
+import type { Component } from './component';
 import { getShipClass } from '../shipClasses';
-import { renderShipTab } from './shipTab';
-import { renderCrewTab } from './crewTab';
-import { renderWorkTab } from './workTab';
-import { renderFleetTab } from './fleetTab';
-import { renderLogTab } from './logTab';
-import { renderSettingsTab } from './settingsTab';
-import { renderFleetPanel } from './fleetPanel';
-import { renderNavigationView } from './navigationView';
+import { createShipTab } from './shipTab';
+import { createCrewTab } from './crewTab';
+import { createWorkTab } from './workTab';
+import { createFleetTab } from './fleetTab';
+import { createLogTab } from './logTab';
+import { createSettingsTab } from './settingsTab';
+import { createFleetPanel } from './fleetPanel';
+import { createNavigationView } from './navigationView';
 import {
   formatGameDate,
   TICKS_PER_DAY,
@@ -65,83 +66,203 @@ export interface TabbedViewCallbacks {
   ) => void;
 }
 
-export function renderTabbedView(
+export interface TabbedViewState {
+  gameData: GameData;
+  activeTab: PlayingTab;
+  showNavigation: boolean;
+  selectedCrewId?: string;
+}
+
+export function createTabbedView(
   gameData: GameData,
   activeTab: PlayingTab,
   showNavigation: boolean,
   callbacks: TabbedViewCallbacks,
   selectedCrewId?: string
-): HTMLElement {
+): Component & { updateView(state: TabbedViewState): void } {
   const container = document.createElement('div');
   container.className = 'tabbed-view';
 
-  // Ship header
-  container.appendChild(renderShipHeader(gameData, callbacks));
+  // Stable sub-areas so header/tabbar/content don't destroy each other
+  const headerArea = document.createElement('div');
+  const tabBarArea = document.createElement('div');
+  const tabContentArea = document.createElement('div');
+  container.append(headerArea, tabBarArea, tabContentArea);
 
-  // Tab bar
-  container.appendChild(renderTabBar(gameData, activeTab, callbacks));
+  let currentTab = activeTab;
+  let currentShowNav = showNavigation;
+  let currentSelectedCrewId = selectedCrewId;
+  let activeTabComponent: Component | null = null;
 
-  // Update last viewed log count when on log tab
-  if (activeTab === 'log') {
-    lastViewedLogCount = gameData.log.length;
+  // ── Stable tab bar (created once, updated in-place to preserve scroll) ──
+  const tabBarEl = document.createElement('div');
+  tabBarEl.className = 'tab-bar';
+
+  const tabDefs: Array<{ label: string; tab: PlayingTab }> = [
+    { label: 'Ship', tab: 'ship' },
+    { label: 'Crew', tab: 'crew' },
+    { label: 'Work', tab: 'work' },
+    { label: 'Nav', tab: 'nav' },
+    { label: 'Fleet', tab: 'fleet' },
+    { label: 'Log', tab: 'log' },
+    { label: 'Settings', tab: 'settings' },
+  ];
+
+  const tabButtonRefs: Array<{
+    button: HTMLButtonElement;
+    badge: HTMLSpanElement;
+    tab: PlayingTab;
+  }> = [];
+
+  for (const def of tabDefs) {
+    const button = document.createElement('button');
+    button.className = 'tab-button';
+    button.style.position = 'relative';
+
+    const textSpan = document.createElement('span');
+    textSpan.textContent = def.label;
+    button.appendChild(textSpan);
+
+    const badge = document.createElement('span');
+    badge.className = 'tab-badge';
+    badge.style.display = 'none';
+    button.appendChild(badge);
+
+    button.addEventListener('click', () => callbacks.onTabChange(def.tab));
+    tabBarEl.appendChild(button);
+    tabButtonRefs.push({ button, badge, tab: def.tab });
   }
 
-  // Tab content
-  if (activeTab === 'ship') {
-    container.appendChild(
-      renderShipTab(gameData, showNavigation, {
-        onCrewAssign: callbacks.onCrewAssign,
-        onCrewUnassign: callbacks.onCrewUnassign,
-        onUndock: callbacks.onUndock,
-        onDock: callbacks.onDock,
-        onEngineOn: callbacks.onEngineOn,
-        onEngineOff: callbacks.onEngineOff,
-        onToggleNavigation: callbacks.onToggleNavigation,
-        onBuyFuel: callbacks.onBuyFuel,
-        onStartTrip: callbacks.onStartTrip,
-        onBuyShip: callbacks.onBuyShip,
-      })
+  tabBarArea.appendChild(tabBarEl);
+
+  function updateTabBar(gameData: GameData) {
+    const activeShip = getActiveShip(gameData);
+    const unspentSkillPoints = activeShip.crew.reduce(
+      (sum, c) => sum + c.unspentSkillPoints,
+      0
     );
-  } else if (activeTab === 'crew') {
-    container.appendChild(renderCrewTab(gameData, selectedCrewId, callbacks));
-  } else if (activeTab === 'work') {
-    container.appendChild(
-      renderWorkTab(gameData, {
-        onAcceptQuest: callbacks.onAcceptQuest,
-        onAssignRoute: callbacks.onAssignRoute,
-        onUnassignRoute: callbacks.onUnassignRoute,
-        onDockAtNearestPort: callbacks.onDockAtNearestPort,
-        onResumeContract: callbacks.onResumeContract,
-        onAbandonContract: callbacks.onAbandonContract,
-      })
-    );
-  } else if (activeTab === 'nav') {
-    container.appendChild(
-      renderNavigationView(gameData, {
-        onToggleNavigation: () => {}, // Not needed for tab
-        onStartTrip: callbacks.onStartTrip,
-      })
-    );
-  } else if (activeTab === 'fleet') {
-    container.appendChild(
-      renderFleetTab(gameData, {
-        onSelectShip: callbacks.onSelectShip,
-        onBuyShip: callbacks.onBuyShip,
-        onNavigateShip: (shipId: string) => {
-          // Switch to the selected ship
-          callbacks.onSelectShip(shipId);
-          // Switch to the Nav tab
-          callbacks.onTabChange('nav');
-        },
-      })
-    );
-  } else if (activeTab === 'log') {
-    container.appendChild(renderLogTab(gameData));
-  } else {
-    container.appendChild(renderSettingsTab(gameData, callbacks));
+    const unreadCount = Math.max(0, gameData.log.length - lastViewedLogCount);
+
+    for (const ref of tabButtonRefs) {
+      if (ref.tab === currentTab) {
+        ref.button.classList.add('active');
+      } else {
+        ref.button.classList.remove('active');
+      }
+
+      let badgeCount = 0;
+      if (ref.tab === 'crew') badgeCount = unspentSkillPoints;
+      if (ref.tab === 'log') badgeCount = unreadCount;
+
+      if (badgeCount > 0) {
+        ref.badge.textContent = badgeCount.toString();
+        ref.badge.style.display = '';
+      } else {
+        ref.badge.textContent = '';
+        ref.badge.style.display = 'none';
+      }
+    }
   }
 
-  return container;
+  function makeTabComponent(tab: PlayingTab, gameData: GameData): Component {
+    switch (tab) {
+      case 'ship':
+        return createShipTab(gameData, currentShowNav, {
+          onCrewAssign: callbacks.onCrewAssign,
+          onCrewUnassign: callbacks.onCrewUnassign,
+          onUndock: callbacks.onUndock,
+          onDock: callbacks.onDock,
+          onEngineOn: callbacks.onEngineOn,
+          onEngineOff: callbacks.onEngineOff,
+          onToggleNavigation: callbacks.onToggleNavigation,
+          onBuyFuel: callbacks.onBuyFuel,
+          onStartTrip: callbacks.onStartTrip,
+          onBuyShip: callbacks.onBuyShip,
+        });
+      case 'crew':
+        return createCrewTab(gameData, currentSelectedCrewId, callbacks);
+      case 'work':
+        return createWorkTab(gameData, {
+          onAcceptQuest: callbacks.onAcceptQuest,
+          onAssignRoute: callbacks.onAssignRoute,
+          onUnassignRoute: callbacks.onUnassignRoute,
+          onDockAtNearestPort: callbacks.onDockAtNearestPort,
+          onResumeContract: callbacks.onResumeContract,
+          onAbandonContract: callbacks.onAbandonContract,
+        });
+      case 'nav':
+        return createNavigationView(gameData, {
+          onToggleNavigation: () => {},
+          onStartTrip: callbacks.onStartTrip,
+        });
+      case 'fleet':
+        return createFleetTab(gameData, {
+          onSelectShip: callbacks.onSelectShip,
+          onBuyShip: callbacks.onBuyShip,
+          onNavigateShip: (shipId: string) => {
+            callbacks.onSelectShip(shipId);
+            callbacks.onTabChange('nav');
+          },
+        });
+      case 'log':
+        return createLogTab(gameData);
+      case 'settings':
+        return createSettingsTab(gameData, callbacks);
+      default:
+        return createSettingsTab(gameData, callbacks);
+    }
+  }
+
+  function rebuild(gameData: GameData) {
+    // Rebuild header and tab bar (always visible, cheap to recreate)
+    headerArea.replaceChildren(renderShipHeader(gameData, callbacks));
+    updateTabBar(gameData);
+
+    if (currentTab === 'log') {
+      lastViewedLogCount = gameData.log.length;
+    }
+
+    // Tab content: reuse component if same tab, create new if changed
+    if (!activeTabComponent) {
+      activeTabComponent = makeTabComponent(currentTab, gameData);
+      tabContentArea.replaceChildren(activeTabComponent.el);
+    } else {
+      // Pass extra state to specific tab types
+      const comp = activeTabComponent as Component & Record<string, unknown>;
+      if (
+        currentTab === 'crew' &&
+        typeof comp.setSelectedCrewId === 'function'
+      ) {
+        (comp.setSelectedCrewId as (id: string | undefined) => void)(
+          currentSelectedCrewId
+        );
+      }
+      if (
+        currentTab === 'ship' &&
+        typeof comp.setShowNavigation === 'function'
+      ) {
+        (comp.setShowNavigation as (v: boolean) => void)(currentShowNav);
+      }
+      activeTabComponent.update(gameData);
+    }
+  }
+
+  rebuild(gameData);
+
+  return {
+    el: container,
+    update(gameData: GameData) {
+      rebuild(gameData);
+    },
+    updateView(state: TabbedViewState) {
+      const tabChanged = state.activeTab !== currentTab;
+      currentTab = state.activeTab;
+      currentShowNav = state.showNavigation;
+      currentSelectedCrewId = state.selectedCrewId;
+      if (tabChanged) activeTabComponent = null;
+      rebuild(state.gameData);
+    },
+  };
 }
 
 function renderShipHeader(
@@ -188,7 +309,7 @@ function renderShipHeader(
   // Fleet status panel (only when fleet has multiple ships)
   if (gameData.ships.length > 1) {
     header.appendChild(
-      renderFleetPanel(gameData, { onSelectShip: callbacks.onSelectShip })
+      createFleetPanel(gameData, { onSelectShip: callbacks.onSelectShip }).el
     );
   }
 
@@ -439,7 +560,7 @@ function renderGlobalStatusBar(
 
   if (canAdvanceDay) {
     const advanceDayBtn = document.createElement('button');
-    advanceDayBtn.textContent = '⏭ Advance Day';
+    advanceDayBtn.textContent = '\u23ED Advance Day';
     advanceDayBtn.className = 'global-status-btn';
     advanceDayBtn.addEventListener('click', () => callbacks.onAdvanceDay());
     actionsDiv.appendChild(advanceDayBtn);
@@ -448,67 +569,4 @@ function renderGlobalStatusBar(
   statusBar.appendChild(actionsDiv);
 
   return statusBar;
-}
-
-function renderTabBar(
-  gameData: GameData,
-  activeTab: PlayingTab,
-  callbacks: TabbedViewCallbacks
-): HTMLElement {
-  const tabBar = document.createElement('div');
-  tabBar.className = 'tab-bar';
-
-  // Helper to create tab with optional badge
-  function createTab(
-    label: string,
-    tab: PlayingTab,
-    badgeCount?: number
-  ): HTMLElement {
-    const button = document.createElement('button');
-    button.className = activeTab === tab ? 'tab-button active' : 'tab-button';
-    button.style.position = 'relative';
-
-    const textSpan = document.createElement('span');
-    textSpan.textContent = label;
-    button.appendChild(textSpan);
-
-    if (badgeCount && badgeCount > 0) {
-      const badge = document.createElement('span');
-      badge.className = 'tab-badge';
-      badge.textContent = badgeCount.toString();
-      button.appendChild(badge);
-    }
-
-    button.addEventListener('click', () => callbacks.onTabChange(tab));
-    return button;
-  }
-
-  // Ship tab
-  tabBar.appendChild(createTab('Ship', 'ship'));
-
-  // Crew tab with skill points badge
-  const activeShip = getActiveShip(gameData);
-  const unspentSkillPoints = activeShip.crew.reduce(
-    (sum, c) => sum + c.unspentSkillPoints,
-    0
-  );
-  tabBar.appendChild(createTab('Crew', 'crew', unspentSkillPoints));
-
-  // Work tab
-  tabBar.appendChild(createTab('Work', 'work'));
-
-  // Nav tab
-  tabBar.appendChild(createTab('Nav', 'nav'));
-
-  // Fleet tab
-  tabBar.appendChild(createTab('Fleet', 'fleet'));
-
-  // Log tab with unread badge
-  const unreadCount = Math.max(0, gameData.log.length - lastViewedLogCount);
-  tabBar.appendChild(createTab('Log', 'log', unreadCount));
-
-  // Settings tab
-  tabBar.appendChild(createTab('Settings', 'settings'));
-
-  return tabBar;
 }

@@ -3,15 +3,16 @@ import { getShipClass, type ShipClassTier } from '../shipClasses';
 import { getEngineDefinition } from '../engines';
 import { computeMaxRange } from '../flightPhysics';
 import { formatDualTime } from '../timeSystem';
+import type { Component } from './component';
 
 export interface FleetPanelCallbacks {
   onSelectShip: (shipId: string) => void;
 }
 
-export function renderFleetPanel(
+export function createFleetPanel(
   gameData: GameData,
   callbacks: FleetPanelCallbacks
-): HTMLElement {
+): Component {
   const panel = document.createElement('div');
   panel.className = 'fleet-panel';
   panel.style.background = 'rgba(0, 0, 0, 0.3)';
@@ -20,184 +21,192 @@ export function renderFleetPanel(
   panel.style.padding = '0.5rem';
   panel.style.marginBottom = '0.5rem';
 
-  const title = document.createElement('div');
-  title.textContent = 'Fleet';
-  title.style.fontSize = '0.9rem';
-  title.style.fontWeight = 'bold';
-  title.style.marginBottom = '0.5rem';
-  title.style.color = '#aaa';
-  panel.appendChild(title);
+  function rebuild(gameData: GameData) {
+    panel.replaceChildren();
+    const title = document.createElement('div');
+    title.textContent = 'Fleet';
+    title.style.fontSize = '0.9rem';
+    title.style.fontWeight = 'bold';
+    title.style.marginBottom = '0.5rem';
+    title.style.color = '#aaa';
+    panel.appendChild(title);
 
-  for (const ship of gameData.ships) {
-    const row = document.createElement('div');
-    row.className =
-      ship.id === gameData.activeShipId ? 'fleet-row active' : 'fleet-row';
-    row.style.display = 'flex';
-    row.style.alignItems = 'center';
-    row.style.gap = '1rem';
-    row.style.padding = '0.5rem';
-    row.style.borderRadius = '4px';
-    row.style.cursor = 'pointer';
-    row.style.transition = 'background 0.2s';
-    row.style.fontSize = '0.85rem';
+    for (const ship of gameData.ships) {
+      const row = document.createElement('div');
+      row.className =
+        ship.id === gameData.activeShipId ? 'fleet-row active' : 'fleet-row';
+      row.style.display = 'flex';
+      row.style.alignItems = 'center';
+      row.style.gap = '1rem';
+      row.style.padding = '0.5rem';
+      row.style.borderRadius = '4px';
+      row.style.cursor = 'pointer';
+      row.style.transition = 'background 0.2s';
+      row.style.fontSize = '0.85rem';
 
-    if (ship.id === gameData.activeShipId) {
-      row.style.background = 'rgba(74, 158, 255, 0.2)';
-      row.style.border = '1px solid #4a9eff';
-    } else {
-      row.style.background = 'rgba(0, 0, 0, 0.2)';
-      row.style.border = '1px solid transparent';
-    }
-
-    row.addEventListener('mouseenter', () => {
-      if (ship.id !== gameData.activeShipId) {
-        row.style.background = 'rgba(255, 255, 255, 0.05)';
-      }
-    });
-    row.addEventListener('mouseleave', () => {
-      if (ship.id !== gameData.activeShipId) {
+      if (ship.id === gameData.activeShipId) {
+        row.style.background = 'rgba(74, 158, 255, 0.2)';
+        row.style.border = '1px solid #4a9eff';
+      } else {
         row.style.background = 'rgba(0, 0, 0, 0.2)';
+        row.style.border = '1px solid transparent';
       }
-    });
 
-    row.addEventListener('click', () => callbacks.onSelectShip(ship.id));
+      row.addEventListener('mouseenter', () => {
+        if (ship.id !== gameData.activeShipId) {
+          row.style.background = 'rgba(255, 255, 255, 0.05)';
+        }
+      });
+      row.addEventListener('mouseleave', () => {
+        if (ship.id !== gameData.activeShipId) {
+          row.style.background = 'rgba(0, 0, 0, 0.2)';
+        }
+      });
 
-    // Active indicator
-    const indicator = document.createElement('div');
-    indicator.style.width = '8px';
-    indicator.style.height = '8px';
-    indicator.style.borderRadius = '50%';
-    indicator.style.background =
-      ship.id === gameData.activeShipId ? '#4a9eff' : 'transparent';
-    indicator.style.flexShrink = '0';
-    row.appendChild(indicator);
+      row.addEventListener('click', () => callbacks.onSelectShip(ship.id));
 
-    // Ship name with tier badge
-    const nameContainer = document.createElement('div');
-    nameContainer.style.display = 'flex';
-    nameContainer.style.alignItems = 'center';
-    nameContainer.style.gap = '0.5rem';
-    nameContainer.style.minWidth = '150px';
+      // Active indicator
+      const indicator = document.createElement('div');
+      indicator.style.width = '8px';
+      indicator.style.height = '8px';
+      indicator.style.borderRadius = '50%';
+      indicator.style.background =
+        ship.id === gameData.activeShipId ? '#4a9eff' : 'transparent';
+      indicator.style.flexShrink = '0';
+      row.appendChild(indicator);
 
-    const tierBadge = document.createElement('span');
-    const shipClass = getShipClass(ship.classId);
-    tierBadge.textContent = `[${shipClass?.tier ?? '?'}]`;
-    tierBadge.style.fontSize = '0.75rem';
-    tierBadge.style.fontWeight = 'bold';
-    tierBadge.style.color = getTierColor(shipClass?.tier ?? 'I');
-    tierBadge.style.opacity = '0.8';
-    nameContainer.appendChild(tierBadge);
+      // Ship name with tier badge
+      const nameContainer = document.createElement('div');
+      nameContainer.style.display = 'flex';
+      nameContainer.style.alignItems = 'center';
+      nameContainer.style.gap = '0.5rem';
+      nameContainer.style.minWidth = '150px';
 
-    const nameSpan = document.createElement('div');
-    nameSpan.textContent = ship.name;
-    nameSpan.style.fontWeight = 'bold';
-    nameSpan.style.color =
-      ship.id === gameData.activeShipId ? '#4a9eff' : '#fff';
-    nameContainer.appendChild(nameSpan);
+      const tierBadge = document.createElement('span');
+      const shipClass = getShipClass(ship.classId);
+      tierBadge.textContent = `[${shipClass?.tier ?? '?'}]`;
+      tierBadge.style.fontSize = '0.75rem';
+      tierBadge.style.fontWeight = 'bold';
+      tierBadge.style.color = getTierColor(shipClass?.tier ?? 'I');
+      tierBadge.style.opacity = '0.8';
+      nameContainer.appendChild(tierBadge);
 
-    row.appendChild(nameContainer);
+      const nameSpan = document.createElement('div');
+      nameSpan.textContent = ship.name;
+      nameSpan.style.fontWeight = 'bold';
+      nameSpan.style.color =
+        ship.id === gameData.activeShipId ? '#4a9eff' : '#fff';
+      nameContainer.appendChild(nameSpan);
 
-    // Status
-    const statusSpan = document.createElement('div');
-    statusSpan.style.flex = '1';
-    statusSpan.style.minWidth = '200px';
-    statusSpan.style.color = '#aaa';
+      row.appendChild(nameContainer);
 
-    if (ship.location.status === 'docked') {
-      const dockedAt = ship.location.dockedAt;
-      const location = gameData.world.locations.find((l) => l.id === dockedAt);
-      statusSpan.textContent = `Docked at ${location?.name || dockedAt}`;
-    } else if (ship.location.status === 'orbiting') {
-      const orbitingAt = ship.location.orbitingAt;
-      const location = gameData.world.locations.find(
-        (l) => l.id === orbitingAt
-      );
-      statusSpan.textContent = `Orbiting ${location?.name || orbitingAt}`;
-    } else if (ship.activeFlightPlan) {
-      const destId = ship.activeFlightPlan.destination;
-      const destination = gameData.world.locations.find((l) => l.id === destId);
-      const progressPercent =
-        (ship.activeFlightPlan.distanceCovered /
-          ship.activeFlightPlan.totalDistance) *
-        100;
+      // Status
+      const statusSpan = document.createElement('div');
+      statusSpan.style.flex = '1';
+      statusSpan.style.minWidth = '200px';
+      statusSpan.style.color = '#aaa';
 
-      // Calculate remaining time
-      const remainingTime =
-        ship.activeFlightPlan.totalTime - ship.activeFlightPlan.elapsedTime;
-      const timeLabel = formatDualTime(remainingTime);
+      if (ship.location.status === 'docked') {
+        const dockedAt = ship.location.dockedAt;
+        const location = gameData.world.locations.find(
+          (l) => l.id === dockedAt
+        );
+        statusSpan.textContent = `Docked at ${location?.name || dockedAt}`;
+      } else if (ship.location.status === 'orbiting') {
+        const orbitingAt = ship.location.orbitingAt;
+        const location = gameData.world.locations.find(
+          (l) => l.id === orbitingAt
+        );
+        statusSpan.textContent = `Orbiting ${location?.name || orbitingAt}`;
+      } else if (ship.activeFlightPlan) {
+        const destId = ship.activeFlightPlan.destination;
+        const destination = gameData.world.locations.find(
+          (l) => l.id === destId
+        );
+        const progressPercent =
+          (ship.activeFlightPlan.distanceCovered /
+            ship.activeFlightPlan.totalDistance) *
+          100;
 
-      const statusText = document.createElement('span');
-      statusText.textContent = `In Flight to ${destination?.name || destId} `;
-      statusSpan.appendChild(statusText);
+        // Calculate remaining time
+        const remainingTime =
+          ship.activeFlightPlan.totalTime - ship.activeFlightPlan.elapsedTime;
+        const timeLabel = formatDualTime(remainingTime);
 
-      // Mini progress bar
-      const miniBar = document.createElement('span');
-      miniBar.style.display = 'inline-block';
-      miniBar.style.width = '60px';
-      miniBar.style.height = '6px';
-      miniBar.style.background = 'rgba(255, 255, 255, 0.1)';
-      miniBar.style.borderRadius = '3px';
-      miniBar.style.verticalAlign = 'middle';
-      miniBar.style.marginRight = '4px';
-      miniBar.style.overflow = 'hidden';
+        const statusText = document.createElement('span');
+        statusText.textContent = `In Flight to ${destination?.name || destId} `;
+        statusSpan.appendChild(statusText);
 
-      const miniFill = document.createElement('span');
-      miniFill.style.display = 'block';
-      miniFill.style.height = '100%';
-      miniFill.style.width = `${progressPercent}%`;
-      miniFill.style.background = '#4a9eff';
-      miniBar.appendChild(miniFill);
+        // Mini progress bar
+        const miniBar = document.createElement('span');
+        miniBar.style.display = 'inline-block';
+        miniBar.style.width = '60px';
+        miniBar.style.height = '6px';
+        miniBar.style.background = 'rgba(255, 255, 255, 0.1)';
+        miniBar.style.borderRadius = '3px';
+        miniBar.style.verticalAlign = 'middle';
+        miniBar.style.marginRight = '4px';
+        miniBar.style.overflow = 'hidden';
 
-      statusSpan.appendChild(miniBar);
+        const miniFill = document.createElement('span');
+        miniFill.style.display = 'block';
+        miniFill.style.height = '100%';
+        miniFill.style.width = `${progressPercent}%`;
+        miniFill.style.background = '#4a9eff';
+        miniBar.appendChild(miniFill);
 
-      const percentText = document.createElement('span');
-      percentText.textContent = `${progressPercent.toFixed(0)}% - ${timeLabel} remaining`;
-      percentText.style.fontSize = '0.8rem';
-      statusSpan.appendChild(percentText);
+        statusSpan.appendChild(miniBar);
+
+        const percentText = document.createElement('span');
+        percentText.textContent = `${progressPercent.toFixed(0)}% - ${timeLabel} remaining`;
+        percentText.style.fontSize = '0.8rem';
+        statusSpan.appendChild(percentText);
+      }
+      row.appendChild(statusSpan);
+
+      // Fuel
+      const fuelSpan = document.createElement('div');
+      fuelSpan.style.minWidth = '80px';
+      fuelSpan.style.color = ship.fuel < 20 ? '#ff4444' : '#aaa';
+      fuelSpan.textContent = `Fuel: ${Math.round(ship.fuel)}%`;
+      row.appendChild(fuelSpan);
+
+      // Crew
+      const crewSpan = document.createElement('div');
+      crewSpan.style.minWidth = '70px';
+      crewSpan.style.color = '#aaa';
+      crewSpan.textContent = `Crew: ${ship.crew.length}/${shipClass?.maxCrew ?? '?'}`;
+      row.appendChild(crewSpan);
+
+      // Equipment slots
+      const equipSpan = document.createElement('div');
+      equipSpan.style.minWidth = '70px';
+      equipSpan.style.color = '#aaa';
+      const maxSlots = shipClass?.equipmentSlotDefs.length ?? 0;
+      const usedSlots = ship.equipment.length;
+      equipSpan.textContent = `Equip: ${usedSlots}/${maxSlots}`;
+      row.appendChild(equipSpan);
+
+      // Range
+      const rangeSpan = document.createElement('div');
+      rangeSpan.style.minWidth = '90px';
+      rangeSpan.style.color = '#aaa';
+      rangeSpan.style.fontSize = '0.8rem';
+      if (shipClass) {
+        const engineDef = getEngineDefinition(ship.engine.definitionId);
+        const maxRangeKm = computeMaxRange(shipClass, engineDef);
+        const rangeLabel = formatLargeNumber(maxRangeKm);
+        rangeSpan.textContent = `Range: ${rangeLabel}km`;
+        rangeSpan.title = `Max range: ${maxRangeKm.toLocaleString()} km`;
+      }
+      row.appendChild(rangeSpan);
+
+      panel.appendChild(row);
     }
-    row.appendChild(statusSpan);
-
-    // Fuel
-    const fuelSpan = document.createElement('div');
-    fuelSpan.style.minWidth = '80px';
-    fuelSpan.style.color = ship.fuel < 20 ? '#ff4444' : '#aaa';
-    fuelSpan.textContent = `Fuel: ${Math.round(ship.fuel)}%`;
-    row.appendChild(fuelSpan);
-
-    // Crew
-    const crewSpan = document.createElement('div');
-    crewSpan.style.minWidth = '70px';
-    crewSpan.style.color = '#aaa';
-    crewSpan.textContent = `Crew: ${ship.crew.length}/${shipClass?.maxCrew ?? '?'}`;
-    row.appendChild(crewSpan);
-
-    // Equipment slots
-    const equipSpan = document.createElement('div');
-    equipSpan.style.minWidth = '70px';
-    equipSpan.style.color = '#aaa';
-    const maxSlots = shipClass?.equipmentSlotDefs.length ?? 0;
-    const usedSlots = ship.equipment.length;
-    equipSpan.textContent = `Equip: ${usedSlots}/${maxSlots}`;
-    row.appendChild(equipSpan);
-
-    // Range
-    const rangeSpan = document.createElement('div');
-    rangeSpan.style.minWidth = '90px';
-    rangeSpan.style.color = '#aaa';
-    rangeSpan.style.fontSize = '0.8rem';
-    if (shipClass) {
-      const engineDef = getEngineDefinition(ship.engine.definitionId);
-      const maxRangeKm = computeMaxRange(shipClass, engineDef);
-      const rangeLabel = formatLargeNumber(maxRangeKm);
-      rangeSpan.textContent = `Range: ${rangeLabel}km`;
-      rangeSpan.title = `Max range: ${maxRangeKm.toLocaleString()} km`;
-    }
-    row.appendChild(rangeSpan);
-
-    panel.appendChild(row);
   }
 
-  return panel;
+  rebuild(gameData);
+  return { el: panel, update: rebuild };
 }
 
 function getTierColor(tier: ShipClassTier): string {

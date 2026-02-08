@@ -16,6 +16,7 @@ import {
   calculatePositionDanger,
 } from '../encounterSystem';
 import { renderThreatBadge } from './threatBadge';
+import type { Component } from './component';
 
 export interface WorkTabCallbacks {
   onAcceptQuest: (questId: string) => void;
@@ -26,47 +27,46 @@ export interface WorkTabCallbacks {
   onAbandonContract: () => void;
 }
 
-export function renderWorkTab(
+export function createWorkTab(
   gameData: GameData,
   callbacks: WorkTabCallbacks
-): HTMLElement {
-  console.log('=== renderWorkTab called ===');
+): Component {
   const container = document.createElement('div');
   container.className = 'work-tab';
 
-  const ship = getActiveShip(gameData);
-  const activeContract = ship.activeContract;
+  function rebuild(gameData: GameData) {
+    container.replaceChildren();
+    const ship = getActiveShip(gameData);
+    const activeContract = ship.activeContract;
 
-  console.log('renderWorkTab - status:', ship.location.status);
-  console.log('renderWorkTab - activeContract:', activeContract);
+    console.log('renderWorkTab - status:', ship.location.status);
+    console.log('renderWorkTab - activeContract:', activeContract);
 
-  if (
-    (ship.location.status === 'docked' ||
-      ship.location.status === 'orbiting') &&
-    !activeContract
-  ) {
-    console.log('renderWorkTab - Rendering available work');
-    const workContent = renderAvailableWork(gameData, callbacks);
-    console.log(
-      'renderWorkTab - workContent children:',
-      workContent.children.length
-    );
-    container.appendChild(workContent);
-  } else if (activeContract && activeContract.paused) {
-    console.log('renderWorkTab - Rendering paused contract');
-    container.appendChild(renderPausedContract(gameData, callbacks));
-  } else if (activeContract) {
-    console.log('renderWorkTab - Rendering active contract');
-    container.appendChild(renderActiveContract(gameData, callbacks));
-  } else {
-    console.log('renderWorkTab - NO CONDITION MET!');
+    if (
+      (ship.location.status === 'docked' ||
+        ship.location.status === 'orbiting') &&
+      !activeContract
+    ) {
+      console.log('renderWorkTab - Rendering available work');
+      const workContent = renderAvailableWork(gameData, callbacks);
+      console.log(
+        'renderWorkTab - workContent children:',
+        workContent.children.length
+      );
+      container.appendChild(workContent);
+    } else if (activeContract && activeContract.paused) {
+      console.log('renderWorkTab - Rendering paused contract');
+      container.appendChild(renderPausedContract(gameData, callbacks));
+    } else if (activeContract) {
+      console.log('renderWorkTab - Rendering active contract');
+      container.appendChild(renderActiveContract(gameData, callbacks));
+    } else {
+      console.log('renderWorkTab - NO CONDITION MET!');
+    }
   }
 
-  console.log(
-    'renderWorkTab - final container children:',
-    container.children.length
-  );
-  return container;
+  rebuild(gameData);
+  return { el: container, update: rebuild };
 }
 
 function renderAvailableWork(
