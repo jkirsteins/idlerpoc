@@ -352,10 +352,10 @@ export function createNewGame(
     isPaused: false,
     timeSpeed: 1,
     autoPauseSettings: {
-      onArrival: true,
-      onContractComplete: true,
-      onCriticalAlert: true,
-      onLowFuel: true,
+      onArrival: false,
+      onContractComplete: false,
+      onCriticalAlert: false,
+      onLowFuel: false,
     },
   };
 }
