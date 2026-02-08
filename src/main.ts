@@ -68,6 +68,17 @@ let activeCatchUp: ActiveCatchUp | null = null;
 let catchUpBatchScheduled = false;
 
 /**
+ * Snapshot taken when the tab becomes hidden, so the catch-up report
+ * can cover the full absence (including any ticks the browser
+ * processes in the background before throttling kicks in).
+ */
+let hiddenSnapshot: {
+  credits: number;
+  gameTime: number;
+  realTimestamp: number;
+} | null = null;
+
+/**
  * Build a CatchUpReport summarising what happened during an absence.
  * Always returns a report (never null) so the modal is shown for every
  * long absence, even when no encounters occurred.
@@ -1317,6 +1328,26 @@ function processPendingTicks(): void {
   const cappedSeconds = Math.min(elapsedSeconds, MAX_CATCH_UP_SECONDS);
   const totalTicks = cappedSeconds * speed;
 
+  // Use the hidden snapshot for report data if available, so the report
+  // covers the full absence (including ticks the browser processed in
+  // the background before throttling kicked in).
+  const snapshot = hiddenSnapshot;
+  hiddenSnapshot = null;
+
+  // Real elapsed seconds for the report: from when the user left (snapshot)
+  // or from lastTickTimestamp if no snapshot exists.
+  const reportRealSeconds = snapshot
+    ? Math.floor((now - snapshot.realTimestamp) / 1000)
+    : elapsedSeconds;
+
+  // Credits/gameTime snapshot for the report delta calculation
+  const reportPrevCredits = snapshot
+    ? snapshot.credits
+    : state.gameData.credits;
+  const reportPrevGameTime = snapshot
+    ? snapshot.gameTime
+    : state.gameData.gameTime;
+
   if (totalTicks > CATCH_UP_BATCH_SIZE) {
     // Large gap: start batched catch-up
     state.gameData.lastTickTimestamp = now;
@@ -1324,9 +1355,9 @@ function processPendingTicks(): void {
     activeCatchUp = {
       totalTicks,
       ticksProcessed: 0,
-      prevCredits: state.gameData.credits,
-      prevGameTime: state.gameData.gameTime,
-      elapsedRealSeconds: elapsedSeconds,
+      prevCredits: reportPrevCredits,
+      prevGameTime: reportPrevGameTime,
+      elapsedRealSeconds: reportRealSeconds,
     };
     if (state.phase === 'playing') {
       state = {
@@ -1344,8 +1375,8 @@ function processPendingTicks(): void {
 
   // Small gap: process inline
   const isCatchUp = elapsedSeconds >= CATCH_UP_SEVERITY_THRESHOLD_SECONDS;
-  const prevCredits = state.gameData.credits;
-  const prevGameTime = state.gameData.gameTime;
+  const prevCredits = reportPrevCredits;
+  const prevGameTime = reportPrevGameTime;
 
   if (isCatchUp) {
     drainEncounterResults();
@@ -1358,12 +1389,12 @@ function processPendingTicks(): void {
 
   state.gameData.lastTickTimestamp = now;
 
-  const isLongAbsence = elapsedSeconds >= CATCH_UP_REPORT_THRESHOLD_SECONDS;
+  const isLongAbsence = reportRealSeconds >= CATCH_UP_REPORT_THRESHOLD_SECONDS;
   if (isLongAbsence) {
     const encounterResults = drainEncounterResults();
     const report = buildCatchUpReport(
       totalTicks,
-      elapsedSeconds,
+      reportRealSeconds,
       encounterResults,
       state.gameData,
       prevCredits,
@@ -1410,7 +1441,17 @@ function processPendingTicks(): void {
 }
 
 function onVisibilityChange(): void {
-  if (document.visibilityState === 'visible') {
+  if (document.visibilityState === 'hidden') {
+    // Snapshot state when leaving so the catch-up report covers the
+    // full absence, including ticks the browser runs in the background.
+    if (state.phase === 'playing' && !state.gameData.isPaused) {
+      hiddenSnapshot = {
+        credits: state.gameData.credits,
+        gameTime: state.gameData.gameTime,
+        realTimestamp: Date.now(),
+      };
+    }
+  } else if (document.visibilityState === 'visible') {
     processPendingTicks();
   }
 }
