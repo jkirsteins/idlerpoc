@@ -115,630 +115,6 @@ body {
   gap: 20px;
 }
 
-/* ==========================================
-   Mobile Header Bar (hidden on desktop)
-   ========================================== */
-.mobile-header-bar {
-  display: none;
-}
-
-.mobile-drawer-overlay {
-  display: none;
-}
-
-.mobile-drawer {
-  display: none;
-}
-
-/* ==========================================
-   Responsive breakpoints
-   ========================================== */
-
-/* --- Tablet: <= 1200px --- */
-@media (max-width: 1200px) {
-  .game-content-grid {
-    grid-template-columns: 200px 1fr;
-  }
-
-  .right-sidebar {
-    display: none;
-  }
-}
-
-/* --- Small tablet / large phone: <= 900px --- */
-@media (max-width: 900px) {
-  .game-content-grid {
-    grid-template-columns: 1fr;
-  }
-
-  /* Hide sidebars from the grid (drawer provides left sidebar access) */
-  .left-sidebar,
-  .right-sidebar {
-    display: none;
-  }
-
-  /* Show mobile header bar */
-  .mobile-header-bar {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 8px 12px;
-    background: rgba(0, 0, 0, 0.4);
-    border-radius: 6px;
-    margin-bottom: 12px;
-    border: 1px solid #333;
-  }
-
-  .mobile-hamburger {
-    background: transparent;
-    border: 1px solid #555;
-    color: #eee;
-    font-size: 20px;
-    padding: 4px 10px;
-    border-radius: 4px;
-    cursor: pointer;
-    flex-shrink: 0;
-    line-height: 1;
-  }
-
-  .mobile-hamburger:hover {
-    background: rgba(255, 255, 255, 0.1);
-    border-color: #888;
-  }
-
-  .mobile-header-stat {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    font-size: 12px;
-    white-space: nowrap;
-  }
-
-  .mobile-header-label {
-    color: #888;
-    font-size: 10px;
-    font-weight: 600;
-    text-transform: uppercase;
-  }
-
-  .mobile-header-value {
-    color: #4a9eff;
-    font-weight: 700;
-    font-size: 13px;
-  }
-
-  .mobile-header-playpause {
-    background: rgba(74, 158, 255, 0.2);
-    border: 1px solid #4a9eff;
-    color: #4a9eff;
-    font-size: 16px;
-    padding: 4px 12px;
-    border-radius: 4px;
-    cursor: pointer;
-    flex-shrink: 0;
-    line-height: 1;
-  }
-
-  .mobile-header-playpause:hover {
-    background: rgba(74, 158, 255, 0.3);
-  }
-
-  /* Mobile drawer overlay */
-  .mobile-drawer-overlay {
-    display: block;
-    position: fixed;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.6);
-    z-index: 9998;
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 0.3s ease;
-  }
-
-  .mobile-drawer-overlay.open {
-    opacity: 1;
-    pointer-events: auto;
-  }
-
-  /* Mobile drawer */
-  .mobile-drawer {
-    display: block;
-    position: fixed;
-    top: 0;
-    left: 0;
-    bottom: 0;
-    width: 280px;
-    max-width: 85vw;
-    background: #16213e;
-    z-index: 9999;
-    transform: translateX(-100%);
-    transition: transform 0.3s ease;
-    overflow-y: auto;
-    padding: 16px;
-    box-shadow: 4px 0 20px rgba(0, 0, 0, 0.5);
-  }
-
-  .mobile-drawer.open {
-    transform: translateX(0);
-  }
-
-  .mobile-drawer-close {
-    position: absolute;
-    top: 12px;
-    right: 12px;
-    background: transparent;
-    border: 1px solid #555;
-    color: #aaa;
-    font-size: 18px;
-    padding: 2px 8px;
-    border-radius: 4px;
-    cursor: pointer;
-    line-height: 1;
-    z-index: 1;
-  }
-
-  .mobile-drawer-close:hover {
-    background: rgba(255, 255, 255, 0.1);
-    color: #eee;
-  }
-
-  .mobile-drawer .left-sidebar {
-    display: block;
-    max-height: none;
-    background: transparent;
-    padding: 0;
-    margin-top: 36px;
-  }
-
-  /* Tab bar: horizontal scroll */
-  .tab-bar {
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
-    flex-wrap: nowrap;
-    gap: 4px;
-  }
-
-  .tab-bar::-webkit-scrollbar {
-    display: none;
-  }
-
-  .tab-button {
-    padding: 8px 14px;
-    font-size: 13px;
-    flex-shrink: 0;
-    white-space: nowrap;
-  }
-
-  /* Crew tab: stack list/detail vertically */
-  .crew-list-detail {
-    flex-direction: column;
-    min-height: auto;
-  }
-
-  .crew-list-panel {
-    width: 100%;
-    flex-shrink: initial;
-  }
-
-  .crew-list {
-    flex-direction: row;
-    flex-wrap: wrap;
-    gap: 6px;
-  }
-
-  .crew-list-item {
-    flex: 1 1 auto;
-    min-width: 120px;
-  }
-
-  /* Room grid: 2 columns */
-  .room-grid {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 8px;
-  }
-
-  /* Persistent info bar: allow wrapping */
-  .persistent-info {
-    flex-wrap: wrap;
-    gap: 8px;
-  }
-
-  .persistent-info-left {
-    gap: 1rem;
-  }
-
-  /* Ship name smaller */
-  .ship-name {
-    font-size: 22px;
-  }
-
-  /* Ship status banner: stack on narrow */
-  .ship-status-banner {
-    flex-direction: column;
-    gap: 8px;
-    text-align: center;
-  }
-
-  /* Quest card compact */
-  .quest-title {
-    font-size: 16px;
-  }
-
-  /* Nav map: shorter */
-  .nav-map {
-    height: 300px;
-  }
-
-  /* Game header: smaller title */
-  .game-header h1 {
-    font-size: 22px;
-    margin-bottom: 12px;
-  }
-
-  /* Staging crew: stack assign dropdown */
-  .staging-crew-row {
-    flex-direction: column;
-    gap: 8px;
-    align-items: stretch;
-  }
-
-  .staging-crew-assign {
-    min-width: auto;
-    width: 100%;
-  }
-
-  /* Toast: adjust position */
-  .toast-container {
-    right: 1rem;
-    bottom: 1rem;
-    max-width: calc(100vw - 2rem);
-  }
-
-  .toast {
-    min-width: 250px;
-  }
-
-  /* Log entries: stack timestamp */
-  .log-entry {
-    flex-direction: column;
-    gap: 4px;
-  }
-
-  .log-timestamp {
-    min-width: auto;
-    font-size: 11px;
-  }
-
-  /* Contract actions: stack buttons */
-  .contract-actions {
-    flex-direction: column;
-  }
-
-  /* Global status bar: stack vertically */
-  .global-status-bar {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 0.75rem;
-  }
-
-  .global-status-stats {
-    gap: 1rem;
-    font-size: 13px;
-  }
-
-  .global-status-actions {
-    flex-wrap: wrap;
-    gap: 0.5rem;
-  }
-
-  .global-status-text {
-    width: 100%;
-    margin-right: 0;
-    margin-bottom: 0.25rem;
-  }
-
-  .global-status-btn {
-    flex: 1;
-    min-width: 0;
-    text-align: center;
-  }
-
-  /* Prevent horizontal overflow on game container */
-  .game-container {
-    overflow-x: hidden;
-  }
-
-  /* Title: prevent overflow */
-  .game-header h1 {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  /* Ship header text: prevent overflow */
-  .ship-name,
-  .ship-class-label,
-  .captain-label,
-  .date-header-global {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    max-width: 100%;
-  }
-
-  /* Ship capabilities: single column on mobile */
-  .ship-capabilities-grid {
-    grid-template-columns: 1fr;
-  }
-
-  /* Prevent any child from exceeding viewport */
-  .main-content {
-    min-width: 0;
-    overflow-x: hidden;
-  }
-}
-
-/* --- Phone: <= 600px --- */
-@media (max-width: 600px) {
-  /* Reduce body and container padding */
-  body {
-    padding: 8px;
-  }
-
-  .game-container {
-    padding: 12px;
-    border-radius: 4px;
-  }
-
-  /* Game header even smaller */
-  .game-header h1 {
-    font-size: 18px;
-    margin-bottom: 8px;
-  }
-
-  /* Mobile header bar: tighter */
-  .mobile-header-bar {
-    gap: 8px;
-    padding: 6px 8px;
-  }
-
-  .mobile-header-stat {
-    font-size: 11px;
-  }
-
-  .mobile-header-value {
-    font-size: 12px;
-  }
-
-  /* Tab bar: even more compact */
-  .tab-button {
-    padding: 6px 10px;
-    font-size: 12px;
-  }
-
-  .tab-bar {
-    margin-bottom: 12px;
-  }
-
-  /* Room grid: single column */
-  .room-grid {
-    grid-template-columns: 1fr;
-    gap: 8px;
-  }
-
-  /* Equipment slots: single column */
-  .equipment-slots {
-    grid-template-columns: 1fr;
-  }
-
-  /* Ship specs: single column */
-  .ship-specs {
-    grid-template-columns: 1fr;
-  }
-
-  /* Ship name */
-  .ship-name {
-    font-size: 18px;
-  }
-
-  /* Nav map: even shorter */
-  .nav-map {
-    height: 250px;
-  }
-
-  .nav-marker-dot {
-    width: 26px;
-    height: 26px;
-    font-size: 16px;
-  }
-
-  .nav-marker-label {
-    font-size: 9px;
-  }
-
-  /* Quest cards: tighter */
-  .quest-card {
-    padding: 12px;
-  }
-
-  .quest-title {
-    font-size: 14px;
-  }
-
-  .quest-payment {
-    font-size: 14px;
-  }
-
-  /* Status bar: wrap */
-  .status-bar {
-    flex-wrap: wrap;
-    gap: 8px;
-    padding: 12px;
-  }
-
-  .status-value {
-    font-size: 16px;
-  }
-
-  /* Persistent info: vertical */
-  .persistent-info {
-    flex-direction: column;
-    gap: 6px;
-    padding: 8px 12px;
-  }
-
-  .persistent-info-left {
-    flex-wrap: wrap;
-    gap: 0.5rem;
-  }
-
-  /* Tabbed view tighter */
-  .tabbed-view {
-    padding: 4px 0;
-  }
-
-  /* Ship tab tighter */
-  .ship-tab {
-    padding: 4px 0;
-  }
-
-  /* Engine specs: wrap nicely */
-  .engine-specs {
-    gap: 6px;
-    font-size: 11px;
-  }
-
-  /* Ship class stats in wizard */
-  .ship-class-stats {
-    flex-wrap: wrap;
-    gap: 8px;
-  }
-
-  .ship-class-option {
-    padding: 12px;
-  }
-
-  /* Button row in wizard */
-  .button-row {
-    flex-direction: column;
-    gap: 8px;
-  }
-
-  /* Catch-up report tighter */
-  .catchup-report {
-    padding: 16px;
-  }
-
-  .catchup-header h3 {
-    font-size: 16px;
-  }
-
-  /* Toast: minimal width */
-  .toast {
-    min-width: auto;
-    padding: 0.75rem 1rem;
-  }
-
-  .toast-container {
-    right: 0.5rem;
-    bottom: 0.5rem;
-    max-width: calc(100vw - 1rem);
-  }
-
-  /* Log list: shorter max height */
-  .log-list {
-    max-height: 400px;
-  }
-
-  /* Fleet rows: tighter */
-  .fleet-row {
-    gap: 0.5rem;
-    padding: 0.4rem;
-    font-size: 0.8rem;
-  }
-
-  /* Version badge: smaller */
-  .version-badge {
-    font-size: 8px;
-    padding: 2px 6px;
-  }
-
-  /* Crew detail header */
-  .crew-detail-header h2 {
-    font-size: 18px;
-  }
-
-  /* Filter buttons: wrap */
-  .log-filter-bar {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 4px;
-  }
-
-  .filter-btn {
-    padding: 0.3rem 0.6rem;
-    font-size: 0.75rem;
-  }
-
-  /* Ship header */
-  .ship-header {
-    margin-bottom: 16px;
-    padding-bottom: 12px;
-  }
-
-  /* Data table: tighter */
-  .data-table th,
-  .data-table td {
-    padding: 8px;
-    font-size: 13px;
-  }
-
-  /* Navigation view: tighter */
-  .navigation-view {
-    padding: 12px;
-  }
-
-  .nav-header {
-    margin-bottom: 12px;
-    padding-bottom: 8px;
-  }
-
-  /* Equipment items: stack */
-  .equipment-item {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 8px;
-  }
-
-  /* Cargo items: wrap */
-  .cargo-item {
-    flex-wrap: wrap;
-    gap: 8px;
-  }
-
-  /* Global status bar: even more compact */
-  .global-status-stats {
-    gap: 0.75rem;
-    font-size: 12px;
-  }
-
-  .global-status-btn {
-    padding: 0.4rem 0.75rem;
-    font-size: 12px;
-  }
-
-  /* Ensure no horizontal scroll */
-  html,
-  body {
-    overflow-x: hidden;
-  }
-
-  #app {
-    overflow-x: hidden;
-  }
-}
-
 /* Sidebar styling */
 .left-sidebar,
 .right-sidebar {
@@ -3248,4 +2624,629 @@ button:disabled:hover {
   background: #4a9eff;
   color: white;
   border-color: #4a9eff;
+}
+
+/* ==========================================
+   Mobile Header Bar (hidden on desktop)
+   ========================================== */
+.mobile-header-bar {
+  display: none;
+}
+
+.mobile-drawer-overlay {
+  display: none;
+}
+
+.mobile-drawer {
+  display: none;
+}
+
+/* ==========================================
+   Responsive breakpoints
+   (MUST be at end of file to override base styles)
+   ========================================== */
+
+/* --- Tablet: <= 1200px --- */
+@media (max-width: 1200px) {
+  .game-content-grid {
+    grid-template-columns: 200px 1fr;
+  }
+
+  .right-sidebar {
+    display: none;
+  }
+}
+
+/* --- Small tablet / large phone: <= 900px --- */
+@media (max-width: 900px) {
+  .game-content-grid {
+    grid-template-columns: 1fr;
+  }
+
+  /* Hide sidebars from the grid (drawer provides left sidebar access) */
+  .left-sidebar,
+  .right-sidebar {
+    display: none;
+  }
+
+  /* Show mobile header bar */
+  .mobile-header-bar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 12px;
+    background: rgba(0, 0, 0, 0.4);
+    border-radius: 6px;
+    margin-bottom: 12px;
+    border: 1px solid #333;
+  }
+
+  .mobile-hamburger {
+    background: transparent;
+    border: 1px solid #555;
+    color: #eee;
+    font-size: 20px;
+    padding: 4px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    flex-shrink: 0;
+    line-height: 1;
+  }
+
+  .mobile-hamburger:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: #888;
+  }
+
+  .mobile-header-stat {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
+    white-space: nowrap;
+  }
+
+  .mobile-header-label {
+    color: #888;
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+  }
+
+  .mobile-header-value {
+    color: #4a9eff;
+    font-weight: 700;
+    font-size: 13px;
+  }
+
+  .mobile-header-playpause {
+    background: rgba(74, 158, 255, 0.2);
+    border: 1px solid #4a9eff;
+    color: #4a9eff;
+    font-size: 16px;
+    padding: 4px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    flex-shrink: 0;
+    line-height: 1;
+  }
+
+  .mobile-header-playpause:hover {
+    background: rgba(74, 158, 255, 0.3);
+  }
+
+  /* Mobile drawer overlay */
+  .mobile-drawer-overlay {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    z-index: 9998;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+  }
+
+  .mobile-drawer-overlay.open {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  /* Mobile drawer */
+  .mobile-drawer {
+    display: block;
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 280px;
+    max-width: 85vw;
+    background: #16213e;
+    z-index: 9999;
+    transform: translateX(-100%);
+    transition: transform 0.3s ease;
+    overflow-y: auto;
+    padding: 16px;
+    box-shadow: 4px 0 20px rgba(0, 0, 0, 0.5);
+  }
+
+  .mobile-drawer.open {
+    transform: translateX(0);
+  }
+
+  .mobile-drawer-close {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    background: transparent;
+    border: 1px solid #555;
+    color: #aaa;
+    font-size: 18px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    line-height: 1;
+    z-index: 1;
+  }
+
+  .mobile-drawer-close:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: #eee;
+  }
+
+  .mobile-drawer .left-sidebar {
+    display: block;
+    max-height: none;
+    background: transparent;
+    padding: 0;
+    margin-top: 36px;
+  }
+
+  /* Tab bar: horizontal scroll */
+  .tab-bar {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    flex-wrap: nowrap;
+    gap: 4px;
+  }
+
+  .tab-bar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .tab-button {
+    padding: 8px 14px;
+    font-size: 13px;
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
+
+  /* Crew tab: stack list/detail vertically */
+  .crew-list-detail {
+    flex-direction: column;
+    min-height: auto;
+  }
+
+  .crew-list-panel {
+    width: 100%;
+    flex-shrink: initial;
+  }
+
+  .crew-list {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .crew-list-item {
+    flex: 1 1 auto;
+    min-width: 120px;
+  }
+
+  /* Room grid: 2 columns */
+  .room-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+
+  /* Persistent info bar: allow wrapping */
+  .persistent-info {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .persistent-info-left {
+    gap: 1rem;
+  }
+
+  /* Ship name smaller */
+  .ship-name {
+    font-size: 22px;
+  }
+
+  /* Ship status banner: stack on narrow */
+  .ship-status-banner {
+    flex-direction: column;
+    gap: 8px;
+    text-align: center;
+  }
+
+  /* Quest card compact */
+  .quest-title {
+    font-size: 16px;
+  }
+
+  /* Nav map: shorter */
+  .nav-map {
+    height: 300px;
+  }
+
+  /* Game header: smaller title */
+  .game-header h1 {
+    font-size: 22px;
+    margin-bottom: 12px;
+  }
+
+  /* Staging crew: stack assign dropdown */
+  .staging-crew-row {
+    flex-direction: column;
+    gap: 8px;
+    align-items: stretch;
+  }
+
+  .staging-crew-assign {
+    min-width: auto;
+    width: 100%;
+  }
+
+  /* Toast: adjust position */
+  .toast-container {
+    right: 1rem;
+    bottom: 1rem;
+    max-width: calc(100vw - 2rem);
+  }
+
+  .toast {
+    min-width: 250px;
+  }
+
+  /* Log entries: stack timestamp */
+  .log-entry {
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .log-timestamp {
+    min-width: auto;
+    font-size: 11px;
+  }
+
+  /* Contract actions: stack buttons */
+  .contract-actions {
+    flex-direction: column;
+  }
+
+  /* Global status bar: stack vertically */
+  .global-status-bar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.75rem;
+  }
+
+  .global-status-stats {
+    gap: 1rem;
+    font-size: 13px;
+  }
+
+  .global-status-actions {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .global-status-text {
+    width: 100%;
+    margin-right: 0;
+    margin-bottom: 0.25rem;
+  }
+
+  .global-status-btn {
+    flex: 1;
+    min-width: 0;
+    text-align: center;
+  }
+
+  /* Prevent horizontal overflow */
+  .game-container {
+    overflow-x: hidden;
+  }
+
+  /* Title: prevent overflow */
+  .game-header h1 {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* Ship header text: prevent overflow */
+  .ship-name,
+  .ship-class-label,
+  .captain-label,
+  .date-header-global {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 100%;
+  }
+
+  /* Ship capabilities: single column on mobile */
+  .ship-capabilities-grid {
+    grid-template-columns: 1fr;
+  }
+
+  /* Prevent any child from exceeding viewport */
+  .main-content {
+    min-width: 0;
+    overflow-x: hidden;
+  }
+}
+
+/* --- Phone: <= 600px --- */
+@media (max-width: 600px) {
+  /* Reduce body and container padding */
+  body {
+    padding: 8px;
+  }
+
+  .game-container {
+    padding: 12px;
+    border-radius: 4px;
+  }
+
+  /* Game header even smaller */
+  .game-header h1 {
+    font-size: 18px;
+    margin-bottom: 8px;
+  }
+
+  /* Mobile header bar: tighter */
+  .mobile-header-bar {
+    gap: 8px;
+    padding: 6px 8px;
+  }
+
+  .mobile-header-stat {
+    font-size: 11px;
+  }
+
+  .mobile-header-value {
+    font-size: 12px;
+  }
+
+  /* Tab bar: even more compact */
+  .tab-button {
+    padding: 6px 10px;
+    font-size: 12px;
+  }
+
+  .tab-bar {
+    margin-bottom: 12px;
+  }
+
+  /* Room grid: single column */
+  .room-grid {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  /* Equipment slots: single column */
+  .equipment-slots {
+    grid-template-columns: 1fr;
+  }
+
+  /* Ship specs: single column */
+  .ship-specs {
+    grid-template-columns: 1fr;
+  }
+
+  /* Ship name */
+  .ship-name {
+    font-size: 18px;
+  }
+
+  /* Nav map: even shorter */
+  .nav-map {
+    height: 250px;
+  }
+
+  .nav-marker-dot {
+    width: 26px;
+    height: 26px;
+    font-size: 16px;
+  }
+
+  .nav-marker-label {
+    font-size: 9px;
+  }
+
+  /* Quest cards: tighter */
+  .quest-card {
+    padding: 12px;
+  }
+
+  .quest-title {
+    font-size: 14px;
+  }
+
+  .quest-payment {
+    font-size: 14px;
+  }
+
+  /* Status bar: wrap */
+  .status-bar {
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 12px;
+  }
+
+  .status-value {
+    font-size: 16px;
+  }
+
+  /* Persistent info: vertical */
+  .persistent-info {
+    flex-direction: column;
+    gap: 6px;
+    padding: 8px 12px;
+  }
+
+  .persistent-info-left {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  /* Tabbed view tighter */
+  .tabbed-view {
+    padding: 4px 0;
+  }
+
+  /* Ship tab tighter */
+  .ship-tab {
+    padding: 4px 0;
+  }
+
+  /* Engine specs: wrap nicely */
+  .engine-specs {
+    gap: 6px;
+    font-size: 11px;
+  }
+
+  /* Ship class stats in wizard */
+  .ship-class-stats {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .ship-class-option {
+    padding: 12px;
+  }
+
+  /* Button row in wizard */
+  .button-row {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  /* Catch-up report tighter */
+  .catchup-report {
+    padding: 16px;
+  }
+
+  .catchup-header h3 {
+    font-size: 16px;
+  }
+
+  /* Toast: minimal width */
+  .toast {
+    min-width: auto;
+    padding: 0.75rem 1rem;
+  }
+
+  .toast-container {
+    right: 0.5rem;
+    bottom: 0.5rem;
+    max-width: calc(100vw - 1rem);
+  }
+
+  /* Log list: shorter max height */
+  .log-list {
+    max-height: 400px;
+  }
+
+  /* Fleet rows: tighter */
+  .fleet-row {
+    gap: 0.5rem;
+    padding: 0.4rem;
+    font-size: 0.8rem;
+  }
+
+  /* Version badge: smaller */
+  .version-badge {
+    font-size: 8px;
+    padding: 2px 6px;
+  }
+
+  /* Crew detail header */
+  .crew-detail-header h2 {
+    font-size: 18px;
+  }
+
+  /* Filter buttons: wrap */
+  .log-filter-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+
+  .filter-btn {
+    padding: 0.3rem 0.6rem;
+    font-size: 0.75rem;
+  }
+
+  /* Ship header */
+  .ship-header {
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+  }
+
+  /* Data table: tighter */
+  .data-table th,
+  .data-table td {
+    padding: 8px;
+    font-size: 13px;
+  }
+
+  /* Navigation view: tighter */
+  .navigation-view {
+    padding: 12px;
+  }
+
+  .nav-header {
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+  }
+
+  /* Equipment items: stack */
+  .equipment-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  /* Cargo items: wrap */
+  .cargo-item {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  /* Global status bar: even more compact */
+  .global-status-stats {
+    gap: 0.75rem;
+    font-size: 12px;
+  }
+
+  .global-status-btn {
+    padding: 0.4rem 0.75rem;
+    font-size: 12px;
+  }
+
+  /* Ensure no horizontal scroll */
+  html,
+  body {
+    overflow-x: hidden;
+  }
+
+  #app {
+    overflow-x: hidden;
+  }
 }
