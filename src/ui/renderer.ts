@@ -14,6 +14,7 @@ import {
 import { renderTabbedView } from './tabbedView';
 import { renderCatchUpReport } from './catchUpReport';
 import { renderToasts } from './toastSystem';
+import { renderLeftSidebar, renderRightSidebar } from './sidebars';
 
 export type PlayingTab =
   | 'ship'
@@ -88,19 +89,36 @@ export function render(
   const wrapper = document.createElement('div');
   wrapper.className = 'game-container';
 
-  const header = document.createElement('h1');
-  header.textContent = 'Starship Commander';
-  wrapper.appendChild(header);
+  // Main title header
+  const titleHeader = document.createElement('div');
+  titleHeader.className = 'game-header';
+  const title = document.createElement('h1');
+  title.textContent = 'Starship Commander';
+  titleHeader.appendChild(title);
+  wrapper.appendChild(titleHeader);
 
   switch (state.phase) {
-    case 'no_game':
-      wrapper.appendChild(renderNoGame(callbacks));
+    case 'no_game': {
+      // For non-playing states, add content to main-content area
+      const noGameContent = document.createElement('div');
+      noGameContent.className = 'main-content';
+      noGameContent.style.gridColumn = '1 / -1'; // Span all columns
+      noGameContent.appendChild(renderNoGame(callbacks));
+      wrapper.appendChild(noGameContent);
       break;
-    case 'creating':
-      wrapper.appendChild(renderCreating(state.step, state.draft, callbacks));
+    }
+    case 'creating': {
+      const creatingContent = document.createElement('div');
+      creatingContent.className = 'main-content';
+      creatingContent.style.gridColumn = '1 / -1'; // Span all columns
+      creatingContent.appendChild(
+        renderCreating(state.step, state.draft, callbacks)
+      );
+      wrapper.appendChild(creatingContent);
       break;
+    }
     case 'playing':
-      wrapper.appendChild(renderPlaying(state, callbacks));
+      renderPlayingLayout(wrapper, state, callbacks);
       break;
   }
 
@@ -142,20 +160,42 @@ function renderCreating(
   return renderWizard(step, draft, wizardCallbacks);
 }
 
-function renderPlaying(
+function renderPlayingLayout(
+  wrapper: HTMLElement,
   state: GameState & { phase: 'playing' },
   callbacks: RendererCallbacks
-): HTMLElement {
+): void {
   // Show catch-up report modal if encounters happened during fast-forward
   if (state.catchUpReport) {
-    return renderCatchUpReport(state.catchUpReport, callbacks.onDismissCatchUp);
+    const modalContent = document.createElement('div');
+    modalContent.appendChild(
+      renderCatchUpReport(state.catchUpReport, callbacks.onDismissCatchUp)
+    );
+    wrapper.appendChild(modalContent);
+    return;
   }
 
-  const container = document.createElement('div');
-  container.style.position = 'relative';
+  // Create the 3-column grid container
+  const contentGrid = document.createElement('div');
+  contentGrid.className = 'game-content-grid';
 
-  // Main game view
-  container.appendChild(
+  // Left sidebar
+  contentGrid.appendChild(
+    renderLeftSidebar(state.gameData, {
+      onBuyFuel: callbacks.onBuyFuel,
+      onToggleNavigation: callbacks.onToggleNavigation,
+      onUndock: callbacks.onUndock,
+      onDock: callbacks.onDockAtNearestPort,
+      onAdvanceDay: callbacks.onAdvanceDay,
+    })
+  );
+
+  // Main content (tabbed view)
+  const mainContent = document.createElement('div');
+  mainContent.className = 'main-content';
+  mainContent.style.position = 'relative';
+
+  mainContent.appendChild(
     renderTabbedView(
       state.gameData,
       state.activeTab,
@@ -193,10 +233,16 @@ function renderPlaying(
     )
   );
 
-  // Toast notifications overlay
+  // Toast notifications overlay (if any)
   if (state.toasts && state.toasts.length > 0) {
-    container.appendChild(renderToasts(state.toasts));
+    mainContent.appendChild(renderToasts(state.toasts));
   }
 
-  return container;
+  contentGrid.appendChild(mainContent);
+
+  // Right sidebar
+  contentGrid.appendChild(renderRightSidebar(state.gameData));
+
+  // Add the grid to the wrapper
+  wrapper.appendChild(contentGrid);
 }
