@@ -372,7 +372,11 @@ export interface CatchUpShipReport {
 
 export interface CatchUpReport {
   totalTicks: number;
-  shipReports: CatchUpShipReport[];
+  creditsDelta: number; // net credits change during catch-up
+  tripsCompleted: number; // total trip completions across fleet
+  contractsCompleted: number; // total contract completions across fleet
+  arrivals: { shipName: string; location: string }[]; // ships that arrived
+  shipReports: CatchUpShipReport[]; // encounter details (may be empty)
 }
 
 export interface GameData {

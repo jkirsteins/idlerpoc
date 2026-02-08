@@ -57,16 +57,18 @@ let state: GameState = initializeState();
 let tickInterval: number | null = null;
 
 /**
- * Build a CatchUpReport from accumulated encounter results.
- * Shared by both initial fast-forward and mid-session catch-up.
+ * Build a CatchUpReport summarising what happened during an absence.
+ * Always returns a report (never null) so the modal is shown for every
+ * long absence, even when no encounters occurred.
  */
-function buildCatchUpReportFromResults(
+function buildCatchUpReport(
   totalTicks: number,
   encounterResults: EncounterResult[],
-  gameData: GameData
-): CatchUpReport | null {
-  if (encounterResults.length === 0) return null;
-
+  gameData: GameData,
+  prevCredits: number,
+  prevGameTime: number
+): CatchUpReport {
+  // --- Encounter ship reports ---
   const shipReportMap = new Map<string, CatchUpShipReport>();
 
   for (const result of encounterResults) {
@@ -114,8 +116,34 @@ function buildCatchUpReportFromResults(
     }
   }
 
+  // --- General progress from log entries added during catch-up ---
+  const newLogs = gameData.log.filter((e) => e.gameTime > prevGameTime);
+
+  const tripsCompleted = newLogs.filter(
+    (e) => e.type === 'trip_complete'
+  ).length;
+  const contractsCompleted = newLogs.filter(
+    (e) => e.type === 'contract_complete'
+  ).length;
+
+  // Collect arrival events with ship + location
+  const arrivals: { shipName: string; location: string }[] = [];
+  for (const entry of newLogs) {
+    if (entry.type === 'arrival' && entry.shipName) {
+      // Parse location from log message (format: "Arrived at <location>")
+      const match = entry.message.match(/Arrived at (.+)/);
+      if (match) {
+        arrivals.push({ shipName: entry.shipName, location: match[1] });
+      }
+    }
+  }
+
   return {
     totalTicks,
+    creditsDelta: Math.round(gameData.credits - prevCredits),
+    tripsCompleted,
+    contractsCompleted,
+    arrivals,
     shipReports: Array.from(shipReportMap.values()),
   };
 }
@@ -137,7 +165,7 @@ const CATCH_UP_SEVERITY_THRESHOLD_SECONDS = 5;
 
 /**
  * Fast-forward game state based on elapsed real-world time (initial load).
- * Returns a CatchUpReport if encounters occurred, null otherwise.
+ * Returns a CatchUpReport for significant absences, null otherwise.
  */
 function fastForwardTicks(gameData: GameData): CatchUpReport | null {
   // Don't catch up if the game was paused when saved
@@ -158,6 +186,10 @@ function fastForwardTicks(gameData: GameData): CatchUpReport | null {
       `Fast-forwarding ${totalTicks} ticks (${elapsedSeconds}s × ${speed}x)...`
     );
 
+    // Snapshot state before catch-up
+    const prevCredits = gameData.credits;
+    const prevGameTime = gameData.gameTime;
+
     // Clear any stale encounter results before fast-forward
     drainEncounterResults();
 
@@ -173,11 +205,16 @@ function fastForwardTicks(gameData: GameData): CatchUpReport | null {
 
     console.log(`Fast-forward complete. Game time: ${gameData.gameTime}s`);
 
-    return buildCatchUpReportFromResults(
-      totalTicks,
-      encounterResults,
-      gameData
-    );
+    // Show report for any significant absence
+    if (elapsedSeconds >= CATCH_UP_REPORT_THRESHOLD_SECONDS) {
+      return buildCatchUpReport(
+        totalTicks,
+        encounterResults,
+        gameData,
+        prevCredits,
+        prevGameTime
+      );
+    }
   }
 
   return null;
@@ -1164,6 +1201,8 @@ function processPendingTicks(): void {
   const isLongAbsence = elapsedSeconds >= CATCH_UP_REPORT_THRESHOLD_SECONDS;
   const isCatchUp = elapsedSeconds >= CATCH_UP_SEVERITY_THRESHOLD_SECONDS;
 
+  // Snapshot state before catch-up
+  const prevCredits = state.gameData.credits;
   const prevGameTime = state.gameData.gameTime;
 
   if (isCatchUp) {
@@ -1179,14 +1218,16 @@ function processPendingTicks(): void {
   state.gameData.lastTickTimestamp = now;
 
   if (isLongAbsence) {
-    // Long absence: build catch-up report modal (like initial fast-forward)
+    // Long absence: always show catch-up report modal
     const encounterResults = drainEncounterResults();
-    const report = buildCatchUpReportFromResults(
+    const report = buildCatchUpReport(
       totalTicks,
       encounterResults,
-      state.gameData
+      state.gameData,
+      prevCredits,
+      prevGameTime
     );
-    if (report && state.phase === 'playing') {
+    if (state.phase === 'playing') {
       state = { ...state, catchUpReport: report };
     }
     saveGame(state.gameData);
