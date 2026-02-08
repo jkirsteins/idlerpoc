@@ -62,6 +62,42 @@ body {
   margin-bottom: 20px;
 }
 
+/* Global Status Bar (ship header) */
+.global-status-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 1rem;
+  padding: 0.75rem;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 4px;
+  border: 1px solid #444;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.global-status-stats {
+  display: flex;
+  gap: 2rem;
+  flex-wrap: wrap;
+}
+
+.global-status-actions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.global-status-text {
+  margin-right: 0.5rem;
+  color: #aaa;
+}
+
+.global-status-btn {
+  padding: 0.5rem 1rem;
+}
+
 .game-content-grid {
   display: grid;
   grid-template-columns: 240px 1fr 240px;
@@ -367,6 +403,47 @@ body {
   .contract-actions {
     flex-direction: column;
   }
+
+  /* Global status bar: stack vertically */
+  .global-status-bar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.75rem;
+  }
+
+  .global-status-stats {
+    gap: 1rem;
+    font-size: 13px;
+  }
+
+  .global-status-actions {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .global-status-text {
+    width: 100%;
+    margin-right: 0;
+    margin-bottom: 0.25rem;
+  }
+
+  .global-status-btn {
+    flex: 1;
+    min-width: 0;
+    text-align: center;
+  }
+
+  /* Prevent horizontal overflow on game container */
+  .game-container {
+    overflow-x: hidden;
+  }
+
+  /* Title: prevent overflow */
+  .game-header h1 {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
 }
 
 /* --- Phone: <= 600px --- */
@@ -605,6 +682,27 @@ body {
   .cargo-item {
     flex-wrap: wrap;
     gap: 8px;
+  }
+
+  /* Global status bar: even more compact */
+  .global-status-stats {
+    gap: 0.75rem;
+    font-size: 12px;
+  }
+
+  .global-status-btn {
+    padding: 0.4rem 0.75rem;
+    font-size: 12px;
+  }
+
+  /* Ensure no horizontal scroll */
+  html,
+  body {
+    overflow-x: hidden;
+  }
+
+  #app {
+    overflow-x: hidden;
   }
 }
 

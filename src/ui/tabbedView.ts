@@ -223,21 +223,12 @@ function renderGlobalStatusBar(
 ): HTMLElement {
   const statusBar = document.createElement('div');
   statusBar.className = 'global-status-bar';
-  statusBar.style.display = 'flex';
-  statusBar.style.justifyContent = 'space-between';
-  statusBar.style.alignItems = 'center';
-  statusBar.style.marginTop = '1rem';
-  statusBar.style.padding = '0.75rem';
-  statusBar.style.background = 'rgba(0, 0, 0, 0.3)';
-  statusBar.style.borderRadius = '4px';
-  statusBar.style.border = '1px solid #444';
 
   const ship = getActiveShip(gameData);
 
   // Left side: Stats
   const statsDiv = document.createElement('div');
-  statsDiv.style.display = 'flex';
-  statsDiv.style.gap = '2rem';
+  statsDiv.className = 'global-status-stats';
 
   // Credits with delta display
   const creditsContainer = document.createElement('div');
@@ -313,14 +304,11 @@ function renderGlobalStatusBar(
 
   // Right side: Action buttons
   const actionsDiv = document.createElement('div');
-  actionsDiv.style.display = 'flex';
-  actionsDiv.style.gap = '0.5rem';
-  actionsDiv.style.alignItems = 'center';
+  actionsDiv.className = 'global-status-actions';
 
   // Status text
   const statusText = document.createElement('span');
-  statusText.style.marginRight = '0.5rem';
-  statusText.style.color = '#aaa';
+  statusText.className = 'global-status-text';
   if (ship.location.status === 'docked') {
     const dockedAt = ship.location.dockedAt;
     const location = gameData.world.locations.find((l) => l.id === dockedAt);
@@ -420,7 +408,7 @@ function renderGlobalStatusBar(
   // Undock button (only show when docked)
   if (ship.location.status === 'docked') {
     const undockBtn = document.createElement('button');
-    undockBtn.style.padding = '0.5rem 1rem';
+    undockBtn.className = 'global-status-btn';
     undockBtn.textContent = 'Undock';
     undockBtn.addEventListener('click', () => callbacks.onUndock());
     actionsDiv.appendChild(undockBtn);
@@ -436,7 +424,7 @@ function renderGlobalStatusBar(
       const cost = Math.round(fuelNeeded * 5);
       const refuelBtn = document.createElement('button');
       refuelBtn.textContent = `Buy Fuel (${Math.round(fuelNeeded)}% → ${cost} cr)`;
-      refuelBtn.style.padding = '0.5rem 1rem';
+      refuelBtn.className = 'global-status-btn';
       refuelBtn.disabled = gameData.credits < cost;
       refuelBtn.addEventListener('click', () => callbacks.onBuyFuel());
       actionsDiv.appendChild(refuelBtn);
@@ -452,7 +440,7 @@ function renderGlobalStatusBar(
   if (canAdvanceDay) {
     const advanceDayBtn = document.createElement('button');
     advanceDayBtn.textContent = '⏭ Advance Day';
-    advanceDayBtn.style.padding = '0.5rem 1rem';
+    advanceDayBtn.className = 'global-status-btn';
     advanceDayBtn.addEventListener('click', () => callbacks.onAdvanceDay());
     actionsDiv.appendChild(advanceDayBtn);
   }
