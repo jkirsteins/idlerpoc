@@ -51,7 +51,7 @@ npm run dev
 - **Time System**:
   - 1 tick = 1 real second = 30 game minutes
   - Real-time based: game computes elapsed time since last update and processes all pending ticks
-  - Idle-friendly: closing the browser or backgrounding the tab catches up on return (capped at 1000 ticks)
+  - Idle-friendly: closing the browser or backgrounding the tab catches up on return (up to 1 day, batched to keep UI responsive)
   - `visibilitychange` listener triggers immediate catch-up when tab regains focus
   - Time advances during flight, frozen when docked
   - Manual day advancement when docked

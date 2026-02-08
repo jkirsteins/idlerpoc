@@ -40,6 +40,7 @@ export type GameState =
       showNavigation?: boolean;
       selectedCrewId?: string;
       catchUpReport?: CatchUpReport;
+      catchUpProgress?: { processed: number; total: number };
       toasts?: Toast[];
     };
 
@@ -126,6 +127,7 @@ export function render(
   const canUpdate =
     state.phase === 'playing' &&
     !state.catchUpReport &&
+    !state.catchUpProgress &&
     mounted !== null &&
     mounted.container === container &&
     !mounted.hasCatchUpReport &&
@@ -178,6 +180,13 @@ export function render(
         );
         wrapper.appendChild(modalContent);
         // Track so next render after dismiss does a full rebuild
+        mounted = makePlaceholderMounted(container, wrapper);
+      } else if (state.catchUpProgress) {
+        const progressContent = document.createElement('div');
+        progressContent.appendChild(
+          renderCatchUpProgressModal(state.catchUpProgress)
+        );
+        wrapper.appendChild(progressContent);
         mounted = makePlaceholderMounted(container, wrapper);
       } else {
         mounted = mountPlayingLayout(container, wrapper, state, callbacks);
@@ -485,6 +494,40 @@ function renderNoGame(callbacks: RendererCallbacks): HTMLElement {
   div.appendChild(btn);
 
   return div;
+}
+
+function renderCatchUpProgressModal(progress: {
+  processed: number;
+  total: number;
+}): HTMLElement {
+  const container = document.createElement('div');
+  container.className = 'catchup-report';
+
+  const header = document.createElement('div');
+  header.className = 'catchup-header';
+
+  const title = document.createElement('h3');
+  title.textContent = 'Catching up...';
+  header.appendChild(title);
+
+  const pct = Math.round((progress.processed / progress.total) * 100);
+  const subtitle = document.createElement('div');
+  subtitle.className = 'catchup-duration';
+  subtitle.textContent = `Processing ${progress.processed.toLocaleString()} / ${progress.total.toLocaleString()} updates (${pct}%)`;
+  header.appendChild(subtitle);
+
+  container.appendChild(header);
+
+  // Progress bar
+  const barContainer = document.createElement('div');
+  barContainer.className = 'catchup-progress-bar';
+  const barFill = document.createElement('div');
+  barFill.className = 'catchup-progress-bar-fill';
+  barFill.style.width = `${pct}%`;
+  barContainer.appendChild(barFill);
+  container.appendChild(barContainer);
+
+  return container;
 }
 
 function renderCreating(

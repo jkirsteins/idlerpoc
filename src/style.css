@@ -2345,6 +2345,21 @@ button:disabled:hover {
   background: #3db3aa;
 }
 
+.catchup-progress-bar {
+  height: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  overflow: hidden;
+  margin-top: 12px;
+}
+
+.catchup-progress-bar-fill {
+  height: 100%;
+  background: #4ecdc4;
+  border-radius: 4px;
+  transition: width 0.15s ease;
+}
+
 /* Version Badge */
 .version-badge {
   position: fixed;
