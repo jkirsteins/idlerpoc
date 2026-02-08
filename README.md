@@ -50,6 +50,9 @@ npm run dev
   - Crew salary costs displayed on quest cards
 - **Time System**:
   - 1 tick = 1 real second = 30 game minutes
+  - Real-time based: game computes elapsed time since last update and processes all pending ticks
+  - Idle-friendly: closing the browser or backgrounding the tab catches up on return (capped at 1000 ticks)
+  - `visibilitychange` listener triggers immediate catch-up when tab regains focus
   - Time advances during flight, frozen when docked
   - Manual day advancement when docked
   - Quests regenerate daily
@@ -89,7 +92,7 @@ npm run dev
 - **Resource Tracking**: Monitor credits, fuel, crew count, crew costs per tick, and power consumption
 - **Equipment Trading**: Buy and sell crew equipment at stations with trade services (50% sell value)
 - **Responsive Design**: Mobile-friendly layout with collapsible sidebar drawer, compact status bar, scrollable tabs, and adaptive grids for phone/tablet screens
-- **Real-time Simulation**: 1-second tick system for fuel consumption, engine warmup, flight physics, and equipment degradation
+- **Real-time Simulation**: Elapsed-time tick system that catches up based on real time passed — works across browser throttling, background tabs, and phone sleep. Catch-up report modal shown for long absences
 - **Game Data Catalogs**:
   - 9 engine types (chemical, nuclear fission, fusion, advanced fusion) with thrust and delta-v specifications
   - 16 ship equipment types (life support, shielding, thermal, defense, navigation, structural, gravity systems)

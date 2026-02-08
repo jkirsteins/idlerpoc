@@ -57,23 +57,111 @@ let state: GameState = initializeState();
 let tickInterval: number | null = null;
 
 /**
- * Fast-forward game state based on elapsed real-world time.
+ * Build a CatchUpReport from accumulated encounter results.
+ * Shared by both initial fast-forward and mid-session catch-up.
+ */
+function buildCatchUpReportFromResults(
+  totalTicks: number,
+  encounterResults: EncounterResult[],
+  gameData: GameData
+): CatchUpReport | null {
+  if (encounterResults.length === 0) return null;
+
+  const shipReportMap = new Map<string, CatchUpShipReport>();
+
+  for (const result of encounterResults) {
+    const ship = gameData.ships.find((s) => s.id === result.shipId);
+    if (!ship) continue;
+
+    let report = shipReportMap.get(result.shipId);
+    if (!report) {
+      report = {
+        shipId: result.shipId,
+        shipName: ship.name,
+        evaded: 0,
+        negotiated: 0,
+        victories: 0,
+        harassments: 0,
+        creditsDelta: 0,
+        avgHealthLost: 0,
+      };
+      shipReportMap.set(result.shipId, report);
+    }
+
+    switch (result.type) {
+      case 'evaded':
+        report.evaded++;
+        break;
+      case 'negotiated':
+        report.negotiated++;
+        report.creditsDelta -= result.creditsLost || 0;
+        break;
+      case 'victory':
+        report.victories++;
+        report.creditsDelta += result.creditsGained || 0;
+        break;
+      case 'harassment':
+        report.harassments++;
+        if (result.healthLost) {
+          const losses = Object.values(result.healthLost);
+          const avgLoss =
+            losses.length > 0
+              ? losses.reduce((a, b) => a + b, 0) / losses.length
+              : 0;
+          report.avgHealthLost += avgLoss;
+        }
+        break;
+    }
+  }
+
+  return {
+    totalTicks,
+    shipReports: Array.from(shipReportMap.values()),
+  };
+}
+
+/** Maximum ticks to process during any single catch-up */
+const MAX_CATCH_UP_TICKS = 1000;
+
+/**
+ * Real-time threshold (seconds) beyond which we treat the gap as a
+ * significant absence and show the catch-up report modal.
+ */
+const CATCH_UP_REPORT_THRESHOLD_SECONDS = 30;
+
+/**
+ * Real-time threshold (seconds) beyond which encounter severity is
+ * capped (isCatchUp=true) to prevent unfair boarding events.
+ */
+const CATCH_UP_SEVERITY_THRESHOLD_SECONDS = 5;
+
+/**
+ * Fast-forward game state based on elapsed real-world time (initial load).
  * Returns a CatchUpReport if encounters occurred, null otherwise.
  */
 function fastForwardTicks(gameData: GameData): CatchUpReport | null {
+  // Don't catch up if the game was paused when saved
+  if (gameData.isPaused) {
+    gameData.lastTickTimestamp = Date.now();
+    return null;
+  }
+
   const now = Date.now();
   const elapsedMs = now - gameData.lastTickTimestamp;
-  const elapsedTicks = Math.floor(elapsedMs / 1000);
+  const elapsedSeconds = Math.floor(elapsedMs / 1000);
 
-  if (elapsedTicks > 0) {
-    console.log(`Fast-forwarding ${elapsedTicks} ticks...`);
+  if (elapsedSeconds > 0) {
+    const speed = gameData.timeSpeed;
+    const totalTicks = Math.min(elapsedSeconds * speed, MAX_CATCH_UP_TICKS);
 
-    const ticksToApply = Math.min(elapsedTicks, 1000);
+    console.log(
+      `Fast-forwarding ${totalTicks} ticks (${elapsedSeconds}s × ${speed}x)...`
+    );
 
     // Clear any stale encounter results before fast-forward
     drainEncounterResults();
 
-    for (let i = 0; i < ticksToApply; i++) {
+    for (let i = 0; i < totalTicks; i++) {
       applyTick(gameData, true);
     }
 
@@ -85,60 +173,11 @@ function fastForwardTicks(gameData: GameData): CatchUpReport | null {
 
     console.log(`Fast-forward complete. Game time: ${gameData.gameTime}s`);
 
-    // Build catch-up report if encounters occurred
-    if (encounterResults.length > 0) {
-      const shipReportMap = new Map<string, CatchUpShipReport>();
-
-      for (const result of encounterResults) {
-        const ship = gameData.ships.find((s) => s.id === result.shipId);
-        if (!ship) continue;
-
-        let report = shipReportMap.get(result.shipId);
-        if (!report) {
-          report = {
-            shipId: result.shipId,
-            shipName: ship.name,
-            evaded: 0,
-            negotiated: 0,
-            victories: 0,
-            harassments: 0,
-            creditsDelta: 0,
-            avgHealthLost: 0,
-          };
-          shipReportMap.set(result.shipId, report);
-        }
-
-        switch (result.type) {
-          case 'evaded':
-            report.evaded++;
-            break;
-          case 'negotiated':
-            report.negotiated++;
-            report.creditsDelta -= result.creditsLost || 0;
-            break;
-          case 'victory':
-            report.victories++;
-            report.creditsDelta += result.creditsGained || 0;
-            break;
-          case 'harassment':
-            report.harassments++;
-            if (result.healthLost) {
-              const losses = Object.values(result.healthLost);
-              const avgLoss =
-                losses.length > 0
-                  ? losses.reduce((a, b) => a + b, 0) / losses.length
-                  : 0;
-              report.avgHealthLost += avgLoss;
-            }
-            break;
-        }
-      }
-
-      return {
-        totalTicks: ticksToApply,
-        shipReports: Array.from(shipReportMap.values()),
-      };
-    }
+    return buildCatchUpReportFromResults(
+      totalTicks,
+      encounterResults,
+      gameData
+    );
   }
 
   return null;
@@ -934,6 +973,8 @@ const callbacks: RendererCallbacks = {
   onTogglePause: () => {
     if (state.phase !== 'playing') return;
     state.gameData.isPaused = !state.gameData.isPaused;
+    // Reset timestamp so we don't catch up for time spent paused
+    state.gameData.lastTickTimestamp = Date.now();
     saveGame(state.gameData);
     renderApp();
   },
@@ -942,6 +983,8 @@ const callbacks: RendererCallbacks = {
     if (state.phase !== 'playing') return;
     state.gameData.timeSpeed = speed;
     state.gameData.isPaused = false; // Auto-unpause when setting speed
+    // Reset timestamp so speed change takes effect from now
+    state.gameData.lastTickTimestamp = Date.now();
     saveGame(state.gameData);
     renderApp();
   },
@@ -1095,55 +1138,107 @@ function checkAutoPause(gameData: GameData, prevGameTime: number): boolean {
   return false;
 }
 
-function startTickSystem(): void {
-  if (tickInterval !== null) return;
+/**
+ * Process all pending ticks based on real elapsed time.
+ * Called by the interval timer and by the visibilitychange handler.
+ *
+ * Instead of assuming each interval = 1 real second, we compute the
+ * actual elapsed time since the last processed tick and apply the
+ * correct number of ticks (elapsed seconds × speed multiplier).
+ * This ensures idle gameplay works even when the browser throttles
+ * background tabs or the user closes the phone and returns later.
+ */
+function processPendingTicks(): void {
+  if (state.phase !== 'playing' || state.gameData.isPaused) return;
 
-  tickInterval = window.setInterval(() => {
-    if (state.phase === 'playing' && !state.gameData.isPaused) {
-      // Apply ticks based on speed multiplier
-      const speed = state.gameData.timeSpeed;
-      let changed = false;
-      const prevGameTime = state.gameData.gameTime;
+  const now = Date.now();
+  const elapsedMs = now - state.gameData.lastTickTimestamp;
+  const elapsedSeconds = Math.floor(elapsedMs / 1000);
 
-      for (let i = 0; i < speed; i++) {
-        changed = applyTick(state.gameData) || changed;
-      }
+  if (elapsedSeconds <= 0) return;
 
-      state.gameData.lastTickTimestamp = Date.now();
+  const speed = state.gameData.timeSpeed;
+  const totalTicks = Math.min(elapsedSeconds * speed, MAX_CATCH_UP_TICKS);
 
-      // Check for auto-pause triggers
-      const autoPaused = checkAutoPause(state.gameData, prevGameTime);
+  // Determine if this is a significant absence
+  const isLongAbsence = elapsedSeconds >= CATCH_UP_REPORT_THRESHOLD_SECONDS;
+  const isCatchUp = elapsedSeconds >= CATCH_UP_SEVERITY_THRESHOLD_SECONDS;
 
-      // Check for encounter results during normal play
-      const encounterResults = drainEncounterResults();
-      if (encounterResults.length > 0) {
-        const newToasts = createEncounterToasts(encounterResults);
-        const existingToasts = state.toasts || [];
-        const now = Date.now();
+  const prevGameTime = state.gameData.gameTime;
 
-        // Remove expired toasts and add new ones
+  if (isCatchUp) {
+    // Clear stale encounter results before batch processing
+    drainEncounterResults();
+  }
+
+  let changed = false;
+  for (let i = 0; i < totalTicks; i++) {
+    changed = applyTick(state.gameData, isCatchUp) || changed;
+  }
+
+  state.gameData.lastTickTimestamp = now;
+
+  if (isLongAbsence) {
+    // Long absence: build catch-up report modal (like initial fast-forward)
+    const encounterResults = drainEncounterResults();
+    const report = buildCatchUpReportFromResults(
+      totalTicks,
+      encounterResults,
+      state.gameData
+    );
+    if (report && state.phase === 'playing') {
+      state = { ...state, catchUpReport: report };
+    }
+    saveGame(state.gameData);
+    renderApp();
+  } else {
+    // Normal play or short gap: handle auto-pause, encounter toasts, etc.
+    const autoPaused = checkAutoPause(state.gameData, prevGameTime);
+
+    const encounterResults = drainEncounterResults();
+    if (encounterResults.length > 0) {
+      const newToasts = createEncounterToasts(encounterResults);
+      const existingToasts =
+        state.phase === 'playing' ? state.toasts || [] : [];
+
+      // Remove expired toasts and add new ones
+      if (state.phase === 'playing') {
         state.toasts = [
           ...existingToasts.filter((t) => t.expiresAt > now),
           ...newToasts,
         ];
+      }
 
-        saveGame(state.gameData);
-        renderApp();
-      } else if (changed || autoPaused) {
-        // Clean up expired toasts on regular renders
-        const now = Date.now();
+      saveGame(state.gameData);
+      renderApp();
+    } else if (changed || autoPaused) {
+      // Clean up expired toasts on regular renders
+      if (state.phase === 'playing') {
         const activeToasts = (state.toasts || []).filter(
           (t) => t.expiresAt > now
         );
         if (activeToasts.length !== (state.toasts || []).length) {
           state.toasts = activeToasts;
         }
-
-        saveGame(state.gameData);
-        renderApp();
       }
+
+      saveGame(state.gameData);
+      renderApp();
     }
-  }, 1000);
+  }
+}
+
+function onVisibilityChange(): void {
+  if (document.visibilityState === 'visible') {
+    processPendingTicks();
+  }
+}
+
+function startTickSystem(): void {
+  if (tickInterval !== null) return;
+
+  document.addEventListener('visibilitychange', onVisibilityChange);
+  tickInterval = window.setInterval(processPendingTicks, 1000);
 }
 
 function stopTickSystem(): void {
@@ -1151,6 +1246,7 @@ function stopTickSystem(): void {
     clearInterval(tickInterval);
     tickInterval = null;
   }
+  document.removeEventListener('visibilitychange', onVisibilityChange);
 }
 
 function renderApp(): void {
