@@ -100,15 +100,14 @@ export function initializeFlight(
   const distanceMeters = distanceKm * 1000;
 
   // Get ship parameters
-  const maxRangeKm = computeMaxRange(shipClass, engineDef);
   const mass = shipClass.mass;
   const thrust = engineDef.thrust;
   const maxDeltaV = engineDef.maxDeltaV;
   const acceleration = thrust / mass;
 
-  // Calculate fuel allocation for this trip
-  const fuelCostPercent = calculateFuelCost(distanceKm, maxRangeKm);
-  const allocatedDeltaV = (fuelCostPercent / 100) * maxDeltaV;
+  // Use fixed cruise velocity (same as computeMaxRange)
+  // 50% fuel budget for one-way trip
+  const allocatedDeltaV = 0.5 * maxDeltaV;
 
   // Calculate cruise velocity (half delta-v for accel, half for decel)
   const v_cruise = allocatedDeltaV / 2;

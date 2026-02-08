@@ -138,10 +138,9 @@ function estimateTripTime(ship: Ship, distanceKm: number): number {
   const thrust = engineDef.thrust;
   const acceleration = thrust / mass;
 
-  // Get max range and calculate fuel allocation
-  const maxRangeKm = computeMaxRange(shipClass, engineDef);
-  const fuelCostPercent = calculateFuelCost(distanceKm, maxRangeKm);
-  const allocatedDeltaV = (fuelCostPercent / 100) * engineDef.maxDeltaV;
+  // Use fixed cruise velocity (same as computeMaxRange and initializeFlight)
+  // 50% fuel budget for one-way trip
+  const allocatedDeltaV = 0.5 * engineDef.maxDeltaV;
 
   // Check if mini-brachistochrone (short trip)
   const dv_brachistochrone = 2 * Math.sqrt(distanceMeters * acceleration);
