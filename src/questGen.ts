@@ -2,7 +2,9 @@ import type { Quest, Ship, WorldLocation, World } from './models';
 import { getShipClass } from './shipClasses';
 import { getDistanceBetween } from './worldGen';
 import {
+  calculateDeltaV,
   calculateFuelMassRequired,
+  calculateFuelTankCapacity,
   getCurrentShipMass,
   getSpecificImpulse,
 } from './flightPhysics';
@@ -15,21 +17,56 @@ import { calculatePositionDanger } from './encounterSystem';
 const FUEL_PRICE_PER_KG = 0.5; // Will be configurable per station in future
 
 /**
- * Helper: Calculate fuel mass required for a trip in kg
+ * Helper: Calculate fuel mass required for a one-way trip in kg
+ *
+ * Uses the same flight profile logic as initializeFlight():
+ * - If the ship has enough delta-v for brachistochrone (flip-and-burn), use that
+ * - Otherwise use burn-coast-burn with the ship's allocated delta-v budget
+ *
+ * This prevents overestimating fuel for low-thrust ships that would coast
+ * rather than burn continuously.
  */
 function calculateTripFuelKg(ship: Ship, distanceKm: number): number {
   const shipClass = getShipClass(ship.classId);
   const engineDef = getEngineDefinition(ship.engine.definitionId);
 
   const distanceMeters = distanceKm * 1000;
-  const currentMass = getCurrentShipMass(ship);
   const thrust = engineDef.thrust;
-  const acceleration = thrust / currentMass;
-  const requiredDeltaV = 2 * Math.sqrt(distanceMeters * acceleration);
-  const dryMass = shipClass ? shipClass.mass + ship.crew.length * 80 : 200000;
   const specificImpulse = getSpecificImpulse(engineDef);
 
-  return calculateFuelMassRequired(dryMass, requiredDeltaV, specificImpulse);
+  // Dry mass = everything except fuel (hull + crew + cargo)
+  // Cargo stays on the ship, so it's part of dry mass for Tsiolkovsky
+  const dryMass = shipClass
+    ? shipClass.mass +
+      ship.crew.length * 80 +
+      ship.cargo.reduce((sum, _item) => sum + 10, 0)
+    : 200000;
+
+  // Wet mass at full fuel tank
+  const maxFuelKg = shipClass
+    ? calculateFuelTankCapacity(shipClass.cargoCapacity, engineDef)
+    : 0;
+  const fullMass = dryMass + maxFuelKg;
+
+  // Acceleration at full fuel (worst case, heaviest)
+  const acceleration = thrust / fullMass;
+
+  // Brachistochrone delta-v: minimum-time trajectory (accel to midpoint, decel to destination)
+  const brachistochroneDeltaV = 2 * Math.sqrt(distanceMeters * acceleration);
+
+  // Available delta-v with full tank (matching initializeFlight logic)
+  const availableDeltaV = calculateDeltaV(fullMass, dryMass, specificImpulse);
+
+  // Allocate 50% for one leg (reserve 50% for return trip)
+  const allocatedDeltaV = Math.min(
+    availableDeltaV * 0.5,
+    0.5 * engineDef.maxDeltaV
+  );
+
+  // Use brachistochrone if we have budget, otherwise burn-coast-burn
+  const legDeltaV = Math.min(brachistochroneDeltaV, allocatedDeltaV);
+
+  return calculateFuelMassRequired(dryMass, legDeltaV, specificImpulse);
 }
 
 /**
