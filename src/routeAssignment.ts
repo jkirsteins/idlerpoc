@@ -40,11 +40,11 @@ export function assignShipToRoute(
     return { success: false, error: 'Quest not found at this location' };
   }
 
-  // Validation: Must be standing freight
-  if (quest.type !== 'standing_freight') {
+  // Validation: Must be standing freight or trade route
+  if (quest.type !== 'standing_freight' && quest.type !== 'trade_route') {
     return {
       success: false,
-      error: 'Only standing freight quests can be automated',
+      error: 'Only standing freight and trade route quests can be automated',
     };
   }
 
@@ -224,9 +224,14 @@ export function autoRestartRouteTrip(
 
   // Create a new quest instance for the next trip
   // Use the same structure but generate new ID for tracking
+  // Preserve original quest type (trade_route or standing_freight)
+  const questType =
+    ship.activeContract?.quest.type === 'trade_route'
+      ? 'trade_route'
+      : 'standing_freight';
   const nextQuest: Quest = {
     id: generateId(),
-    type: 'standing_freight',
+    type: questType,
     title: `Freight: ${originLoc.name} → ${destLoc.name}`,
     description: `Automated freight route`,
     origin: assignment.originId,

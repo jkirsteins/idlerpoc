@@ -5,6 +5,7 @@ import { calculateFuelCost, computeMaxRange } from './flightPhysics';
 import { gameSecondsToTicks, GAME_SECONDS_PER_TICK } from './timeSystem';
 import { getEngineDefinition } from './engines';
 import { getCrewRoleDefinition } from './crewRoles';
+import { calculatePositionDanger } from './encounterSystem';
 
 /**
  * Quest Generation
@@ -385,6 +386,209 @@ function generateStandingFreightQuest(
 }
 
 /**
+ * Trade goods exported by each location type.
+ * Derived from location type — what each type naturally produces/exports.
+ */
+const LOCATION_TRADE_GOODS: Record<string, string[]> = {
+  planet: [
+    'manufactured goods',
+    'food rations',
+    'consumer goods',
+    'electronics',
+  ],
+  space_station: [
+    'processed materials',
+    'technical components',
+    'medical supplies',
+    'fuel cells',
+  ],
+  asteroid_belt: ['raw ore', 'rare metals', 'unrefined minerals'],
+  planetoid: ['ice', 'water', 'raw materials'],
+  moon: ['refined minerals', 'helium-3', 'regolith compounds'],
+  orbital: ['salvage', 'repair parts', 'recycled materials'],
+};
+
+/**
+ * Pick a deterministic trade good based on origin type and destination ID.
+ * The good exported depends on what the origin produces and a stable hash of the pair.
+ */
+function getTradeGood(
+  origin: WorldLocation,
+  destination: WorldLocation
+): string {
+  const goods = LOCATION_TRADE_GOODS[origin.type] || ['general cargo'];
+  const hash = destination.id
+    .split('')
+    .reduce((acc, c) => acc + c.charCodeAt(0), 0);
+  return goods[hash % goods.length];
+}
+
+/**
+ * Calculate average route danger between two locations.
+ * Samples position danger along the route.
+ * Returns a value typically between 0.1 (safe) and 5.0+ (very dangerous).
+ */
+function calculateRouteDanger(
+  origin: WorldLocation,
+  destination: WorldLocation,
+  world: World
+): number {
+  const SAMPLES = 10;
+  let totalDanger = 0;
+
+  for (let i = 0; i < SAMPLES; i++) {
+    const progress = (i + 0.5) / SAMPLES;
+    const sampleKm =
+      origin.distanceFromEarth +
+      (destination.distanceFromEarth - origin.distanceFromEarth) * progress;
+    totalDanger += calculatePositionDanger(sampleKm, world);
+  }
+
+  return totalDanger / SAMPLES;
+}
+
+/**
+ * Calculate payment for a persistent trade route.
+ *
+ * Unlike random quests, trade route payment is deterministic (no randomness).
+ * Payment emerges from operating costs and scales with:
+ * - Distance (longer routes pay more via distance bonus)
+ * - Route danger (riskier routes pay a premium)
+ * - Location economic power (bigger hubs offer better rates via size)
+ * - Crew skill bonuses (same as regular quests)
+ */
+function calculateTradeRoutePayment(
+  ship: Ship,
+  origin: WorldLocation,
+  destination: WorldLocation,
+  world: World,
+  cargoKg: number
+): number {
+  const distanceKm = getDistanceBetween(origin, destination);
+
+  // 1. Operating cost floor (deterministic — fixed at 150% of costs)
+  const tripTimeSecs = estimateTripTime(ship, distanceKm);
+  const roundTripTicks = (tripTimeSecs * 2) / GAME_SECONDS_PER_TICK;
+
+  const crewSalaryPerTick = ship.crew.reduce((sum, c) => {
+    const roleDef = getCrewRoleDefinition(c.role);
+    return sum + (roleDef?.salary ?? 0);
+  }, 0);
+
+  const shipClass = getShipClass(ship.classId);
+  const engineDef = getEngineDefinition(ship.engine.definitionId);
+  const maxRangeKm = shipClass ? computeMaxRange(shipClass, engineDef) : 1;
+  const fuelCostPercent = calculateFuelCost(distanceKm, maxRangeKm);
+
+  const crewCost = crewSalaryPerTick * roundTripTicks;
+  const fuelCost = fuelCostPercent * 2 * 5; // round trip, 5 cr per fuel %
+  const totalCost = crewCost + fuelCost;
+
+  // Fixed at 150% of operating costs (no randomness unlike regular quests)
+  const costFloor = totalCost * 1.5;
+
+  // 2. Distance bonus for long hauls
+  let distanceBonus = 0;
+  if (distanceKm > 500000) {
+    distanceBonus = totalCost * (distanceKm / 1000000) * 0.5;
+  }
+
+  // 3. Cargo premium
+  let cargoPremium = 1;
+  if (cargoKg > 0) {
+    cargoPremium = 1 + (cargoKg / 10000) * 0.5;
+  }
+
+  // 4. Danger premium — riskier routes pay more to compensate
+  const avgDanger = calculateRouteDanger(origin, destination, world);
+  const dangerPremium = 1 + (Math.min(avgDanger, 3) / 3) * 0.5; // 1.0x safe → 1.5x critical
+
+  // 5. Location economic power (hub size → better rates)
+  const locationFactor = 0.9 + origin.size / 10; // 0.9x (size 0) → 1.4x (size 5)
+
+  // 6. Crew skill bonus (same system as regular quests)
+  const crewBonus = calculateCrewSkillBonus(ship);
+
+  const payment =
+    (costFloor + distanceBonus) *
+    cargoPremium *
+    dangerPremium *
+    locationFactor *
+    (1 + crewBonus);
+
+  return Math.round(payment);
+}
+
+/**
+ * Generate persistent trade route quests for a location.
+ *
+ * Creates one standing trade route to each valid trading partner.
+ * These are always available and represent the location's permanent
+ * economic activity and trade connections.
+ *
+ * Trade routes only exist between locations with 'trade' service.
+ * Cargo amount scales with origin location's economic power (size).
+ */
+export function generatePersistentTradeRoutes(
+  ship: Ship,
+  location: WorldLocation,
+  world: World
+): Quest[] {
+  // Only locations with trade service offer trade routes
+  if (!location.services.includes('trade')) {
+    return [];
+  }
+
+  const routes: Quest[] = [];
+
+  // Trade route to every other location with trade service
+  const tradePartners = world.locations.filter(
+    (l) => l.id !== location.id && l.services.includes('trade')
+  );
+
+  for (const partner of tradePartners) {
+    const distanceKm = getDistanceBetween(location, partner);
+    const tradeGood = getTradeGood(location, partner);
+
+    // Cargo scales with origin's economic power
+    const cargoKg = 1000 + location.size * 500;
+
+    const paymentPerTrip = calculateTradeRoutePayment(
+      ship,
+      location,
+      partner,
+      world,
+      cargoKg
+    );
+
+    const estimatedTime = estimateTripTime(ship, distanceKm);
+    const shipClass = getShipClass(ship.classId);
+    const engineDef = getEngineDefinition(ship.engine.definitionId);
+    const maxRangeKm = shipClass ? computeMaxRange(shipClass, engineDef) : 0;
+    const fuelCost = calculateFuelCost(distanceKm, maxRangeKm);
+
+    routes.push({
+      id: `trade_${location.id}_${partner.id}`,
+      type: 'trade_route',
+      title: `Trade: ${location.name} → ${partner.name}`,
+      description: `Haul ${cargoKg.toLocaleString()} kg of ${tradeGood} to ${partner.name}. Permanent trade route.`,
+      origin: location.id,
+      destination: partner.id,
+      cargoRequired: cargoKg,
+      totalCargoRequired: 0,
+      tripsRequired: -1, // Unlimited
+      paymentPerTrip,
+      paymentOnCompletion: 0,
+      expiresAfterDays: 0, // Never expires
+      estimatedFuelPerTrip: fuelCost * 2, // Round trip
+      estimatedTripTicks: gameSecondsToTicks(estimatedTime * 2),
+    });
+  }
+
+  return routes;
+}
+
+/**
  * Generate quests for all locations in the world
  */
 export function generateAllLocationQuests(
@@ -393,7 +597,9 @@ export function generateAllLocationQuests(
 ): Record<string, Quest[]> {
   const allQuests: Record<string, Quest[]> = {};
   for (const location of world.locations) {
-    allQuests[location.id] = generateQuestsForLocation(ship, location, world);
+    const tradeRoutes = generatePersistentTradeRoutes(ship, location, world);
+    const randomQuests = generateQuestsForLocation(ship, location, world);
+    allQuests[location.id] = [...tradeRoutes, ...randomQuests];
   }
   return allQuests;
 }

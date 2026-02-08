@@ -40,6 +40,9 @@ npm run dev
   - Dynamic reachability based on ship range and fuel
 - **Quest & Contract System**:
   - Accept delivery, passenger, freight, supply, and standing freight contracts
+  - **Persistent trade routes** at every location with trade service — permanent work lines to all trading partners
+  - Trade route pay scales with distance, route danger, and location economic power
+  - Trade goods derived from location type (planets export manufactured goods, stations export tech components, etc.)
   - Quest generation based on location size and ship capabilities
   - Automatic flight execution with multi-leg trips
   - Payment per trip or on completion (rebalanced based on trip duration)

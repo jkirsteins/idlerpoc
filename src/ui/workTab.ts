@@ -106,6 +106,10 @@ function renderAvailableWork(
   const availableQuests = gameData.availableQuests[location] || [];
   console.log('Work tab - availableQuests for location:', availableQuests);
 
+  // Split into trade routes and regular contracts
+  const tradeRoutes = availableQuests.filter((q) => q.type === 'trade_route');
+  const regularQuests = availableQuests.filter((q) => q.type !== 'trade_route');
+
   // Header
   const heading = document.createElement('h3');
   heading.textContent = `Available Work at ${locationData.name}`;
@@ -123,18 +127,61 @@ function renderAvailableWork(
   shipContext.innerHTML = `<span style="color: #aaa;">Assigning to:</span> <span style="color: #4a9eff; font-weight: bold;">${ship.name}</span>`;
   container.appendChild(shipContext);
 
-  // Quest list
-  const questList = document.createElement('div');
-  questList.className = 'quest-list';
+  // Trade Routes section (permanent work)
+  if (tradeRoutes.length > 0) {
+    const tradeSection = document.createElement('div');
+    tradeSection.className = 'trade-routes-section';
 
-  if (availableQuests.length === 0) {
+    const tradeHeading = document.createElement('h4');
+    tradeHeading.textContent = 'Trade Routes';
+    tradeHeading.style.color = '#4a9eff';
+    tradeHeading.style.marginBottom = '0.25rem';
+    tradeSection.appendChild(tradeHeading);
+
+    const tradeDesc = document.createElement('p');
+    tradeDesc.style.color = '#888';
+    tradeDesc.style.fontSize = '0.85rem';
+    tradeDesc.style.marginTop = '0';
+    tradeDesc.style.marginBottom = '0.75rem';
+    tradeDesc.textContent =
+      "Permanent trade routes representing this location's economic activity. Pay scales with distance and route danger.";
+    tradeSection.appendChild(tradeDesc);
+
+    // Sort: acceptable first
+    const sortedTrade = [...tradeRoutes].sort((a, b) => {
+      const aOk = canAcceptQuest(ship, a).canAccept;
+      const bOk = canAcceptQuest(ship, b).canAccept;
+      if (aOk && !bOk) return -1;
+      if (!aOk && bOk) return 1;
+      return 0;
+    });
+
+    for (const quest of sortedTrade) {
+      tradeSection.appendChild(renderQuestCard(gameData, quest, callbacks));
+    }
+
+    container.appendChild(tradeSection);
+  }
+
+  // Regular contracts section
+  const contractSection = document.createElement('div');
+  contractSection.className = 'contracts-section';
+
+  if (tradeRoutes.length > 0 && regularQuests.length > 0) {
+    const contractHeading = document.createElement('h4');
+    contractHeading.textContent = 'Available Contracts';
+    contractHeading.style.marginBottom = '0.5rem';
+    contractSection.appendChild(contractHeading);
+  }
+
+  if (regularQuests.length === 0 && tradeRoutes.length === 0) {
     const noQuests = document.createElement('p');
     noQuests.className = 'no-quests';
     noQuests.textContent = 'No work available. Try advancing the day.';
-    questList.appendChild(noQuests);
-  } else {
+    contractSection.appendChild(noQuests);
+  } else if (regularQuests.length > 0) {
     // Sort quests: acceptable ones first, then unacceptable ones
-    const sortedQuests = [...availableQuests].sort((a, b) => {
+    const sortedQuests = [...regularQuests].sort((a, b) => {
       const aAcceptable = canAcceptQuest(ship, a).canAccept;
       const bAcceptable = canAcceptQuest(ship, b).canAccept;
 
@@ -145,11 +192,11 @@ function renderAvailableWork(
     });
 
     for (const quest of sortedQuests) {
-      questList.appendChild(renderQuestCard(gameData, quest, callbacks));
+      contractSection.appendChild(renderQuestCard(gameData, quest, callbacks));
     }
   }
 
-  container.appendChild(questList);
+  container.appendChild(contractSection);
 
   return container;
 }
@@ -307,8 +354,8 @@ function renderQuestCard(
     );
     buttonContainer.appendChild(acceptBtn);
 
-    // Add "Assign Route" button for standing freight
-    if (quest.type === 'standing_freight') {
+    // Add "Assign Route" button for standing freight and trade routes
+    if (quest.type === 'standing_freight' || quest.type === 'trade_route') {
       const assignBtn = document.createElement('button');
       assignBtn.className = 'assign-route-button';
       assignBtn.textContent = 'Assign Route';
