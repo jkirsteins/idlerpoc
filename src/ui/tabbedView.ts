@@ -112,7 +112,7 @@ export function renderTabbedView(
   } else if (activeTab === 'log') {
     container.appendChild(renderLogTab(gameData));
   } else {
-    container.appendChild(renderSettingsTab(callbacks));
+    container.appendChild(renderSettingsTab(gameData, callbacks));
   }
 
   return container;
