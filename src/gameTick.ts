@@ -404,13 +404,8 @@ export function applyTick(
   _isCatchUp = isCatchUp;
   let changed = false;
 
-  // Advance game time once per tick
-  const hasFlightShips = gameData.ships.some(
-    (s) => s.location.status === 'in_flight' && s.activeFlightPlan
-  );
-  if (hasFlightShips) {
-    gameData.gameTime += GAME_SECONDS_PER_TICK;
-  }
+  // Advance game time once per tick (global time system)
+  gameData.gameTime += GAME_SECONDS_PER_TICK;
 
   // Apply per-ship tick logic
   for (const ship of gameData.ships) {
@@ -419,10 +414,8 @@ export function applyTick(
     }
   }
 
-  // Fleet-wide salary deduction (only during flight activity)
-  if (hasFlightShips) {
-    deductFleetSalaries(gameData, 1);
-  }
+  // Fleet-wide salary deduction (global time system)
+  deductFleetSalaries(gameData, 1);
 
   return changed;
 }
