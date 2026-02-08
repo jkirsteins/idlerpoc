@@ -197,6 +197,17 @@ export interface Room {
   assignedCrewIds: string[];
 }
 
+export interface ShipMetrics {
+  creditsEarned: number; // Lifetime earnings for this ship
+  fuelCostsPaid: number; // Total fuel expenses
+  crewCostsPaid: number; // Total crew salaries paid
+  repairCostsPaid: number; // Total repair costs
+  contractsCompleted: number; // Total contracts finished
+  totalFlightTicks: number; // Time spent in flight
+  totalIdleTicks: number; // Time spent idle at stations
+  lastActivityTime: number; // gameTime of last contract completion
+}
+
 export interface Ship {
   id: string;
   name: string;
@@ -211,6 +222,8 @@ export interface Ship {
   cargo: CrewEquipmentInstance[];
   activeContract: ActiveContract | null;
   lastEncounterTime?: number; // gameTime of last encounter (for cooldown)
+  metrics: ShipMetrics; // Performance tracking for fleet management
+  role?: 'courier' | 'freighter' | 'scout' | 'combat' | 'luxury'; // Player-assigned specialization
 }
 
 export type QuestType =

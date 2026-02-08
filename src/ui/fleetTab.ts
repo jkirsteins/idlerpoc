@@ -3,13 +3,38 @@ import { getActiveShip } from '../models';
 import { getShipClass, SHIP_CLASSES } from '../shipClasses';
 import { getEngineDefinition } from '../engines';
 import { computeMaxRange } from '../flightPhysics';
-import { getCrewRoleDefinition } from '../crewRoles';
 import { renderFleetPanel } from './fleetPanel';
-import { formatDualTime, TICKS_PER_DAY } from '../timeSystem';
+import { formatDualTime } from '../timeSystem';
+import {
+  getShipStatus,
+  getShipHealthAlerts,
+  getShipPerformance,
+  getFuelContext,
+  getMissingCrewRoles,
+  type ShipStatus,
+} from '../fleetAnalytics';
 
 export interface FleetTabCallbacks {
   onSelectShip: (shipId: string) => void;
   onBuyShip: (classId: string, shipName: string) => void;
+}
+
+/**
+ * Get status badge HTML
+ */
+function getStatusBadge(status: ShipStatus): string {
+  const badges = {
+    critical:
+      '<span style="display: inline-block; padding: 2px 6px; border-radius: 3px; font-size: 0.75rem; font-weight: bold; background: #ff4444; color: white;">🔴 CRITICAL</span>',
+    warning:
+      '<span style="display: inline-block; padding: 2px 6px; border-radius: 3px; font-size: 0.75rem; font-weight: bold; background: #fbbf24; color: #000;">🟡 WARNING</span>',
+    earning:
+      '<span style="display: inline-block; padding: 2px 6px; border-radius: 3px; font-size: 0.75rem; font-weight: bold; background: #4ade80; color: #000;">🟢 EARNING</span>',
+    idle: '<span style="display: inline-block; padding: 2px 6px; border-radius: 3px; font-size: 0.75rem; font-weight: bold; background: #60a5fa; color: white;">🔵 IDLE</span>',
+    maintenance:
+      '<span style="display: inline-block; padding: 2px 6px; border-radius: 3px; font-size: 0.75rem; font-weight: bold; background: #a78bfa; color: white;">🟣 MAINTENANCE</span>',
+  };
+  return badges[status];
 }
 
 export function renderFleetTab(
@@ -37,11 +62,21 @@ export function renderFleetTab(
 
     container.appendChild(panelSection);
 
-    // Fleet Statistics
-    container.appendChild(renderFleetStats(gameData));
+    // Fleet Performance Dashboard (replaces generic stats)
+    container.appendChild(renderFleetPerformanceDashboard(gameData));
 
-    // Ship Comparison View
-    container.appendChild(renderShipComparison(gameData));
+    // Needs Attention Queue
+    const needsAttention = gameData.ships.filter((ship) => {
+      const status = getShipStatus(ship);
+      return status === 'critical' || status === 'warning';
+    });
+
+    if (needsAttention.length > 0) {
+      container.appendChild(renderNeedsAttentionQueue(needsAttention));
+    }
+
+    // Ship Comparison View with Enhanced Cards
+    container.appendChild(renderEnhancedShipComparison(gameData, callbacks));
   } else {
     // Single ship - show welcome message
     const welcomeSection = document.createElement('div');
@@ -88,9 +123,12 @@ export function renderFleetTab(
   return container;
 }
 
-function renderFleetStats(gameData: GameData): HTMLElement {
+/**
+ * Render Fleet Performance Dashboard
+ */
+function renderFleetPerformanceDashboard(gameData: GameData): HTMLElement {
   const section = document.createElement('div');
-  section.className = 'fleet-stats-section';
+  section.className = 'fleet-performance-dashboard';
   section.style.marginBottom = '1.5rem';
   section.style.padding = '1rem';
   section.style.background = 'rgba(0, 0, 0, 0.3)';
@@ -98,133 +136,175 @@ function renderFleetStats(gameData: GameData): HTMLElement {
   section.style.borderRadius = '4px';
 
   const title = document.createElement('h3');
-  title.textContent = 'Fleet Overview';
+  title.textContent = 'Fleet Performance Dashboard';
   title.style.marginBottom = '0.75rem';
   section.appendChild(title);
 
-  const statsGrid = document.createElement('div');
-  statsGrid.style.display = 'grid';
-  statsGrid.style.gridTemplateColumns = 'repeat(auto-fit, minmax(200px, 1fr))';
-  statsGrid.style.gap = '1rem';
+  // Calculate fleet-wide metrics
+  let totalEarned = 0;
+  let totalCosts = 0;
+  let totalContractsCompleted = 0;
+  let activeShips = 0;
+  let idleShips = 0;
 
-  // Calculate fleet-wide stats
-  let totalFleetValue = 0;
-  let totalCrew = 0;
-  let totalCrewCost = 0;
-  let totalFuel = 0;
-  let activeContracts = 0;
-  let dockedShips = 0;
-  let inFlightShips = 0;
+  const shipPerformances = gameData.ships.map((ship) => {
+    const perf = getShipPerformance(ship);
+    totalEarned += ship.metrics.creditsEarned;
+    totalCosts +=
+      ship.metrics.crewCostsPaid +
+      ship.metrics.fuelCostsPaid +
+      ship.metrics.repairCostsPaid;
+    totalContractsCompleted += ship.metrics.contractsCompleted;
 
-  for (const ship of gameData.ships) {
-    const shipClass = getShipClass(ship.classId);
-    if (shipClass) {
-      totalFleetValue += shipClass.price;
-    }
-    totalCrew += ship.crew.length;
-    totalFuel += ship.fuel;
-
-    for (const crew of ship.crew) {
-      const roleDef = getCrewRoleDefinition(crew.role);
-      if (roleDef) {
-        totalCrewCost += roleDef.salary;
-      }
+    if (ship.activeContract && !ship.activeContract.paused) {
+      activeShips++;
+    } else if (ship.location.status === 'docked') {
+      idleShips++;
     }
 
-    if (ship.activeContract) {
-      activeContracts++;
-    }
+    return { ship, perf };
+  });
 
-    if (ship.location.status === 'docked') {
-      dockedShips++;
-    } else {
-      inFlightShips++;
-    }
+  // Sort by net profit
+  shipPerformances.sort((a, b) => b.perf.netProfit - a.perf.netProfit);
+
+  const netProfit = totalEarned - totalCosts;
+  const profitMargin = totalEarned > 0 ? (netProfit / totalEarned) * 100 : 0;
+
+  const dashboardContent = document.createElement('div');
+  dashboardContent.style.display = 'flex';
+  dashboardContent.style.flexDirection = 'column';
+  dashboardContent.style.gap = '1rem';
+
+  // Financial Summary
+  const financialRow = document.createElement('div');
+  financialRow.innerHTML = `
+    <div style="padding: 0.75rem; background: rgba(0, 0, 0, 0.4); border-radius: 4px;">
+      <div style="font-size: 0.85rem; color: #888; margin-bottom: 0.5rem;">💰 FINANCIAL SUMMARY</div>
+      <div style="display: flex; gap: 2rem; flex-wrap: wrap;">
+        <div><span style="color: #aaa;">Total Earned:</span> <span style="color: #4ade80; font-weight: bold;">${totalEarned.toLocaleString()} cr</span></div>
+        <div><span style="color: #aaa;">Operating Costs:</span> <span style="color: #ffa500;">${totalCosts.toLocaleString()} cr</span></div>
+        <div><span style="color: #aaa;">Net Profit:</span> <span style="color: ${netProfit >= 0 ? '#4ade80' : '#ff4444'}; font-weight: bold;">${netProfit >= 0 ? '+' : ''}${netProfit.toLocaleString()} cr</span> <span style="color: #888; font-size: 0.85rem;">(${profitMargin >= 0 ? '+' : ''}${profitMargin.toFixed(0)}% margin)</span></div>
+      </div>
+    </div>
+  `;
+  dashboardContent.appendChild(financialRow);
+
+  // Top Performers
+  if (shipPerformances.length > 0) {
+    const performersRow = document.createElement('div');
+    performersRow.innerHTML = `
+      <div style="padding: 0.75rem; background: rgba(0, 0, 0, 0.4); border-radius: 4px;">
+        <div style="font-size: 0.85rem; color: #888; margin-bottom: 0.5rem;">📊 TOP PERFORMERS</div>
+        ${shipPerformances
+          .slice(0, 3)
+          .map((sp, idx) => {
+            const medal = idx === 0 ? '🥇' : idx === 1 ? '🥈' : '🥉';
+            const color = sp.perf.netProfit >= 0 ? '#4ade80' : '#ff4444';
+            return `
+            <div style="margin-bottom: 0.25rem;">
+              ${medal} <span style="font-weight: bold;">${sp.ship.name}:</span>
+              <span style="color: ${color};">${sp.perf.netProfit >= 0 ? '+' : ''}${sp.perf.netProfit.toLocaleString()} cr</span>
+              <span style="color: #888; font-size: 0.85rem;">(${sp.perf.creditsPerDay.toFixed(0)} cr/day, ${sp.perf.uptime.toFixed(0)}% uptime, ${sp.ship.metrics.contractsCompleted} contracts)</span>
+              ${sp.perf.netProfit < 0 ? '<span style="color: #ffa500; margin-left: 8px;">⚠️ UNDERPERFORMING</span>' : ''}
+            </div>
+          `;
+          })
+          .join('')}
+      </div>
+    `;
+    performersRow.appendChild(performersRow);
+    dashboardContent.appendChild(performersRow);
   }
 
-  const avgFuel =
-    gameData.ships.length > 0 ? totalFuel / gameData.ships.length : 0;
+  // Fleet Utilization
+  const utilizationRow = document.createElement('div');
+  const utilizationPercent =
+    gameData.ships.length > 0
+      ? ((activeShips / gameData.ships.length) * 100).toFixed(0)
+      : 0;
 
-  // Total Fleet Value
-  const valueCard = createStatCard(
-    'Total Fleet Value',
-    `${totalFleetValue.toLocaleString()} cr`,
-    '#4a9eff'
-  );
-  statsGrid.appendChild(valueCard);
+  utilizationRow.innerHTML = `
+    <div style="padding: 0.75rem; background: rgba(0, 0, 0, 0.4); border-radius: 4px;">
+      <div style="font-size: 0.85rem; color: #888; margin-bottom: 0.5rem;">🎯 FLEET UTILIZATION</div>
+      <div style="display: flex; gap: 2rem; flex-wrap: wrap;">
+        <div><span style="color: #aaa;">Active:</span> <span style="color: #4ade80; font-weight: bold;">${activeShips} ships</span> <span style="color: #888;">(${utilizationPercent}%)</span></div>
+        <div><span style="color: #aaa;">Idle:</span> <span style="color: ${idleShips > 0 ? '#ffa500' : '#aaa'};">${idleShips} ships</span></div>
+        <div><span style="color: #aaa;">Total Contracts:</span> <span style="font-weight: bold;">${totalContractsCompleted}</span></div>
+      </div>
+    </div>
+  `;
+  dashboardContent.appendChild(utilizationRow);
 
-  // Total Crew
-  const crewCard = createStatCard('Total Crew', `${totalCrew}`, '#fff');
-  statsGrid.appendChild(crewCard);
-
-  // Daily Crew Cost
-  const costCard = createStatCard(
-    'Daily Crew Cost',
-    `${(totalCrewCost * TICKS_PER_DAY).toFixed(0)} cr/day`,
-    '#ffa500'
-  );
-  statsGrid.appendChild(costCard);
-
-  // Average Fuel
-  const fuelColor =
-    avgFuel < 20 ? '#ff4444' : avgFuel < 50 ? '#fbbf24' : '#4ade80';
-  const fuelCard = createStatCard(
-    'Average Fuel',
-    `${avgFuel.toFixed(0)}%`,
-    fuelColor
-  );
-  statsGrid.appendChild(fuelCard);
-
-  // Active Contracts
-  const contractsCard = createStatCard(
-    'Active Contracts',
-    `${activeContracts}`,
-    activeContracts > 0 ? '#4ade80' : '#888'
-  );
-  statsGrid.appendChild(contractsCard);
-
-  // Fleet Status
-  const statusCard = createStatCard(
-    'Fleet Status',
-    `${dockedShips} docked, ${inFlightShips} in flight`,
-    '#aaa'
-  );
-  statsGrid.appendChild(statusCard);
-
-  section.appendChild(statsGrid);
-
+  section.appendChild(dashboardContent);
   return section;
 }
 
-function createStatCard(
-  label: string,
-  value: string,
-  color: string
-): HTMLElement {
-  const card = document.createElement('div');
-  card.style.padding = '0.75rem';
-  card.style.background = 'rgba(0, 0, 0, 0.4)';
-  card.style.border = '1px solid #555';
-  card.style.borderRadius = '4px';
+/**
+ * Render Needs Attention Queue
+ */
+function renderNeedsAttentionQueue(ships: Ship[]): HTMLElement {
+  const section = document.createElement('div');
+  section.className = 'needs-attention-queue';
+  section.style.marginBottom = '1.5rem';
+  section.style.padding = '1rem';
+  section.style.background = 'rgba(255, 68, 68, 0.1)';
+  section.style.border = '2px solid #ff4444';
+  section.style.borderRadius = '4px';
 
-  const labelDiv = document.createElement('div');
-  labelDiv.style.fontSize = '0.85rem';
-  labelDiv.style.color = '#888';
-  labelDiv.style.marginBottom = '0.25rem';
-  labelDiv.textContent = label;
-  card.appendChild(labelDiv);
+  const title = document.createElement('h3');
+  title.textContent = `⚠️ Needs Attention (${ships.length} ${ships.length === 1 ? 'Ship' : 'Ships'})`;
+  title.style.marginBottom = '0.75rem';
+  title.style.color = '#ff4444';
+  section.appendChild(title);
 
-  const valueDiv = document.createElement('div');
-  valueDiv.style.fontSize = '1.25rem';
-  valueDiv.style.fontWeight = 'bold';
-  valueDiv.style.color = color;
-  valueDiv.textContent = value;
-  card.appendChild(valueDiv);
+  const alertsList = document.createElement('div');
+  alertsList.style.display = 'flex';
+  alertsList.style.flexDirection = 'column';
+  alertsList.style.gap = '0.5rem';
 
-  return card;
+  for (const ship of ships) {
+    const alerts = getShipHealthAlerts(ship);
+    const criticalAlerts = alerts.filter((a) => a.severity === 'critical');
+    const warningAlerts = alerts.filter((a) => a.severity === 'warning');
+
+    const shipAlert = document.createElement('div');
+    shipAlert.style.padding = '0.75rem';
+    shipAlert.style.background = 'rgba(0, 0, 0, 0.4)';
+    shipAlert.style.borderRadius = '4px';
+    shipAlert.style.borderLeft =
+      '4px solid ' + (criticalAlerts.length > 0 ? '#ff4444' : '#fbbf24');
+
+    shipAlert.innerHTML = `
+      <div style="font-weight: bold; margin-bottom: 0.5rem; color: ${criticalAlerts.length > 0 ? '#ff4444' : '#fbbf24'};">
+        ${ship.name}
+      </div>
+      ${[...criticalAlerts, ...warningAlerts]
+        .map(
+          (alert) => `
+        <div style="font-size: 0.85rem; margin-bottom: 0.25rem; color: ${alert.severity === 'critical' ? '#ff4444' : '#fbbf24'};">
+          ${alert.severity === 'critical' ? '🔴' : '🟡'} ${alert.message}
+          ${alert.action ? `<span style="color: #aaa; margin-left: 8px;">→ ${alert.action}</span>` : ''}
+        </div>
+      `
+        )
+        .join('')}
+    `;
+
+    alertsList.appendChild(shipAlert);
+  }
+
+  section.appendChild(alertsList);
+  return section;
 }
 
-function renderShipComparison(gameData: GameData): HTMLElement {
+/**
+ * Render Enhanced Ship Comparison
+ */
+function renderEnhancedShipComparison(
+  gameData: GameData,
+  callbacks: FleetTabCallbacks
+): HTMLElement {
   const section = document.createElement('div');
   section.className = 'ship-comparison-section';
   section.style.marginBottom = '1.5rem';
@@ -236,11 +316,11 @@ function renderShipComparison(gameData: GameData): HTMLElement {
 
   const grid = document.createElement('div');
   grid.style.display = 'grid';
-  grid.style.gridTemplateColumns = 'repeat(auto-fill, minmax(300px, 1fr))';
+  grid.style.gridTemplateColumns = 'repeat(auto-fill, minmax(350px, 1fr))';
   grid.style.gap = '1rem';
 
   for (const ship of gameData.ships) {
-    grid.appendChild(renderShipComparisonCard(gameData, ship));
+    grid.appendChild(renderEnhancedShipCard(gameData, ship, callbacks));
   }
 
   section.appendChild(grid);
@@ -248,34 +328,50 @@ function renderShipComparison(gameData: GameData): HTMLElement {
   return section;
 }
 
-function renderShipComparisonCard(gameData: GameData, ship: Ship): HTMLElement {
+/**
+ * Render Enhanced Ship Card with all new metrics
+ */
+function renderEnhancedShipCard(
+  gameData: GameData,
+  ship: Ship,
+  callbacks: FleetTabCallbacks
+): HTMLElement {
   const card = document.createElement('div');
-  card.className = 'ship-comparison-card';
+  card.className = 'ship-card-enhanced';
   card.style.padding = '1rem';
   card.style.background = 'rgba(0, 0, 0, 0.3)';
   card.style.border = '1px solid #444';
   card.style.borderRadius = '4px';
+  card.style.cursor = 'pointer';
 
   if (ship.id === gameData.activeShipId) {
     card.style.borderColor = '#4a9eff';
     card.style.boxShadow = '0 0 10px rgba(74, 158, 255, 0.3)';
   }
 
-  // Header: Ship name + tier
+  card.addEventListener('click', () => callbacks.onSelectShip(ship.id));
+
+  const status = getShipStatus(ship);
+  const performance = getShipPerformance(ship);
+  const shipClass = getShipClass(ship.classId);
+
+  // Header: Ship name + tier + status badge
   const header = document.createElement('div');
-  header.style.display = 'flex';
-  header.style.justifyContent = 'space-between';
-  header.style.alignItems = 'center';
   header.style.marginBottom = '0.75rem';
+
+  const nameRow = document.createElement('div');
+  nameRow.style.display = 'flex';
+  nameRow.style.justifyContent = 'space-between';
+  nameRow.style.alignItems = 'center';
+  nameRow.style.marginBottom = '0.5rem';
 
   const nameDiv = document.createElement('div');
   nameDiv.style.fontWeight = 'bold';
   nameDiv.style.fontSize = '1.1rem';
   nameDiv.style.color = ship.id === gameData.activeShipId ? '#4a9eff' : '#fff';
   nameDiv.textContent = ship.name;
-  header.appendChild(nameDiv);
+  nameRow.appendChild(nameDiv);
 
-  const shipClass = getShipClass(ship.classId);
   if (shipClass) {
     const tierBadge = document.createElement('span');
     tierBadge.textContent = `Tier ${shipClass.tier}`;
@@ -285,8 +381,14 @@ function renderShipComparisonCard(gameData: GameData, ship: Ship): HTMLElement {
     tierBadge.style.borderRadius = '3px';
     tierBadge.style.background = `${getTierColor(shipClass.tier)}33`;
     tierBadge.style.color = getTierColor(shipClass.tier);
-    header.appendChild(tierBadge);
+    nameRow.appendChild(tierBadge);
   }
+
+  header.appendChild(nameRow);
+
+  const statusBadge = document.createElement('div');
+  statusBadge.innerHTML = getStatusBadge(status);
+  header.appendChild(statusBadge);
 
   card.appendChild(header);
 
@@ -294,9 +396,53 @@ function renderShipComparisonCard(gameData: GameData, ship: Ship): HTMLElement {
   const classDiv = document.createElement('div');
   classDiv.style.fontSize = '0.9rem';
   classDiv.style.color = '#aaa';
-  classDiv.style.marginBottom = '0.5rem';
+  classDiv.style.marginBottom = '0.75rem';
   classDiv.textContent = shipClass?.name || ship.classId;
   card.appendChild(classDiv);
+
+  // Contract Details (if active)
+  if (ship.activeContract) {
+    const contractDiv = document.createElement('div');
+    contractDiv.style.padding = '0.75rem';
+    contractDiv.style.background = 'rgba(74, 158, 255, 0.1)';
+    contractDiv.style.borderRadius = '4px';
+    contractDiv.style.marginBottom = '0.75rem';
+    contractDiv.style.border = '1px solid #4a9eff';
+
+    const quest = ship.activeContract.quest;
+    const origin = gameData.world.locations.find((l) => l.id === quest.origin);
+    const dest = gameData.world.locations.find(
+      (l) => l.id === quest.destination
+    );
+
+    contractDiv.innerHTML = `
+      <div style="font-size: 0.85rem; font-weight: bold; color: #4a9eff; margin-bottom: 0.5rem;">
+        📋 ACTIVE CONTRACT ${ship.activeContract.paused ? '<span style="color: #ffa500;">(PAUSED)</span>' : ''}
+      </div>
+      <div style="font-size: 0.85rem; margin-bottom: 0.25rem;">
+        <span style="color: #aaa;">Type:</span> ${quest.type.charAt(0).toUpperCase() + quest.type.slice(1)}
+      </div>
+      <div style="font-size: 0.85rem; margin-bottom: 0.25rem;">
+        <span style="color: #aaa;">Route:</span> ${origin?.name || quest.origin} → ${dest?.name || quest.destination}
+      </div>
+      ${
+        quest.tripsRequired > 1 || quest.tripsRequired === -1
+          ? `
+        <div style="font-size: 0.85rem; margin-bottom: 0.25rem;">
+          <span style="color: #aaa;">Progress:</span> ${ship.activeContract.tripsCompleted}/${quest.tripsRequired === -1 ? '∞' : quest.tripsRequired} trips
+          <span style="color: #888;">(${quest.tripsRequired > 0 ? Math.round((ship.activeContract.tripsCompleted / quest.tripsRequired) * 100) : 0}%)</span>
+        </div>
+      `
+          : ''
+      }
+      <div style="font-size: 0.85rem; margin-bottom: 0.25rem;">
+        <span style="color: #aaa;">Earned:</span> <span style="color: #4ade80; font-weight: bold;">${ship.activeContract.creditsEarned.toLocaleString()} cr</span>
+        ${quest.paymentOnCompletion > 0 ? `<span style="color: #888;"> / ${quest.paymentOnCompletion.toLocaleString()} cr total</span>` : ''}
+      </div>
+    `;
+
+    card.appendChild(contractDiv);
+  }
 
   // Location
   const locationDiv = document.createElement('div');
@@ -313,11 +459,44 @@ function renderShipComparisonCard(gameData: GameData, ship: Ship): HTMLElement {
     const remainingTime =
       ship.location.flight.totalTime - ship.location.flight.elapsedTime;
     const timeLabel = formatDualTime(remainingTime);
-    locationDiv.innerHTML = `<span style="color: #fbbf24;">●</span> In flight to ${destination?.name || destId} - ${timeLabel} remaining`;
+    const progressPercent =
+      (ship.location.flight.distanceCovered /
+        ship.location.flight.totalDistance) *
+      100;
+    locationDiv.innerHTML = `<span style="color: #fbbf24;">●</span> In flight to ${destination?.name || destId}<br><span style="color: #aaa; font-size: 0.8rem;">Progress: ${progressPercent.toFixed(0)}% - ${timeLabel} remaining</span>`;
   }
   card.appendChild(locationDiv);
 
-  // Stats
+  // Performance Metrics
+  const perfDiv = document.createElement('div');
+  perfDiv.style.padding = '0.75rem';
+  perfDiv.style.background = 'rgba(0, 0, 0, 0.4)';
+  perfDiv.style.borderRadius = '4px';
+  perfDiv.style.marginBottom = '0.75rem';
+  perfDiv.style.fontSize = '0.85rem';
+
+  const profitColor = performance.netProfit >= 0 ? '#4ade80' : '#ff4444';
+  perfDiv.innerHTML = `
+    <div style="font-weight: bold; margin-bottom: 0.5rem; color: #aaa;">📊 PERFORMANCE</div>
+    <div style="margin-bottom: 0.25rem;">
+      <span style="color: #888;">Lifetime Earned:</span> <span style="color: #4ade80; font-weight: bold;">${ship.metrics.creditsEarned.toLocaleString()} cr</span>
+    </div>
+    <div style="margin-bottom: 0.25rem;">
+      <span style="color: #888;">Operating Costs:</span> <span style="color: #ffa500;">${(ship.metrics.crewCostsPaid + ship.metrics.fuelCostsPaid + ship.metrics.repairCostsPaid).toLocaleString()} cr</span>
+    </div>
+    <div style="margin-bottom: 0.25rem;">
+      <span style="color: #888;">Net Profit:</span> <span style="color: ${profitColor}; font-weight: bold;">${performance.netProfit >= 0 ? '+' : ''}${performance.netProfit.toLocaleString()} cr</span>
+    </div>
+    <div style="margin-bottom: 0.25rem;">
+      <span style="color: #888;">Efficiency:</span> ${performance.creditsPerDay.toFixed(0)} cr/day | ${performance.uptime.toFixed(0)}% uptime
+    </div>
+    <div>
+      <span style="color: #888;">Contracts:</span> ${ship.metrics.contractsCompleted} completed
+    </div>
+  `;
+  card.appendChild(perfDiv);
+
+  // Stats (fuel, crew, equipment, range)
   const statsDiv = document.createElement('div');
   statsDiv.style.fontSize = '0.85rem';
   statsDiv.style.color = '#aaa';
@@ -325,17 +504,19 @@ function renderShipComparisonCard(gameData: GameData, ship: Ship): HTMLElement {
   statsDiv.style.flexDirection = 'column';
   statsDiv.style.gap = '0.25rem';
 
-  // Crew
-  const crewLine = document.createElement('div');
-  crewLine.innerHTML = `<span style="color: #888;">Crew:</span> ${ship.crew.length}/${shipClass?.maxCrew ?? '?'}`;
-  statsDiv.appendChild(crewLine);
-
-  // Fuel
+  // Fuel with context
+  const fuelContext = getFuelContext(ship, gameData);
   const fuelColor =
     ship.fuel < 20 ? '#ff4444' : ship.fuel < 50 ? '#fbbf24' : '#4ade80';
   const fuelLine = document.createElement('div');
-  fuelLine.innerHTML = `<span style="color: #888;">Fuel:</span> <span style="color: ${fuelColor};">${Math.round(ship.fuel)}%</span>`;
+  fuelLine.innerHTML = `<span style="color: #888;">Fuel:</span> <span style="color: ${fuelColor};">${fuelContext}</span>`;
   statsDiv.appendChild(fuelLine);
+
+  // Crew with missing roles
+  const missingRoles = getMissingCrewRoles(ship);
+  const crewLine = document.createElement('div');
+  crewLine.innerHTML = `<span style="color: #888;">Crew:</span> ${ship.crew.length}/${shipClass?.maxCrew ?? '?'}${missingRoles.length > 0 ? ` <span style="color: #ffa500;">⚠️ Missing: ${missingRoles.join(', ')}</span>` : ''}`;
+  statsDiv.appendChild(crewLine);
 
   // Equipment
   const equipLine = document.createElement('div');
@@ -354,32 +535,14 @@ function renderShipComparisonCard(gameData: GameData, ship: Ship): HTMLElement {
     statsDiv.appendChild(rangeLine);
   }
 
-  // Active Contract
-  if (ship.activeContract) {
-    const contractLine = document.createElement('div');
-    contractLine.innerHTML = `<span style="color: #888;">Contract:</span> <span style="color: #4ade80;">Active</span>`;
-    statsDiv.appendChild(contractLine);
-  }
-
-  // Daily Crew Cost
-  let shipCrewCost = 0;
-  for (const crew of ship.crew) {
-    const roleDef = getCrewRoleDefinition(crew.role);
-    if (roleDef) {
-      shipCrewCost += roleDef.salary;
-    }
-  }
-  if (shipCrewCost > 0) {
-    const costLine = document.createElement('div');
-    costLine.innerHTML = `<span style="color: #888;">Daily Cost:</span> <span style="color: #ffa500;">${(shipCrewCost * TICKS_PER_DAY).toFixed(0)} cr/day</span>`;
-    statsDiv.appendChild(costLine);
-  }
-
   card.appendChild(statsDiv);
 
   return card;
 }
 
+/**
+ * Render ship purchase section (unchanged from original)
+ */
 function renderShipPurchase(
   gameData: GameData,
   callbacks: FleetTabCallbacks
@@ -447,7 +610,6 @@ function renderShipPurchase(
     specs.style.color = '#888';
     specs.style.marginBottom = '0.5rem';
 
-    // Compute max range for this ship class with its default engine
     const defaultEngine = getEngineDefinition(shipClass.defaultEngineId);
     const maxRangeKm = computeMaxRange(shipClass, defaultEngine);
     const rangeLabel = getRangeLabel(maxRangeKm);
@@ -457,7 +619,6 @@ function renderShipPurchase(
     specs.title = `Max range with default engine: ${maxRangeKm.toLocaleString()} km`;
     card.appendChild(specs);
 
-    // Buy button or reason
     const isUnlocked =
       gameData.lifetimeCreditsEarned >= shipClass.unlockThreshold;
     const canAfford = gameData.credits >= shipClass.price;

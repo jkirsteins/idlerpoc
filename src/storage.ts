@@ -48,6 +48,28 @@ export function loadGame(): GameData | null {
       loaded.visitedLocations = [];
     }
 
+    // Backfill ship metrics for old saves
+    if (loaded.ships) {
+      for (const ship of loaded.ships) {
+        if (!ship.metrics) {
+          ship.metrics = {
+            creditsEarned: 0,
+            fuelCostsPaid: 0,
+            crewCostsPaid: 0,
+            repairCostsPaid: 0,
+            contractsCompleted: 0,
+            totalFlightTicks: 0,
+            totalIdleTicks: 0,
+            lastActivityTime: 0,
+          };
+        }
+        // Backfill role if missing
+        if (ship.role === undefined) {
+          ship.role = undefined;
+        }
+      }
+    }
+
     return loaded as GameData;
   } catch {
     return null;

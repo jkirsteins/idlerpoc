@@ -159,6 +159,17 @@ export function createTestShip(overrides: Partial<Ship> = {}): Ship {
     engine: createTestEngine({ definitionId: 'ntr_mk1' as EngineId }),
     cargo: [],
     activeContract: null,
+    metrics: {
+      creditsEarned: 0,
+      fuelCostsPaid: 0,
+      crewCostsPaid: 0,
+      repairCostsPaid: 0,
+      contractsCompleted: 0,
+      totalFlightTicks: 0,
+      totalIdleTicks: 0,
+      lastActivityTime: 0,
+    },
+    role: undefined,
     ...overrides,
   };
 }

@@ -56,20 +56,26 @@ export function drainEncounterResults(): EncounterResult[] {
 /**
  * Deduct crew salaries for all ships from the shared wallet.
  * Marks crew as unpaid if insufficient credits.
+ * Tracks per-ship crew costs in ship metrics.
  */
 export function deductFleetSalaries(
   gameData: GameData,
   numTicks: number
 ): void {
-  // Calculate total fleet salary per tick
+  // Calculate total fleet salary per tick and per-ship costs
   let totalFleetSalaryPerTick = 0;
+  const shipSalaries = new Map<string, number>();
+
   for (const ship of gameData.ships) {
+    let shipSalaryPerTick = 0;
     for (const crew of ship.crew) {
       const roleDef = getCrewRoleDefinition(crew.role);
       if (roleDef) {
+        shipSalaryPerTick += roleDef.salary;
         totalFleetSalaryPerTick += roleDef.salary;
       }
     }
+    shipSalaries.set(ship.id, shipSalaryPerTick);
   }
 
   if (totalFleetSalaryPerTick === 0) return;
@@ -78,6 +84,12 @@ export function deductFleetSalaries(
 
   if (gameData.credits >= totalSalary) {
     gameData.credits -= totalSalary;
+
+    // Track per-ship crew costs
+    for (const ship of gameData.ships) {
+      const shipSalary = shipSalaries.get(ship.id) || 0;
+      ship.metrics.crewCostsPaid += shipSalary * numTicks;
+    }
   } else {
     const availableCredits = gameData.credits;
     gameData.credits = 0;
@@ -86,6 +98,12 @@ export function deductFleetSalaries(
       availableCredits / totalFleetSalaryPerTick
     );
     const ticksUnpaid = numTicks - ticksWeCanPay;
+
+    // Track paid portion per ship
+    for (const ship of gameData.ships) {
+      const shipSalary = shipSalaries.get(ship.id) || 0;
+      ship.metrics.crewCostsPaid += shipSalary * ticksWeCanPay;
+    }
 
     if (ticksUnpaid > 0) {
       // Mark crew as unpaid across all ships (most expensive first)
@@ -118,6 +136,13 @@ export function deductFleetSalaries(
  */
 function applyShipTick(gameData: GameData, ship: Ship): boolean {
   let changed = false;
+
+  // Track flight vs idle time
+  if (ship.location.status === 'in_flight') {
+    ship.metrics.totalFlightTicks++;
+  } else if (ship.location.status === 'docked') {
+    ship.metrics.totalIdleTicks++;
+  }
 
   if (ship.location.status === 'in_flight') {
     const engineDef = getEngineDefinition(ship.engine.definitionId);

@@ -227,6 +227,11 @@ export function completeLeg(gameData: GameData, ship: Ship): void {
       activeContract.creditsEarned = quest.paymentOnCompletion;
       addCredits(gameData, quest.paymentOnCompletion);
 
+      // Track per-ship earnings
+      ship.metrics.creditsEarned += quest.paymentOnCompletion;
+      ship.metrics.contractsCompleted++;
+      ship.metrics.lastActivityTime = gameTime;
+
       addLog(
         gameData.log,
         gameTime,
@@ -316,6 +321,9 @@ export function completeLeg(gameData: GameData, ship: Ship): void {
       activeContract.creditsEarned += quest.paymentPerTrip;
       addCredits(gameData, quest.paymentPerTrip);
 
+      // Track per-ship earnings
+      ship.metrics.creditsEarned += quest.paymentPerTrip;
+
       addLog(
         gameData.log,
         gameTime,
@@ -341,7 +349,14 @@ export function completeLeg(gameData: GameData, ship: Ship): void {
       if (quest.paymentOnCompletion > 0) {
         activeContract.creditsEarned += quest.paymentOnCompletion;
         addCredits(gameData, quest.paymentOnCompletion);
+
+        // Track per-ship earnings
+        ship.metrics.creditsEarned += quest.paymentOnCompletion;
       }
+
+      // Track contract completion
+      ship.metrics.contractsCompleted++;
+      ship.metrics.lastActivityTime = gameTime;
 
       addLog(
         gameData.log,

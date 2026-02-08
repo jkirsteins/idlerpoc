@@ -1,1 +1,5 @@
 npx lint-staged
+
+# Run TypeScript type check to catch type errors and warnings
+echo "Running TypeScript type check..."
+npx tsc --noEmit
