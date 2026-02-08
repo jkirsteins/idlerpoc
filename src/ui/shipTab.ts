@@ -6,12 +6,13 @@ import { getCrewRoleName, getCrewRoleDefinition } from '../crewRoles';
 import { computePowerStatus } from '../powerSystem';
 import { getEquipmentDefinition } from '../equipment';
 import { getEngineDefinition } from '../engines';
-import { renderNavigationView } from './navigationView';
+import { createNavigationView } from './navigationView';
 import { getGravitySource } from '../gravitySystem';
 import { computeMaxRange } from '../flightPhysics';
 import { formatDualTime, GAME_SECONDS_PER_TICK } from '../timeSystem';
 import { renderStatBar } from './components/statBar';
 import { attachTooltip, formatPowerTooltip } from './components/tooltip';
+import type { Component } from './component';
 
 export interface ShipTabCallbacks {
   onCrewAssign: (crewId: string, roomId: string) => void;
@@ -26,57 +27,72 @@ export interface ShipTabCallbacks {
   onBuyShip?: (classId: string, shipName: string) => void;
 }
 
-export function renderShipTab(
+export function createShipTab(
   gameData: GameData,
   showNavigation: boolean,
   callbacks: ShipTabCallbacks
-): HTMLElement {
+): Component & { setShowNavigation(v: boolean): void } {
   const container = document.createElement('div');
   container.className = 'ship-tab';
+  let currentShowNav = showNavigation;
 
-  // If navigation is open, show navigation view instead
-  if (showNavigation) {
-    return renderNavigationView(gameData, {
-      onToggleNavigation: callbacks.onToggleNavigation,
-      onStartTrip: callbacks.onStartTrip,
-    });
+  function rebuild(gameData: GameData) {
+    container.replaceChildren();
+
+    // If navigation is open, show navigation view instead
+    if (currentShowNav) {
+      container.appendChild(
+        createNavigationView(gameData, {
+          onToggleNavigation: callbacks.onToggleNavigation,
+          onStartTrip: callbacks.onStartTrip,
+        }).el
+      );
+      return;
+    }
+
+    // Fuel progress bar
+    container.appendChild(renderFuelBar(gameData));
+
+    // Power progress bar
+    container.appendChild(renderPowerBar(gameData));
+
+    // Torch ship status bars (Class III+)
+    const ship = getActiveShip(gameData);
+    const engineDef = getEngineDefinition(ship.engine.definitionId);
+    if (engineDef.radiationOutput > 0) {
+      container.appendChild(renderRadiationBar(gameData));
+    }
+    if (engineDef.wasteHeatOutput > 0) {
+      container.appendChild(renderHeatBar(gameData));
+    }
+    if (engineDef.containmentComplexity > 0) {
+      container.appendChild(renderContainmentBar(gameData));
+    }
+
+    // Ship stats panel
+    container.appendChild(renderShipStatsPanel(gameData));
+
+    // Room grid
+    container.appendChild(renderRoomGrid(gameData, callbacks));
+
+    // Gravity status panel
+    container.appendChild(renderGravityStatus(gameData));
+
+    // Equipment section
+    container.appendChild(renderEquipmentSection(gameData));
+
+    // Staging area (unassigned crew)
+    container.appendChild(renderStagingArea(gameData, callbacks));
   }
 
-  // Fuel progress bar
-  container.appendChild(renderFuelBar(gameData));
-
-  // Power progress bar
-  container.appendChild(renderPowerBar(gameData));
-
-  // Torch ship status bars (Class III+)
-  const ship = getActiveShip(gameData);
-  const engineDef = getEngineDefinition(ship.engine.definitionId);
-  if (engineDef.radiationOutput > 0) {
-    container.appendChild(renderRadiationBar(gameData));
-  }
-  if (engineDef.wasteHeatOutput > 0) {
-    container.appendChild(renderHeatBar(gameData));
-  }
-  if (engineDef.containmentComplexity > 0) {
-    container.appendChild(renderContainmentBar(gameData));
-  }
-
-  // Ship stats panel
-  container.appendChild(renderShipStatsPanel(gameData));
-
-  // Room grid
-  container.appendChild(renderRoomGrid(gameData, callbacks));
-
-  // Gravity status panel
-  container.appendChild(renderGravityStatus(gameData));
-
-  // Equipment section
-  container.appendChild(renderEquipmentSection(gameData));
-
-  // Staging area (unassigned crew)
-  container.appendChild(renderStagingArea(gameData, callbacks));
-
-  return container;
+  rebuild(gameData);
+  return {
+    el: container,
+    update: rebuild,
+    setShowNavigation(v: boolean) {
+      currentShowNav = v;
+    },
+  };
 }
 
 function renderFuelBar(gameData: GameData): HTMLElement {

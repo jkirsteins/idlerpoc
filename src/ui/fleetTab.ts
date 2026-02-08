@@ -4,7 +4,7 @@ import { getShipClass, SHIP_CLASSES } from '../shipClasses';
 import { getEngineDefinition } from '../engines';
 import { computeMaxRange, calculateFuelCost } from '../flightPhysics';
 import { getDistanceBetween } from '../worldGen';
-import { renderFleetPanel } from './fleetPanel';
+import { createFleetPanel } from './fleetPanel';
 import { formatDualTime } from '../timeSystem';
 import {
   getShipStatus,
@@ -14,6 +14,7 @@ import {
   getMissingCrewRoles,
   type ShipStatus,
 } from '../fleetAnalytics';
+import type { Component } from './component';
 
 export interface FleetTabCallbacks {
   onSelectShip: (shipId: string) => void;
@@ -39,98 +40,103 @@ function getStatusBadge(status: ShipStatus): string {
   return badges[status];
 }
 
-export function renderFleetTab(
+export function createFleetTab(
   gameData: GameData,
   callbacks: FleetTabCallbacks
-): HTMLElement {
+): Component {
   const container = document.createElement('div');
   container.className = 'fleet-tab';
   container.style.padding = '1rem';
 
-  // Fleet Map (always show, even with 1 ship)
-  container.appendChild(renderFleetMap(gameData, callbacks));
+  function rebuild(gameData: GameData) {
+    container.replaceChildren();
 
-  // Show fleet panel and stats only if there are multiple ships
-  if (gameData.ships.length > 1) {
-    // Enhanced Fleet Panel
-    const panelSection = document.createElement('div');
-    panelSection.style.marginBottom = '1.5rem';
+    // Fleet Map (always show, even with 1 ship)
+    container.appendChild(renderFleetMap(gameData, callbacks));
 
-    const panelTitle = document.createElement('h3');
-    panelTitle.textContent = 'Your Fleet';
-    panelTitle.style.marginBottom = '0.75rem';
-    panelSection.appendChild(panelTitle);
+    // Show fleet panel and stats only if there are multiple ships
+    if (gameData.ships.length > 1) {
+      // Enhanced Fleet Panel
+      const panelSection = document.createElement('div');
+      panelSection.style.marginBottom = '1.5rem';
 
-    panelSection.appendChild(
-      renderFleetPanel(gameData, { onSelectShip: callbacks.onSelectShip })
-    );
+      const panelTitle = document.createElement('h3');
+      panelTitle.textContent = 'Your Fleet';
+      panelTitle.style.marginBottom = '0.75rem';
+      panelSection.appendChild(panelTitle);
 
-    container.appendChild(panelSection);
+      panelSection.appendChild(
+        createFleetPanel(gameData, { onSelectShip: callbacks.onSelectShip }).el
+      );
 
-    // Fleet Performance Dashboard (replaces generic stats)
-    container.appendChild(renderFleetPerformanceDashboard(gameData));
+      container.appendChild(panelSection);
 
-    // Needs Attention Queue
-    const needsAttention = gameData.ships.filter((ship) => {
-      const status = getShipStatus(ship);
-      return status === 'critical' || status === 'warning';
-    });
+      // Fleet Performance Dashboard (replaces generic stats)
+      container.appendChild(renderFleetPerformanceDashboard(gameData));
 
-    if (needsAttention.length > 0) {
-      container.appendChild(renderNeedsAttentionQueue(needsAttention));
+      // Needs Attention Queue
+      const needsAttention = gameData.ships.filter((ship) => {
+        const status = getShipStatus(ship);
+        return status === 'critical' || status === 'warning';
+      });
+
+      if (needsAttention.length > 0) {
+        container.appendChild(renderNeedsAttentionQueue(needsAttention));
+      }
+
+      // Ship Comparison View with Enhanced Cards
+      container.appendChild(renderEnhancedShipComparison(gameData, callbacks));
+    } else {
+      // Single ship - show welcome message and ship card
+      const welcomeSection = document.createElement('div');
+      welcomeSection.style.marginBottom = '1.5rem';
+      welcomeSection.style.padding = '1rem';
+      welcomeSection.style.background = 'rgba(0, 0, 0, 0.3)';
+      welcomeSection.style.border = '1px solid #444';
+      welcomeSection.style.borderRadius = '4px';
+
+      const title = document.createElement('h3');
+      title.textContent = 'Fleet Management';
+      title.style.marginBottom = '0.5rem';
+      welcomeSection.appendChild(title);
+
+      const message = document.createElement('p');
+      message.style.color = '#aaa';
+      message.style.fontSize = '0.9rem';
+      message.style.lineHeight = '1.6';
+      message.textContent =
+        'Welcome to Fleet Management! Expand your operations by purchasing additional ships. Each ship can operate independently, running separate contracts and exploring different regions of space.';
+      welcomeSection.appendChild(message);
+
+      container.appendChild(welcomeSection);
+
+      // Show the single ship card
+      container.appendChild(
+        renderEnhancedShipCard(gameData, gameData.ships[0], callbacks)
+      );
     }
 
-    // Ship Comparison View with Enhanced Cards
-    container.appendChild(renderEnhancedShipComparison(gameData, callbacks));
-  } else {
-    // Single ship - show welcome message and ship card
-    const welcomeSection = document.createElement('div');
-    welcomeSection.style.marginBottom = '1.5rem';
-    welcomeSection.style.padding = '1rem';
-    welcomeSection.style.background = 'rgba(0, 0, 0, 0.3)';
-    welcomeSection.style.border = '1px solid #444';
-    welcomeSection.style.borderRadius = '4px';
-
-    const title = document.createElement('h3');
-    title.textContent = 'Fleet Management';
-    title.style.marginBottom = '0.5rem';
-    welcomeSection.appendChild(title);
-
-    const message = document.createElement('p');
-    message.style.color = '#aaa';
-    message.style.fontSize = '0.9rem';
-    message.style.lineHeight = '1.6';
-    message.textContent =
-      'Welcome to Fleet Management! Expand your operations by purchasing additional ships. Each ship can operate independently, running separate contracts and exploring different regions of space.';
-    welcomeSection.appendChild(message);
-
-    container.appendChild(welcomeSection);
-
-    // Show the single ship card
-    container.appendChild(
-      renderEnhancedShipCard(gameData, gameData.ships[0], callbacks)
-    );
+    // Ship Purchase Section (only when docked)
+    const activeShip = getActiveShip(gameData);
+    if (activeShip.location.status === 'docked') {
+      container.appendChild(renderShipPurchase(gameData, callbacks));
+    } else {
+      const dockedHint = document.createElement('div');
+      dockedHint.style.marginTop = '1.5rem';
+      dockedHint.style.padding = '1rem';
+      dockedHint.style.background = 'rgba(0, 0, 0, 0.3)';
+      dockedHint.style.border = '1px solid #444';
+      dockedHint.style.borderRadius = '4px';
+      dockedHint.style.color = '#aaa';
+      dockedHint.style.fontSize = '0.9rem';
+      dockedHint.textContent =
+        '💡 Dock at a station to purchase additional ships.';
+      container.appendChild(dockedHint);
+    }
   }
 
-  // Ship Purchase Section (only when docked)
-  const activeShip = getActiveShip(gameData);
-  if (activeShip.location.status === 'docked') {
-    container.appendChild(renderShipPurchase(gameData, callbacks));
-  } else {
-    const dockedHint = document.createElement('div');
-    dockedHint.style.marginTop = '1.5rem';
-    dockedHint.style.padding = '1rem';
-    dockedHint.style.background = 'rgba(0, 0, 0, 0.3)';
-    dockedHint.style.border = '1px solid #444';
-    dockedHint.style.borderRadius = '4px';
-    dockedHint.style.color = '#aaa';
-    dockedHint.style.fontSize = '0.9rem';
-    dockedHint.textContent =
-      '💡 Dock at a station to purchase additional ships.';
-    container.appendChild(dockedHint);
-  }
-
-  return container;
+  rebuild(gameData);
+  return { el: container, update: rebuild };
 }
 
 /**

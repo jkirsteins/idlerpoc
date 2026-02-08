@@ -21,53 +21,66 @@ import {
 } from '../gravitySystem';
 import { TICKS_PER_DAY } from '../timeSystem';
 import { calculateTickXP } from '../skillProgression';
+import type { Component } from './component';
 
-export function renderCrewTab(
+export function createCrewTab(
   gameData: GameData,
   selectedCrewId: string | undefined,
   callbacks: TabbedViewCallbacks
-): HTMLElement {
+): Component & { setSelectedCrewId(id: string | undefined): void } {
   const container = document.createElement('div');
   container.className = 'crew-tab';
+  let currentSelectedCrewId = selectedCrewId;
 
-  const ship = getActiveShip(gameData);
+  function rebuild(gameData: GameData) {
+    container.replaceChildren();
+    const selectedCrewId = currentSelectedCrewId;
+    const ship = getActiveShip(gameData);
 
-  const layout = document.createElement('div');
-  layout.className = 'crew-list-detail';
+    const layout = document.createElement('div');
+    layout.className = 'crew-list-detail';
 
-  // Left panel: crew list
-  layout.appendChild(renderCrewList(gameData, selectedCrewId, callbacks));
+    // Left panel: crew list
+    layout.appendChild(renderCrewList(gameData, selectedCrewId, callbacks));
 
-  // Right panel: crew detail
-  const selectedCrew = selectedCrewId
-    ? ship.crew.find((c) => c.id === selectedCrewId)
-    : ship.crew[0];
+    // Right panel: crew detail
+    const selectedCrew = selectedCrewId
+      ? ship.crew.find((c) => c.id === selectedCrewId)
+      : ship.crew[0];
 
-  if (selectedCrew) {
-    layout.appendChild(renderCrewDetail(gameData, selectedCrew, callbacks));
-  } else {
-    layout.appendChild(renderNoCrewSelected());
-  }
-
-  container.appendChild(layout);
-
-  // Add hiring section if docked at a hiring station
-  if (ship.location.status === 'docked') {
-    const dockedLocationId = ship.location.dockedAt;
-    const location = gameData.world.locations.find(
-      (l) => l.id === dockedLocationId
-    );
-    if (location && location.services.includes('hire')) {
-      container.appendChild(renderHiringSection(gameData, callbacks));
+    if (selectedCrew) {
+      layout.appendChild(renderCrewDetail(gameData, selectedCrew, callbacks));
+    } else {
+      layout.appendChild(renderNoCrewSelected());
     }
 
-    // Add equipment shop if docked at a trade station
-    if (location && location.services.includes('trade')) {
-      container.appendChild(renderEquipmentShop(gameData, callbacks));
+    container.appendChild(layout);
+
+    // Add hiring section if docked at a hiring station
+    if (ship.location.status === 'docked') {
+      const dockedLocationId = ship.location.dockedAt;
+      const location = gameData.world.locations.find(
+        (l) => l.id === dockedLocationId
+      );
+      if (location && location.services.includes('hire')) {
+        container.appendChild(renderHiringSection(gameData, callbacks));
+      }
+
+      // Add equipment shop if docked at a trade station
+      if (location && location.services.includes('trade')) {
+        container.appendChild(renderEquipmentShop(gameData, callbacks));
+      }
     }
   }
 
-  return container;
+  rebuild(gameData);
+  return {
+    el: container,
+    update: rebuild,
+    setSelectedCrewId(id: string | undefined) {
+      currentSelectedCrewId = id;
+    },
+  };
 }
 
 function renderCrewList(

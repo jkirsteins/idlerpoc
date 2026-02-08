@@ -6,6 +6,17 @@ E.g. space ship range is derived from engines generating thrust, consuming fuel,
 
 Similarly, all game updates need to happen in some central "update tick" method. All systems need to be updated with every tick.
 
+# UI Component Architecture
+
+UI components follow a **mount-once / update-on-tick** pattern (see `src/ui/component.ts`):
+
+- **Factory functions** are named `createXxx(initialState, callbacks)` and return a `Component` with `{ el, update }`.
+- `el` is the stable container element — it is created once and stays in the DOM across ticks. **Never** replace it or clear a parent's `innerHTML`; doing so resets scroll position, focus, and mobile touch state.
+- `update(gameData)` rebuilds inner content via `el.replaceChildren()`. Callbacks are captured in the closure; only changing data goes through `update()`.
+- Parents hold references to child `Component` instances and call `update()` on each tick instead of recreating children.
+- `renderer.ts` is the top-level orchestrator. During the `playing` phase it mounts once and patches in-place on subsequent ticks. Full DOM rebuilds only happen on phase transitions (no_game ↔ creating ↔ playing) or structural changes (catch-up report modal).
+- Leaf helpers (statBar, tooltip, threatBadge) and transient UI (toasts, catch-up modal, wizard) may remain as plain `render*()` functions returning `HTMLElement` since they are not persisted across ticks.
+
 # Additional rules
 
 - Consult README for project scope before starting work.

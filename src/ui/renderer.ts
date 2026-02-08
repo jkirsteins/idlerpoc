@@ -12,10 +12,11 @@ import {
   type WizardDraft,
   type WizardCallbacks,
 } from './wizard';
-import { renderTabbedView } from './tabbedView';
+import type { Component } from './component';
+import { createTabbedView, type TabbedViewState } from './tabbedView';
 import { renderCatchUpReport } from './catchUpReport';
 import { renderToasts } from './toastSystem';
-import { renderLeftSidebar, renderRightSidebar } from './sidebars';
+import { createLeftSidebar, createRightSidebar } from './sidebars';
 
 export type PlayingTab =
   | 'ship'
@@ -26,7 +27,7 @@ export type PlayingTab =
   | 'log'
   | 'settings';
 
-// Persists across re-renders (UI re-renders every tick)
+// Persists across re-renders
 let mobileDrawerOpen = false;
 
 export type GameState =
@@ -92,12 +93,52 @@ export interface RendererCallbacks {
   onDismissCatchUp: () => void;
 }
 
+// ── Mounted playing layout ─────────────────────────────────────────
+// Stable DOM + child component references kept between ticks so
+// update() can patch in-place instead of wiping the page.
+
+interface MountedPlayingLayout {
+  container: HTMLElement;
+  wrapper: HTMLElement;
+  mobileHeaderBar: HTMLElement;
+  drawerOverlay: HTMLElement;
+  mobileDrawer: HTMLElement;
+  drawerSidebar: Component;
+  contentGrid: HTMLElement;
+  leftSidebar: Component;
+  mainContent: HTMLElement;
+  tabbedView: ReturnType<typeof createTabbedView>;
+  toastArea: HTMLElement;
+  rightSidebar: Component;
+  hasCatchUpReport: boolean;
+}
+
+let mounted: MountedPlayingLayout | null = null;
+
+// ── Public entry point ─────────────────────────────────────────────
+
 export function render(
   container: HTMLElement,
   state: GameState,
   callbacks: RendererCallbacks
 ): void {
+  // Fast path: in-place update during normal playing (no catch-up modal)
+  const canUpdate =
+    state.phase === 'playing' &&
+    !state.catchUpReport &&
+    mounted !== null &&
+    mounted.container === container &&
+    !mounted.hasCatchUpReport &&
+    container.contains(mounted.wrapper);
+
+  if (canUpdate) {
+    updatePlayingLayout(mounted!, state, callbacks);
+    return;
+  }
+
+  // Slow path: full rebuild (phase change, first mount, catch-up modal)
   container.innerHTML = '';
+  mounted = null;
 
   const wrapper = document.createElement('div');
   wrapper.className = 'game-container';
@@ -112,10 +153,9 @@ export function render(
 
   switch (state.phase) {
     case 'no_game': {
-      // For non-playing states, add content to main-content area
       const noGameContent = document.createElement('div');
       noGameContent.className = 'main-content';
-      noGameContent.style.gridColumn = '1 / -1'; // Span all columns
+      noGameContent.style.gridColumn = '1 / -1';
       noGameContent.appendChild(renderNoGame(callbacks));
       wrapper.appendChild(noGameContent);
       break;
@@ -123,26 +163,312 @@ export function render(
     case 'creating': {
       const creatingContent = document.createElement('div');
       creatingContent.className = 'main-content';
-      creatingContent.style.gridColumn = '1 / -1'; // Span all columns
+      creatingContent.style.gridColumn = '1 / -1';
       creatingContent.appendChild(
         renderCreating(state.step, state.draft, callbacks)
       );
       wrapper.appendChild(creatingContent);
       break;
     }
-    case 'playing':
-      renderPlayingLayout(wrapper, state, callbacks);
+    case 'playing': {
+      if (state.catchUpReport) {
+        const modalContent = document.createElement('div');
+        modalContent.appendChild(
+          renderCatchUpReport(state.catchUpReport, callbacks.onDismissCatchUp)
+        );
+        wrapper.appendChild(modalContent);
+        // Track so next render after dismiss does a full rebuild
+        mounted = makePlaceholderMounted(container, wrapper);
+      } else {
+        mounted = mountPlayingLayout(container, wrapper, state, callbacks);
+      }
       break;
+    }
   }
 
   container.appendChild(wrapper);
 
-  // Add version badge
+  // Version badge
   const versionBadge = document.createElement('div');
   versionBadge.className = 'version-badge';
   versionBadge.textContent = `v${__GIT_COMMIT_SHA__.substring(0, 7)}`;
   versionBadge.title = `Git commit: ${__GIT_COMMIT_SHA__}`;
   container.appendChild(versionBadge);
+}
+
+// ── Mount: build stable DOM for the playing phase ──────────────────
+
+function mountPlayingLayout(
+  container: HTMLElement,
+  wrapper: HTMLElement,
+  state: GameState & { phase: 'playing' },
+  callbacks: RendererCallbacks
+): MountedPlayingLayout {
+  const sidebarCallbacks = {
+    onBuyFuel: callbacks.onBuyFuel,
+    onToggleNavigation: callbacks.onToggleNavigation,
+    onUndock: callbacks.onUndock,
+    onDock: callbacks.onDockAtNearestPort,
+    onAdvanceDay: callbacks.onAdvanceDay,
+    onTogglePause: callbacks.onTogglePause,
+    onSetSpeed: callbacks.onSetSpeed,
+    onTabChange: callbacks.onTabChange,
+  };
+
+  // Mobile header bar
+  const mobileHeaderBar = buildMobileHeaderBar(state.gameData, callbacks);
+  wrapper.appendChild(mobileHeaderBar);
+
+  // Mobile drawer overlay
+  const drawerOverlay = document.createElement('div');
+  drawerOverlay.className =
+    'mobile-drawer-overlay' + (mobileDrawerOpen ? ' open' : '');
+  drawerOverlay.addEventListener('click', () => {
+    mobileDrawerOpen = false;
+    drawerOverlay.classList.remove('open');
+    const drawer = drawerOverlay.parentElement?.querySelector('.mobile-drawer');
+    if (drawer) drawer.classList.remove('open');
+  });
+  wrapper.appendChild(drawerOverlay);
+
+  // Mobile drawer with its own sidebar component
+  const mobileDrawer = document.createElement('div');
+  mobileDrawer.className = 'mobile-drawer' + (mobileDrawerOpen ? ' open' : '');
+
+  const drawerClose = document.createElement('button');
+  drawerClose.className = 'mobile-drawer-close';
+  drawerClose.textContent = '\u2715';
+  drawerClose.addEventListener('click', () => {
+    mobileDrawerOpen = false;
+    mobileDrawer.classList.remove('open');
+    drawerOverlay.classList.remove('open');
+  });
+  mobileDrawer.appendChild(drawerClose);
+
+  const drawerSidebar = createLeftSidebar(state.gameData, {
+    ...sidebarCallbacks,
+    onToggleNavigation: () => {
+      mobileDrawerOpen = false;
+      callbacks.onToggleNavigation();
+    },
+    onUndock: () => {
+      mobileDrawerOpen = false;
+      callbacks.onUndock();
+    },
+    onDock: () => {
+      mobileDrawerOpen = false;
+      callbacks.onDockAtNearestPort();
+    },
+    onTabChange: (tab: PlayingTab) => {
+      mobileDrawerOpen = false;
+      callbacks.onTabChange(tab);
+    },
+  });
+  mobileDrawer.appendChild(drawerSidebar.el);
+  wrapper.appendChild(mobileDrawer);
+
+  // Content grid (3-column: left sidebar | main | right sidebar)
+  const contentGrid = document.createElement('div');
+  contentGrid.className = 'game-content-grid';
+
+  const leftSidebar = createLeftSidebar(state.gameData, sidebarCallbacks);
+  contentGrid.appendChild(leftSidebar.el);
+
+  // Main content area
+  const mainContent = document.createElement('div');
+  mainContent.className = 'main-content';
+  mainContent.style.position = 'relative';
+
+  const tabbedView = createTabbedView(
+    state.gameData,
+    state.activeTab,
+    state.showNavigation || false,
+    {
+      onReset: callbacks.onReset,
+      onTabChange: callbacks.onTabChange,
+      onCrewAssign: callbacks.onCrewAssign,
+      onCrewUnassign: callbacks.onCrewUnassign,
+      onUndock: callbacks.onUndock,
+      onDock: callbacks.onDock,
+      onEngineOn: callbacks.onEngineOn,
+      onEngineOff: callbacks.onEngineOff,
+      onToggleNavigation: callbacks.onToggleNavigation,
+      onSelectCrew: callbacks.onSelectCrew,
+      onLevelUp: callbacks.onLevelUp,
+      onAssignSkillPoint: callbacks.onAssignSkillPoint,
+      onEquipItem: callbacks.onEquipItem,
+      onUnequipItem: callbacks.onUnequipItem,
+      onAcceptQuest: callbacks.onAcceptQuest,
+      onAssignRoute: callbacks.onAssignRoute,
+      onUnassignRoute: callbacks.onUnassignRoute,
+      onAdvanceDay: callbacks.onAdvanceDay,
+      onDockAtNearestPort: callbacks.onDockAtNearestPort,
+      onResumeContract: callbacks.onResumeContract,
+      onAbandonContract: callbacks.onAbandonContract,
+      onBuyFuel: callbacks.onBuyFuel,
+      onStartTrip: callbacks.onStartTrip,
+      onHireCrew: callbacks.onHireCrew,
+      onBuyEquipment: callbacks.onBuyEquipment,
+      onSellEquipment: callbacks.onSellEquipment,
+      onSelectShip: callbacks.onSelectShip,
+      onBuyShip: callbacks.onBuyShip,
+      onTransferCrew: callbacks.onTransferCrew,
+    },
+    state.selectedCrewId
+  );
+  mainContent.appendChild(tabbedView.el);
+
+  // Toast area (stable container, content replaced each tick)
+  const toastArea = document.createElement('div');
+  if (state.toasts && state.toasts.length > 0) {
+    toastArea.appendChild(renderToasts(state.toasts));
+  }
+  mainContent.appendChild(toastArea);
+
+  contentGrid.appendChild(mainContent);
+
+  const rightSidebar = createRightSidebar(state.gameData);
+  contentGrid.appendChild(rightSidebar.el);
+
+  wrapper.appendChild(contentGrid);
+
+  return {
+    container,
+    wrapper,
+    mobileHeaderBar,
+    drawerOverlay,
+    mobileDrawer,
+    drawerSidebar,
+    contentGrid,
+    leftSidebar,
+    mainContent,
+    tabbedView,
+    toastArea,
+    rightSidebar,
+    hasCatchUpReport: false,
+  };
+}
+
+// ── Update: patch existing DOM in-place ────────────────────────────
+
+function updatePlayingLayout(
+  layout: MountedPlayingLayout,
+  state: GameState & { phase: 'playing' },
+  callbacks: RendererCallbacks
+): void {
+  // Mobile header bar: cheap, just rebuild content
+  layout.mobileHeaderBar.replaceChildren(
+    ...buildMobileHeaderBarChildren(state.gameData, callbacks)
+  );
+
+  // Drawer sidebar
+  layout.drawerSidebar.update(state.gameData);
+
+  // Desktop left sidebar
+  layout.leftSidebar.update(state.gameData);
+
+  // Tabbed view (passes tab/nav/crew state so it can switch tabs)
+  layout.tabbedView.updateView({
+    gameData: state.gameData,
+    activeTab: state.activeTab,
+    showNavigation: state.showNavigation || false,
+    selectedCrewId: state.selectedCrewId,
+  });
+
+  // Toasts
+  layout.toastArea.replaceChildren();
+  if (state.toasts && state.toasts.length > 0) {
+    layout.toastArea.appendChild(renderToasts(state.toasts));
+  }
+
+  // Right sidebar
+  layout.rightSidebar.update(state.gameData);
+}
+
+// ── Helpers ────────────────────────────────────────────────────────
+
+function makePlaceholderMounted(
+  container: HTMLElement,
+  wrapper: HTMLElement
+): MountedPlayingLayout {
+  // Dummy layout so we can track hasCatchUpReport = true. The next
+  // render after dismiss won't match canUpdate and will do a full rebuild.
+  const dummy = document.createElement('div');
+  const dummyComp: Component = { el: dummy, update() {} };
+  const dummyTabbed = Object.assign(dummyComp, {
+    updateView(_s: TabbedViewState) {},
+  });
+  return {
+    container,
+    wrapper,
+    mobileHeaderBar: dummy,
+    drawerOverlay: dummy,
+    mobileDrawer: dummy,
+    drawerSidebar: dummyComp,
+    contentGrid: dummy,
+    leftSidebar: dummyComp,
+    mainContent: dummy,
+    tabbedView: dummyTabbed,
+    toastArea: dummy,
+    rightSidebar: dummyComp,
+    hasCatchUpReport: true,
+  };
+}
+
+function buildMobileHeaderBar(
+  gameData: GameData,
+  callbacks: RendererCallbacks
+): HTMLElement {
+  const bar = document.createElement('div');
+  bar.className = 'mobile-header-bar';
+  bar.append(...buildMobileHeaderBarChildren(gameData, callbacks));
+  return bar;
+}
+
+function buildMobileHeaderBarChildren(
+  gameData: GameData,
+  callbacks: RendererCallbacks
+): HTMLElement[] {
+  const ship = getActiveShip(gameData);
+
+  const hamburger = document.createElement('button');
+  hamburger.className = 'mobile-hamburger';
+  hamburger.innerHTML = '\u2630';
+  hamburger.addEventListener('click', () => {
+    mobileDrawerOpen = !mobileDrawerOpen;
+    const drawer = hamburger
+      .closest('.game-container')
+      ?.querySelector('.mobile-drawer');
+    const overlay = hamburger
+      .closest('.game-container')
+      ?.querySelector('.mobile-drawer-overlay');
+    if (drawer) drawer.classList.toggle('open', mobileDrawerOpen);
+    if (overlay) overlay.classList.toggle('open', mobileDrawerOpen);
+  });
+
+  const credits = document.createElement('div');
+  credits.className = 'mobile-header-stat';
+  credits.innerHTML = `<span class="mobile-header-label">CR</span> <span class="mobile-header-value">${Math.round(gameData.credits).toLocaleString()}</span>`;
+
+  const fuel = document.createElement('div');
+  fuel.className = 'mobile-header-stat';
+  const fuelColor =
+    ship.fuel <= 20 ? '#e94560' : ship.fuel <= 50 ? '#ffc107' : '#4caf50';
+  fuel.innerHTML = `<span class="mobile-header-label">FUEL</span> <span class="mobile-header-value" style="color:${fuelColor}">${ship.fuel.toFixed(0)}%</span>`;
+
+  const playPause = document.createElement('button');
+  playPause.className = 'mobile-header-playpause';
+  playPause.textContent = gameData.isPaused ? '\u25B6' : '\u23F8';
+  playPause.addEventListener('click', () => {
+    if (callbacks.onTogglePause) callbacks.onTogglePause();
+  });
+
+  const speed = document.createElement('div');
+  speed.className = 'mobile-header-stat';
+  const currentSpeed = gameData.timeSpeed ?? 1;
+  speed.innerHTML = `<span class="mobile-header-value">${gameData.isPaused ? '--' : currentSpeed + 'x'}</span>`;
+
+  return [hamburger, credits, fuel, playPause, speed];
 }
 
 function renderNoGame(callbacks: RendererCallbacks): HTMLElement {
@@ -171,207 +497,4 @@ function renderCreating(
     onCancel: callbacks.onWizardCancel,
   };
   return renderWizard(step, draft, wizardCallbacks);
-}
-
-function renderPlayingLayout(
-  wrapper: HTMLElement,
-  state: GameState & { phase: 'playing' },
-  callbacks: RendererCallbacks
-): void {
-  // Show catch-up report modal if encounters happened during fast-forward
-  if (state.catchUpReport) {
-    const modalContent = document.createElement('div');
-    modalContent.appendChild(
-      renderCatchUpReport(state.catchUpReport, callbacks.onDismissCatchUp)
-    );
-    wrapper.appendChild(modalContent);
-    return;
-  }
-
-  // Mobile header bar (visible only at <=900px via CSS)
-  wrapper.appendChild(renderMobileHeaderBar(state.gameData, callbacks));
-
-  // Mobile drawer overlay + sidebar (visible only at <=900px via CSS)
-  const drawerOverlay = document.createElement('div');
-  drawerOverlay.className =
-    'mobile-drawer-overlay' + (mobileDrawerOpen ? ' open' : '');
-  drawerOverlay.addEventListener('click', () => {
-    mobileDrawerOpen = false;
-    drawerOverlay.classList.remove('open');
-    const drawer = drawerOverlay.parentElement?.querySelector('.mobile-drawer');
-    if (drawer) drawer.classList.remove('open');
-  });
-  wrapper.appendChild(drawerOverlay);
-
-  const drawerSidebar = renderLeftSidebar(state.gameData, {
-    onBuyFuel: callbacks.onBuyFuel,
-    onToggleNavigation: callbacks.onToggleNavigation,
-    onUndock: callbacks.onUndock,
-    onDock: callbacks.onDockAtNearestPort,
-    onAdvanceDay: callbacks.onAdvanceDay,
-    onTogglePause: callbacks.onTogglePause,
-    onSetSpeed: callbacks.onSetSpeed,
-    onTabChange: callbacks.onTabChange,
-  });
-  const mobileDrawer = document.createElement('div');
-  mobileDrawer.className = 'mobile-drawer' + (mobileDrawerOpen ? ' open' : '');
-  // Close button inside drawer
-  const drawerClose = document.createElement('button');
-  drawerClose.className = 'mobile-drawer-close';
-  drawerClose.textContent = '\u2715';
-  drawerClose.addEventListener('click', () => {
-    mobileDrawerOpen = false;
-    mobileDrawer.classList.remove('open');
-    drawerOverlay.classList.remove('open');
-  });
-  mobileDrawer.appendChild(drawerClose);
-  // Clone sidebar content into the drawer (original stays in grid for desktop)
-  const drawerContent = drawerSidebar.cloneNode(true) as HTMLElement;
-  drawerContent.className = 'mobile-drawer-content';
-  // Re-attach event listeners for cloned sidebar (clone doesn't copy listeners)
-  mobileDrawer.appendChild(
-    renderLeftSidebar(state.gameData, {
-      onBuyFuel: callbacks.onBuyFuel,
-      onToggleNavigation: () => {
-        mobileDrawerOpen = false;
-        if (callbacks.onToggleNavigation) callbacks.onToggleNavigation();
-      },
-      onUndock: () => {
-        mobileDrawerOpen = false;
-        if (callbacks.onUndock) callbacks.onUndock();
-      },
-      onDock: () => {
-        mobileDrawerOpen = false;
-        if (callbacks.onDockAtNearestPort) callbacks.onDockAtNearestPort();
-      },
-      onAdvanceDay: callbacks.onAdvanceDay,
-      onTogglePause: callbacks.onTogglePause,
-      onSetSpeed: callbacks.onSetSpeed,
-      onTabChange: (tab: PlayingTab) => {
-        mobileDrawerOpen = false;
-        if (callbacks.onTabChange) callbacks.onTabChange(tab);
-      },
-    })
-  );
-  wrapper.appendChild(mobileDrawer);
-
-  // Create the 3-column grid container
-  const contentGrid = document.createElement('div');
-  contentGrid.className = 'game-content-grid';
-
-  // Left sidebar (hidden on mobile via CSS, shown on desktop)
-  contentGrid.appendChild(drawerSidebar);
-
-  // Main content (tabbed view)
-  const mainContent = document.createElement('div');
-  mainContent.className = 'main-content';
-  mainContent.style.position = 'relative';
-
-  mainContent.appendChild(
-    renderTabbedView(
-      state.gameData,
-      state.activeTab,
-      state.showNavigation || false,
-      {
-        onReset: callbacks.onReset,
-        onTabChange: callbacks.onTabChange,
-        onCrewAssign: callbacks.onCrewAssign,
-        onCrewUnassign: callbacks.onCrewUnassign,
-        onUndock: callbacks.onUndock,
-        onDock: callbacks.onDock,
-        onEngineOn: callbacks.onEngineOn,
-        onEngineOff: callbacks.onEngineOff,
-        onToggleNavigation: callbacks.onToggleNavigation,
-        onSelectCrew: callbacks.onSelectCrew,
-        onLevelUp: callbacks.onLevelUp,
-        onAssignSkillPoint: callbacks.onAssignSkillPoint,
-        onEquipItem: callbacks.onEquipItem,
-        onUnequipItem: callbacks.onUnequipItem,
-        onAcceptQuest: callbacks.onAcceptQuest,
-        onAssignRoute: callbacks.onAssignRoute,
-        onUnassignRoute: callbacks.onUnassignRoute,
-        onAdvanceDay: callbacks.onAdvanceDay,
-        onDockAtNearestPort: callbacks.onDockAtNearestPort,
-        onResumeContract: callbacks.onResumeContract,
-        onAbandonContract: callbacks.onAbandonContract,
-        onBuyFuel: callbacks.onBuyFuel,
-        onStartTrip: callbacks.onStartTrip,
-        onHireCrew: callbacks.onHireCrew,
-        onBuyEquipment: callbacks.onBuyEquipment,
-        onSellEquipment: callbacks.onSellEquipment,
-        onSelectShip: callbacks.onSelectShip,
-        onBuyShip: callbacks.onBuyShip,
-        onTransferCrew: callbacks.onTransferCrew,
-      },
-      state.selectedCrewId
-    )
-  );
-
-  // Toast notifications overlay (if any)
-  if (state.toasts && state.toasts.length > 0) {
-    mainContent.appendChild(renderToasts(state.toasts));
-  }
-
-  contentGrid.appendChild(mainContent);
-
-  // Right sidebar
-  contentGrid.appendChild(renderRightSidebar(state.gameData));
-
-  // Add the grid to the wrapper
-  wrapper.appendChild(contentGrid);
-}
-
-function renderMobileHeaderBar(
-  gameData: GameData,
-  callbacks: RendererCallbacks
-): HTMLElement {
-  const bar = document.createElement('div');
-  bar.className = 'mobile-header-bar';
-
-  // Hamburger button
-  const hamburger = document.createElement('button');
-  hamburger.className = 'mobile-hamburger';
-  hamburger.innerHTML = '\u2630';
-  hamburger.addEventListener('click', () => {
-    mobileDrawerOpen = !mobileDrawerOpen;
-    const drawer = bar.parentElement?.querySelector('.mobile-drawer');
-    const overlay = bar.parentElement?.querySelector('.mobile-drawer-overlay');
-    if (drawer) drawer.classList.toggle('open', mobileDrawerOpen);
-    if (overlay) overlay.classList.toggle('open', mobileDrawerOpen);
-  });
-  bar.appendChild(hamburger);
-
-  const ship = getActiveShip(gameData);
-
-  // Credits
-  const credits = document.createElement('div');
-  credits.className = 'mobile-header-stat';
-  credits.innerHTML = `<span class="mobile-header-label">CR</span> <span class="mobile-header-value">${Math.round(gameData.credits).toLocaleString()}</span>`;
-  bar.appendChild(credits);
-
-  // Fuel
-  const fuel = document.createElement('div');
-  fuel.className = 'mobile-header-stat';
-  const fuelColor =
-    ship.fuel <= 20 ? '#e94560' : ship.fuel <= 50 ? '#ffc107' : '#4caf50';
-  fuel.innerHTML = `<span class="mobile-header-label">FUEL</span> <span class="mobile-header-value" style="color:${fuelColor}">${ship.fuel.toFixed(0)}%</span>`;
-  bar.appendChild(fuel);
-
-  // Play/Pause button
-  const playPause = document.createElement('button');
-  playPause.className = 'mobile-header-playpause';
-  playPause.textContent = gameData.isPaused ? '\u25B6' : '\u23F8';
-  playPause.addEventListener('click', () => {
-    if (callbacks.onTogglePause) callbacks.onTogglePause();
-  });
-  bar.appendChild(playPause);
-
-  // Speed indicator
-  const speed = document.createElement('div');
-  speed.className = 'mobile-header-stat';
-  const currentSpeed = gameData.timeSpeed ?? 1;
-  speed.innerHTML = `<span class="mobile-header-value">${gameData.isPaused ? '--' : currentSpeed + 'x'}</span>`;
-  bar.appendChild(speed);
-
-  return bar;
 }
