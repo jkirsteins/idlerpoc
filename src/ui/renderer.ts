@@ -196,6 +196,8 @@ function renderPlayingLayout(
       onUndock: callbacks.onUndock,
       onDock: callbacks.onDockAtNearestPort,
       onAdvanceDay: callbacks.onAdvanceDay,
+      onTogglePause: callbacks.onTogglePause,
+      onSetSpeed: callbacks.onSetSpeed,
     })
   );
 

@@ -61,9 +61,10 @@ export function renderLeftSidebar(
   speedStatus.style.fontSize = '11px';
   speedStatus.style.color = '#aaa';
   speedStatus.style.marginBottom = '6px';
+  const currentSpeed = gameData.timeSpeed ?? 1;
   speedStatus.textContent = gameData.isPaused
     ? 'Speed: -- (paused)'
-    : `Speed: ${gameData.timeSpeed}x`;
+    : `Speed: ${currentSpeed}x`;
   timeControlsSection.appendChild(speedStatus);
 
   // Speed Controls Row
@@ -78,7 +79,8 @@ export function renderLeftSidebar(
     speedBtn.textContent = `${speed}x`;
     speedBtn.disabled = gameData.isPaused;
 
-    if (gameData.timeSpeed === speed && !gameData.isPaused) {
+    const currentSpeed = gameData.timeSpeed ?? 1;
+    if (currentSpeed === speed && !gameData.isPaused) {
       speedBtn.classList.add('active');
     }
 
