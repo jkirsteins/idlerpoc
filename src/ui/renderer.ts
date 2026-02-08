@@ -5,6 +5,7 @@ import type {
   CatchUpReport,
   Toast,
 } from '../models';
+import { getActiveShip } from '../models';
 import {
   renderWizard,
   type WizardStep,
@@ -24,6 +25,9 @@ export type PlayingTab =
   | 'fleet'
   | 'log'
   | 'settings';
+
+// Persists across re-renders (UI re-renders every tick)
+let mobileDrawerOpen = false;
 
 export type GameState =
   | { phase: 'no_game' }
@@ -184,23 +188,79 @@ function renderPlayingLayout(
     return;
   }
 
+  // Mobile header bar (visible only at <=900px via CSS)
+  wrapper.appendChild(renderMobileHeaderBar(state.gameData, callbacks));
+
+  // Mobile drawer overlay + sidebar (visible only at <=900px via CSS)
+  const drawerOverlay = document.createElement('div');
+  drawerOverlay.className =
+    'mobile-drawer-overlay' + (mobileDrawerOpen ? ' open' : '');
+  drawerOverlay.addEventListener('click', () => {
+    mobileDrawerOpen = false;
+    drawerOverlay.classList.remove('open');
+    const drawer = drawerOverlay.parentElement?.querySelector('.mobile-drawer');
+    if (drawer) drawer.classList.remove('open');
+  });
+  wrapper.appendChild(drawerOverlay);
+
+  const drawerSidebar = renderLeftSidebar(state.gameData, {
+    onBuyFuel: callbacks.onBuyFuel,
+    onToggleNavigation: callbacks.onToggleNavigation,
+    onUndock: callbacks.onUndock,
+    onDock: callbacks.onDockAtNearestPort,
+    onAdvanceDay: callbacks.onAdvanceDay,
+    onTogglePause: callbacks.onTogglePause,
+    onSetSpeed: callbacks.onSetSpeed,
+    onTabChange: callbacks.onTabChange,
+  });
+  const mobileDrawer = document.createElement('div');
+  mobileDrawer.className = 'mobile-drawer' + (mobileDrawerOpen ? ' open' : '');
+  // Close button inside drawer
+  const drawerClose = document.createElement('button');
+  drawerClose.className = 'mobile-drawer-close';
+  drawerClose.textContent = '\u2715';
+  drawerClose.addEventListener('click', () => {
+    mobileDrawerOpen = false;
+    mobileDrawer.classList.remove('open');
+    drawerOverlay.classList.remove('open');
+  });
+  mobileDrawer.appendChild(drawerClose);
+  // Clone sidebar content into the drawer (original stays in grid for desktop)
+  const drawerContent = drawerSidebar.cloneNode(true) as HTMLElement;
+  drawerContent.className = 'mobile-drawer-content';
+  // Re-attach event listeners for cloned sidebar (clone doesn't copy listeners)
+  mobileDrawer.appendChild(
+    renderLeftSidebar(state.gameData, {
+      onBuyFuel: callbacks.onBuyFuel,
+      onToggleNavigation: () => {
+        mobileDrawerOpen = false;
+        if (callbacks.onToggleNavigation) callbacks.onToggleNavigation();
+      },
+      onUndock: () => {
+        mobileDrawerOpen = false;
+        if (callbacks.onUndock) callbacks.onUndock();
+      },
+      onDock: () => {
+        mobileDrawerOpen = false;
+        if (callbacks.onDockAtNearestPort) callbacks.onDockAtNearestPort();
+      },
+      onAdvanceDay: callbacks.onAdvanceDay,
+      onTogglePause: callbacks.onTogglePause,
+      onSetSpeed: callbacks.onSetSpeed,
+      onTabChange: (tab: PlayingTab) => {
+        mobileDrawerOpen = false;
+        if (callbacks.onTabChange) callbacks.onTabChange(tab);
+      },
+    })
+  );
+  wrapper.appendChild(mobileDrawer);
+
   // Create the 3-column grid container
   const contentGrid = document.createElement('div');
   contentGrid.className = 'game-content-grid';
 
-  // Left sidebar
-  contentGrid.appendChild(
-    renderLeftSidebar(state.gameData, {
-      onBuyFuel: callbacks.onBuyFuel,
-      onToggleNavigation: callbacks.onToggleNavigation,
-      onUndock: callbacks.onUndock,
-      onDock: callbacks.onDockAtNearestPort,
-      onAdvanceDay: callbacks.onAdvanceDay,
-      onTogglePause: callbacks.onTogglePause,
-      onSetSpeed: callbacks.onSetSpeed,
-      onTabChange: callbacks.onTabChange,
-    })
-  );
+  // Left sidebar (hidden on mobile via CSS, shown on desktop)
+  contentGrid.appendChild(drawerSidebar);
 
   // Main content (tabbed view)
   const mainContent = document.createElement('div');
@@ -259,4 +319,59 @@ function renderPlayingLayout(
 
   // Add the grid to the wrapper
   wrapper.appendChild(contentGrid);
+}
+
+function renderMobileHeaderBar(
+  gameData: GameData,
+  callbacks: RendererCallbacks
+): HTMLElement {
+  const bar = document.createElement('div');
+  bar.className = 'mobile-header-bar';
+
+  // Hamburger button
+  const hamburger = document.createElement('button');
+  hamburger.className = 'mobile-hamburger';
+  hamburger.innerHTML = '\u2630';
+  hamburger.addEventListener('click', () => {
+    mobileDrawerOpen = !mobileDrawerOpen;
+    const drawer = bar.parentElement?.querySelector('.mobile-drawer');
+    const overlay = bar.parentElement?.querySelector('.mobile-drawer-overlay');
+    if (drawer) drawer.classList.toggle('open', mobileDrawerOpen);
+    if (overlay) overlay.classList.toggle('open', mobileDrawerOpen);
+  });
+  bar.appendChild(hamburger);
+
+  const ship = getActiveShip(gameData);
+
+  // Credits
+  const credits = document.createElement('div');
+  credits.className = 'mobile-header-stat';
+  credits.innerHTML = `<span class="mobile-header-label">CR</span> <span class="mobile-header-value">${Math.round(gameData.credits).toLocaleString()}</span>`;
+  bar.appendChild(credits);
+
+  // Fuel
+  const fuel = document.createElement('div');
+  fuel.className = 'mobile-header-stat';
+  const fuelColor =
+    ship.fuel <= 20 ? '#e94560' : ship.fuel <= 50 ? '#ffc107' : '#4caf50';
+  fuel.innerHTML = `<span class="mobile-header-label">FUEL</span> <span class="mobile-header-value" style="color:${fuelColor}">${ship.fuel.toFixed(0)}%</span>`;
+  bar.appendChild(fuel);
+
+  // Play/Pause button
+  const playPause = document.createElement('button');
+  playPause.className = 'mobile-header-playpause';
+  playPause.textContent = gameData.isPaused ? '\u25B6' : '\u23F8';
+  playPause.addEventListener('click', () => {
+    if (callbacks.onTogglePause) callbacks.onTogglePause();
+  });
+  bar.appendChild(playPause);
+
+  // Speed indicator
+  const speed = document.createElement('div');
+  speed.className = 'mobile-header-stat';
+  const currentSpeed = gameData.timeSpeed ?? 1;
+  speed.innerHTML = `<span class="mobile-header-value">${gameData.isPaused ? '--' : currentSpeed + 'x'}</span>`;
+  bar.appendChild(speed);
+
+  return bar;
 }
