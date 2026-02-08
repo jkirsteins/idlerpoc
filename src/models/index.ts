@@ -372,6 +372,7 @@ export interface CatchUpShipReport {
 
 export interface CatchUpReport {
   totalTicks: number;
+  elapsedRealSeconds: number; // actual real-world seconds that passed
   creditsDelta: number; // net credits change during catch-up
   tripsCompleted: number; // total trip completions across fleet
   contractsCompleted: number; // total contract completions across fleet

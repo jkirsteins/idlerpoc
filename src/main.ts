@@ -63,6 +63,7 @@ let tickInterval: number | null = null;
  */
 function buildCatchUpReport(
   totalTicks: number,
+  elapsedRealSeconds: number,
   encounterResults: EncounterResult[],
   gameData: GameData,
   prevCredits: number,
@@ -140,6 +141,7 @@ function buildCatchUpReport(
 
   return {
     totalTicks,
+    elapsedRealSeconds,
     creditsDelta: Math.round(gameData.credits - prevCredits),
     tripsCompleted,
     contractsCompleted,
@@ -209,6 +211,7 @@ function fastForwardTicks(gameData: GameData): CatchUpReport | null {
     if (elapsedSeconds >= CATCH_UP_REPORT_THRESHOLD_SECONDS) {
       return buildCatchUpReport(
         totalTicks,
+        elapsedSeconds,
         encounterResults,
         gameData,
         prevCredits,
@@ -1222,6 +1225,7 @@ function processPendingTicks(): void {
     const encounterResults = drainEncounterResults();
     const report = buildCatchUpReport(
       totalTicks,
+      elapsedSeconds,
       encounterResults,
       state.gameData,
       prevCredits,
