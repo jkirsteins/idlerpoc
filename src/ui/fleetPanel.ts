@@ -1,5 +1,8 @@
 import type { GameData } from '../models';
-import { getShipClass } from '../shipClasses';
+import { getShipClass, type ShipClassTier } from '../shipClasses';
+import { getEngineDefinition } from '../engines';
+import { computeMaxRange } from '../flightPhysics';
+import { formatDualTime } from '../timeSystem';
 
 export interface FleetPanelCallbacks {
   onSelectShip: (shipId: string) => void;
@@ -69,14 +72,30 @@ export function renderFleetPanel(
     indicator.style.flexShrink = '0';
     row.appendChild(indicator);
 
-    // Ship name
+    // Ship name with tier badge
+    const nameContainer = document.createElement('div');
+    nameContainer.style.display = 'flex';
+    nameContainer.style.alignItems = 'center';
+    nameContainer.style.gap = '0.5rem';
+    nameContainer.style.minWidth = '150px';
+
+    const tierBadge = document.createElement('span');
+    const shipClass = getShipClass(ship.classId);
+    tierBadge.textContent = `[${shipClass?.tier ?? '?'}]`;
+    tierBadge.style.fontSize = '0.75rem';
+    tierBadge.style.fontWeight = 'bold';
+    tierBadge.style.color = getTierColor(shipClass?.tier ?? 'I');
+    tierBadge.style.opacity = '0.8';
+    nameContainer.appendChild(tierBadge);
+
     const nameSpan = document.createElement('div');
     nameSpan.textContent = ship.name;
     nameSpan.style.fontWeight = 'bold';
-    nameSpan.style.minWidth = '120px';
     nameSpan.style.color =
       ship.id === gameData.activeShipId ? '#4a9eff' : '#fff';
-    row.appendChild(nameSpan);
+    nameContainer.appendChild(nameSpan);
+
+    row.appendChild(nameContainer);
 
     // Status
     const statusSpan = document.createElement('div');
@@ -95,6 +114,11 @@ export function renderFleetPanel(
         (ship.location.flight.distanceCovered /
           ship.location.flight.totalDistance) *
         100;
+
+      // Calculate remaining time
+      const remainingTime =
+        ship.location.flight.totalTime - ship.location.flight.elapsedTime;
+      const timeLabel = formatDualTime(remainingTime);
 
       const statusText = document.createElement('span');
       statusText.textContent = `In Flight to ${destination?.name || destId} `;
@@ -121,7 +145,7 @@ export function renderFleetPanel(
       statusSpan.appendChild(miniBar);
 
       const percentText = document.createElement('span');
-      percentText.textContent = `${progressPercent.toFixed(0)}%`;
+      percentText.textContent = `${progressPercent.toFixed(0)}% - ${timeLabel} remaining`;
       percentText.style.fontSize = '0.8rem';
       statusSpan.appendChild(percentText);
     }
@@ -135,15 +159,63 @@ export function renderFleetPanel(
     row.appendChild(fuelSpan);
 
     // Crew
-    const shipClass = getShipClass(ship.classId);
     const crewSpan = document.createElement('div');
     crewSpan.style.minWidth = '70px';
     crewSpan.style.color = '#aaa';
     crewSpan.textContent = `Crew: ${ship.crew.length}/${shipClass?.maxCrew ?? '?'}`;
     row.appendChild(crewSpan);
 
+    // Equipment slots
+    const equipSpan = document.createElement('div');
+    equipSpan.style.minWidth = '70px';
+    equipSpan.style.color = '#aaa';
+    const maxSlots = shipClass?.equipmentSlotDefs.length ?? 0;
+    const usedSlots = ship.equipment.length;
+    equipSpan.textContent = `Equip: ${usedSlots}/${maxSlots}`;
+    row.appendChild(equipSpan);
+
+    // Range
+    const rangeSpan = document.createElement('div');
+    rangeSpan.style.minWidth = '90px';
+    rangeSpan.style.color = '#aaa';
+    rangeSpan.style.fontSize = '0.8rem';
+    if (shipClass) {
+      const engineDef = getEngineDefinition(ship.engine.definitionId);
+      const maxRangeKm = computeMaxRange(shipClass, engineDef);
+      const rangeLabel = formatLargeNumber(maxRangeKm);
+      rangeSpan.textContent = `Range: ${rangeLabel}km`;
+      rangeSpan.title = `Max range: ${maxRangeKm.toLocaleString()} km`;
+    }
+    row.appendChild(rangeSpan);
+
     panel.appendChild(row);
   }
 
   return panel;
+}
+
+function getTierColor(tier: ShipClassTier): string {
+  switch (tier) {
+    case 'I':
+      return '#888';
+    case 'II':
+      return '#4a9eff';
+    case 'III':
+      return '#ff9f43';
+    case 'IV':
+      return '#ff6b6b';
+    case 'V':
+      return '#a29bfe';
+    default:
+      return '#fff';
+  }
+}
+
+function formatLargeNumber(num: number): string {
+  if (num >= 1_000_000) {
+    return (num / 1_000_000).toFixed(1) + 'M';
+  } else if (num >= 1_000) {
+    return (num / 1_000).toFixed(0) + 'K';
+  }
+  return num.toFixed(0);
 }

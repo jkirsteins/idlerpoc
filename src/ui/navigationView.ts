@@ -1,7 +1,11 @@
 import type { GameData } from '../models';
 import { getActiveShip } from '../models';
 import { getLocationTypeTemplate } from '../spaceLocations';
-import { isLocationReachable, getUnreachableReason } from '../worldGen';
+import {
+  isLocationReachable,
+  getUnreachableReason,
+  getDistanceBetween,
+} from '../worldGen';
 import { getGravityDegradationLevel } from '../gravitySystem';
 import {
   estimateRouteRisk,
@@ -9,6 +13,14 @@ import {
   getThreatNarrative,
 } from '../encounterSystem';
 import { renderThreatBadge } from './threatBadge';
+import { getShipClass } from '../shipClasses';
+import { getEngineDefinition } from '../engines';
+import {
+  initializeFlight,
+  calculateFuelCost,
+  computeMaxRange,
+} from '../flightPhysics';
+import { formatDualTime } from '../timeSystem';
 
 export interface NavigationViewCallbacks {
   onToggleNavigation: () => void;
@@ -149,6 +161,36 @@ export function renderNavigationView(
     const distance = document.createElement('div');
     distance.textContent = `Distance: ${formatDistance(distanceFromCurrent)}`;
     item.appendChild(distance);
+
+    // Add travel time and fuel cost estimates for reachable non-current locations
+    if (location.id !== currentLocationId && reachable) {
+      const shipClass = getShipClass(ship.classId);
+      const engineDef = getEngineDefinition(ship.engine.definitionId);
+      if (shipClass) {
+        try {
+          const flight = initializeFlight(
+            ship,
+            currentLocation,
+            location,
+            false
+          );
+          const travelTime = formatDualTime(flight.totalTime);
+
+          const distanceKm = getDistanceBetween(currentLocation, location);
+          const maxRangeKm = computeMaxRange(shipClass, engineDef);
+          const fuelCost = calculateFuelCost(distanceKm, maxRangeKm);
+
+          const travelInfo = document.createElement('div');
+          travelInfo.style.fontSize = '0.85em';
+          travelInfo.style.color = '#4ade80';
+          travelInfo.style.marginTop = '0.25rem';
+          travelInfo.innerHTML = `⏱ Travel Time: ${travelTime} | ⛽ Fuel Cost: ~${fuelCost.toFixed(1)}%`;
+          item.appendChild(travelInfo);
+        } catch {
+          // Silently skip if travel estimate fails
+        }
+      }
+    }
 
     const description = document.createElement('div');
     description.textContent = location.description;

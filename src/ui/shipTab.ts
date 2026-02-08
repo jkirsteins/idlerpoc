@@ -8,6 +8,8 @@ import { getEquipmentDefinition } from '../equipment';
 import { getEngineDefinition } from '../engines';
 import { renderNavigationView } from './navigationView';
 import { getGravitySource } from '../gravitySystem';
+import { computeMaxRange } from '../flightPhysics';
+import { formatDualTime, GAME_SECONDS_PER_TICK } from '../timeSystem';
 
 export interface ShipTabCallbacks {
   onCrewAssign: (crewId: string, roomId: string) => void;
@@ -56,6 +58,9 @@ export function renderShipTab(
   if (engineDef.containmentComplexity > 0) {
     container.appendChild(renderContainmentBar(gameData));
   }
+
+  // Ship stats panel
+  container.appendChild(renderShipStatsPanel(gameData));
 
   // Room grid
   container.appendChild(renderRoomGrid(gameData, callbacks));
@@ -233,6 +238,122 @@ function renderContainmentBar(gameData: GameData): HTMLElement {
   return renderProgressBar('CONTAINMENT', integrity, valueLabel, colorClass);
 }
 
+function renderShipStatsPanel(gameData: GameData): HTMLElement {
+  const ship = getActiveShip(gameData);
+  const shipClass = getShipClass(ship.classId);
+  const engineDef = getEngineDefinition(ship.engine.definitionId);
+
+  if (!shipClass) {
+    return document.createElement('div');
+  }
+
+  const section = document.createElement('div');
+  section.className = 'ship-stats-section';
+  section.style.marginBottom = '1rem';
+  section.style.padding = '0.75rem';
+  section.style.background = 'rgba(0, 0, 0, 0.2)';
+  section.style.border = '1px solid #444';
+  section.style.borderRadius = '4px';
+
+  const title = document.createElement('h3');
+  title.textContent = 'SHIP CAPABILITIES';
+  title.style.marginBottom = '0.5rem';
+  title.style.fontSize = '0.9rem';
+  title.style.color = '#4a9eff';
+  section.appendChild(title);
+
+  const statsGrid = document.createElement('div');
+  statsGrid.style.display = 'grid';
+  statsGrid.style.gridTemplateColumns = '1fr 1fr';
+  statsGrid.style.gap = '0.5rem';
+  statsGrid.style.fontSize = '0.85rem';
+
+  // Max Range
+  const maxRangeKm = computeMaxRange(shipClass, engineDef);
+  const rangeLabel = getRangeLabel(maxRangeKm);
+  const rangeDiv = document.createElement('div');
+  rangeDiv.innerHTML = `<span style="color: #888;">Max Range:</span> <span style="color: #4ade80; font-weight: bold;">${formatLargeNumber(maxRangeKm)} km</span><br><span style="font-size: 0.75rem; color: #aaa;">(${rangeLabel})</span>`;
+  rangeDiv.title = `Derived from: Engine (${engineDef.name}) + Ship Mass (${(shipClass.mass / 1000).toFixed(0)}t) + Consumables`;
+  statsGrid.appendChild(rangeDiv);
+
+  // Max Acceleration
+  const acceleration = engineDef.thrust / shipClass.mass;
+  const accelerationG = acceleration / 9.81;
+  const accelDiv = document.createElement('div');
+  accelDiv.innerHTML = `<span style="color: #888;">Max Accel:</span> <span style="color: #4ade80;">${accelerationG.toFixed(4)}g</span><br><span style="font-size: 0.75rem; color: #aaa;">(${engineDef.thrust.toLocaleString()} N)</span>`;
+  accelDiv.title = `Thrust (${engineDef.thrust} N) / Ship Mass (${shipClass.mass} kg)`;
+  statsGrid.appendChild(accelDiv);
+
+  // Equipment Slots
+  const maxSlots = shipClass.equipmentSlotDefs.length;
+  const usedSlots = ship.equipment.length;
+  const standardSlots = shipClass.equipmentSlotDefs.filter((s) =>
+    s.tags.includes('standard')
+  ).length;
+  const structuralSlots = shipClass.equipmentSlotDefs.filter((s) =>
+    s.tags.includes('structural')
+  ).length;
+  const slotsDiv = document.createElement('div');
+  slotsDiv.innerHTML = `<span style="color: #888;">Equipment Slots:</span> <span style="color: #4ade80;">${usedSlots}/${maxSlots}</span><br><span style="font-size: 0.75rem; color: #aaa;">${standardSlots} Standard, ${structuralSlots} Structural</span>`;
+  statsGrid.appendChild(slotsDiv);
+
+  // Ship Class & Tier
+  const tierDiv = document.createElement('div');
+  const tierColor = getTierColor(shipClass.tier);
+  tierDiv.innerHTML = `<span style="color: #888;">Class:</span> <span style="color: ${tierColor}; font-weight: bold;">${shipClass.tier}</span><br><span style="font-size: 0.75rem; color: #aaa;">${shipClass.name}</span>`;
+  statsGrid.appendChild(tierDiv);
+
+  // Ship Mass
+  const massDiv = document.createElement('div');
+  massDiv.innerHTML = `<span style="color: #888;">Ship Mass:</span> <span style="color: #aaa;">${(shipClass.mass / 1000).toFixed(0)} tons</span><br><span style="font-size: 0.75rem; color: #aaa;">(${shipClass.mass.toLocaleString()} kg)</span>`;
+  massDiv.title = 'Affects acceleration and fuel consumption';
+  statsGrid.appendChild(massDiv);
+
+  // Crew Capacity
+  const assignedCrewCount = ship.crew.length;
+  const crewDiv = document.createElement('div');
+  crewDiv.innerHTML = `<span style="color: #888;">Crew:</span> <span style="color: #aaa;">${assignedCrewCount}/${shipClass.maxCrew}</span>`;
+  statsGrid.appendChild(crewDiv);
+
+  section.appendChild(statsGrid);
+  return section;
+}
+
+function formatLargeNumber(num: number): string {
+  if (num >= 1_000_000) {
+    return (num / 1_000_000).toFixed(1) + 'M';
+  } else if (num >= 1_000) {
+    return (num / 1_000).toFixed(0) + 'K';
+  }
+  return num.toFixed(0);
+}
+
+function getRangeLabel(rangeKm: number): string {
+  if (rangeKm < 50_000) return 'LEO/MEO';
+  if (rangeKm < 1_000_000) return 'GEO/Cislunar';
+  if (rangeKm < 10_000_000) return 'Inner System';
+  if (rangeKm < 100_000_000) return 'Mars';
+  if (rangeKm < 500_000_000) return 'Jupiter';
+  return 'Outer System';
+}
+
+function getTierColor(tier: string): string {
+  switch (tier) {
+    case 'I':
+      return '#888';
+    case 'II':
+      return '#4a9eff';
+    case 'III':
+      return '#ff9f43';
+    case 'IV':
+      return '#ff6b6b';
+    case 'V':
+      return '#a29bfe';
+    default:
+      return '#fff';
+  }
+}
+
 function renderProgressBar(
   label: string,
   percentage: number,
@@ -357,6 +478,19 @@ function renderRoomCard(
     engineType.textContent = engineDef.type;
     engineInfo.appendChild(engineType);
 
+    // Engine specs
+    const engineSpecs = document.createElement('div');
+    engineSpecs.className = 'equipment-item-specs';
+    engineSpecs.style.fontSize = '0.75rem';
+    engineSpecs.style.color = '#888';
+    engineSpecs.style.marginTop = '0.25rem';
+    const shipClass = getShipClass(ship.classId);
+    const acceleration = shipClass ? engineDef.thrust / shipClass.mass : 0;
+    const accelerationG = acceleration / 9.81;
+    engineSpecs.innerHTML = `Thrust: ${(engineDef.thrust / 1000).toFixed(1)}kN | Accel: ${accelerationG.toFixed(4)}g | ΔV: ${(engineDef.maxDeltaV / 1000).toFixed(0)}km/s`;
+    engineSpecs.title = `Thrust: ${engineDef.thrust.toLocaleString()} N\nAcceleration on this ship: ${accelerationG.toFixed(4)}g\nDelta-V Budget: ${engineDef.maxDeltaV.toLocaleString()} m/s`;
+    engineInfo.appendChild(engineSpecs);
+
     // Engine state indicator
     const engineState = document.createElement('div');
     engineState.className = 'equipment-item-state';
@@ -412,10 +546,16 @@ function renderRoomCard(
 
     // Show warmup progress bar if warming up
     if (ship.engine.state === 'warming_up') {
+      const engineDef = getEngineDefinition(ship.engine.definitionId);
+      const remainingPercent = 100 - ship.engine.warmupProgress;
+      const ticksRemaining = remainingPercent / engineDef.warmupRate;
+      const gameSecondsRemaining = ticksRemaining * GAME_SECONDS_PER_TICK;
+      const timeLabel = formatDualTime(gameSecondsRemaining);
+
       const warmupBar = renderProgressBar(
         'WARMUP',
         ship.engine.warmupProgress,
-        `${ship.engine.warmupProgress.toFixed(0)}%`,
+        `${ship.engine.warmupProgress.toFixed(0)}% - ${timeLabel} remaining`,
         'bar-good'
       );
       warmupBar.style.fontSize = '0.85em';
@@ -691,11 +831,14 @@ function renderGravityStatus(gameData: GameData): HTMLElement {
 
 function renderEquipmentSection(gameData: GameData): HTMLElement {
   const ship = getActiveShip(gameData);
+  const shipClass = getShipClass(ship.classId);
   const section = document.createElement('div');
   section.className = 'equipment-section';
 
   const title = document.createElement('h3');
-  title.textContent = 'Equipment';
+  const maxSlots = shipClass?.equipmentSlotDefs.length ?? 0;
+  const usedSlots = ship.equipment.length;
+  title.textContent = `Equipment (${usedSlots}/${maxSlots} slots)`;
   section.appendChild(title);
 
   const equipmentList = document.createElement('div');
@@ -937,7 +1080,15 @@ function renderFleetManagement(
     specs.style.fontSize = '0.8rem';
     specs.style.color = '#888';
     specs.style.marginBottom = '0.5rem';
-    specs.textContent = `Crew: ${shipClass.maxCrew} | Cargo: ${shipClass.cargoCapacity.toLocaleString()} kg | Range: ${shipClass.rangeLabel}`;
+
+    // Compute max range for this ship class with its default engine
+    const defaultEngine = getEngineDefinition(shipClass.defaultEngineId);
+    const maxRangeKm = computeMaxRange(shipClass, defaultEngine);
+    const rangeLabel = getRangeLabel(maxRangeKm);
+    const rangeFormatted = formatLargeNumber(maxRangeKm);
+
+    specs.innerHTML = `Crew: ${shipClass.maxCrew} | Cargo: ${shipClass.cargoCapacity.toLocaleString()} kg | Equipment: ${shipClass.equipmentSlotDefs.length} slots<br>Range: <span style="color: #4ade80; font-weight: bold;">${rangeFormatted} km</span> <span style="color: #aaa;">(${rangeLabel})</span>`;
+    specs.title = `Max range with default engine: ${maxRangeKm.toLocaleString()} km`;
     card.appendChild(specs);
 
     // Buy button or reason
