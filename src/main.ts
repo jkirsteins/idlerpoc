@@ -150,8 +150,12 @@ function buildCatchUpReport(
   };
 }
 
-/** Maximum ticks to process during any single catch-up */
-const MAX_CATCH_UP_TICKS = 1000;
+/**
+ * Maximum real-world seconds to catch up during any single fast-forward.
+ * The tick count is derived as cappedSeconds × speed, so higher speeds
+ * still cover the same real-time window. ~16.7 minutes of wall-clock time.
+ */
+const MAX_CATCH_UP_SECONDS = 1000;
 
 /**
  * Real-time threshold (seconds) beyond which we treat the gap as a
@@ -182,10 +186,11 @@ function fastForwardTicks(gameData: GameData): CatchUpReport | null {
 
   if (elapsedSeconds > 0) {
     const speed = gameData.timeSpeed;
-    const totalTicks = Math.min(elapsedSeconds * speed, MAX_CATCH_UP_TICKS);
+    const cappedSeconds = Math.min(elapsedSeconds, MAX_CATCH_UP_SECONDS);
+    const totalTicks = cappedSeconds * speed;
 
     console.log(
-      `Fast-forwarding ${totalTicks} ticks (${elapsedSeconds}s × ${speed}x)...`
+      `Fast-forwarding ${totalTicks} ticks (${cappedSeconds}s × ${speed}x)...`
     );
 
     // Snapshot state before catch-up
@@ -1198,7 +1203,8 @@ function processPendingTicks(): void {
   if (elapsedSeconds <= 0) return;
 
   const speed = state.gameData.timeSpeed;
-  const totalTicks = Math.min(elapsedSeconds * speed, MAX_CATCH_UP_TICKS);
+  const cappedSeconds = Math.min(elapsedSeconds, MAX_CATCH_UP_SECONDS);
+  const totalTicks = cappedSeconds * speed;
 
   // Determine if this is a significant absence
   const isLongAbsence = elapsedSeconds >= CATCH_UP_REPORT_THRESHOLD_SECONDS;
