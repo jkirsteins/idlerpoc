@@ -2263,6 +2263,30 @@ button:disabled:hover {
   font-size: 14px;
 }
 
+.catchup-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 16px;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 6px;
+  border: 1px solid #0f3460;
+}
+
+.catchup-progress-line {
+  font-size: 14px;
+}
+
+.catchup-section-header {
+  font-size: 13px;
+  font-weight: 600;
+  color: #888;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 8px;
+}
+
 .catchup-fleet-summary {
   display: flex;
   flex-direction: column;
@@ -2319,6 +2343,21 @@ button:disabled:hover {
 
 .catchup-dismiss:hover {
   background: #3db3aa;
+}
+
+.catchup-progress-bar {
+  height: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  overflow: hidden;
+  margin-top: 12px;
+}
+
+.catchup-progress-bar-fill {
+  height: 100%;
+  background: #4ecdc4;
+  border-radius: 4px;
+  transition: width 0.15s ease;
 }
 
 /* Version Badge */

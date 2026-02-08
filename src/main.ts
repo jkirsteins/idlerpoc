@@ -57,90 +57,217 @@ initCombatSystem();
 let state: GameState = initializeState();
 let tickInterval: number | null = null;
 
+/** State for ongoing batched catch-up processing */
+interface ActiveCatchUp {
+  totalTicks: number;
+  ticksProcessed: number;
+  prevCredits: number;
+  prevGameTime: number;
+  elapsedRealSeconds: number;
+}
+let activeCatchUp: ActiveCatchUp | null = null;
+let catchUpBatchScheduled = false;
+
 /**
- * Fast-forward game state based on elapsed real-world time.
- * Returns a CatchUpReport if encounters occurred, null otherwise.
+ * Snapshot taken when the tab becomes hidden, so the catch-up report
+ * can cover the full absence (including any ticks the browser
+ * processes in the background before throttling kicks in).
+ */
+let hiddenSnapshot: {
+  credits: number;
+  gameTime: number;
+  realTimestamp: number;
+} | null = null;
+
+/**
+ * Build a CatchUpReport summarising what happened during an absence.
+ * Always returns a report (never null) so the modal is shown for every
+ * long absence, even when no encounters occurred.
+ */
+function buildCatchUpReport(
+  totalTicks: number,
+  elapsedRealSeconds: number,
+  encounterResults: EncounterResult[],
+  gameData: GameData,
+  prevCredits: number,
+  prevGameTime: number
+): CatchUpReport {
+  // --- Encounter ship reports ---
+  const shipReportMap = new Map<string, CatchUpShipReport>();
+
+  for (const result of encounterResults) {
+    const ship = gameData.ships.find((s) => s.id === result.shipId);
+    if (!ship) continue;
+
+    let report = shipReportMap.get(result.shipId);
+    if (!report) {
+      report = {
+        shipId: result.shipId,
+        shipName: ship.name,
+        evaded: 0,
+        negotiated: 0,
+        victories: 0,
+        harassments: 0,
+        creditsDelta: 0,
+        avgHealthLost: 0,
+      };
+      shipReportMap.set(result.shipId, report);
+    }
+
+    switch (result.type) {
+      case 'evaded':
+        report.evaded++;
+        break;
+      case 'negotiated':
+        report.negotiated++;
+        report.creditsDelta -= result.creditsLost || 0;
+        break;
+      case 'victory':
+        report.victories++;
+        report.creditsDelta += result.creditsGained || 0;
+        break;
+      case 'harassment':
+        report.harassments++;
+        if (result.healthLost) {
+          const losses = Object.values(result.healthLost);
+          const avgLoss =
+            losses.length > 0
+              ? losses.reduce((a, b) => a + b, 0) / losses.length
+              : 0;
+          report.avgHealthLost += avgLoss;
+        }
+        break;
+    }
+  }
+
+  // --- General progress from log entries added during catch-up ---
+  const newLogs = gameData.log.filter((e) => e.gameTime > prevGameTime);
+
+  const tripsCompleted = newLogs.filter(
+    (e) => e.type === 'trip_complete'
+  ).length;
+  const contractsCompleted = newLogs.filter(
+    (e) => e.type === 'contract_complete'
+  ).length;
+
+  // Collect arrival events with ship + location
+  const arrivals: { shipName: string; location: string }[] = [];
+  for (const entry of newLogs) {
+    if (entry.type === 'arrival' && entry.shipName) {
+      // Parse location from log message (format: "Arrived at <location>")
+      const match = entry.message.match(/Arrived at (.+)/);
+      if (match) {
+        arrivals.push({ shipName: entry.shipName, location: match[1] });
+      }
+    }
+  }
+
+  return {
+    totalTicks,
+    elapsedRealSeconds,
+    creditsDelta: Math.round(gameData.credits - prevCredits),
+    tripsCompleted,
+    contractsCompleted,
+    arrivals,
+    shipReports: Array.from(shipReportMap.values()),
+  };
+}
+
+/**
+ * Maximum real-world seconds to catch up (1 day).
+ * The tick count is derived as cappedSeconds × speed.
+ */
+const MAX_CATCH_UP_SECONDS = 86400;
+
+/**
+ * Maximum ticks to process in a single synchronous batch before yielding
+ * to the browser. Keeps the UI responsive during long catch-ups.
+ */
+const CATCH_UP_BATCH_SIZE = 2000;
+
+/**
+ * Real-time threshold (seconds) beyond which we treat the gap as a
+ * significant absence and show the catch-up report modal.
+ */
+const CATCH_UP_REPORT_THRESHOLD_SECONDS = 30;
+
+/**
+ * Real-time threshold (seconds) beyond which encounter severity is
+ * capped (isCatchUp=true) to prevent unfair boarding events.
+ */
+const CATCH_UP_SEVERITY_THRESHOLD_SECONDS = 5;
+
+/**
+ * Fast-forward game state based on elapsed real-world time (initial load).
+ *
+ * Small gaps (≤ CATCH_UP_BATCH_SIZE ticks): processed synchronously,
+ * returns a CatchUpReport if the gap was significant.
+ *
+ * Large gaps: sets up `activeCatchUp` for batched async processing
+ * (handled by processCatchUpBatch via setTimeout). Returns null and
+ * the report is built when batching completes.
  */
 function fastForwardTicks(gameData: GameData): CatchUpReport | null {
+  // Don't catch up if the game was paused when saved
+  if (gameData.isPaused) {
+    gameData.lastTickTimestamp = Date.now();
+    return null;
+  }
+
   const now = Date.now();
   const elapsedMs = now - gameData.lastTickTimestamp;
-  const elapsedTicks = Math.floor(elapsedMs / 1000);
+  const elapsedSeconds = Math.floor(elapsedMs / 1000);
 
-  if (elapsedTicks > 0) {
-    console.log(`Fast-forwarding ${elapsedTicks} ticks...`);
+  if (elapsedSeconds <= 0) return null;
 
-    const ticksToApply = Math.min(elapsedTicks, 1000);
+  const speed = gameData.timeSpeed;
+  const cappedSeconds = Math.min(elapsedSeconds, MAX_CATCH_UP_SECONDS);
+  const totalTicks = cappedSeconds * speed;
 
-    // Clear any stale encounter results before fast-forward
-    drainEncounterResults();
+  if (totalTicks <= 0) return null;
 
-    for (let i = 0; i < ticksToApply; i++) {
+  console.log(
+    `Fast-forwarding ${totalTicks} ticks (${cappedSeconds}s × ${speed}x)...`
+  );
+
+  gameData.lastTickTimestamp = now;
+  drainEncounterResults();
+
+  if (totalTicks <= CATCH_UP_BATCH_SIZE) {
+    // Small gap: process synchronously
+    const prevCredits = gameData.credits;
+    const prevGameTime = gameData.gameTime;
+
+    for (let i = 0; i < totalTicks; i++) {
       applyTick(gameData, true);
     }
 
-    // Collect encounter results from the fast-forward
     const encounterResults = drainEncounterResults();
-
-    gameData.lastTickTimestamp = now;
     saveGame(gameData);
 
     console.log(`Fast-forward complete. Game time: ${gameData.gameTime}s`);
 
-    // Build catch-up report if encounters occurred
-    if (encounterResults.length > 0) {
-      const shipReportMap = new Map<string, CatchUpShipReport>();
-
-      for (const result of encounterResults) {
-        const ship = gameData.ships.find((s) => s.id === result.shipId);
-        if (!ship) continue;
-
-        let report = shipReportMap.get(result.shipId);
-        if (!report) {
-          report = {
-            shipId: result.shipId,
-            shipName: ship.name,
-            evaded: 0,
-            negotiated: 0,
-            victories: 0,
-            harassments: 0,
-            creditsDelta: 0,
-            avgHealthLost: 0,
-          };
-          shipReportMap.set(result.shipId, report);
-        }
-
-        switch (result.type) {
-          case 'evaded':
-            report.evaded++;
-            break;
-          case 'negotiated':
-            report.negotiated++;
-            report.creditsDelta -= result.creditsLost || 0;
-            break;
-          case 'victory':
-            report.victories++;
-            report.creditsDelta += result.creditsGained || 0;
-            break;
-          case 'harassment':
-            report.harassments++;
-            if (result.healthLost) {
-              const losses = Object.values(result.healthLost);
-              const avgLoss =
-                losses.length > 0
-                  ? losses.reduce((a, b) => a + b, 0) / losses.length
-                  : 0;
-              report.avgHealthLost += avgLoss;
-            }
-            break;
-        }
-      }
-
-      return {
-        totalTicks: ticksToApply,
-        shipReports: Array.from(shipReportMap.values()),
-      };
+    if (elapsedSeconds >= CATCH_UP_REPORT_THRESHOLD_SECONDS) {
+      return buildCatchUpReport(
+        totalTicks,
+        elapsedSeconds,
+        encounterResults,
+        gameData,
+        prevCredits,
+        prevGameTime
+      );
     }
+    return null;
   }
+
+  // Large gap: set up batched processing (handled by processCatchUpBatch)
+  activeCatchUp = {
+    totalTicks,
+    ticksProcessed: 0,
+    prevCredits: gameData.credits,
+    prevGameTime: gameData.gameTime,
+    elapsedRealSeconds: elapsedSeconds,
+  };
 
   return null;
 }
@@ -149,6 +276,20 @@ function initializeState(): GameState {
   const gameData = loadGame();
   if (gameData) {
     const catchUpReport = fastForwardTicks(gameData);
+
+    // If a large catch-up was set up, show progress modal
+    if (activeCatchUp) {
+      return {
+        phase: 'playing',
+        gameData,
+        activeTab: 'ship',
+        catchUpProgress: {
+          processed: 0,
+          total: activeCatchUp.totalTicks,
+        },
+      };
+    }
+
     return {
       phase: 'playing',
       gameData,
@@ -958,6 +1099,8 @@ const callbacks: RendererCallbacks = {
   onTogglePause: () => {
     if (state.phase !== 'playing') return;
     state.gameData.isPaused = !state.gameData.isPaused;
+    // Reset timestamp so we don't catch up for time spent paused
+    state.gameData.lastTickTimestamp = Date.now();
     saveGame(state.gameData);
     renderApp();
   },
@@ -966,6 +1109,8 @@ const callbacks: RendererCallbacks = {
     if (state.phase !== 'playing') return;
     state.gameData.timeSpeed = speed;
     state.gameData.isPaused = false; // Auto-unpause when setting speed
+    // Reset timestamp so speed change takes effect from now
+    state.gameData.lastTickTimestamp = Date.now();
     saveGame(state.gameData);
     renderApp();
   },
@@ -1120,55 +1265,227 @@ function checkAutoPause(gameData: GameData, prevGameTime: number): boolean {
   return false;
 }
 
-function startTickSystem(): void {
-  if (tickInterval !== null) return;
+/**
+ * Process one batch of catch-up ticks, then yield to the browser.
+ * Schedules itself via setTimeout(0) until all ticks are processed,
+ * then builds the catch-up report and shows it.
+ */
+function processCatchUpBatch(): void {
+  if (!activeCatchUp || state.phase !== 'playing') {
+    activeCatchUp = null;
+    catchUpBatchScheduled = false;
+    return;
+  }
 
-  tickInterval = window.setInterval(() => {
-    if (state.phase === 'playing' && !state.gameData.isPaused) {
-      // Apply ticks based on speed multiplier
-      const speed = state.gameData.timeSpeed;
-      let changed = false;
-      const prevGameTime = state.gameData.gameTime;
+  const remaining = activeCatchUp.totalTicks - activeCatchUp.ticksProcessed;
+  const batch = Math.min(remaining, CATCH_UP_BATCH_SIZE);
 
-      for (let i = 0; i < speed; i++) {
-        changed = applyTick(state.gameData) || changed;
-      }
+  for (let i = 0; i < batch; i++) {
+    applyTick(state.gameData, true);
+  }
+  activeCatchUp.ticksProcessed += batch;
 
-      state.gameData.lastTickTimestamp = Date.now();
+  if (activeCatchUp.ticksProcessed >= activeCatchUp.totalTicks) {
+    // Done — build report and show it
+    const encounterResults = drainEncounterResults();
+    const report = buildCatchUpReport(
+      activeCatchUp.totalTicks,
+      activeCatchUp.elapsedRealSeconds,
+      encounterResults,
+      state.gameData,
+      activeCatchUp.prevCredits,
+      activeCatchUp.prevGameTime
+    );
+    activeCatchUp = null;
+    catchUpBatchScheduled = false;
 
-      // Check for auto-pause triggers
-      const autoPaused = checkAutoPause(state.gameData, prevGameTime);
+    if (state.phase === 'playing') {
+      state = {
+        ...state,
+        catchUpReport: report,
+        catchUpProgress: undefined,
+      };
+    }
+    saveGame(state.gameData);
+    renderApp();
+  } else {
+    // More to go — update progress and yield to browser
+    if (state.phase === 'playing') {
+      state = {
+        ...state,
+        catchUpProgress: {
+          processed: activeCatchUp.ticksProcessed,
+          total: activeCatchUp.totalTicks,
+        },
+      };
+    }
+    // Save periodically (every 10 batches) in case user closes mid-catch-up
+    if (activeCatchUp.ticksProcessed % (CATCH_UP_BATCH_SIZE * 10) === 0) {
+      saveGame(state.gameData);
+    }
+    renderApp();
+    setTimeout(processCatchUpBatch, 0);
+  }
+}
 
-      // Check for encounter results during normal play
-      const encounterResults = drainEncounterResults();
-      if (encounterResults.length > 0) {
-        const newToasts = createEncounterToasts(encounterResults);
-        const existingToasts = state.toasts || [];
-        const now = Date.now();
+/**
+ * Process all pending ticks based on real elapsed time.
+ * Called by the interval timer and by the visibilitychange handler.
+ *
+ * Instead of assuming each interval = 1 real second, we compute the
+ * actual elapsed time since the last processed tick and apply the
+ * correct number of ticks (elapsed seconds × speed multiplier).
+ * This ensures idle gameplay works even when the browser throttles
+ * background tabs or the user closes the phone and returns later.
+ */
+function processPendingTicks(): void {
+  // Skip if batched catch-up is in progress
+  if (activeCatchUp) return;
+  if (state.phase !== 'playing' || state.gameData.isPaused) return;
 
-        // Remove expired toasts and add new ones
+  const now = Date.now();
+  const elapsedMs = now - state.gameData.lastTickTimestamp;
+  const elapsedSeconds = Math.floor(elapsedMs / 1000);
+
+  if (elapsedSeconds <= 0) return;
+
+  const speed = state.gameData.timeSpeed;
+  const cappedSeconds = Math.min(elapsedSeconds, MAX_CATCH_UP_SECONDS);
+  const totalTicks = cappedSeconds * speed;
+
+  // Use the hidden snapshot for report data if available, so the report
+  // covers the full absence (including ticks the browser processed in
+  // the background before throttling kicked in).
+  const snapshot = hiddenSnapshot;
+  hiddenSnapshot = null;
+
+  // Real elapsed seconds for the report: from when the user left (snapshot)
+  // or from lastTickTimestamp if no snapshot exists.
+  const reportRealSeconds = snapshot
+    ? Math.floor((now - snapshot.realTimestamp) / 1000)
+    : elapsedSeconds;
+
+  // Credits/gameTime snapshot for the report delta calculation
+  const reportPrevCredits = snapshot
+    ? snapshot.credits
+    : state.gameData.credits;
+  const reportPrevGameTime = snapshot
+    ? snapshot.gameTime
+    : state.gameData.gameTime;
+
+  if (totalTicks > CATCH_UP_BATCH_SIZE) {
+    // Large gap: start batched catch-up
+    state.gameData.lastTickTimestamp = now;
+    drainEncounterResults();
+    activeCatchUp = {
+      totalTicks,
+      ticksProcessed: 0,
+      prevCredits: reportPrevCredits,
+      prevGameTime: reportPrevGameTime,
+      elapsedRealSeconds: reportRealSeconds,
+    };
+    if (state.phase === 'playing') {
+      state = {
+        ...state,
+        catchUpProgress: { processed: 0, total: totalTicks },
+      };
+    }
+    renderApp();
+    if (!catchUpBatchScheduled) {
+      catchUpBatchScheduled = true;
+      setTimeout(processCatchUpBatch, 0);
+    }
+    return;
+  }
+
+  // Small gap: process inline
+  const isCatchUp = elapsedSeconds >= CATCH_UP_SEVERITY_THRESHOLD_SECONDS;
+  const prevCredits = reportPrevCredits;
+  const prevGameTime = reportPrevGameTime;
+
+  if (isCatchUp) {
+    drainEncounterResults();
+  }
+
+  let changed = false;
+  for (let i = 0; i < totalTicks; i++) {
+    changed = applyTick(state.gameData, isCatchUp) || changed;
+  }
+
+  state.gameData.lastTickTimestamp = now;
+
+  const isLongAbsence = reportRealSeconds >= CATCH_UP_REPORT_THRESHOLD_SECONDS;
+  if (isLongAbsence) {
+    const encounterResults = drainEncounterResults();
+    const report = buildCatchUpReport(
+      totalTicks,
+      reportRealSeconds,
+      encounterResults,
+      state.gameData,
+      prevCredits,
+      prevGameTime
+    );
+    if (state.phase === 'playing') {
+      state = { ...state, catchUpReport: report };
+    }
+    saveGame(state.gameData);
+    renderApp();
+  } else {
+    // Normal play or short gap: handle auto-pause, encounter toasts, etc.
+    const autoPaused = checkAutoPause(state.gameData, prevGameTime);
+
+    const encounterResults = drainEncounterResults();
+    if (encounterResults.length > 0) {
+      const newToasts = createEncounterToasts(encounterResults);
+      const existingToasts =
+        state.phase === 'playing' ? state.toasts || [] : [];
+
+      if (state.phase === 'playing') {
         state.toasts = [
           ...existingToasts.filter((t) => t.expiresAt > now),
           ...newToasts,
         ];
+      }
 
-        saveGame(state.gameData);
-        renderApp();
-      } else if (changed || autoPaused) {
-        // Clean up expired toasts on regular renders
-        const now = Date.now();
+      saveGame(state.gameData);
+      renderApp();
+    } else if (changed || autoPaused) {
+      if (state.phase === 'playing') {
         const activeToasts = (state.toasts || []).filter(
           (t) => t.expiresAt > now
         );
         if (activeToasts.length !== (state.toasts || []).length) {
           state.toasts = activeToasts;
         }
-
-        saveGame(state.gameData);
-        renderApp();
       }
+
+      saveGame(state.gameData);
+      renderApp();
     }
-  }, 1000);
+  }
+}
+
+function onVisibilityChange(): void {
+  if (document.visibilityState === 'hidden') {
+    // Snapshot state when leaving so the catch-up report covers the
+    // full absence, including ticks the browser runs in the background.
+    if (state.phase === 'playing' && !state.gameData.isPaused) {
+      hiddenSnapshot = {
+        credits: state.gameData.credits,
+        gameTime: state.gameData.gameTime,
+        realTimestamp: Date.now(),
+      };
+    }
+  } else if (document.visibilityState === 'visible') {
+    processPendingTicks();
+  }
+}
+
+function startTickSystem(): void {
+  if (tickInterval !== null) return;
+
+  document.addEventListener('visibilitychange', onVisibilityChange);
+  tickInterval = window.setInterval(processPendingTicks, 1000);
 }
 
 function stopTickSystem(): void {
@@ -1176,6 +1493,7 @@ function stopTickSystem(): void {
     clearInterval(tickInterval);
     tickInterval = null;
   }
+  document.removeEventListener('visibilitychange', onVisibilityChange);
 }
 
 function renderApp(): void {
@@ -1183,6 +1501,12 @@ function renderApp(): void {
 
   if (state.phase === 'playing') {
     startTickSystem();
+
+    // Kick off batched catch-up processing if pending
+    if (activeCatchUp && !catchUpBatchScheduled) {
+      catchUpBatchScheduled = true;
+      setTimeout(processCatchUpBatch, 0);
+    }
   } else {
     stopTickSystem();
   }
