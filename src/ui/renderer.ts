@@ -15,7 +15,13 @@ import { renderTabbedView } from './tabbedView';
 import { renderCatchUpReport } from './catchUpReport';
 import { renderToasts } from './toastSystem';
 
-export type PlayingTab = 'ship' | 'crew' | 'work' | 'log' | 'settings';
+export type PlayingTab =
+  | 'ship'
+  | 'crew'
+  | 'work'
+  | 'fleet'
+  | 'log'
+  | 'settings';
 
 export type GameState =
   | { phase: 'no_game' }

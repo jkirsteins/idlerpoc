@@ -5,6 +5,7 @@ import { getShipClass } from '../shipClasses';
 import { renderShipTab } from './shipTab';
 import { renderCrewTab } from './crewTab';
 import { renderWorkTab } from './workTab';
+import { renderFleetTab } from './fleetTab';
 import { renderLogTab } from './logTab';
 import { renderSettingsTab } from './settingsTab';
 import { renderFleetPanel } from './fleetPanel';
@@ -107,6 +108,13 @@ export function renderTabbedView(
         onDockAtNearestPort: callbacks.onDockAtNearestPort,
         onResumeContract: callbacks.onResumeContract,
         onAbandonContract: callbacks.onAbandonContract,
+      })
+    );
+  } else if (activeTab === 'fleet') {
+    container.appendChild(
+      renderFleetTab(gameData, {
+        onSelectShip: callbacks.onSelectShip,
+        onBuyShip: callbacks.onBuyShip,
       })
     );
   } else if (activeTab === 'log') {
@@ -475,6 +483,9 @@ function renderTabBar(
 
   // Work tab
   tabBar.appendChild(createTab('Work', 'work'));
+
+  // Fleet tab
+  tabBar.appendChild(createTab('Fleet', 'fleet'));
 
   // Log tab with unread badge
   const unreadCount = Math.max(0, gameData.log.length - lastViewedLogCount);
