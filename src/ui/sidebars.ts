@@ -18,6 +18,7 @@ interface SidebarCallbacks {
   onAdvanceDay?: () => void;
   onTogglePause?: () => void;
   onSetSpeed?: (speed: 1 | 2 | 5) => void;
+  onTabChange?: (tab: string) => void;
 }
 
 export function renderLeftSidebar(
@@ -272,15 +273,15 @@ export function renderLeftSidebar(
 
   // Navigation button (when docked or orbiting)
   if (
-    callbacks.onToggleNavigation &&
+    callbacks.onTabChange &&
     (ship.location.status === 'docked' || ship.location.status === 'orbiting')
   ) {
     const navBtn = document.createElement('button');
-    navBtn.textContent = 'Navigate';
+    navBtn.textContent = '🗺️ Navigate';
     navBtn.className = 'small-button';
     navBtn.style.width = '100%';
     navBtn.style.marginBottom = '8px';
-    navBtn.addEventListener('click', callbacks.onToggleNavigation);
+    navBtn.addEventListener('click', () => callbacks.onTabChange!('nav'));
     actionsSection.appendChild(navBtn);
     hasActions = true;
   }

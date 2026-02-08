@@ -198,6 +198,7 @@ function renderPlayingLayout(
       onAdvanceDay: callbacks.onAdvanceDay,
       onTogglePause: callbacks.onTogglePause,
       onSetSpeed: callbacks.onSetSpeed,
+      onTabChange: callbacks.onTabChange,
     })
   );
 

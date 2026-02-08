@@ -114,6 +114,13 @@ export function renderTabbedView(
         onAbandonContract: callbacks.onAbandonContract,
       })
     );
+  } else if (activeTab === 'nav') {
+    container.appendChild(
+      renderNavigationView(gameData, {
+        onToggleNavigation: () => {}, // Not needed for tab
+        onStartTrip: callbacks.onStartTrip,
+      })
+    );
   } else if (activeTab === 'fleet') {
     container.appendChild(
       renderFleetTab(gameData, {
@@ -494,6 +501,9 @@ function renderTabBar(
 
   // Work tab
   tabBar.appendChild(createTab('Work', 'work'));
+
+  // Nav tab
+  tabBar.appendChild(createTab('Nav', 'nav'));
 
   // Fleet tab
   tabBar.appendChild(createTab('Fleet', 'fleet'));
