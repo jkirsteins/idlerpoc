@@ -17,6 +17,7 @@ body {
   max-width: 1400px;
   width: 100%;
   margin: 0 auto;
+  overflow-x: hidden;
 }
 
 .game-container {
@@ -24,6 +25,8 @@ body {
   border-radius: 8px;
   padding: 24px;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+  overflow-wrap: break-word;
+  word-break: break-word;
 }
 
 .game-header {
@@ -96,6 +99,14 @@ body {
 
 .global-status-btn {
   padding: 0.5rem 1rem;
+}
+
+/* Ship Capabilities Grid */
+.ship-capabilities-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+  font-size: 0.85rem;
 }
 
 .game-content-grid {
@@ -443,6 +454,28 @@ body {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  /* Ship header text: prevent overflow */
+  .ship-name,
+  .ship-class-label,
+  .captain-label,
+  .date-header-global {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 100%;
+  }
+
+  /* Ship capabilities: single column on mobile */
+  .ship-capabilities-grid {
+    grid-template-columns: 1fr;
+  }
+
+  /* Prevent any child from exceeding viewport */
+  .main-content {
+    min-width: 0;
+    overflow-x: hidden;
   }
 }
 

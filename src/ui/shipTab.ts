@@ -350,10 +350,7 @@ function renderShipStatsPanel(gameData: GameData): HTMLElement {
   section.appendChild(title);
 
   const statsGrid = document.createElement('div');
-  statsGrid.style.display = 'grid';
-  statsGrid.style.gridTemplateColumns = '1fr 1fr';
-  statsGrid.style.gap = '0.5rem';
-  statsGrid.style.fontSize = '0.85rem';
+  statsGrid.className = 'ship-capabilities-grid';
 
   // Max Range
   const maxRangeKm = computeMaxRange(shipClass, engineDef);
