@@ -6,6 +6,9 @@ import { getEquipmentDefinition } from '../equipment';
 import { getShipClass } from '../shipClasses';
 import { getCrewRoleDefinition } from '../crewRoles';
 import { formatGameDate, TICKS_PER_DAY } from '../timeSystem';
+import { getRoomDefinition } from '../rooms';
+import { renderStatBar } from './components/statBar';
+import { attachTooltip, formatPowerTooltip } from './components/tooltip';
 
 interface SidebarCallbacks {
   onBuyFuel?: () => void;
@@ -81,11 +84,12 @@ export function renderLeftSidebar(
   fuelSection.appendChild(fuelLabel);
 
   fuelSection.appendChild(
-    renderCompactProgressBar(
-      ship.fuel,
-      `${ship.fuel.toFixed(1)}%`,
-      getFuelColorClass(ship.fuel)
-    )
+    renderStatBar({
+      label: `${ship.fuel.toFixed(1)}%`,
+      percentage: ship.fuel,
+      colorClass: getFuelColorClass(ship.fuel),
+      mode: 'compact',
+    })
   );
 
   sidebar.appendChild(fuelSection);
@@ -104,13 +108,82 @@ export function renderLeftSidebar(
       ? `${powerStatus.totalDraw}/${powerStatus.totalOutput} kW`
       : 'NO POWER';
 
-  powerSection.appendChild(
-    renderCompactProgressBar(
-      powerStatus.percentage,
-      powerValueLabel,
-      getPowerColorClass(powerStatus)
-    )
+  // Build tooltip showing power draw breakdown
+  const drawItems: Array<{ name: string; draw: number }> = [];
+  const engineDef = getEngineDefinition(ship.engine.definitionId);
+
+  // Rooms
+  for (const room of ship.rooms) {
+    const roomDef = getRoomDefinition(room.type);
+    if (!roomDef) continue;
+    const isActive =
+      roomDef.alwaysPowered ||
+      (room.assignedCrewIds.length > 0 && room.state === 'operational');
+    if (isActive && roomDef.powerDraw > 0) {
+      drawItems.push({ name: roomDef.name, draw: roomDef.powerDraw });
+    }
+  }
+
+  // Equipment
+  for (const equipment of ship.equipment) {
+    const equipDef = getEquipmentDefinition(equipment.definitionId);
+    if (equipDef && equipDef.powerDraw > 0) {
+      drawItems.push({ name: equipDef.name, draw: equipDef.powerDraw });
+    }
+  }
+
+  // Engine self-draw
+  if (ship.engine.state === 'online' && engineDef.selfPowerDraw > 0) {
+    drawItems.push({
+      name: `${engineDef.name} (self)`,
+      draw: engineDef.selfPowerDraw,
+    });
+  }
+
+  const available = powerStatus.totalOutput - powerStatus.totalDraw;
+  const tooltipContent = formatPowerTooltip(
+    available,
+    powerStatus.totalOutput,
+    drawItems
   );
+
+  // Show full capacity when power is available, with draw as overlay
+  const basePercentage =
+    powerStatus.powerSource === 'berth' || powerStatus.powerSource === 'drives'
+      ? 100
+      : 0;
+
+  // Determine overlay color based on power draw
+  let overlayColorClass = 'bar-warning';
+  if (powerStatus.isOverloaded) {
+    overlayColorClass = 'bar-danger';
+  }
+
+  // powerStatus.percentage is (draw/output)*100
+  // Overlay should show this drawn percentage
+  const drawnPercentage = powerStatus.percentage;
+
+  const powerBar = renderStatBar({
+    label: powerValueLabel,
+    percentage: basePercentage,
+    colorClass: 'bar-good',
+    mode: 'compact',
+    overlay:
+      basePercentage > 0
+        ? {
+            percentage: drawnPercentage,
+            colorClass: overlayColorClass,
+          }
+        : undefined,
+  });
+
+  // Attach custom tooltip
+  attachTooltip(powerBar, {
+    content: tooltipContent,
+    followMouse: false,
+  });
+
+  powerSection.appendChild(powerBar);
 
   sidebar.appendChild(powerSection);
 
@@ -319,11 +392,12 @@ export function renderRightSidebar(gameData: GameData): HTMLElement {
 
       const radiationData = getRadiationData(gameData);
       radiationDiv.appendChild(
-        renderCompactProgressBar(
-          radiationData.percentage,
-          radiationData.label,
-          radiationData.colorClass
-        )
+        renderStatBar({
+          label: radiationData.label,
+          percentage: radiationData.percentage,
+          colorClass: radiationData.colorClass,
+          mode: 'compact',
+        })
       );
 
       torchSection.appendChild(radiationDiv);
@@ -337,11 +411,12 @@ export function renderRightSidebar(gameData: GameData): HTMLElement {
 
       const heatData = getHeatData(gameData);
       heatDiv.appendChild(
-        renderCompactProgressBar(
-          heatData.percentage,
-          heatData.label,
-          heatData.colorClass
-        )
+        renderStatBar({
+          label: heatData.label,
+          percentage: heatData.percentage,
+          colorClass: heatData.colorClass,
+          mode: 'compact',
+        })
       );
 
       torchSection.appendChild(heatDiv);
@@ -380,47 +455,9 @@ export function renderRightSidebar(gameData: GameData): HTMLElement {
 
 // Helper functions
 
-function renderCompactProgressBar(
-  percentage: number,
-  label: string,
-  colorClass: string
-): HTMLElement {
-  const container = document.createElement('div');
-  container.style.marginBottom = '4px';
-
-  const labelDiv = document.createElement('div');
-  labelDiv.style.fontSize = '11px';
-  labelDiv.style.marginBottom = '2px';
-  labelDiv.style.color = '#aaa';
-  labelDiv.textContent = label;
-  container.appendChild(labelDiv);
-
-  const track = document.createElement('div');
-  track.className = 'progress-bar-track';
-  track.style.height = '6px';
-
-  const fill = document.createElement('div');
-  fill.className = `progress-bar-fill ${colorClass}`;
-  fill.style.width = `${Math.min(100, percentage)}%`;
-
-  track.appendChild(fill);
-  container.appendChild(track);
-
-  return container;
-}
-
 function getFuelColorClass(fuel: number): string {
   if (fuel <= 20) return 'bar-danger';
   if (fuel <= 50) return 'bar-warning';
-  return 'bar-good';
-}
-
-function getPowerColorClass(powerStatus: {
-  isOverloaded: boolean;
-  percentage: number;
-}): string {
-  if (powerStatus.isOverloaded) return 'bar-danger';
-  if (powerStatus.percentage >= 80) return 'bar-warning';
   return 'bar-good';
 }
 

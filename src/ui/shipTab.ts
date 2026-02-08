@@ -10,6 +10,8 @@ import { renderNavigationView } from './navigationView';
 import { getGravitySource } from '../gravitySystem';
 import { computeMaxRange } from '../flightPhysics';
 import { formatDualTime, GAME_SECONDS_PER_TICK } from '../timeSystem';
+import { renderStatBar } from './components/statBar';
+import { attachTooltip, formatPowerTooltip } from './components/tooltip';
 
 export interface ShipTabCallbacks {
   onCrewAssign: (crewId: string, roomId: string) => void;
@@ -87,12 +89,19 @@ function renderFuelBar(gameData: GameData): HTMLElement {
     colorClass = 'bar-warning';
   }
 
-  return renderProgressBar('FUEL', fuel, `${fuel.toFixed(1)}%`, colorClass);
+  return renderStatBar({
+    label: 'FUEL',
+    percentage: fuel,
+    valueLabel: `${fuel.toFixed(1)}%`,
+    colorClass,
+    mode: 'full',
+  });
 }
 
 function renderPowerBar(gameData: GameData): HTMLElement {
   const ship = getActiveShip(gameData);
   const powerStatus = computePowerStatus(ship);
+  const engineDef = getEngineDefinition(ship.engine.definitionId);
 
   let label = 'POWER';
   switch (powerStatus.powerSource) {
@@ -110,24 +119,88 @@ function renderPowerBar(gameData: GameData): HTMLElement {
       break;
   }
 
-  let colorClass = 'bar-good';
-  if (powerStatus.isOverloaded) {
-    colorClass = 'bar-danger';
-  } else if (powerStatus.percentage >= 80) {
-    colorClass = 'bar-warning';
-  }
-
   const valueLabel =
     powerStatus.totalOutput > 0
       ? `${powerStatus.totalDraw}/${powerStatus.totalOutput} kW (${powerStatus.percentage.toFixed(0)}%)`
       : '0 kW (NO POWER)';
 
-  return renderProgressBar(
-    label,
-    powerStatus.percentage,
-    valueLabel,
-    colorClass
+  // Build tooltip showing power draw breakdown
+  const drawItems: Array<{ name: string; draw: number }> = [];
+
+  // Rooms
+  for (const room of ship.rooms) {
+    const roomDef = getRoomDefinition(room.type);
+    if (!roomDef) continue;
+    const isActive =
+      roomDef.alwaysPowered ||
+      (room.assignedCrewIds.length > 0 && room.state === 'operational');
+    if (isActive && roomDef.powerDraw > 0) {
+      drawItems.push({ name: roomDef.name, draw: roomDef.powerDraw });
+    }
+  }
+
+  // Equipment
+  for (const equipment of ship.equipment) {
+    const equipDef = getEquipmentDefinition(equipment.definitionId);
+    if (equipDef && equipDef.powerDraw > 0) {
+      drawItems.push({ name: equipDef.name, draw: equipDef.powerDraw });
+    }
+  }
+
+  // Engine self-draw
+  if (ship.engine.state === 'online' && engineDef.selfPowerDraw > 0) {
+    drawItems.push({
+      name: `${engineDef.name} (self)`,
+      draw: engineDef.selfPowerDraw,
+    });
+  }
+
+  const available = powerStatus.totalOutput - powerStatus.totalDraw;
+  const tooltipContent = formatPowerTooltip(
+    available,
+    powerStatus.totalOutput,
+    drawItems
   );
+
+  // Show full capacity when power is available, with draw as overlay
+  const basePercentage =
+    powerStatus.powerSource === 'berth' || powerStatus.powerSource === 'drives'
+      ? 100
+      : 0;
+
+  // Determine overlay color based on power draw
+  let overlayColorClass = 'bar-warning';
+  if (powerStatus.isOverloaded) {
+    overlayColorClass = 'bar-danger';
+  }
+
+  // powerStatus.percentage is (draw/output)*100
+  // For 32 kW draw / 50 kW capacity = 64%
+  // Overlay should show this drawn percentage
+  const drawnPercentage = powerStatus.percentage;
+
+  const statBar = renderStatBar({
+    label,
+    percentage: basePercentage,
+    valueLabel,
+    colorClass: 'bar-good',
+    mode: 'full',
+    overlay:
+      basePercentage > 0
+        ? {
+            percentage: drawnPercentage,
+            colorClass: overlayColorClass,
+          }
+        : undefined,
+  });
+
+  // Attach custom tooltip
+  attachTooltip(statBar, {
+    content: tooltipContent,
+    followMouse: false,
+  });
+
+  return statBar;
 }
 
 function renderRadiationBar(gameData: GameData): HTMLElement {
@@ -161,7 +234,13 @@ function renderRadiationBar(gameData: GameData): HTMLElement {
       ? `${netRadiation.toFixed(0)} rad (${engineRadiation.toFixed(0)} - ${totalShielding.toFixed(0)} shield)`
       : 'ENGINE OFF';
 
-  return renderProgressBar('RADIATION', percentage, valueLabel, colorClass);
+  return renderStatBar({
+    label: 'RADIATION',
+    percentage,
+    valueLabel,
+    colorClass,
+    mode: 'full',
+  });
 }
 
 function renderHeatBar(gameData: GameData): HTMLElement {
@@ -194,7 +273,13 @@ function renderHeatBar(gameData: GameData): HTMLElement {
       ? `${excessHeat.toFixed(0)} kW excess (${engineHeat.toFixed(0)} - ${totalDissipation.toFixed(0)} cooling)`
       : 'ENGINE OFF';
 
-  return renderProgressBar('HEAT', percentage, valueLabel, colorClass);
+  return renderStatBar({
+    label: 'HEAT',
+    percentage,
+    valueLabel,
+    colorClass,
+    mode: 'full',
+  });
 }
 
 function renderContainmentBar(gameData: GameData): HTMLElement {
@@ -204,12 +289,13 @@ function renderContainmentBar(gameData: GameData): HTMLElement {
   );
 
   if (!confinementEq) {
-    return renderProgressBar(
-      'CONTAINMENT',
-      0,
-      'NO CONFINEMENT UNIT',
-      'bar-danger'
-    );
+    return renderStatBar({
+      label: 'CONTAINMENT',
+      percentage: 0,
+      valueLabel: 'NO CONFINEMENT UNIT',
+      colorClass: 'bar-danger',
+      mode: 'full',
+    });
   }
 
   const degradationPercent = confinementEq.degradation;
@@ -230,7 +316,13 @@ function renderContainmentBar(gameData: GameData): HTMLElement {
 
   const valueLabel = `${integrity.toFixed(0)}% integrity${staffingNote}`;
 
-  return renderProgressBar('CONTAINMENT', integrity, valueLabel, colorClass);
+  return renderStatBar({
+    label: 'CONTAINMENT',
+    percentage: integrity,
+    valueLabel,
+    colorClass,
+    mode: 'full',
+  });
 }
 
 function renderShipStatsPanel(gameData: GameData): HTMLElement {
@@ -347,41 +439,6 @@ function getTierColor(tier: string): string {
     default:
       return '#fff';
   }
-}
-
-function renderProgressBar(
-  label: string,
-  percentage: number,
-  valueLabel: string,
-  colorClass: string
-): HTMLElement {
-  const container = document.createElement('div');
-  container.className = 'progress-bar-container';
-
-  const header = document.createElement('div');
-  header.className = 'progress-bar-header';
-
-  const labelSpan = document.createElement('span');
-  labelSpan.textContent = label;
-
-  const valueSpan = document.createElement('span');
-  valueSpan.textContent = valueLabel;
-
-  header.appendChild(labelSpan);
-  header.appendChild(valueSpan);
-  container.appendChild(header);
-
-  const track = document.createElement('div');
-  track.className = 'progress-bar-track';
-
-  const fill = document.createElement('div');
-  fill.className = `progress-bar-fill ${colorClass}`;
-  fill.style.width = `${Math.min(100, percentage)}%`;
-
-  track.appendChild(fill);
-  container.appendChild(track);
-
-  return container;
 }
 
 function renderRoomGrid(
@@ -547,12 +604,13 @@ function renderRoomCard(
       const gameSecondsRemaining = ticksRemaining * GAME_SECONDS_PER_TICK;
       const timeLabel = formatDualTime(gameSecondsRemaining);
 
-      const warmupBar = renderProgressBar(
-        'WARMUP',
-        ship.engine.warmupProgress,
-        `${ship.engine.warmupProgress.toFixed(0)}% - ${timeLabel} remaining`,
-        'bar-good'
-      );
+      const warmupBar = renderStatBar({
+        label: 'WARMUP',
+        percentage: ship.engine.warmupProgress,
+        valueLabel: `${ship.engine.warmupProgress.toFixed(0)}% - ${timeLabel} remaining`,
+        colorClass: 'bar-good',
+        mode: 'full',
+      });
       warmupBar.style.fontSize = '0.85em';
       warmupBar.style.marginTop = '0.5em';
       roomCard.appendChild(warmupBar);
@@ -868,16 +926,18 @@ function renderEquipmentSection(gameData: GameData): HTMLElement {
 
     // Degradation bar (if applicable)
     if (equipDef.hasDegradation) {
-      const degradationBar = renderProgressBar(
-        'Wear',
-        equipment.degradation,
-        `${equipment.degradation.toFixed(1)}%`,
-        equipment.degradation >= 75
-          ? 'bar-danger'
-          : equipment.degradation >= 50
-            ? 'bar-warning'
-            : 'bar-good'
-      );
+      const degradationBar = renderStatBar({
+        label: 'Wear',
+        percentage: equipment.degradation,
+        valueLabel: `${equipment.degradation.toFixed(1)}%`,
+        colorClass:
+          equipment.degradation >= 75
+            ? 'bar-danger'
+            : equipment.degradation >= 50
+              ? 'bar-warning'
+              : 'bar-good',
+        mode: 'full',
+      });
       degradationBar.style.fontSize = '0.85em';
       degradationBar.style.marginTop = '0.5em';
       item.appendChild(degradationBar);
