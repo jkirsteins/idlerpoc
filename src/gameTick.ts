@@ -171,17 +171,17 @@ function applyShipTick(gameData: GameData, ship: Ship): boolean {
     }
 
     // 2. Flight physics (only advance when engine is online)
-    if (ship.location.flight && ship.engine.state === 'online') {
-      const flightComplete = advanceFlight(ship.location.flight);
+    if (ship.activeFlightPlan && ship.engine.state === 'online') {
+      const flightComplete = advanceFlight(ship.activeFlightPlan);
 
       // Fuel consumption during burn phases
-      const engineBurning = isEngineBurning(ship.location.flight);
+      const engineBurning = isEngineBurning(ship.activeFlightPlan);
       if (
         engineBurning &&
         ship.engine.state === 'online' &&
         engineRoomStaffed
       ) {
-        const flight = ship.location.flight;
+        const flight = ship.activeFlightPlan;
         const origin = gameData.world.locations.find(
           (l) => l.id === flight.origin
         );
@@ -406,7 +406,7 @@ export function applyTick(
 
   // Advance game time once per tick
   const hasFlightShips = gameData.ships.some(
-    (s) => s.location.status === 'in_flight' && s.location.flight
+    (s) => s.location.status === 'in_flight' && s.activeFlightPlan
   );
   if (hasFlightShips) {
     gameData.gameTime += GAME_SECONDS_PER_TICK;

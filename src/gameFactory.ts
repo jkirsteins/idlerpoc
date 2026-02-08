@@ -251,6 +251,7 @@ function createStartingShip(
     cargo,
     activeContract: null,
     routeAssignment: null,
+    activeFlightPlan: undefined,
     metrics: {
       creditsEarned: 0,
       fuelCostsPaid: 0,
@@ -299,6 +300,7 @@ export function createAdditionalShip(
     cargo: [],
     activeContract: null,
     routeAssignment: null,
+    activeFlightPlan: undefined,
     metrics: {
       creditsEarned: 0,
       fuelCostsPaid: 0,
@@ -346,5 +348,14 @@ export function createNewGame(
     lastQuestRegenDay,
     hireableCrewByLocation,
     visitedLocations: ['earth'], // Player starts docked at Earth
+    // Time system state
+    isPaused: false,
+    timeSpeed: 1,
+    autoPauseSettings: {
+      onArrival: true,
+      onContractComplete: true,
+      onCriticalAlert: true,
+      onLowFuel: true,
+    },
   };
 }

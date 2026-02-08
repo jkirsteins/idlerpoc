@@ -261,19 +261,19 @@ const callbacks: RendererCallbacks = {
     if (ship.location.status === 'orbiting' && ship.location.orbitingAt) {
       // Orbiting - dock at orbited location
       dockLocation = ship.location.orbitingAt;
-    } else if (ship.location.flight) {
+    } else if (ship.activeFlightPlan) {
       // In flight - dock at the nearest location (destination if far along, origin if just started)
       const progress =
-        ship.location.flight.distanceCovered /
-        ship.location.flight.totalDistance;
+        ship.activeFlightPlan.distanceCovered /
+        ship.activeFlightPlan.totalDistance;
 
       // If more than halfway to destination, dock at destination; otherwise dock at origin
       dockLocation =
         progress > 0.5
-          ? ship.location.flight.destination
-          : ship.location.flight.origin;
+          ? ship.activeFlightPlan.destination
+          : ship.activeFlightPlan.origin;
 
-      delete ship.location.flight;
+      delete ship.activeFlightPlan;
     } else if (ship.location.dockedAt) {
       // Already docked - no-op
       dockLocation = ship.location.dockedAt;
@@ -695,7 +695,7 @@ const callbacks: RendererCallbacks = {
       delete ship.location.dockedAt;
       delete ship.location.orbitingAt;
 
-      ship.location.flight = initializeFlight(ship, origin, destination, true);
+      ship.activeFlightPlan = initializeFlight(ship, origin, destination, true);
 
       ship.engine.state = 'warming_up';
       ship.engine.warmupProgress = 0;
@@ -923,6 +923,21 @@ const callbacks: RendererCallbacks = {
     saveGame(state.gameData);
     renderApp();
   },
+
+  onTogglePause: () => {
+    if (state.phase !== 'playing') return;
+    state.gameData.isPaused = !state.gameData.isPaused;
+    saveGame(state.gameData);
+    renderApp();
+  },
+
+  onSetSpeed: (speed: 1 | 2 | 5) => {
+    if (state.phase !== 'playing') return;
+    state.gameData.timeSpeed = speed;
+    state.gameData.isPaused = false; // Auto-unpause when setting speed
+    saveGame(state.gameData);
+    renderApp();
+  },
 };
 
 window.addEventListener('wizard-next', ((
@@ -935,6 +950,47 @@ window.addEventListener('wizard-next', ((
   };
   renderApp();
 }) as EventListener);
+
+// Keyboard shortcuts for time controls
+window.addEventListener('keydown', (event: KeyboardEvent) => {
+  if (state.phase !== 'playing') return;
+
+  // Ignore if user is typing in an input field
+  if (
+    event.target instanceof HTMLInputElement ||
+    event.target instanceof HTMLTextAreaElement
+  ) {
+    return;
+  }
+
+  switch (event.key) {
+    case ' ': // Space - toggle pause
+    case 'p': // P - toggle pause
+    case 'P':
+      event.preventDefault();
+      callbacks.onTogglePause?.();
+      break;
+    case '1': // 1 - set speed to 1x
+      event.preventDefault();
+      callbacks.onSetSpeed?.(1);
+      break;
+    case '2': // 2 - set speed to 2x
+      event.preventDefault();
+      callbacks.onSetSpeed?.(2);
+      break;
+    case '5': // 5 - set speed to 5x
+      event.preventDefault();
+      callbacks.onSetSpeed?.(5);
+      break;
+    case 'r': // R - resume from pause
+    case 'R':
+      if (state.phase === 'playing' && state.gameData.isPaused) {
+        event.preventDefault();
+        callbacks.onTogglePause?.();
+      }
+      break;
+  }
+});
 
 /**
  * Create toast notifications from encounter results.
@@ -987,13 +1043,69 @@ function createEncounterToasts(encounterResults: EncounterResult[]): Toast[] {
   return toasts;
 }
 
+/**
+ * Check for auto-pause triggers and pause if needed
+ * Returns true if auto-pause was triggered
+ */
+function checkAutoPause(gameData: GameData, prevGameTime: number): boolean {
+  const settings = gameData.autoPauseSettings;
+
+  // Check for arrivals - look for arrival log entries added in this tick
+  if (settings.onArrival) {
+    const recentArrivals = gameData.log.filter(
+      (entry) => entry.type === 'arrival' && entry.gameTime > prevGameTime
+    );
+    if (recentArrivals.length > 0) {
+      gameData.isPaused = true;
+      return true;
+    }
+  }
+
+  // Check for contract completion
+  if (settings.onContractComplete) {
+    const recentCompletions = gameData.log.filter(
+      (entry) =>
+        (entry.type === 'contract_complete' ||
+          entry.type === 'trip_complete') &&
+        entry.gameTime > prevGameTime
+    );
+    if (recentCompletions.length > 0) {
+      gameData.isPaused = true;
+      return true;
+    }
+  }
+
+  // Check for low fuel
+  if (settings.onLowFuel) {
+    for (const ship of gameData.ships) {
+      if (ship.fuel < 10 && ship.location.status === 'in_flight') {
+        gameData.isPaused = true;
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
+
 function startTickSystem(): void {
   if (tickInterval !== null) return;
 
   tickInterval = window.setInterval(() => {
-    if (state.phase === 'playing') {
-      const changed = applyTick(state.gameData);
+    if (state.phase === 'playing' && !state.gameData.isPaused) {
+      // Apply ticks based on speed multiplier
+      const speed = state.gameData.timeSpeed;
+      let changed = false;
+      const prevGameTime = state.gameData.gameTime;
+
+      for (let i = 0; i < speed; i++) {
+        changed = applyTick(state.gameData) || changed;
+      }
+
       state.gameData.lastTickTimestamp = Date.now();
+
+      // Check for auto-pause triggers
+      const autoPaused = checkAutoPause(state.gameData, prevGameTime);
 
       // Check for encounter results during normal play
       const encounterResults = drainEncounterResults();
@@ -1010,7 +1122,7 @@ function startTickSystem(): void {
 
         saveGame(state.gameData);
         renderApp();
-      } else if (changed) {
+      } else if (changed || autoPaused) {
         // Clean up expired toasts on regular renders
         const now = Date.now();
         const activeToasts = (state.toasts || []).filter(

@@ -66,7 +66,7 @@ export function renderNavigationView(
   const currentLocationId =
     ship.location.dockedAt ||
     ship.location.orbitingAt ||
-    ship.location.flight?.destination ||
+    ship.activeFlightPlan?.destination ||
     'earth';
   const currentLocation =
     gameData.world.locations.find((loc) => loc.id === currentLocationId) ||

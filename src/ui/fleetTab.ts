@@ -460,15 +460,15 @@ function renderEnhancedShipCard(
     const orbitingAt = ship.location.orbitingAt;
     const location = gameData.world.locations.find((l) => l.id === orbitingAt);
     locationDiv.innerHTML = `<span style="color: #60a5fa;">●</span> Orbiting ${location?.name || orbitingAt}`;
-  } else if (ship.location.flight) {
-    const destId = ship.location.flight.destination;
+  } else if (ship.activeFlightPlan) {
+    const destId = ship.activeFlightPlan.destination;
     const destination = gameData.world.locations.find((l) => l.id === destId);
     const remainingTime =
-      ship.location.flight.totalTime - ship.location.flight.elapsedTime;
+      ship.activeFlightPlan.totalTime - ship.activeFlightPlan.elapsedTime;
     const timeLabel = formatDualTime(remainingTime);
     const progressPercent =
-      (ship.location.flight.distanceCovered /
-        ship.location.flight.totalDistance) *
+      (ship.activeFlightPlan.distanceCovered /
+        ship.activeFlightPlan.totalDistance) *
       100;
     locationDiv.innerHTML = `<span style="color: #fbbf24;">●</span> In flight to ${destination?.name || destId}<br><span style="color: #aaa; font-size: 0.8rem;">Progress: ${progressPercent.toFixed(0)}% - ${timeLabel} remaining</span>`;
   }

@@ -124,6 +124,72 @@ body {
   margin-bottom: 0;
 }
 
+/* Time Controls Section */
+.time-controls {
+  background: rgba(74, 158, 255, 0.1);
+  border-radius: 4px;
+  padding: 8px;
+}
+
+.time-control-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px;
+  font-size: 14px;
+  font-weight: bold;
+  border-radius: 4px;
+  border: 2px solid #4a9eff;
+  background: rgba(74, 158, 255, 0.2);
+  color: #4a9eff;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.time-control-btn:hover {
+  background: rgba(74, 158, 255, 0.3);
+  border-color: #6db3ff;
+}
+
+.time-control-btn:active {
+  transform: scale(0.98);
+}
+
+.time-speed-controls {
+  display: flex;
+  gap: 4px;
+}
+
+.time-speed-btn {
+  flex: 1;
+  padding: 8px;
+  font-size: 13px;
+  font-weight: bold;
+  border-radius: 4px;
+  border: 1px solid #666;
+  background: rgba(0, 0, 0, 0.3);
+  color: #aaa;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.time-speed-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: #888;
+}
+
+.time-speed-btn.active {
+  background: #4a9eff;
+  border-color: #4a9eff;
+  color: white;
+}
+
+.time-speed-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
 h1 {
   margin: 0 0 24px;
   text-align: center;

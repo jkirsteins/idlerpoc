@@ -55,11 +55,11 @@ function clamp(value: number, min: number, max: number): number {
  * Returns the approximate distance from Earth at the ship's current position.
  */
 export function getShipPositionKm(ship: Ship, world: World): number {
-  if (ship.location.status !== 'in_flight' || !ship.location.flight) {
+  if (ship.location.status !== 'in_flight' || !ship.activeFlightPlan) {
     return 0;
   }
 
-  const flight = ship.location.flight;
+  const flight = ship.activeFlightPlan;
   const origin = world.locations.find((l) => l.id === flight.origin);
   const dest = world.locations.find((l) => l.id === flight.destination);
 
@@ -182,7 +182,7 @@ export function calculateEncounterChance(
   ship: Ship,
   gameData: GameData
 ): number {
-  if (ship.location.status !== 'in_flight' || !ship.location.flight) {
+  if (ship.location.status !== 'in_flight' || !ship.activeFlightPlan) {
     return 0;
   }
 
@@ -190,7 +190,7 @@ export function calculateEncounterChance(
     return 0;
   }
 
-  const flight = ship.location.flight;
+  const flight = ship.activeFlightPlan;
   const currentKm = getShipPositionKm(ship, gameData.world);
   const engineDef = getEngineDefinition(ship.engine.definitionId);
 

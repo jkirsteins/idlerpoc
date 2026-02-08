@@ -84,8 +84,8 @@ export function getGravitySource(ship: Ship): GravitySource {
 
   // Check thrust gravity (only during burns)
   const engineDef = getEngineDefinition(ship.engine.definitionId);
-  if (engineDef && ship.engine.state === 'online' && ship.location.flight) {
-    const phase = ship.location.flight.phase;
+  if (engineDef && ship.engine.state === 'online' && ship.activeFlightPlan) {
+    const phase = ship.activeFlightPlan.phase;
     if (phase === 'accelerating' || phase === 'decelerating') {
       // maxThrust is in milli-g, convert to g
       const thrustG = engineDef.maxThrust / 1000;

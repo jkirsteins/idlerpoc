@@ -16,6 +16,8 @@ interface SidebarCallbacks {
   onUndock?: () => void;
   onDock?: () => void;
   onAdvanceDay?: () => void;
+  onTogglePause?: () => void;
+  onSetSpeed?: (speed: 1 | 2 | 5) => void;
 }
 
 export function renderLeftSidebar(
@@ -24,6 +26,70 @@ export function renderLeftSidebar(
 ): HTMLElement {
   const sidebar = document.createElement('div');
   sidebar.className = 'left-sidebar';
+
+  // TIME CONTROLS SECTION (at TOP)
+  const timeControlsSection = document.createElement('div');
+  timeControlsSection.className = 'sidebar-section time-controls';
+  timeControlsSection.style.borderBottom = '1px solid #444';
+  timeControlsSection.style.paddingBottom = '12px';
+  timeControlsSection.style.marginBottom = '16px';
+
+  // Game time display
+  const timeDisplay = document.createElement('div');
+  timeDisplay.style.fontSize = '13px';
+  timeDisplay.style.color = '#4a9eff';
+  timeDisplay.style.marginBottom = '8px';
+  timeDisplay.style.fontWeight = 'bold';
+  timeDisplay.textContent = formatGameDate(gameData.gameTime);
+  timeControlsSection.appendChild(timeDisplay);
+
+  // Play/Pause Toggle Button
+  const playPauseBtn = document.createElement('button');
+  playPauseBtn.className = 'time-control-btn play-pause';
+  playPauseBtn.innerHTML = gameData.isPaused
+    ? '▶ <span>Resume</span>'
+    : '⏸ <span>Pause</span>';
+  playPauseBtn.style.width = '100%';
+  playPauseBtn.style.marginBottom = '8px';
+  playPauseBtn.addEventListener('click', () => {
+    if (callbacks.onTogglePause) callbacks.onTogglePause();
+  });
+  timeControlsSection.appendChild(playPauseBtn);
+
+  // Speed status display
+  const speedStatus = document.createElement('div');
+  speedStatus.style.fontSize = '11px';
+  speedStatus.style.color = '#aaa';
+  speedStatus.style.marginBottom = '6px';
+  speedStatus.textContent = gameData.isPaused
+    ? 'Speed: -- (paused)'
+    : `Speed: ${gameData.timeSpeed}x`;
+  timeControlsSection.appendChild(speedStatus);
+
+  // Speed Controls Row
+  const speedRow = document.createElement('div');
+  speedRow.className = 'time-speed-controls';
+  speedRow.style.display = 'flex';
+  speedRow.style.gap = '4px';
+
+  for (const speed of [1, 2, 5] as const) {
+    const speedBtn = document.createElement('button');
+    speedBtn.className = 'time-speed-btn';
+    speedBtn.textContent = `${speed}x`;
+    speedBtn.disabled = gameData.isPaused;
+
+    if (gameData.timeSpeed === speed && !gameData.isPaused) {
+      speedBtn.classList.add('active');
+    }
+
+    speedBtn.addEventListener('click', () => {
+      if (callbacks.onSetSpeed) callbacks.onSetSpeed(speed);
+    });
+    speedRow.appendChild(speedBtn);
+  }
+
+  timeControlsSection.appendChild(speedRow);
+  sidebar.appendChild(timeControlsSection);
 
   // Credits section
   const creditsSection = document.createElement('div');
@@ -55,12 +121,12 @@ export function renderLeftSidebar(
   locationValue.style.fontSize = '14px';
   locationValue.style.color = '#eee';
 
-  if (ship.location.status === 'in_flight' && ship.location.flight) {
+  if (ship.location.status === 'in_flight' && ship.activeFlightPlan) {
     const origin = gameData.world.locations.find(
-      (l) => l.id === ship.location.flight!.origin
+      (l) => l.id === ship.activeFlightPlan!.origin
     );
     const destination = gameData.world.locations.find(
-      (l) => l.id === ship.location.flight!.destination
+      (l) => l.id === ship.activeFlightPlan!.destination
     );
     locationValue.textContent = `${origin?.name || '?'} → ${destination?.name || '?'}`;
   } else if (ship.location.status === 'orbiting' && ship.location.orbitingAt) {
@@ -259,17 +325,6 @@ export function renderLeftSidebar(
     dockBtn.style.marginBottom = '8px';
     dockBtn.addEventListener('click', callbacks.onDock);
     actionsSection.appendChild(dockBtn);
-    hasActions = true;
-  }
-
-  // Advance Day button (always available)
-  if (callbacks.onAdvanceDay) {
-    const advanceBtn = document.createElement('button');
-    advanceBtn.textContent = '⏩ Advance Day';
-    advanceBtn.className = 'small-button';
-    advanceBtn.style.width = '100%';
-    advanceBtn.addEventListener('click', callbacks.onAdvanceDay);
-    actionsSection.appendChild(advanceBtn);
     hasActions = true;
   }
 

@@ -63,6 +63,8 @@ export interface RendererCallbacks {
   onAssignRoute: (questId: string) => void;
   onUnassignRoute: () => void;
   onAdvanceDay: () => void;
+  onTogglePause?: () => void;
+  onSetSpeed?: (speed: 1 | 2 | 5) => void;
   onDockAtNearestPort: () => void;
   onResumeContract: () => void;
   onAbandonContract: () => void;

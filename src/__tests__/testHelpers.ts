@@ -135,7 +135,7 @@ export function createTestShip(overrides: Partial<Ship> = {}): Ship {
     isCaptain: true,
   });
 
-  return {
+  const defaultShip = {
     id: uid(),
     name: 'Test Ship',
     classId: 'wayfarer' as ShipClassId,
@@ -154,12 +154,12 @@ export function createTestShip(overrides: Partial<Ship> = {}): Ship {
     ],
     location: {
       status: 'in_flight',
-      flight: createTestFlight(),
     },
     engine: createTestEngine({ definitionId: 'ntr_mk1' as EngineId }),
     cargo: [],
     activeContract: null,
     routeAssignment: null,
+    activeFlightPlan: createTestFlight(),
     metrics: {
       creditsEarned: 0,
       fuelCostsPaid: 0,
@@ -173,6 +173,16 @@ export function createTestShip(overrides: Partial<Ship> = {}): Ship {
     role: undefined,
     ...overrides,
   };
+
+  // If ship is not in_flight, clear activeFlightPlan unless explicitly provided
+  if (
+    defaultShip.location.status !== 'in_flight' &&
+    !('activeFlightPlan' in overrides)
+  ) {
+    defaultShip.activeFlightPlan = undefined;
+  }
+
+  return defaultShip;
 }
 
 export function createTestWorld(): World {
@@ -199,6 +209,14 @@ export function createTestGameData(
     lastQuestRegenDay: 0,
     hireableCrewByLocation: {},
     visitedLocations: ['earth'],
+    isPaused: false,
+    timeSpeed: 1,
+    autoPauseSettings: {
+      onArrival: true,
+      onContractComplete: true,
+      onCriticalAlert: true,
+      onLowFuel: true,
+    },
     ...overrides,
   };
 }

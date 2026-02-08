@@ -350,7 +350,7 @@ function renderActiveContract(
   }
 
   const quest = activeContract.quest;
-  const flight = ship.location.flight;
+  const flight = ship.activeFlightPlan;
 
   // Contract summary
   const summary = document.createElement('div');

@@ -286,13 +286,13 @@ describe('getShipPositionKm', () => {
     const ship = createTestShip({
       location: {
         status: 'in_flight',
-        flight: createTestFlight({
-          origin: 'earth',
-          destination: 'mars',
-          distanceCovered: 0,
-          totalDistance: 54_600_000_000,
-        }),
       },
+      activeFlightPlan: createTestFlight({
+        origin: 'earth',
+        destination: 'mars',
+        distanceCovered: 0,
+        totalDistance: 54_600_000_000,
+      }),
     });
     const posKm = getShipPositionKm(ship, world);
     expect(posKm).toBeCloseTo(0, 0); // Earth is at 0 km
@@ -302,13 +302,13 @@ describe('getShipPositionKm', () => {
     const ship = createTestShip({
       location: {
         status: 'in_flight',
-        flight: createTestFlight({
-          origin: 'earth',
-          destination: 'mars',
-          distanceCovered: 54_600_000_000,
-          totalDistance: 54_600_000_000,
-        }),
       },
+      activeFlightPlan: createTestFlight({
+        origin: 'earth',
+        destination: 'mars',
+        distanceCovered: 54_600_000_000,
+        totalDistance: 54_600_000_000,
+      }),
     });
     const posKm = getShipPositionKm(ship, world);
     expect(posKm).toBeCloseTo(54_600_000, 0); // Mars is at 54.6M km
@@ -318,13 +318,13 @@ describe('getShipPositionKm', () => {
     const ship = createTestShip({
       location: {
         status: 'in_flight',
-        flight: createTestFlight({
-          origin: 'earth',
-          destination: 'mars',
-          distanceCovered: 27_300_000_000,
-          totalDistance: 54_600_000_000,
-        }),
       },
+      activeFlightPlan: createTestFlight({
+        origin: 'earth',
+        destination: 'mars',
+        distanceCovered: 27_300_000_000,
+        totalDistance: 54_600_000_000,
+      }),
     });
     const posKm = getShipPositionKm(ship, world);
     expect(posKm).toBeCloseTo(27_300_000, 0);
@@ -334,13 +334,13 @@ describe('getShipPositionKm', () => {
     const ship = createTestShip({
       location: {
         status: 'in_flight',
-        flight: createTestFlight({
-          origin: 'mars',
-          destination: 'earth',
-          distanceCovered: 27_300_000_000,
-          totalDistance: 54_600_000_000,
-        }),
       },
+      activeFlightPlan: createTestFlight({
+        origin: 'mars',
+        destination: 'earth',
+        distanceCovered: 27_300_000_000,
+        totalDistance: 54_600_000_000,
+      }),
     });
     const posKm = getShipPositionKm(ship, world);
     // Midpoint of Mars(54.6M) → Earth(0): 54.6M + (0 - 54.6M) * 0.5 = 27.3M
@@ -371,8 +371,8 @@ describe('calculateEncounterChance', () => {
     // Ensure in flight with valid flight state
     ship.location = {
       status: 'in_flight',
-      flight: createTestFlight(),
     };
+    ship.activeFlightPlan = createTestFlight();
     ship.lastEncounterTime = undefined;
 
     const chance = calculateEncounterChance(ship, gameData);
@@ -387,25 +387,25 @@ describe('calculateEncounterChance', () => {
     // Near Earth
     ship.location = {
       status: 'in_flight',
-      flight: createTestFlight({
-        origin: 'earth',
-        destination: 'leo_station',
-        distanceCovered: 0,
-        totalDistance: 400_000,
-      }),
     };
+    ship.activeFlightPlan = createTestFlight({
+      origin: 'earth',
+      destination: 'leo_station',
+      distanceCovered: 0,
+      totalDistance: 400_000,
+    });
     const chanceNearEarth = calculateEncounterChance(ship, gameData);
 
     // Near The Scatter
     ship.location = {
       status: 'in_flight',
-      flight: createTestFlight({
-        origin: 'freeport_station',
-        destination: 'the_scatter',
-        distanceCovered: 650_000_000, // midpoint between freeport and scatter
-        totalDistance: 1_300_000_000,
-      }),
     };
+    ship.activeFlightPlan = createTestFlight({
+      origin: 'freeport_station',
+      destination: 'the_scatter',
+      distanceCovered: 650_000_000, // midpoint between freeport and scatter
+      totalDistance: 1_300_000_000,
+    });
     const chanceNearScatter = calculateEncounterChance(ship, gameData);
 
     expect(chanceNearScatter).toBeGreaterThan(chanceNearEarth);
@@ -417,8 +417,8 @@ describe('calculateEncounterChance', () => {
     ship.lastEncounterTime = undefined;
     ship.location = {
       status: 'in_flight',
-      flight: createTestFlight({ phase: 'accelerating' }),
     };
+    ship.activeFlightPlan = createTestFlight({ phase: 'accelerating' });
 
     // Stealth engine
     ship.engine.definitionId = 'ntr_stealth';
@@ -439,14 +439,14 @@ describe('calculateEncounterChance', () => {
 
     ship.location = {
       status: 'in_flight',
-      flight: createTestFlight({ phase: 'accelerating' }),
     };
+    ship.activeFlightPlan = createTestFlight({ phase: 'accelerating' });
     const chanceBurning = calculateEncounterChance(ship, gameData);
 
     ship.location = {
       status: 'in_flight',
-      flight: createTestFlight({ phase: 'coasting' }),
     };
+    ship.activeFlightPlan = createTestFlight({ phase: 'coasting' });
     const chanceCoasting = calculateEncounterChance(ship, gameData);
 
     expect(chanceCoasting).toBeLessThan(chanceBurning);
@@ -458,8 +458,8 @@ describe('calculateEncounterChance', () => {
     ship.lastEncounterTime = undefined;
     ship.location = {
       status: 'in_flight',
-      flight: createTestFlight(),
     };
+    ship.activeFlightPlan = createTestFlight();
 
     // Low skill navigator
     const bridge = ship.rooms.find((r) => r.type === 'bridge')!;

@@ -132,8 +132,7 @@ export interface ShipLocation {
   status: ShipStatus;
   dockedAt?: string; // e.g. "Earth" — set when docked
   orbitingAt?: string; // e.g. "Earth" — set when orbiting
-  destination?: string; // e.g. "Mars" — set when in_flight (future use)
-  flight?: FlightState; // flight state when in_flight
+  // destination and flight removed - now using ship.activeFlightPlan
 }
 
 export interface CrewSkills {
@@ -226,6 +225,7 @@ export interface Ship {
   lastEncounterTime?: number; // gameTime of last encounter (for cooldown)
   metrics: ShipMetrics; // Performance tracking for fleet management
   role?: 'courier' | 'freighter' | 'scout' | 'combat' | 'luxury'; // Player-assigned specialization
+  activeFlightPlan?: FlightState; // Current flight plan (replaces location.flight)
 }
 
 export type QuestType =
@@ -389,6 +389,15 @@ export interface GameData {
   hireableCrewByLocation: Record<string, CrewMember[]>; // key = location ID
   visitedLocations: string[]; // location IDs the player has docked at
   encounterStats?: EncounterStats;
+  // Time system state
+  isPaused: boolean; // Global pause state
+  timeSpeed: 1 | 2 | 5; // Current time speed multiplier
+  autoPauseSettings: {
+    onArrival: boolean; // Pause when ships arrive at destination
+    onContractComplete: boolean; // Pause when contracts complete
+    onCriticalAlert: boolean; // Pause on critical alerts
+    onLowFuel: boolean; // Pause when fuel drops below 10%
+  };
 }
 
 /**

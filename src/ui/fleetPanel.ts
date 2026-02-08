@@ -113,17 +113,17 @@ export function renderFleetPanel(
         (l) => l.id === orbitingAt
       );
       statusSpan.textContent = `Orbiting ${location?.name || orbitingAt}`;
-    } else if (ship.location.flight) {
-      const destId = ship.location.flight.destination;
+    } else if (ship.activeFlightPlan) {
+      const destId = ship.activeFlightPlan.destination;
       const destination = gameData.world.locations.find((l) => l.id === destId);
       const progressPercent =
-        (ship.location.flight.distanceCovered /
-          ship.location.flight.totalDistance) *
+        (ship.activeFlightPlan.distanceCovered /
+          ship.activeFlightPlan.totalDistance) *
         100;
 
       // Calculate remaining time
       const remainingTime =
-        ship.location.flight.totalTime - ship.location.flight.elapsedTime;
+        ship.activeFlightPlan.totalTime - ship.activeFlightPlan.elapsedTime;
       const timeLabel = formatDualTime(remainingTime);
 
       const statusText = document.createElement('span');

@@ -67,10 +67,8 @@ describe('attemptEvasion', () => {
 
   it('includes velocity contribution', () => {
     const ship = createTestShip({
-      location: {
-        status: 'in_flight',
-        flight: createTestFlight({ currentVelocity: 50_000 }),
-      },
+      location: { status: 'in_flight' },
+      activeFlightPlan: createTestFlight({ currentVelocity: 50_000 }),
     });
     // Clear bridge crew and remove scanner
     const bridge = ship.rooms.find((r) => r.type === 'bridge')!;
@@ -85,10 +83,8 @@ describe('attemptEvasion', () => {
 
   it('caps velocity contribution at 30%', () => {
     const ship = createTestShip({
-      location: {
-        status: 'in_flight',
-        flight: createTestFlight({ currentVelocity: 200_000 }),
-      },
+      location: { status: 'in_flight' },
+      activeFlightPlan: createTestFlight({ currentVelocity: 200_000 }),
     });
     const bridge = ship.rooms.find((r) => r.type === 'bridge')!;
     bridge.assignedCrewIds = [];
@@ -102,10 +98,8 @@ describe('attemptEvasion', () => {
 
   it('adds scanner bonus when nav_scanner equipped', () => {
     const ship = createTestShip({
-      location: {
-        status: 'in_flight',
-        flight: createTestFlight({ currentVelocity: 0 }),
-      },
+      location: { status: 'in_flight' },
+      activeFlightPlan: createTestFlight({ currentVelocity: 0 }),
     });
     const bridge = ship.rooms.find((r) => r.type === 'bridge')!;
     bridge.assignedCrewIds = [];
@@ -139,8 +133,8 @@ describe('attemptEvasion', () => {
       equipment: [],
       location: {
         status: 'in_flight',
-        flight: createTestFlight({ currentVelocity: 0 }),
       },
+      activeFlightPlan: createTestFlight({ currentVelocity: 0 }),
     });
 
     const result = attemptEvasion(ship);
@@ -171,8 +165,8 @@ describe('attemptEvasion', () => {
       equipment: [createTestEquipment({ definitionId: 'nav_scanner' })],
       location: {
         status: 'in_flight',
-        flight: createTestFlight({ currentVelocity: 100_000 }),
       },
+      activeFlightPlan: createTestFlight({ currentVelocity: 100_000 }),
     });
 
     const result = attemptEvasion(ship);
@@ -581,8 +575,8 @@ describe('applyEncounterOutcome', () => {
     const ship = gameData.ships[0];
     ship.location = {
       status: 'in_flight',
-      flight: createTestFlight({ totalTime: 100_000 }),
     };
+    ship.activeFlightPlan = createTestFlight({ totalTime: 100_000 });
 
     const result: EncounterResult = {
       type: 'harassment',
@@ -593,7 +587,7 @@ describe('applyEncounterOutcome', () => {
     };
 
     applyEncounterOutcome(result, ship, gameData);
-    expect(ship.location.flight!.totalTime).toBe(105_000);
+    expect(ship.activeFlightPlan!.totalTime).toBe(105_000);
   });
 
   it('steals credits on boarding', () => {
@@ -796,8 +790,8 @@ describe('resolveEncounter', () => {
     const ship = gameData.ships[0];
     ship.location = {
       status: 'in_flight',
-      flight: createTestFlight(),
     };
+    ship.activeFlightPlan = createTestFlight();
 
     // Force evasion success
     vi.mocked(Math.random).mockReturnValue(0);
@@ -830,8 +824,8 @@ describe('resolveEncounter', () => {
     ship.equipment = [createTestEquipment({ definitionId: 'nav_scanner' })];
     ship.location = {
       status: 'in_flight',
-      flight: createTestFlight({ currentVelocity: 30_000 }),
     };
+    ship.activeFlightPlan = createTestFlight({ currentVelocity: 30_000 });
 
     // Evasion chance will be ~0.53, so roll < 0.53 succeeds
     vi.mocked(Math.random).mockReturnValue(0.1);
@@ -861,8 +855,8 @@ describe('resolveEncounter', () => {
     ship.equipment = [];
     ship.location = {
       status: 'in_flight',
-      flight: createTestFlight({ currentVelocity: 0 }),
     };
+    ship.activeFlightPlan = createTestFlight({ currentVelocity: 0 });
 
     // All rolls fail (high values)
     vi.mocked(Math.random).mockReturnValue(0.99);
@@ -879,8 +873,8 @@ describe('resolveEncounter', () => {
     const ship = gameData.ships[0];
     ship.location = {
       status: 'in_flight',
-      flight: createTestFlight(),
     };
+    ship.activeFlightPlan = createTestFlight();
     gameData.log = [];
 
     vi.mocked(Math.random).mockReturnValue(0);

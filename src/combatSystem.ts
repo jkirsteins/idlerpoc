@@ -118,7 +118,7 @@ export function attemptEvasion(ship: Ship): {
   success: boolean;
   chance: number;
 } {
-  const flight = ship.location.flight;
+  const flight = ship.activeFlightPlan;
   if (!flight) return { success: false, chance: 0 };
 
   // Velocity factor: fast ships are hard to intercept
@@ -367,8 +367,8 @@ export function applyEncounterOutcome(
         }
       }
       // Flight delay
-      if (result.flightDelayAdded && ship.location.flight) {
-        ship.location.flight.totalTime += result.flightDelayAdded;
+      if (result.flightDelayAdded && ship.activeFlightPlan) {
+        ship.activeFlightPlan.totalTime += result.flightDelayAdded;
       }
       break;
 
@@ -607,9 +607,9 @@ export function resolveEncounter(
       result.healthLost = healthLost;
 
       // Flight delay
-      if (ship.location.flight) {
+      if (ship.activeFlightPlan) {
         const remainingTime =
-          ship.location.flight.totalTime - ship.location.flight.elapsedTime;
+          ship.activeFlightPlan.totalTime - ship.activeFlightPlan.elapsedTime;
         result.flightDelayAdded = Math.round(
           remainingTime * COMBAT_CONSTANTS.HARASSMENT_FLIGHT_DELAY
         );

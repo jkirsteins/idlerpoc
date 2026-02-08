@@ -318,8 +318,8 @@ function renderGlobalStatusBar(
     const locationName = location?.name || orbitingAt;
     statusText.textContent = `Orbiting ${locationName}`;
   } else {
-    if (ship.location.flight) {
-      const destId = ship.location.flight.destination;
+    if (ship.activeFlightPlan) {
+      const destId = ship.activeFlightPlan.destination;
       const destLocation = gameData.world.locations.find(
         (l) => l.id === destId
       );
@@ -363,8 +363,8 @@ function renderGlobalStatusBar(
 
       // Add inline progress bar
       const progressPercent =
-        (ship.location.flight.distanceCovered /
-          ship.location.flight.totalDistance) *
+        (ship.activeFlightPlan.distanceCovered /
+          ship.activeFlightPlan.totalDistance) *
         100;
       const progressContainer = document.createElement('span');
       progressContainer.className = 'header-flight-progress';

@@ -149,7 +149,7 @@ export function acceptQuest(
   delete ship.location.dockedAt;
   delete ship.location.orbitingAt;
 
-  ship.location.flight = initializeFlight(ship, origin, destination, false);
+  ship.activeFlightPlan = initializeFlight(ship, origin, destination, false);
 
   ship.engine.state = 'warming_up';
   ship.engine.warmupProgress = 0;
@@ -171,8 +171,8 @@ export function completeLeg(gameData: GameData, ship: Ship): void {
   const activeContract = ship.activeContract;
 
   // Handle manual trip completion (no contract)
-  if (!activeContract && ship.location.flight) {
-    const flight = ship.location.flight;
+  if (!activeContract && ship.activeFlightPlan) {
+    const flight = ship.activeFlightPlan;
     const destination = world.locations.find(
       (l) => l.id === flight.destination
     );
@@ -185,7 +185,7 @@ export function completeLeg(gameData: GameData, ship: Ship): void {
         ship.location.status = 'orbiting';
         ship.location.orbitingAt = destination.id;
       }
-      delete ship.location.flight;
+      delete ship.activeFlightPlan;
       ship.engine.state = 'off';
       ship.engine.warmupProgress = 0;
 
@@ -204,7 +204,7 @@ export function completeLeg(gameData: GameData, ship: Ship): void {
     return;
   }
 
-  if (!activeContract || !ship.location.flight) {
+  if (!activeContract || !ship.activeFlightPlan) {
     return;
   }
 
@@ -258,7 +258,7 @@ export function completeLeg(gameData: GameData, ship: Ship): void {
       ship.location.status = 'docked';
       ship.location.dockedAt = arrivalLocation.id;
       delete ship.location.orbitingAt;
-      delete ship.location.flight;
+      delete ship.activeFlightPlan;
       ship.engine.state = 'off';
       ship.engine.warmupProgress = 0;
       ship.activeContract = null;
@@ -284,7 +284,7 @@ export function completeLeg(gameData: GameData, ship: Ship): void {
         ship.location.status = 'docked';
         ship.location.dockedAt = arrivalLocation.id;
         delete ship.location.orbitingAt;
-        delete ship.location.flight;
+        delete ship.activeFlightPlan;
         ship.engine.state = 'off';
         ship.engine.warmupProgress = 0;
 
@@ -301,7 +301,7 @@ export function completeLeg(gameData: GameData, ship: Ship): void {
         return;
       }
 
-      ship.location.flight = initializeFlight(
+      ship.activeFlightPlan = initializeFlight(
         ship,
         nextOrigin,
         nextDestination,
@@ -393,7 +393,7 @@ export function completeLeg(gameData: GameData, ship: Ship): void {
       ship.location.status = 'docked';
       ship.location.dockedAt = arrivalLocation.id;
       delete ship.location.orbitingAt;
-      delete ship.location.flight;
+      delete ship.activeFlightPlan;
       ship.engine.state = 'off';
       ship.engine.warmupProgress = 0;
 
@@ -434,7 +434,7 @@ export function completeLeg(gameData: GameData, ship: Ship): void {
         ship.location.status = 'docked';
         ship.location.dockedAt = arrivalLocation.id;
         delete ship.location.orbitingAt;
-        delete ship.location.flight;
+        delete ship.activeFlightPlan;
         ship.engine.state = 'off';
         ship.engine.warmupProgress = 0;
 
@@ -451,7 +451,7 @@ export function completeLeg(gameData: GameData, ship: Ship): void {
         return;
       }
 
-      ship.location.flight = initializeFlight(
+      ship.activeFlightPlan = initializeFlight(
         ship,
         nextOrigin,
         nextDestination,
@@ -475,11 +475,11 @@ export function completeLeg(gameData: GameData, ship: Ship): void {
  * Pause contract at nearest port (dock on arrival)
  */
 export function pauseContract(ship: Ship): void {
-  if (!ship.activeContract || !ship.location.flight) {
+  if (!ship.activeContract || !ship.activeFlightPlan) {
     return;
   }
 
-  ship.location.flight.dockOnArrival = true;
+  ship.activeFlightPlan.dockOnArrival = true;
   ship.activeContract.paused = true;
 }
 
@@ -517,7 +517,7 @@ export function resumeContract(gameData: GameData, ship: Ship): void {
   delete ship.location.dockedAt;
   delete ship.location.orbitingAt;
 
-  ship.location.flight = initializeFlight(
+  ship.activeFlightPlan = initializeFlight(
     ship,
     currentLoc,
     nextDestination,
@@ -553,8 +553,8 @@ export function abandonContract(gameData: GameData, ship: Ship): void {
     ship.name
   );
 
-  if (ship.location.flight) {
-    ship.location.flight.dockOnArrival = true;
+  if (ship.activeFlightPlan) {
+    ship.activeFlightPlan.dockOnArrival = true;
   }
 
   ship.activeContract = null;
