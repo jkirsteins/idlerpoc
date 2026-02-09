@@ -148,6 +148,13 @@ export function renderCatchUpReport(
         events.appendChild(line);
       }
 
+      if (shipReport.fled > 0) {
+        const line = document.createElement('div');
+        line.style.color = '#cc8800';
+        line.textContent = `Fled ${shipReport.fled} encounter${shipReport.fled > 1 ? 's' : ''} (outmatched)`;
+        events.appendChild(line);
+      }
+
       shipDiv.appendChild(events);
       fleetSummary.appendChild(shipDiv);
 

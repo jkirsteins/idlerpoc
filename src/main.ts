@@ -120,6 +120,7 @@ function buildCatchUpReport(
         negotiated: 0,
         victories: 0,
         harassments: 0,
+        fled: 0,
         creditsDelta: 0,
         avgHealthLost: 0,
       };
@@ -140,6 +141,28 @@ function buildCatchUpReport(
         break;
       case 'harassment':
         report.harassments++;
+        if (result.healthLost) {
+          const losses = Object.values(result.healthLost);
+          const avgLoss =
+            losses.length > 0
+              ? losses.reduce((a, b) => a + b, 0) / losses.length
+              : 0;
+          report.avgHealthLost += avgLoss;
+        }
+        break;
+      case 'boarding':
+        report.creditsDelta -= result.creditsLost || 0;
+        if (result.healthLost) {
+          const losses = Object.values(result.healthLost);
+          const avgLoss =
+            losses.length > 0
+              ? losses.reduce((a, b) => a + b, 0) / losses.length
+              : 0;
+          report.avgHealthLost += avgLoss;
+        }
+        break;
+      case 'fled':
+        report.fled++;
         if (result.healthLost) {
           const losses = Object.values(result.healthLost);
           const avgLoss =
@@ -1222,6 +1245,10 @@ function createEncounterToasts(encounterResults: EncounterResult[]): Toast[] {
       case 'boarding':
         message = `${shipName}: Boarded! (-${result.creditsLost || 0} cr)`;
         type = 'encounter_boarding';
+        break;
+      case 'fled':
+        message = `${shipName}: Outmatched — fled with minor damage`;
+        type = 'encounter_fled';
         break;
     }
 

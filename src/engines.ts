@@ -27,7 +27,7 @@ export const ENGINE_DEFINITIONS: EngineDefinition[] = [
     description:
       'Basic chemical rocket engine. Quick warmup but limited power output and high fuel consumption.',
     icon: '🔥',
-    powerOutput: 50,
+    powerOutput: 60,
     fuelType: 'LOX/LH2',
     fuelConsumptionRate: 0.5,
     warmupRate: 33.3, // 3 ticks to warm up

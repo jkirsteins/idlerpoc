@@ -46,6 +46,10 @@ export const COMBAT_CONSTANTS = {
   PD_SKILL_BONUS: 0.05,
   /** Passive defense from deflector shield */
   DEFLECTOR_BONUS: 10,
+  /** Passive defense from micro deflector */
+  MICRO_DEFLECTOR_BONUS: 5,
+  /** Base point defense laser combat score */
+  PD_LASER_BASE_SCORE: 8,
   /** kg divisor for ship mass → defense bonus */
   MASS_DIVISOR: 100_000,
   /** Threat level → pirate attack score multiplier */
@@ -78,6 +82,23 @@ export const COMBAT_CONSTANTS = {
   BOARDING_CREDIT_MAX: 0.25,
   /** Equipment degradation from boarding (all equipment) */
   BOARDING_EQUIPMENT_DEGRADATION: 10,
+  /** Pirate attack random variance (±30%) */
+  PIRATE_ATTACK_VARIANCE: 0.3,
+  /** Defense score random variance (±15%) */
+  DEFENSE_VARIANCE: 0.15,
+  /** Defense/pirate ratio below which crew attempts emergency flee */
+  FLEE_THRESHOLD: 0.25,
+  /** Base flee success chance (modified by velocity) */
+  FLEE_BASE_CHANCE: 0.4,
+  /** Velocity contribution cap for flee attempts */
+  FLEE_VELOCITY_CAP: 0.25,
+  /** Divisor for velocity → flee bonus */
+  FLEE_VELOCITY_DIVISOR: 50_000,
+  /** Crew health cost from a flee (minor damage from pursuit) */
+  FLEE_HEALTH_MIN: 3,
+  FLEE_HEALTH_MAX: 8,
+  /** Flight delay from fleeing (fraction of remaining time) */
+  FLEE_FLIGHT_DELAY: 0.08,
 };
 
 function clamp(value: number, min: number, max: number): number {
@@ -233,7 +254,16 @@ export function calculateDefenseScore(ship: Ship): number {
     defenseScore += crewCombat;
   }
 
-  // 3. Deflector Shield passive defense
+  // 3. Point Defense Laser (lightweight PD without station bonus)
+  const pdLaser = ship.equipment.find(
+    (eq) => eq.definitionId === 'point_defense_laser'
+  );
+  if (pdLaser) {
+    const laserEffectiveness = 1 - pdLaser.degradation / 200;
+    defenseScore += COMBAT_CONSTANTS.PD_LASER_BASE_SCORE * laserEffectiveness;
+  }
+
+  // 4. Deflector Shield passive defense
   const deflector = ship.equipment.find(
     (eq) => eq.definitionId === 'deflector_shield'
   );
@@ -241,7 +271,15 @@ export function calculateDefenseScore(ship: Ship): number {
     defenseScore += COMBAT_CONSTANTS.DEFLECTOR_BONUS;
   }
 
-  // 4. Ship mass bonus
+  // 5. Micro Deflector passive defense
+  const microDeflector = ship.equipment.find(
+    (eq) => eq.definitionId === 'micro_deflector'
+  );
+  if (microDeflector) {
+    defenseScore += COMBAT_CONSTANTS.MICRO_DEFLECTOR_BONUS;
+  }
+
+  // 6. Ship mass bonus
   const shipClass = getShipClass(ship.classId);
   if (shipClass) {
     defenseScore += shipClass.mass / COMBAT_CONSTANTS.MASS_DIVISOR;
@@ -295,6 +333,7 @@ export function applyEncounterOutcome(
       victories: 0,
       harassments: 0,
       boardings: 0,
+      fled: 0,
     };
   }
   gameData.encounterStats.totalEncounters++;
@@ -313,16 +352,16 @@ export function applyEncounterOutcome(
 
     case 'victory':
       gameData.encounterStats.victories++;
-      // PD degradation
+      // PD degradation (both PD types)
       {
-        const pd = ship.equipment.find(
-          (eq) => eq.definitionId === 'point_defense'
-        );
-        if (pd) {
-          pd.degradation = Math.min(
-            100,
-            pd.degradation + COMBAT_CONSTANTS.VICTORY_PD_DEGRADATION
-          );
+        for (const pdId of ['point_defense', 'point_defense_laser'] as const) {
+          const pd = ship.equipment.find((eq) => eq.definitionId === pdId);
+          if (pd) {
+            pd.degradation = Math.min(
+              100,
+              pd.degradation + COMBAT_CONSTANTS.VICTORY_PD_DEGRADATION
+            );
+          }
         }
       }
       // Bounty
@@ -334,16 +373,16 @@ export function applyEncounterOutcome(
 
     case 'harassment':
       gameData.encounterStats.harassments++;
-      // PD degradation
+      // PD degradation (both PD types)
       {
-        const pd = ship.equipment.find(
-          (eq) => eq.definitionId === 'point_defense'
-        );
-        if (pd) {
-          pd.degradation = Math.min(
-            100,
-            pd.degradation + COMBAT_CONSTANTS.HARASSMENT_PD_DEGRADATION
-          );
+        for (const pdId of ['point_defense', 'point_defense_laser'] as const) {
+          const pd = ship.equipment.find((eq) => eq.definitionId === pdId);
+          if (pd) {
+            pd.degradation = Math.min(
+              100,
+              pd.degradation + COMBAT_CONSTANTS.HARASSMENT_PD_DEGRADATION
+            );
+          }
         }
       }
       // Crew health loss
@@ -386,6 +425,23 @@ export function applyEncounterOutcome(
         }
       }
       break;
+
+    case 'fled':
+      gameData.encounterStats.fled++;
+      // Crew health loss from pursuit
+      if (result.healthLost) {
+        for (const crew of ship.crew) {
+          const loss = result.healthLost[crew.id];
+          if (loss != null) {
+            crew.health = Math.max(0, crew.health - loss);
+          }
+        }
+      }
+      // Flight delay from evasive maneuvers
+      if (result.flightDelayAdded && ship.activeFlightPlan) {
+        ship.activeFlightPlan.totalTime += result.flightDelayAdded;
+      }
+      break;
   }
 
   // Log the encounter
@@ -421,6 +477,8 @@ function encounterToXPEvent(result: EncounterResult): XPEvent | null {
       return { type: 'encounter_harassment' };
     case 'boarding':
       return { type: 'encounter_boarding' };
+    case 'fled':
+      return { type: 'encounter_fled' };
     default:
       return null;
   }
@@ -441,6 +499,8 @@ function getEncounterLogType(outcome: EncounterOutcome): LogEntryType {
       return 'encounter_harassment';
     case 'boarding':
       return 'encounter_boarding';
+    case 'fled':
+      return 'encounter_fled';
   }
 }
 
@@ -473,6 +533,12 @@ const BOARDING_NARRATIVES = [
   'Ship boarded by pirates. {credits} credits stolen, crew injured.',
   'Pirates overwhelmed defenses and boarded. Cargo raided, {credits} credits seized.',
   'Hostile boarding action. Crew injured, {credits} credits lost. Equipment damaged.',
+];
+
+const FLED_NARRATIVES = [
+  'Outgunned and outmatched. Emergency burn executed — escaped with minor damage.',
+  'Crew recognized impossible odds. Hard burn to escape — pursuit fire grazed the hull.',
+  'Hostile force too strong to engage. Full power to engines — barely escaped.',
 ];
 
 function pickRandom<T>(arr: T[]): T {
@@ -509,12 +575,50 @@ export function getEncounterNarrative(
       const template = pickRandom(BOARDING_NARRATIVES);
       return template.replace('{credits}', String(result.creditsLost || 0));
     }
+
+    case 'fled':
+      return pickRandom(FLED_NARRATIVES);
   }
 }
 
 /**
+ * Attempt emergency flee when heavily outmatched.
+ * Crew recognizes certain defeat and tries to run rather than fight.
+ * Returns flee chance and whether it succeeded.
+ */
+export function attemptFlee(
+  ship: Ship,
+  defenseScore: number,
+  pirateAttack: number
+): { shouldFlee: boolean; success: boolean; chance: number } {
+  // Only flee when severely outmatched
+  if (
+    pirateAttack === 0 ||
+    defenseScore / pirateAttack >= COMBAT_CONSTANTS.FLEE_THRESHOLD
+  ) {
+    return { shouldFlee: false, success: false, chance: 0 };
+  }
+
+  // Flee chance: base + velocity bonus
+  let chance = COMBAT_CONSTANTS.FLEE_BASE_CHANCE;
+
+  const flight = ship.activeFlightPlan;
+  if (flight) {
+    const velocityBonus = clamp(
+      flight.currentVelocity / COMBAT_CONSTANTS.FLEE_VELOCITY_DIVISOR,
+      0,
+      COMBAT_CONSTANTS.FLEE_VELOCITY_CAP
+    );
+    chance += velocityBonus;
+  }
+
+  const success = Math.random() < chance;
+  return { shouldFlee: true, success, chance };
+}
+
+/**
  * Full encounter resolution pipeline.
- * Detect → Evade → Negotiate → Combat → Outcome
+ * Detect → Evade → Negotiate → Flee (if outmatched) → Combat → Outcome
  *
  * Returns an EncounterResult describing what happened.
  * Call applyEncounterOutcome() to mutate game state.
@@ -563,9 +667,59 @@ export function resolveEncounter(
     return result;
   }
 
-  // Step 3: Combat resolution
-  const defenseScore = calculateDefenseScore(ship);
-  const pirateAttack = threatLevel * COMBAT_CONSTANTS.PIRATE_ATTACK_MULTIPLIER;
+  // Step 3: Assess combat odds with variance
+  const baseDefense = calculateDefenseScore(ship);
+  const basePirateAttack =
+    threatLevel * COMBAT_CONSTANTS.PIRATE_ATTACK_MULTIPLIER;
+
+  // Apply random variance to both sides
+  const defenseVariance = randomBetween(
+    1 - COMBAT_CONSTANTS.DEFENSE_VARIANCE,
+    1 + COMBAT_CONSTANTS.DEFENSE_VARIANCE
+  );
+  const attackVariance = randomBetween(
+    1 - COMBAT_CONSTANTS.PIRATE_ATTACK_VARIANCE,
+    1 + COMBAT_CONSTANTS.PIRATE_ATTACK_VARIANCE
+  );
+  const defenseScore = baseDefense * defenseVariance;
+  const pirateAttack = basePirateAttack * attackVariance;
+
+  // Step 3b: Emergency flee if heavily outmatched
+  const flee = attemptFlee(ship, defenseScore, pirateAttack);
+  if (flee.shouldFlee && flee.success) {
+    const result: EncounterResult = {
+      type: 'fled',
+      shipId: ship.id,
+      threatLevel,
+      positionKm: currentKm,
+      defenseScore,
+      pirateAttack,
+    };
+
+    // Minor damage from the pursuit
+    const healthLost: Record<string, number> = {};
+    for (const crew of ship.crew) {
+      healthLost[crew.id] = randomBetween(
+        COMBAT_CONSTANTS.FLEE_HEALTH_MIN,
+        COMBAT_CONSTANTS.FLEE_HEALTH_MAX
+      );
+    }
+    result.healthLost = healthLost;
+
+    // Flight delay from evasive maneuvers
+    if (ship.activeFlightPlan) {
+      const remainingTime =
+        ship.activeFlightPlan.totalTime - ship.activeFlightPlan.elapsedTime;
+      result.flightDelayAdded = Math.round(
+        remainingTime * COMBAT_CONSTANTS.FLEE_FLIGHT_DELAY
+      );
+    }
+
+    applyEncounterOutcome(result, ship, gameData);
+    return result;
+  }
+
+  // Step 4: Combat resolution
   const outcome = determineCombatOutcome(defenseScore, pirateAttack, isCatchUp);
 
   const result: EncounterResult = {

@@ -42,14 +42,20 @@ export const SHIP_CLASSES: ShipClass[] = [
     unlockThreshold: 0,
     rangeLabel: 'LEO/MEO',
     cargoCapacity: 5000,
-    equipmentSlots: 3,
+    equipmentSlots: 4,
     equipmentSlotDefs: [
+      { tags: ['standard'] },
       { tags: ['standard'] },
       { tags: ['standard'] },
       { tags: ['standard'] },
     ],
     features: [],
-    defaultEquipment: ['life_support', 'air_filters'],
+    defaultEquipment: [
+      'life_support',
+      'air_filters',
+      'micro_deflector',
+      'point_defense_laser',
+    ],
     defaultEngineId: 'chemical_bipropellant',
     mass: 50000, // kg
   },
