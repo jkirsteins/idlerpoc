@@ -27,11 +27,11 @@ npm run dev
   - Rooms generate job slots (bridge → Helm + Comms, engine room → Drive Ops, etc.)
   - Ship equipment generates additional slots (nav scanner → Scan Ops, point defense → Targeting)
   - Ship-wide repair slots accept multiple engineers generating repair points
-  - Bidirectional skill coupling: jobs train crew skills (XP) and crew skill levels produce ship bonuses
+  - Direct skill training: jobs train crew skills with diminishing returns (no XP intermediary)
   - Passive slots (Patient, Rest) benefit crew without training skills
   - Helm is the only required job — no helm crew means the ship coasts
   - Auto-assign crew to best-fit slots based on skill affinity
-  - Crew skills (Piloting, Astrogation, Engineering, Strength, Charisma, Loyalty) and levels (1-20)
+  - Crew skills (Piloting, Astrogation, Engineering, Strength, Charisma, Loyalty) on 1-100 scale
   - 8 crew roles including Navigator (astrogation specialist)
   - Crew salaries paid per tick during flight (0.5-1.5 credits/tick depending on role)
   - Unpaid crew depart at next station

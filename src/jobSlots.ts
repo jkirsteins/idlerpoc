@@ -31,7 +31,7 @@ export interface JobSlotDefinition {
   icon: string;
   skill: SkillId | null; // null = passive slot (benefits crew, no skill trained)
   required: boolean; // required for ship operations (only helm for now)
-  xpPerTick: number; // base XP per tick when assigned during flight
+  trainRate: number; // base skill training rate per tick (diminishing returns applied)
   bonusDescription: string; // what ship bonus this provides
   source: 'room' | 'equipment' | 'ship';
   sourceRoomType?: RoomType; // which room type generates this
@@ -47,7 +47,7 @@ export const JOB_SLOT_DEFINITIONS: JobSlotDefinition[] = [
     icon: '🎮',
     skill: 'piloting',
     required: true,
-    xpPerTick: 0.5,
+    trainRate: 0.00004,
     bonusDescription: 'Fuel efficiency, thrust optimization',
     source: 'room',
     sourceRoomType: 'bridge',
@@ -59,7 +59,7 @@ export const JOB_SLOT_DEFINITIONS: JobSlotDefinition[] = [
     icon: '📡',
     skill: 'charisma',
     required: false,
-    xpPerTick: 0.25,
+    trainRate: 0.00002,
     bonusDescription: 'Negotiation bonus, quest rewards',
     source: 'room',
     sourceRoomType: 'bridge',
@@ -73,7 +73,7 @@ export const JOB_SLOT_DEFINITIONS: JobSlotDefinition[] = [
     icon: '⚙️',
     skill: 'engineering',
     required: false,
-    xpPerTick: 0.5,
+    trainRate: 0.00004,
     bonusDescription: 'Engine warmup speed, fuel efficiency',
     source: 'room',
     sourceRoomType: 'engine_room',
@@ -87,7 +87,7 @@ export const JOB_SLOT_DEFINITIONS: JobSlotDefinition[] = [
     icon: '⚛️',
     skill: 'engineering',
     required: false,
-    xpPerTick: 0.75,
+    trainRate: 0.00006,
     bonusDescription: 'Containment stability, power output',
     source: 'room',
     sourceRoomType: 'reactor_room',
@@ -101,7 +101,7 @@ export const JOB_SLOT_DEFINITIONS: JobSlotDefinition[] = [
     icon: '🍳',
     skill: 'charisma',
     required: false,
-    xpPerTick: 0.25,
+    trainRate: 0.00002,
     bonusDescription: 'Crew morale',
     source: 'room',
     sourceRoomType: 'cantina',
@@ -115,7 +115,7 @@ export const JOB_SLOT_DEFINITIONS: JobSlotDefinition[] = [
     icon: '🩺',
     skill: null,
     required: false,
-    xpPerTick: 0,
+    trainRate: 0,
     bonusDescription: 'Health regeneration for assigned crew',
     source: 'room',
     sourceRoomType: 'medbay',
@@ -129,7 +129,7 @@ export const JOB_SLOT_DEFINITIONS: JobSlotDefinition[] = [
     icon: '🔫',
     skill: 'strength',
     required: false,
-    xpPerTick: 0.25,
+    trainRate: 0.00002,
     bonusDescription: 'Boarding defense, weapon readiness',
     source: 'room',
     sourceRoomType: 'armory',
@@ -143,7 +143,7 @@ export const JOB_SLOT_DEFINITIONS: JobSlotDefinition[] = [
     icon: '🎯',
     skill: 'strength',
     required: false,
-    xpPerTick: 0.5,
+    trainRate: 0.00004,
     bonusDescription: 'PD accuracy, debris destruction rate',
     source: 'room',
     sourceRoomType: 'point_defense_station',
@@ -157,7 +157,7 @@ export const JOB_SLOT_DEFINITIONS: JobSlotDefinition[] = [
     icon: '🛏️',
     skill: null,
     required: false,
-    xpPerTick: 0,
+    trainRate: 0,
     bonusDescription: 'Morale recovery for assigned crew',
     source: 'room',
     sourceRoomType: 'quarters',
@@ -172,7 +172,7 @@ export const JOB_SLOT_DEFINITIONS: JobSlotDefinition[] = [
     icon: '📊',
     skill: 'astrogation',
     required: false,
-    xpPerTick: 0.5,
+    trainRate: 0.00004,
     bonusDescription: 'Encounter detection, evasion chance',
     source: 'equipment',
     sourceEquipmentId: 'nav_scanner',
@@ -184,7 +184,7 @@ export const JOB_SLOT_DEFINITIONS: JobSlotDefinition[] = [
     icon: '🎯',
     skill: 'strength',
     required: false,
-    xpPerTick: 0.5,
+    trainRate: 0.00004,
     bonusDescription: 'PD effectiveness, debris destruction',
     source: 'equipment',
     sourceEquipmentId: 'point_defense',
@@ -198,7 +198,7 @@ export const JOB_SLOT_DEFINITIONS: JobSlotDefinition[] = [
     icon: '🔧',
     skill: 'engineering',
     required: false,
-    xpPerTick: 0.5,
+    trainRate: 0.00004,
     bonusDescription: 'Repair points distributed to degraded equipment',
     source: 'ship',
   },
@@ -367,7 +367,7 @@ export function autoAssignCrewToJobs(ship: Ship): void {
     if (defA?.skill && !defB?.skill) return -1;
     if (!defA?.skill && defB?.skill) return 1;
     // Higher XP rate first
-    return (defB?.xpPerTick ?? 0) - (defA?.xpPerTick ?? 0);
+    return (defB?.trainRate ?? 0) - (defA?.trainRate ?? 0);
   });
 
   const assignedCrewIds = new Set<string>();

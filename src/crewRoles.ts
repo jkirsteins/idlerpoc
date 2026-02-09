@@ -125,7 +125,7 @@ export function deduceRoleFromSkills(skills: CrewSkills): CrewRole {
 
 /**
  * Generate skills weighted toward a specific role.
- * Primary skill gets 6-9, secondary skills get 3-5.
+ * Primary skill gets 20-40, secondary skills get 5-20.
  *
  * @param targetRole The desired role for this crew member
  * @returns A CrewSkills object weighted toward that role
@@ -136,19 +136,19 @@ export function generateSkillsForRole(targetRole: CrewRole): CrewSkills {
     ([_, role]) => role === targetRole
   )?.[0] as SkillId | undefined;
 
-  // Generate base skills (3-5 for all)
+  // Generate base skills (5-20 for all)
   const skills: CrewSkills = {
-    piloting: Math.floor(Math.random() * 3) + 3, // 3-5
-    astrogation: Math.floor(Math.random() * 3) + 3, // 3-5
-    engineering: Math.floor(Math.random() * 3) + 3, // 3-5
-    strength: Math.floor(Math.random() * 3) + 3, // 3-5
-    charisma: Math.floor(Math.random() * 3) + 3, // 3-5
-    loyalty: Math.floor(Math.random() * 3) + 3, // 3-5
+    piloting: Math.floor(Math.random() * 16) + 5, // 5-20
+    astrogation: Math.floor(Math.random() * 16) + 5, // 5-20
+    engineering: Math.floor(Math.random() * 16) + 5, // 5-20
+    strength: Math.floor(Math.random() * 16) + 5, // 5-20
+    charisma: Math.floor(Math.random() * 16) + 5, // 5-20
+    loyalty: Math.floor(Math.random() * 16) + 5, // 5-20
   };
 
-  // Boost primary skill to 6-9
+  // Boost primary skill to 20-40
   if (primarySkill) {
-    skills[primarySkill] = Math.floor(Math.random() * 4) + 6; // 6-9
+    skills[primarySkill] = Math.floor(Math.random() * 21) + 20; // 20-40
   }
 
   return skills;

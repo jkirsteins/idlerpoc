@@ -44,7 +44,6 @@ export interface TabbedViewCallbacks {
   onToggleNavigation: () => void;
   onSelectCrew: (crewId: string) => void;
   onLevelUp: (crewId: string) => void;
-  onAssignSkillPoint: (crewId: string, skillId: string) => void;
   onEquipItem: (crewId: string, itemId: string) => void;
   onUnequipItem: (crewId: string, itemId: string) => void;
   onAcceptQuest: (questId: string) => void;
@@ -144,11 +143,6 @@ export function createTabbedView(
   tabBarArea.appendChild(tabBarEl);
 
   function updateTabBar(gameData: GameData) {
-    const activeShip = getActiveShip(gameData);
-    const unspentSkillPoints = activeShip.crew.reduce(
-      (sum, c) => sum + c.unspentSkillPoints,
-      0
-    );
     const unreadCount = Math.max(0, gameData.log.length - lastViewedLogCount);
 
     for (const ref of tabButtonRefs) {
@@ -159,7 +153,6 @@ export function createTabbedView(
       }
 
       let badgeCount = 0;
-      if (ref.tab === 'crew') badgeCount = unspentSkillPoints;
       if (ref.tab === 'log') badgeCount = unreadCount;
 
       if (badgeCount > 0) {

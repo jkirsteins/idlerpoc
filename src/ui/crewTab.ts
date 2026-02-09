@@ -20,7 +20,7 @@ import {
   getNextThreshold,
 } from '../gravitySystem';
 import { TICKS_PER_DAY } from '../timeSystem';
-import { calculateTickXP } from '../skillProgression';
+import { calculateTickTraining } from '../skillProgression';
 import { getCrewJobSlot, getJobSlotDefinition } from '../jobSlots';
 import type { Component } from './component';
 
@@ -42,7 +42,7 @@ function snapshotCrewProps(
     crew: ship.crew
       .map(
         (c) =>
-          `${c.id},${c.health},${c.morale},${c.level},${c.xp},${c.unspentSkillPoints},${c.unpaidTicks},${c.zeroGExposure},${c.equipment.length}`
+          `${c.id},${c.health},${c.morale},${c.level},${c.xp},${c.unpaidTicks},${c.zeroGExposure},${c.equipment.length}`
       )
       .join(';'),
     crewSkills: ship.crew
@@ -191,17 +191,6 @@ function renderCrewList(
     levelDiv.textContent = `Level ${crew.level}`;
     item.appendChild(levelDiv);
 
-    // Show skill points badge if crew has unspent points
-    if (crew.unspentSkillPoints > 0) {
-      const skillBadge = document.createElement('div');
-      skillBadge.className = 'skill-badge';
-      skillBadge.textContent = `+${crew.unspentSkillPoints} skill pt${crew.unspentSkillPoints > 1 ? 's' : ''}`;
-      skillBadge.style.color = '#4ade80';
-      skillBadge.style.fontSize = '0.75rem';
-      skillBadge.style.fontWeight = 'bold';
-      item.appendChild(skillBadge);
-    }
-
     // Show unpaid badge if crew has unpaid ticks
     if (crew.unpaidTicks > 0 && !crew.isCaptain) {
       const unpaidBadge = document.createElement('div');
@@ -300,8 +289,8 @@ function renderCrewDetail(
   // Job training indicator (show what skill is being trained)
   if (ship.location.status === 'in_flight') {
     const jobSlot = getCrewJobSlot(ship, crew.id);
-    const xpResult = calculateTickXP(crew, jobSlot?.type ?? null);
-    if (xpResult) {
+    const trainingResult = calculateTickTraining(crew, jobSlot?.type ?? null);
+    if (trainingResult) {
       const trainingDiv = document.createElement('div');
       trainingDiv.className = 'training-indicator';
       trainingDiv.style.padding = '0.5rem 0.75rem';
@@ -312,10 +301,11 @@ function renderCrewDetail(
       trainingDiv.style.fontSize = '0.9rem';
       trainingDiv.style.color = '#4ade80';
       const skillName =
-        xpResult.skill.charAt(0).toUpperCase() + xpResult.skill.slice(1);
+        trainingResult.skill.charAt(0).toUpperCase() +
+        trainingResult.skill.slice(1);
       const jobDef = jobSlot ? getJobSlotDefinition(jobSlot.type) : null;
       const jobName = jobDef ? jobDef.name : 'Unknown';
-      trainingDiv.textContent = `${jobName}: Training ${skillName} (+${xpResult.xp} XP/tick)`;
+      trainingDiv.textContent = `${jobName}: Training ${skillName}`;
       panel.appendChild(trainingDiv);
     }
   }
@@ -327,7 +317,7 @@ function renderCrewDetail(
   }
 
   // Skills section
-  panel.appendChild(renderSkillsSection(crew, callbacks));
+  panel.appendChild(renderSkillsSection(crew));
 
   // Equipment section
   panel.appendChild(renderEquipmentSection(crew, callbacks));
@@ -579,10 +569,7 @@ function renderLevelUpButton(
   return button;
 }
 
-function renderSkillsSection(
-  crew: CrewMember,
-  callbacks: TabbedViewCallbacks
-): HTMLElement {
+function renderSkillsSection(crew: CrewMember): HTMLElement {
   const section = document.createElement('div');
   section.className = 'crew-detail-section';
 
@@ -594,13 +581,6 @@ function renderSkillsSection(
   const title = document.createElement('h3');
   title.textContent = 'Skills';
   header.appendChild(title);
-
-  if (crew.unspentSkillPoints > 0) {
-    const pointsLabel = document.createElement('span');
-    pointsLabel.className = 'unspent-points';
-    pointsLabel.textContent = `${crew.unspentSkillPoints} point${crew.unspentSkillPoints > 1 ? 's' : ''} available`;
-    header.appendChild(pointsLabel);
-  }
 
   section.appendChild(header);
 
@@ -637,26 +617,15 @@ function renderSkillsSection(
       const effectiveStrength = Math.floor(crew.skills.strength * multiplier);
 
       if (level !== 'none') {
-        skillValue.innerHTML = `${crew.skills.strength} <span style="opacity: 0.6">(eff: ${effectiveStrength})</span>`;
+        skillValue.innerHTML = `${Math.floor(crew.skills.strength)} <span style="opacity: 0.6">(eff: ${effectiveStrength})</span>`;
       } else {
-        skillValue.textContent = `${crew.skills[skillId]}`;
+        skillValue.textContent = `${Math.floor(crew.skills[skillId])}`;
       }
     } else {
-      skillValue.textContent = `${crew.skills[skillId]}`;
+      skillValue.textContent = `${Math.floor(crew.skills[skillId])}`;
     }
 
     skillRow.appendChild(skillValue);
-
-    // +1 button
-    if (crew.unspentSkillPoints > 0 && crew.skills[skillId] < 10) {
-      const plusButton = document.createElement('button');
-      plusButton.className = 'skill-plus-button';
-      plusButton.textContent = '+1';
-      plusButton.addEventListener('click', () =>
-        callbacks.onAssignSkillPoint(crew.id, skillId)
-      );
-      skillRow.appendChild(plusButton);
-    }
 
     skills.appendChild(skillRow);
   }
@@ -891,7 +860,7 @@ function renderHiringSection(
     const skills = document.createElement('div');
     skills.style.fontSize = '0.85rem';
     skills.style.color = '#888';
-    skills.textContent = `Skills: Pilot ${candidate.skills.piloting} | Nav ${candidate.skills.astrogation} | Eng ${candidate.skills.engineering} | Str ${candidate.skills.strength}`;
+    skills.textContent = `Skills: Pilot ${Math.floor(candidate.skills.piloting)} | Nav ${Math.floor(candidate.skills.astrogation)} | Eng ${Math.floor(candidate.skills.engineering)} | Str ${Math.floor(candidate.skills.strength)}`;
     infoDiv.appendChild(skills);
 
     candidateDiv.appendChild(infoDiv);

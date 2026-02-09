@@ -65,7 +65,6 @@ export interface RendererCallbacks {
   onToggleNavigation: () => void;
   onSelectCrew: (crewId: string) => void;
   onLevelUp: (crewId: string) => void;
-  onAssignSkillPoint: (crewId: string, skillId: string) => void;
   onEquipItem: (crewId: string, itemId: string) => void;
   onUnequipItem: (crewId: string, itemId: string) => void;
   onAcceptQuest: (questId: string) => void;
@@ -307,7 +306,6 @@ function mountPlayingLayout(
       onToggleNavigation: callbacks.onToggleNavigation,
       onSelectCrew: callbacks.onSelectCrew,
       onLevelUp: callbacks.onLevelUp,
-      onAssignSkillPoint: callbacks.onAssignSkillPoint,
       onEquipItem: callbacks.onEquipItem,
       onUnequipItem: callbacks.onUnequipItem,
       onAcceptQuest: callbacks.onAcceptQuest,

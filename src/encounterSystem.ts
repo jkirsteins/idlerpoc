@@ -41,7 +41,7 @@ export const ENCOUNTER_CONSTANTS = {
   /** Heat signature multiplier during coast phase */
   COAST_HEAT_FACTOR: 0.1,
   /** Astrogation skill → detection reduction scaling */
-  ASTROGATION_FACTOR: 0.08,
+  ASTROGATION_FACTOR: 0.008,
 };
 
 /**

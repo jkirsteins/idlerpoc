@@ -16,7 +16,7 @@ import {
   getDegradationDescription,
 } from './gravitySystem';
 import { calculateEncounterChance } from './encounterSystem';
-import { applyPassiveXP, logLevelUps } from './skillProgression';
+import { applyPassiveTraining, logSkillUps } from './skillProgression';
 import { getCrewForJobType, isRoomStaffed, getCrewJobSlot } from './jobSlots';
 import { applyOxygenTick, getOxygenHealthDamage } from './lifeSupportSystem';
 
@@ -404,10 +404,10 @@ function applyShipTick(gameData: GameData, ship: Ship): boolean {
       }
     }
 
-    // Passive skill XP (during flight)
-    const levelUps = applyPassiveXP(ship);
-    if (levelUps.length > 0) {
-      logLevelUps(gameData.log, gameData.gameTime, ship.name, levelUps);
+    // Passive skill training (during flight)
+    const skillUps = applyPassiveTraining(ship);
+    if (skillUps.length > 0) {
+      logSkillUps(gameData.log, gameData.gameTime, ship.name, skillUps);
     }
 
     // === PASSIVE JOB SLOT EFFECTS ===

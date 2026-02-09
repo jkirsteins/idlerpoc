@@ -10,7 +10,11 @@ import { getCrewEquipmentDefinition } from './crewEquipment';
 import { getShipPositionKm } from './encounterSystem';
 import { addLog } from './logSystem';
 import { setEncounterResolver } from './gameTick';
-import { awardEventXP, logLevelUps, type XPEvent } from './skillProgression';
+import {
+  awardEventSkillGains,
+  logSkillUps,
+  type SkillEvent,
+} from './skillProgression';
 import { getCrewForJobType } from './jobSlots';
 
 /**
@@ -32,18 +36,18 @@ export const COMBAT_CONSTANTS = {
   EVASION_VELOCITY_CAP: 0.3,
   /** Evasion bonus from nav_scanner equipment */
   EVASION_SCANNER_BONUS: 0.15,
-  /** Evasion per point of astrogation skill */
-  EVASION_SKILL_FACTOR: 0.02,
-  /** Charisma skill divisor for negotiation chance */
-  NEGOTIATION_DIVISOR: 20,
+  /** Evasion per point of astrogation skill (1-100 scale) */
+  EVASION_SKILL_FACTOR: 0.002,
+  /** Charisma skill divisor for negotiation chance (1-100 scale) */
+  NEGOTIATION_DIVISOR: 200,
   /** Minimum ransom cost (pirates won't bother for less) */
   NEGOTIATION_MIN_RANSOM: 50,
   /** Base point defense combat score */
   PD_BASE_SCORE: 20,
   /** PD station staffing base bonus (50%) */
   PD_STAFFING_BASE_BONUS: 0.5,
-  /** PD bonus per gunner skill point */
-  PD_SKILL_BONUS: 0.05,
+  /** PD bonus per gunner skill point (1-100 scale) */
+  PD_SKILL_BONUS: 0.005,
   /** Passive defense from deflector shield */
   DEFLECTOR_BONUS: 10,
   /** Passive defense from micro deflector */
@@ -240,7 +244,7 @@ export function calculateDefenseScore(ship: Ship): number {
   // 2. Crew in arms_maint job slots with weapons
   const armoryCrew = getCrewForJobType(ship, 'arms_maint');
   for (const crew of armoryCrew) {
-    let crewCombat = crew.skills.strength;
+    let crewCombat = crew.skills.strength / 10;
 
     // Weapon attack scores
     for (const eq of crew.equipment) {
@@ -450,19 +454,19 @@ export function applyEncounterOutcome(
   addLog(gameData.log, gameData.gameTime, logType, narrative, ship.name);
 
   // Award event XP for encounter outcomes
-  const xpEvent = encounterToXPEvent(result);
-  if (xpEvent) {
-    const levelUps = awardEventXP(ship, xpEvent);
-    if (levelUps.length > 0) {
-      logLevelUps(gameData.log, gameData.gameTime, ship.name, levelUps);
+  const skillEvent = encounterToSkillEvent(result);
+  if (skillEvent) {
+    const skillUps = awardEventSkillGains(ship, skillEvent);
+    if (skillUps.length > 0) {
+      logSkillUps(gameData.log, gameData.gameTime, ship.name, skillUps);
     }
   }
 }
 
 /**
- * Convert encounter result to XP event for skill progression.
+ * Convert encounter result to skill event for skill progression.
  */
-function encounterToXPEvent(result: EncounterResult): XPEvent | null {
+function encounterToSkillEvent(result: EncounterResult): SkillEvent | null {
   switch (result.type) {
     case 'evaded':
       return { type: 'encounter_evaded' };

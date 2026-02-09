@@ -64,7 +64,6 @@ function createCrewMember(
     level,
     isCaptain,
     equipment: [],
-    unspentSkillPoints: 0,
     unpaidTicks: 0,
     hireCost,
     zeroGExposure: 0,

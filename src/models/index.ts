@@ -139,12 +139,12 @@ export interface ShipLocation {
 }
 
 export interface CrewSkills {
-  piloting: number; // 1-10
-  astrogation: number; // 1-10
-  engineering: number; // 1-10
-  strength: number; // 1-10
-  charisma: number; // 1-10
-  loyalty: number; // 1-10
+  piloting: number; // 1-100
+  astrogation: number; // 1-100
+  engineering: number; // 1-100
+  strength: number; // 1-100
+  charisma: number; // 1-100
+  loyalty: number; // 1-100
 }
 
 export interface CrewEquipmentInstance {
@@ -187,7 +187,6 @@ export interface CrewMember {
   level: number;
   isCaptain: boolean;
   equipment: CrewEquipmentInstance[];
-  unspentSkillPoints: number;
   unpaidTicks: number; // Accumulated ticks of unpaid salary
   hireCost: number; // Cost to hire this crew member (reference)
   zeroGExposure: number; // cumulative game-seconds in zero-g

@@ -160,23 +160,23 @@ describe('calculateCrewSkillFactor', () => {
     expect(calculateCrewSkillFactor(ship)).toBe(1.0);
   });
 
-  it('reduces with astrogation skill 5', () => {
+  it('reduces with astrogation skill 30', () => {
     const ship = createTestShip();
-    // Default test ship has navigator (astrogation 5) on helm
+    // Default test ship has navigator (astrogation 30) on helm
     const factor = calculateCrewSkillFactor(ship);
-    expect(factor).toBeCloseTo(1 / (1 + 5 * 0.08), 3);
-    expect(factor).toBeCloseTo(0.714, 2);
+    expect(factor).toBeCloseTo(1 / (1 + 30 * 0.008), 3);
+    expect(factor).toBeCloseTo(0.806, 2);
   });
 
-  it('reduces more with astrogation skill 10', () => {
+  it('reduces more with astrogation skill 60', () => {
     const crew = createTestCrew({
       skills: {
-        piloting: 3,
-        astrogation: 10,
-        engineering: 2,
-        strength: 2,
-        charisma: 2,
-        loyalty: 2,
+        piloting: 15,
+        astrogation: 60,
+        engineering: 10,
+        strength: 10,
+        charisma: 10,
+        loyalty: 10,
       },
     });
     const ship = createTestShip();
@@ -187,29 +187,29 @@ describe('calculateCrewSkillFactor', () => {
     assignCrewToJob(ship, crew.id, 'scanner');
 
     const factor = calculateCrewSkillFactor(ship);
-    expect(factor).toBeCloseTo(1 / (1 + 10 * 0.08), 3);
-    expect(factor).toBeCloseTo(0.556, 2);
+    expect(factor).toBeCloseTo(1 / (1 + 60 * 0.008), 3);
+    expect(factor).toBeCloseTo(0.676, 2);
   });
 
   it('uses best astrogation among scanner/helm crew', () => {
     const navigator = createTestCrew({
       skills: {
-        piloting: 3,
-        astrogation: 8,
-        engineering: 2,
-        strength: 2,
-        charisma: 2,
-        loyalty: 2,
+        piloting: 15,
+        astrogation: 50,
+        engineering: 10,
+        strength: 10,
+        charisma: 10,
+        loyalty: 10,
       },
     });
     const pilot = createTestCrew({
       skills: {
-        piloting: 7,
-        astrogation: 3,
-        engineering: 2,
-        strength: 2,
-        charisma: 2,
-        loyalty: 2,
+        piloting: 40,
+        astrogation: 15,
+        engineering: 10,
+        strength: 10,
+        charisma: 10,
+        loyalty: 10,
       },
     });
     const ship = createTestShip();
@@ -220,8 +220,8 @@ describe('calculateCrewSkillFactor', () => {
     assignCrewToJob(ship, pilot.id, 'helm');
 
     const factor = calculateCrewSkillFactor(ship);
-    // Should use skill 8 (the best)
-    expect(factor).toBeCloseTo(1 / (1 + 8 * 0.08), 3);
+    // Should use skill 50 (the best)
+    expect(factor).toBeCloseTo(1 / (1 + 50 * 0.008), 3);
   });
 
   it('astrogation 0 gives no reduction', () => {

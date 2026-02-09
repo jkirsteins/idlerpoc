@@ -4,7 +4,7 @@ import { addLog } from './logSystem';
 import { generateAllLocationQuests } from './questGen';
 import { getDaysSinceEpoch, TICKS_PER_DAY } from './timeSystem';
 import { generateHireableCrewByLocation } from './gameFactory';
-import { awardEventXP, logLevelUps } from './skillProgression';
+import { awardEventSkillGains, logSkillUps } from './skillProgression';
 import { checkAutoRefuel, autoRestartRouteTrip } from './routeAssignment';
 import { getFuelPricePerKg } from './ui/refuelDialog';
 import { unassignCrewFromAllSlots } from './jobSlots';
@@ -136,12 +136,12 @@ function checkFirstArrival(
 ): void {
   if (!gameData.visitedLocations.includes(locationId)) {
     gameData.visitedLocations.push(locationId);
-    const levelUps = awardEventXP(ship, {
+    const skillUps = awardEventSkillGains(ship, {
       type: 'first_arrival',
       locationId,
     });
-    if (levelUps.length > 0) {
-      logLevelUps(gameData.log, gameData.gameTime, ship.name, levelUps);
+    if (skillUps.length > 0) {
+      logSkillUps(gameData.log, gameData.gameTime, ship.name, skillUps);
     }
   }
 }
@@ -296,12 +296,12 @@ export function completeLeg(gameData: GameData, ship: Ship): void {
       );
 
       // Award contract completion XP
-      const levelUps = awardEventXP(ship, {
+      const skillUps = awardEventSkillGains(ship, {
         type: 'contract_completed',
         tripsCompleted: 1,
       });
-      if (levelUps.length > 0) {
-        logLevelUps(gameData.log, gameTime, ship.name, levelUps);
+      if (skillUps.length > 0) {
+        logSkillUps(gameData.log, gameTime, ship.name, skillUps);
       }
 
       ship.location.status = 'docked';
@@ -450,12 +450,12 @@ export function completeLeg(gameData: GameData, ship: Ship): void {
       );
 
       // Award contract completion XP (scales with trips completed)
-      const levelUps = awardEventXP(ship, {
+      const skillUps = awardEventSkillGains(ship, {
         type: 'contract_completed',
         tripsCompleted: activeContract.tripsCompleted,
       });
-      if (levelUps.length > 0) {
-        logLevelUps(gameData.log, gameTime, ship.name, levelUps);
+      if (skillUps.length > 0) {
+        logSkillUps(gameData.log, gameTime, ship.name, skillUps);
       }
 
       ship.location.status = 'docked';

@@ -5,49 +5,128 @@ import type {
   JobSlotType,
   LogEntry,
 } from './models';
-import { getLevelForXP } from './levelSystem';
-import { deduceRoleFromSkills, getPrimarySkillForRole } from './crewRoles';
+import { getPrimarySkillForRole } from './crewRoles';
 import { addLog } from './logSystem';
 import { getCrewJobSlot, getJobSlotDefinition } from './jobSlots';
 
 /**
- * Skill Progression System
+ * Direct Skill Training System
  *
- * Crew members earn XP by working their job slots. Job slot assignment during
- * flight determines which skill they practice and how fast they improve.
+ * Crew members train skills directly by working job slots during flight.
+ * No XP intermediary — job slot assignment determines which skill improves
+ * and at what rate. Uses diminishing returns (asymptotic toward cap).
+ *
+ * Formula: gain/tick = trainRate × (SKILL_CAP - current) / SKILL_CAP × match_bonus
  */
 
-/** Skill matching bonus multiplier (crew's top skill matches job's skill) */
+/** Maximum skill value */
+export const SKILL_CAP = 100;
+
+/** Threshold at which a skill rounds up to the cap (mastery) */
+const MASTERY_THRESHOLD = 99.5;
+
+/** Skill matching bonus multiplier (crew's role matches job's trained skill) */
 const SKILL_MATCH_MULTIPLIER = 1.5;
 
 /**
- * Calculate XP earned per tick for a crew member based on job slot assignment.
- * Returns the skill being trained and XP amount, or null if no XP earned.
+ * Calculate direct skill training for a crew member based on job slot assignment.
+ * Returns the skill being trained and the gain amount, or null if no training.
  */
-export function calculateTickXP(
+export function calculateTickTraining(
   crew: CrewMember,
   jobSlotType: JobSlotType | null
-): { skill: SkillId; xp: number } | null {
+): { skill: SkillId; gain: number } | null {
   if (!jobSlotType) return null;
 
   const def = getJobSlotDefinition(jobSlotType);
-  if (!def || !def.skill || def.xpPerTick <= 0) return null;
+  if (!def || !def.skill || def.trainRate <= 0) return null;
 
   const skill = def.skill;
-  const baseXP = def.xpPerTick;
+  const baseRate = def.trainRate;
 
-  // Skill matching bonus: if crew's highest skill matches the job's skill
+  const currentSkill = crew.skills[skill];
+  if (currentSkill >= SKILL_CAP) return null;
+
+  // Diminishing returns: gain decreases as skill approaches cap
+  const diminishingFactor = (SKILL_CAP - currentSkill) / SKILL_CAP;
+
+  // Skill matching bonus: crew's role primary skill matches job's trained skill
   const primarySkill = getPrimarySkillForRole(crew.role);
-  const matchesJob = primarySkill === skill;
-  const xp = matchesJob ? baseXP * SKILL_MATCH_MULTIPLIER : baseXP;
+  const matchBonus = primarySkill === skill ? SKILL_MATCH_MULTIPLIER : 1.0;
 
-  return { skill, xp };
+  const gain = baseRate * diminishingFactor * matchBonus;
+
+  return { skill, gain };
 }
 
 /**
- * XP event types for event-based XP awards
+ * Result when a crew member crosses an integer skill boundary
  */
-export type XPEvent =
+export interface SkillUpResult {
+  crewId: string;
+  crewName: string;
+  skill: SkillId;
+  newLevel: number;
+}
+
+/**
+ * Apply direct skill training for a crew member.
+ * Returns a SkillUpResult if the crew member crossed an integer boundary.
+ */
+export function applyTraining(
+  crew: CrewMember,
+  skill: SkillId,
+  gain: number
+): SkillUpResult | null {
+  const oldFloor = Math.floor(crew.skills[skill]);
+  crew.skills[skill] = Math.min(SKILL_CAP, crew.skills[skill] + gain);
+
+  // Mastery threshold: round up to cap
+  if (crew.skills[skill] >= MASTERY_THRESHOLD) {
+    crew.skills[skill] = SKILL_CAP;
+  }
+
+  const newFloor = Math.floor(crew.skills[skill]);
+
+  if (newFloor > oldFloor) {
+    return {
+      crewId: crew.id,
+      crewName: crew.name,
+      skill,
+      newLevel: newFloor,
+    };
+  }
+
+  return null;
+}
+
+/**
+ * Apply direct skill training for all crew on a ship during one flight tick.
+ * Returns any skill-up results for logging.
+ */
+export function applyPassiveTraining(ship: Ship): SkillUpResult[] {
+  const skillUps: SkillUpResult[] = [];
+
+  for (const crew of ship.crew) {
+    const jobSlot = getCrewJobSlot(ship, crew.id);
+    const jobSlotType = jobSlot?.type ?? null;
+
+    const training = calculateTickTraining(crew, jobSlotType);
+    if (training) {
+      const skillUp = applyTraining(crew, training.skill, training.gain);
+      if (skillUp) {
+        skillUps.push(skillUp);
+      }
+    }
+  }
+
+  return skillUps;
+}
+
+/**
+ * Event types that award direct skill gains
+ */
+export type SkillEvent =
   | { type: 'encounter_evaded' }
   | { type: 'encounter_negotiated'; negotiatorId: string }
   | { type: 'encounter_victory' }
@@ -58,79 +137,22 @@ export type XPEvent =
   | { type: 'first_arrival'; locationId: string };
 
 /**
- * Result when a crew member levels up
+ * Award event-based skill gains to relevant crew members on a ship.
+ * Event gains are flat (not diminished by current level), making them
+ * increasingly valuable at higher skill levels.
+ *
+ * Returns any skill-up results for logging.
  */
-export interface LevelUpResult {
-  crewId: string;
-  crewName: string;
-  oldLevel: number;
-  newLevel: number;
-}
+export function awardEventSkillGains(
+  ship: Ship,
+  event: SkillEvent
+): SkillUpResult[] {
+  const skillUps: SkillUpResult[] = [];
 
-/**
- * Apply XP to a crew member and check for level-up.
- * Returns a LevelUpResult if the crew member leveled up, null otherwise.
- */
-export function applyXP(
-  crew: CrewMember,
-  xpAmount: number
-): LevelUpResult | null {
-  const oldLevel = crew.level;
-  crew.xp += xpAmount;
-  const newLevel = getLevelForXP(crew.xp);
-
-  if (newLevel > oldLevel) {
-    const levelsGained = newLevel - oldLevel;
-    crew.level = newLevel;
-    crew.unspentSkillPoints += levelsGained;
-
-    return {
-      crewId: crew.id,
-      crewName: crew.name,
-      oldLevel,
-      newLevel,
-    };
-  }
-
-  return null;
-}
-
-/**
- * Apply passive XP for all crew on a ship during one flight tick.
- * Returns any level-up results for logging.
- */
-export function applyPassiveXP(ship: Ship): LevelUpResult[] {
-  const levelUps: LevelUpResult[] = [];
-
-  for (const crew of ship.crew) {
-    const jobSlot = getCrewJobSlot(ship, crew.id);
-    const jobSlotType = jobSlot?.type ?? null;
-
-    const xpResult = calculateTickXP(crew, jobSlotType);
-    if (xpResult) {
-      const levelUp = applyXP(crew, xpResult.xp);
-      if (levelUp) {
-        levelUps.push(levelUp);
-      }
-    }
-  }
-
-  return levelUps;
-}
-
-/**
- * Award event XP to relevant crew members on a ship.
- * Uses job slot assignments to determine who earns what.
- * Returns any level-up results for logging.
- */
-export function awardEventXP(ship: Ship, event: XPEvent): LevelUpResult[] {
-  const levelUps: LevelUpResult[] = [];
-
-  function grantXP(crew: CrewMember, skill: SkillId, amount: number): void {
-    void skill; // unified XP system — skill param is informational
-    const levelUp = applyXP(crew, amount);
-    if (levelUp) {
-      levelUps.push(levelUp);
+  function grantSkill(crew: CrewMember, skill: SkillId, amount: number): void {
+    const result = applyTraining(crew, skill, amount);
+    if (result) {
+      skillUps.push(result);
     }
   }
 
@@ -146,118 +168,98 @@ export function awardEventXP(ship: Ship, event: XPEvent): LevelUpResult[] {
 
   switch (event.type) {
     case 'encounter_evaded': {
-      // Bridge crew earn astrogation XP
+      // Bridge crew earn astrogation
       const bridgeCrew = crewInJobTypes(['helm', 'scanner', 'comms']);
       for (const crew of bridgeCrew) {
-        grantXP(crew, 'astrogation', 10);
+        grantSkill(crew, 'astrogation', 2.0);
       }
       break;
     }
 
     case 'encounter_negotiated': {
+      // Negotiator earns charisma
       const negotiator = ship.crew.find((c) => c.id === event.negotiatorId);
-      if (negotiator) grantXP(negotiator, 'charisma', 15);
+      if (negotiator) grantSkill(negotiator, 'charisma', 2.5);
       break;
     }
 
     case 'encounter_victory': {
-      // Combat job crew earn strength XP
+      // Combat job crew earn strength
       const combatCrew = crewInJobTypes([
         'arms_maint',
         'fire_control',
         'targeting',
       ]);
       for (const crew of combatCrew) {
-        grantXP(crew, 'strength', 20);
+        grantSkill(crew, 'strength', 3.0);
       }
       break;
     }
 
     case 'encounter_harassment': {
+      // All crew earn loyalty (survived together)
       for (const crew of ship.crew) {
-        grantXP(crew, 'loyalty', 5);
+        grantSkill(crew, 'loyalty', 1.0);
       }
       break;
     }
 
     case 'encounter_boarding': {
+      // All crew earn loyalty + strength
       for (const crew of ship.crew) {
-        grantXP(crew, 'loyalty', 10);
-        grantXP(crew, 'strength', 10);
+        grantSkill(crew, 'loyalty', 1.5);
+        grantSkill(crew, 'strength', 1.5);
       }
       break;
     }
 
     case 'encounter_fled': {
-      // Bridge crew earn piloting XP (evasive maneuvers under fire)
-      const bridge = ship.rooms.find((r) => r.type === 'bridge');
-      if (bridge) {
-        for (const crewId of bridge.assignedCrewIds) {
-          const crew = ship.crew.find((c) => c.id === crewId);
-          if (crew) grantXP(crew, 'piloting', 8);
-        }
+      // Bridge crew earn piloting (evasive maneuvers under fire)
+      const bridgeCrew = crewInJobTypes(['helm', 'comms']);
+      for (const crew of bridgeCrew) {
+        grantSkill(crew, 'piloting', 1.5);
       }
       break;
     }
 
     case 'contract_completed': {
-      const xpPerCrew = 5 * event.tripsCompleted;
+      // All crew earn their primary skill
+      const gain = 0.8 * event.tripsCompleted;
       for (const crew of ship.crew) {
         const primarySkill = getPrimarySkillForRole(crew.role);
-        grantXP(crew, primarySkill ?? 'piloting', xpPerCrew);
+        grantSkill(crew, primarySkill ?? 'piloting', gain);
       }
       break;
     }
 
     case 'first_arrival': {
+      // All crew earn astrogation
       for (const crew of ship.crew) {
-        grantXP(crew, 'astrogation', 15);
+        grantSkill(crew, 'astrogation', 2.0);
       }
       break;
     }
   }
 
-  return levelUps;
+  return skillUps;
 }
 
 /**
- * Spend a skill point to increase a skill by 1.
- * Returns true if successful, false if skill is at cap or no points available.
+ * Log skill-up events for a ship's crew.
  */
-export function spendSkillPoint(crew: CrewMember, skill: SkillId): boolean {
-  if (crew.unspentSkillPoints <= 0) return false;
-  if (crew.skills[skill] >= 10) return false;
-
-  crew.skills[skill] += 1;
-  crew.unspentSkillPoints -= 1;
-
-  // Recalculate role (unless captain)
-  if (!crew.isCaptain) {
-    const newRole = deduceRoleFromSkills(crew.skills);
-    if (newRole !== crew.role) {
-      crew.role = newRole;
-      return true; // caller should check for role change
-    }
-  }
-
-  return true;
-}
-
-/**
- * Log level-up events for a ship's crew.
- */
-export function logLevelUps(
+export function logSkillUps(
   log: LogEntry[],
   gameTime: number,
   shipName: string,
-  levelUps: LevelUpResult[]
+  skillUps: SkillUpResult[]
 ): void {
-  for (const lu of levelUps) {
+  for (const su of skillUps) {
+    const skillName = su.skill.charAt(0).toUpperCase() + su.skill.slice(1);
     addLog(
       log,
       gameTime,
       'crew_level_up',
-      `${lu.crewName} has reached level ${lu.newLevel}! (1 skill point available)`,
+      `${su.crewName}'s ${skillName} has reached ${su.newLevel}!`,
       shipName
     );
   }

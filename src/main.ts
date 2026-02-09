@@ -2,7 +2,6 @@ import './style.css';
 import { initCombatSystem } from './combatSystem';
 import type {
   ShipClassId,
-  SkillId,
   GameData,
   CrewEquipmentId,
   CatchUpReport,
@@ -25,7 +24,6 @@ import {
   drainEncounterResults,
 } from './gameTick';
 import { getLevelForXP } from './levelSystem';
-import { deduceRoleFromSkills } from './crewRoles';
 import { createRefuelDialog, getFuelPricePerKg } from './ui/refuelDialog';
 import {
   advanceToNextDayStart,
@@ -552,27 +550,6 @@ const callbacks: RendererCallbacks = {
 
     if (levelsGained > 0) {
       crew.level = newLevel;
-      crew.unspentSkillPoints += levelsGained;
-
-      saveGame(state.gameData);
-      renderApp();
-    }
-  },
-
-  onAssignSkillPoint: (crewId, skillId) => {
-    if (state.phase !== 'playing') return;
-    const ship = getActiveShip(state.gameData);
-
-    const crew = ship.crew.find((c) => c.id === crewId);
-    if (!crew) return;
-
-    if (crew.unspentSkillPoints > 0 && crew.skills[skillId as SkillId] < 10) {
-      crew.skills[skillId as SkillId]++;
-      crew.unspentSkillPoints--;
-
-      if (!crew.isCaptain) {
-        crew.role = deduceRoleFromSkills(crew.skills);
-      }
 
       saveGame(state.gameData);
       renderApp();
