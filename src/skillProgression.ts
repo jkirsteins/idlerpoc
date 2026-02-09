@@ -190,12 +190,9 @@ export function awardEventXP(ship: Ship, event: XPEvent): LevelUpResult[] {
 
     case 'encounter_fled': {
       // Bridge crew earn piloting XP (evasive maneuvers under fire)
-      const bridge = ship.rooms.find((r) => r.type === 'bridge');
-      if (bridge) {
-        for (const crewId of bridge.assignedCrewIds) {
-          const crew = ship.crew.find((c) => c.id === crewId);
-          if (crew) grantXP(crew, 'piloting', 8);
-        }
+      const bridgeCrew = crewInJobTypes(['helm', 'scanner', 'comms']);
+      for (const crew of bridgeCrew) {
+        grantXP(crew, 'piloting', 8);
       }
       break;
     }

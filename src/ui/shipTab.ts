@@ -5,7 +5,8 @@ import { getRoomDefinition } from '../rooms';
 import { getCrewRoleName } from '../crewRoles';
 import { computePowerStatus } from '../powerSystem';
 import { computeOxygenStatus } from '../lifeSupportSystem';
-import { getEquipmentDefinition } from '../equipment';
+import { getEquipmentDefinition, getCategoryLabel } from '../equipment';
+import { calculateDefenseScore } from '../combatSystem';
 import { getEngineDefinition } from '../engines';
 import { createNavigationView } from './navigationView';
 import { getGravitySource } from '../gravitySystem';
@@ -585,6 +586,35 @@ function renderShipStatsPanel(gameData: GameData): HTMLElement {
   const crewDiv = document.createElement('div');
   crewDiv.innerHTML = `<span style="color: #888;">Crew:</span> <span style="color: #aaa;">${ship.crew.length}/${shipClass.maxCrew}</span>`;
   statsGrid.appendChild(crewDiv);
+
+  // Defense readiness derived from equipment, crew, and mass
+  const defenseScore = calculateDefenseScore(ship);
+  const defenseColor =
+    defenseScore >= 20 ? '#4ade80' : defenseScore >= 10 ? '#facc15' : '#f87171';
+  const defenseBreakdown: string[] = [];
+  const pdLaser = ship.equipment.find(
+    (eq) => eq.definitionId === 'point_defense_laser'
+  );
+  const pd = ship.equipment.find((eq) => eq.definitionId === 'point_defense');
+  const microDefl = ship.equipment.find(
+    (eq) => eq.definitionId === 'micro_deflector'
+  );
+  const deflector = ship.equipment.find(
+    (eq) => eq.definitionId === 'deflector_shield'
+  );
+  if (pd) defenseBreakdown.push('PD-40 Flak Turret');
+  if (pdLaser) defenseBreakdown.push('PD-10 Laser');
+  if (deflector) defenseBreakdown.push('Debris Deflector');
+  if (microDefl) defenseBreakdown.push('Micro Deflector');
+  const defenseDiv = document.createElement('div');
+  const defenseTooltip =
+    defenseBreakdown.length > 0
+      ? defenseBreakdown.join(', ') +
+        ` + hull mass (${(shipClass.mass / 1000).toFixed(0)}t)`
+      : 'No defense equipment installed';
+  defenseDiv.innerHTML = `<span style="color: #888;">Defense:</span> <span style="color: ${defenseColor}; font-weight: bold;">${defenseScore.toFixed(1)}</span><br><span style="font-size: 0.75rem; color: #aaa;">${defenseBreakdown.length > 0 ? defenseBreakdown.join(' + ') : 'None'}</span>`;
+  defenseDiv.title = defenseTooltip;
+  statsGrid.appendChild(defenseDiv);
 
   section.appendChild(statsGrid);
   return section;
@@ -1307,10 +1337,32 @@ function renderEquipmentSection(gameData: GameData): HTMLElement {
     const info = document.createElement('div');
     info.className = 'equipment-info';
 
-    const name = document.createElement('div');
-    name.className = 'equipment-name';
-    name.textContent = equipDef.name;
-    info.appendChild(name);
+    const nameRow = document.createElement('div');
+    nameRow.className = 'equipment-name';
+    nameRow.style.display = 'flex';
+    nameRow.style.alignItems = 'center';
+    nameRow.style.gap = '0.4em';
+
+    const nameText = document.createElement('span');
+    nameText.textContent = equipDef.name;
+    nameRow.appendChild(nameText);
+
+    const categoryTag = document.createElement('span');
+    categoryTag.textContent = getCategoryLabel(equipDef.category);
+    categoryTag.style.fontSize = '0.65em';
+    categoryTag.style.padding = '0.1em 0.4em';
+    categoryTag.style.borderRadius = '3px';
+    categoryTag.style.fontWeight = 'bold';
+    if (equipDef.category === 'defense') {
+      categoryTag.style.background = 'rgba(248, 113, 113, 0.2)';
+      categoryTag.style.color = '#f87171';
+    } else {
+      categoryTag.style.background = 'rgba(255, 255, 255, 0.1)';
+      categoryTag.style.color = '#888';
+    }
+    nameRow.appendChild(categoryTag);
+
+    info.appendChild(nameRow);
 
     const power = document.createElement('div');
     power.className = 'equipment-power';

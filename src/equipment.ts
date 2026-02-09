@@ -1,10 +1,20 @@
 import type { EquipmentId, EquipmentSlotTag, EquipmentSlotDef } from './models';
 
+export type EquipmentCategory =
+  | 'life_support'
+  | 'shielding'
+  | 'thermal'
+  | 'defense'
+  | 'navigation'
+  | 'structural'
+  | 'gravity';
+
 export interface EquipmentDefinition {
   id: EquipmentId;
   name: string;
   description: string;
   icon: string;
+  category: EquipmentCategory;
   powerDraw: number;
   hasDegradation: boolean;
   requiredTags: EquipmentSlotTag[];
@@ -14,12 +24,13 @@ export interface EquipmentDefinition {
 }
 
 export const EQUIPMENT_DEFINITIONS: EquipmentDefinition[] = [
-  // Life Support (existing)
+  // Life Support
   {
     id: 'life_support',
     name: 'Life Support System',
     description: 'O2 generation, CO2 scrubbing, atmosphere management',
     icon: '🌬️',
+    category: 'life_support',
     powerDraw: 12,
     hasDegradation: false,
     requiredTags: ['standard'],
@@ -30,6 +41,7 @@ export const EQUIPMENT_DEFINITIONS: EquipmentDefinition[] = [
     name: 'Air Filtration Unit',
     description: 'CO2 scrubbing and O2 recycling; degrades over time',
     icon: '🔬',
+    category: 'life_support',
     powerDraw: 5,
     hasDegradation: true,
     requiredTags: ['standard'],
@@ -41,6 +53,7 @@ export const EQUIPMENT_DEFINITIONS: EquipmentDefinition[] = [
     name: 'Type-I Radiation Barrier',
     description: 'Basic radiation shielding. Handles fission + low fusion.',
     icon: '🛡️',
+    category: 'shielding',
     powerDraw: 8,
     hasDegradation: true,
     requiredTags: ['standard'],
@@ -51,6 +64,7 @@ export const EQUIPMENT_DEFINITIONS: EquipmentDefinition[] = [
     name: 'Type-III Radiation Vault',
     description: 'Heavy shielding required for mid/high fusion drives.',
     icon: '🛡️',
+    category: 'shielding',
     powerDraw: 20,
     hasDegradation: true,
     requiredTags: ['standard'],
@@ -62,6 +76,7 @@ export const EQUIPMENT_DEFINITIONS: EquipmentDefinition[] = [
     name: 'Fold-Out Radiator Array',
     description: 'Passive radiator panels for heat dissipation.',
     icon: '📡',
+    category: 'thermal',
     powerDraw: 10,
     hasDegradation: true,
     requiredTags: ['standard'],
@@ -72,6 +87,7 @@ export const EQUIPMENT_DEFINITIONS: EquipmentDefinition[] = [
     name: 'Active Coolant System',
     description: 'Active cooling loops. High capacity, high maintenance.',
     icon: '❄️',
+    category: 'thermal',
     powerDraw: 25,
     hasDegradation: true,
     requiredTags: ['standard'],
@@ -83,6 +99,7 @@ export const EQUIPMENT_DEFINITIONS: EquipmentDefinition[] = [
     name: 'PD-40 Flak Turret',
     description: 'Automated point defense. Destroys debris in flight path.',
     icon: '🎯',
+    category: 'defense',
     powerDraw: 30,
     hasDegradation: true,
     requiredTags: ['standard'],
@@ -92,6 +109,7 @@ export const EQUIPMENT_DEFINITIONS: EquipmentDefinition[] = [
     name: 'Magnetic Debris Deflector',
     description: 'Passive magnetic field deflects micro-debris.',
     icon: '🧲',
+    category: 'defense',
     powerDraw: 15,
     hasDegradation: false,
     requiredTags: ['standard'],
@@ -101,6 +119,7 @@ export const EQUIPMENT_DEFINITIONS: EquipmentDefinition[] = [
     name: 'Deep-Space Hazard Scanner',
     description: 'Extends detection range. Improves route quality.',
     icon: '📊',
+    category: 'navigation',
     powerDraw: 12,
     hasDegradation: false,
     requiredTags: ['standard'],
@@ -112,6 +131,7 @@ export const EQUIPMENT_DEFINITIONS: EquipmentDefinition[] = [
     description:
       'Prevents reactor instability. Degradation = radiation spikes.',
     icon: '⚙️',
+    category: 'structural',
     powerDraw: 18,
     hasDegradation: true,
     requiredTags: ['standard'],
@@ -121,6 +141,7 @@ export const EQUIPMENT_DEFINITIONS: EquipmentDefinition[] = [
     name: 'G-Compensation Gel Couches',
     description: 'Comfortable acceleration up to ~0.08g.',
     icon: '🛏️',
+    category: 'gravity',
     powerDraw: 5,
     hasDegradation: false,
     requiredTags: ['standard'],
@@ -130,6 +151,7 @@ export const EQUIPMENT_DEFINITIONS: EquipmentDefinition[] = [
     name: 'Full-Immersion Crash Pods',
     description: 'Class IV g-force protection. Safe threshold ~3g.',
     icon: '💺',
+    category: 'gravity',
     powerDraw: 15,
     hasDegradation: false,
     requiredTags: ['standard'],
@@ -141,6 +163,7 @@ export const EQUIPMENT_DEFINITIONS: EquipmentDefinition[] = [
     description:
       'Lightweight electromagnetic field generator. Deflects micro-debris and light projectiles.',
     icon: '🧲',
+    category: 'defense',
     powerDraw: 6,
     hasDegradation: false,
     requiredTags: ['standard'],
@@ -151,6 +174,7 @@ export const EQUIPMENT_DEFINITIONS: EquipmentDefinition[] = [
     description:
       'Compact automated laser turret. Low power but effective against small threats.',
     icon: '🔫',
+    category: 'defense',
     powerDraw: 10,
     hasDegradation: true,
     requiredTags: ['standard'],
@@ -161,6 +185,7 @@ export const EQUIPMENT_DEFINITIONS: EquipmentDefinition[] = [
     name: 'Rotating Gravity Module',
     description: 'Rotating gravity module. Provides ~0.3g spin gravity.',
     icon: '🔄',
+    category: 'gravity',
     powerDraw: 25,
     hasDegradation: false,
     requiredTags: ['structural'],
@@ -171,6 +196,7 @@ export const EQUIPMENT_DEFINITIONS: EquipmentDefinition[] = [
     description:
       'Resistance training equipment. Slows zero-g degradation by 50%.',
     icon: '💪',
+    category: 'gravity',
     powerDraw: 8,
     hasDegradation: false,
     requiredTags: ['standard'],
@@ -192,4 +218,23 @@ export function canEquipInSlot(
   slot: EquipmentSlotDef
 ): boolean {
   return equipDef.requiredTags.some((tag) => slot.tags.includes(tag));
+}
+
+export function getCategoryLabel(category: EquipmentCategory): string {
+  switch (category) {
+    case 'life_support':
+      return 'LIFE SUPPORT';
+    case 'shielding':
+      return 'SHIELDING';
+    case 'thermal':
+      return 'THERMAL';
+    case 'defense':
+      return 'DEFENSE';
+    case 'navigation':
+      return 'NAVIGATION';
+    case 'structural':
+      return 'STRUCTURAL';
+    case 'gravity':
+      return 'GRAVITY';
+  }
 }
