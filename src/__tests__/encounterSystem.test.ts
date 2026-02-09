@@ -249,16 +249,16 @@ describe('isOnCooldown', () => {
     // Just after the encounter
     expect(isOnCooldown(ship, 1_000_001)).toBe(true);
 
-    // Still within cooldown (500 ticks * 1800 seconds = 900,000 seconds)
-    expect(isOnCooldown(ship, 1_500_000)).toBe(true);
+    // Still within cooldown (500 ticks * 180 seconds = 90,000 seconds)
+    expect(isOnCooldown(ship, 1_050_000)).toBe(true);
   });
 
   it('returns false when cooldown has expired', () => {
     const ship = createTestShip();
     ship.lastEncounterTime = 1_000_000;
 
-    // Well past cooldown (900,000 seconds later)
-    expect(isOnCooldown(ship, 2_000_000)).toBe(false);
+    // Well past cooldown (90,000 seconds later)
+    expect(isOnCooldown(ship, 1_100_000)).toBe(false);
   });
 
   it('returns false at exactly the cooldown boundary', () => {

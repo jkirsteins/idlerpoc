@@ -30,7 +30,7 @@ npm run dev
   - 8 crew roles including Navigator (astrogation specialist)
   - Room-specific outputs (navigation, power, morale, health, etc.)
   - Skill-based role assignment system
-  - Crew salaries paid per tick during flight (0.5-1.5 credits/tick depending on role)
+  - Crew salaries paid per tick during flight (0.05-0.15 credits/tick depending on role)
   - Unpaid crew depart at next station
   - Hire new crew at stations with hiring services
 - **Navigation System**:
@@ -49,7 +49,7 @@ npm run dev
   - Contract pause/resume functionality
   - Crew salary costs displayed on quest cards
 - **Time System**:
-  - 1 tick = 1 real second = 30 game minutes
+  - 1 tick = 1 real second = 3 game minutes (idle-game pacing: short routes ~5-8 min, medium routes ~1.5-2.5h, long routes ~hours)
   - Real-time based: game computes elapsed time since last update and processes all pending ticks
   - Idle-friendly: closing the browser or backgrounding the tab catches up on return (up to 1 day, batched to keep UI responsive)
   - `visibilitychange` listener triggers immediate catch-up when tab regains focus

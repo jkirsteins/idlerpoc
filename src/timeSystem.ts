@@ -1,15 +1,15 @@
 /**
  * Time System
  *
- * 1 tick = 1 real second = 30 game minutes (1,800 game seconds)
- * 1 game day = 48 ticks (~48 real seconds)
- * 1 game month (30 days) = 1,440 ticks (~24 real minutes)
+ * 1 tick = 1 real second = 3 game minutes (180 game seconds)
+ * 1 game day = 480 ticks (~8 real minutes)
+ * 1 game month (30 days) = 14,400 ticks (~4 real hours)
  *
  * Epoch: 2247-01-01 00:00 (gameTime = 0)
  */
 
-export const GAME_SECONDS_PER_TICK = 1800; // 30 game minutes
-export const TICKS_PER_DAY = 48;
+export const GAME_SECONDS_PER_TICK = 180; // 3 game minutes (10x slower pacing for idle gameplay)
+export const TICKS_PER_DAY = 480;
 export const GAME_SECONDS_PER_DAY = 86400; // 24 hours
 export const EPOCH_YEAR = 2247;
 export const EPOCH_MONTH = 0; // January (0-indexed)

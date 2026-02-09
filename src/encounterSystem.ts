@@ -21,8 +21,8 @@ import { GAME_SECONDS_PER_TICK } from './timeSystem';
 
 /** Tuning constants — collected in one place for balance adjustments */
 export const ENCOUNTER_CONSTANTS = {
-  /** Per-tick base probability (0.005%) */
-  BASE_RATE: 0.00005,
+  /** Per-tick base probability (0.0005%) — scaled for 180 gs/tick */
+  BASE_RATE: 0.000005,
   /** Minimum game-seconds between encounters per ship */
   COOLDOWN_SECONDS: 500 * GAME_SECONDS_PER_TICK,
   /** km divisor for alliance distance → danger scaling */

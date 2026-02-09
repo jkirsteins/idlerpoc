@@ -473,12 +473,7 @@ function buildMobileHeaderBarChildren(
     if (callbacks.onTogglePause) callbacks.onTogglePause();
   });
 
-  const speed = document.createElement('div');
-  speed.className = 'mobile-header-stat';
-  const currentSpeed = gameData.timeSpeed ?? 1;
-  speed.innerHTML = `<span class="mobile-header-value">${gameData.isPaused ? '--' : currentSpeed + 'x'}</span>`;
-
-  return [hamburger, credits, fuel, playPause, speed];
+  return [hamburger, credits, fuel, playPause];
 }
 
 function renderNoGame(callbacks: RendererCallbacks): HTMLElement {
