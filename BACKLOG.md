@@ -36,6 +36,10 @@ This file tracks deferred features and known gaps that are not currently priorit
 - **Hub Station Route Bonuses**: +10% payment for multi-leg routes using major stations as waypoints. Rewards emergent route planning.
 - **Standing Freight Distance Multiplier**: Increase standing freight pay multiplier for long routes (0.7x → 0.9x). See `docs/quest-economics-validation.md`.
 
+## Engine Design
+
+- **Slow-Start High-Efficiency Engine Type**: An engine class that trades very long warmup times (e.g., 2+ game days) for significantly better fuel efficiency once running. Creates a strategic choice: quick departure vs. fuel savings on long hauls. Would reward players who plan ahead and start warmup early. Could pair with a "pre-heat while docked" mechanic.
+
 ## Other Known Gaps
 
 - **Equipment Repair at Stations**: Degraded equipment cannot currently be repaired.
