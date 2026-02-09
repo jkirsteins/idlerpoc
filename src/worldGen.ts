@@ -2,16 +2,9 @@ import type { World, WorldLocation, Ship } from './models';
 import { getShipClass } from './shipClasses';
 import { computeMaxRange } from './flightPhysics';
 import { getEngineDefinition } from './engines';
+import { getDistanceBetween } from './utils';
 
-/**
- * Get distance between two locations
- */
-export function getDistanceBetween(
-  locA: WorldLocation,
-  locB: WorldLocation
-): number {
-  return Math.abs(locA.distanceFromEarth - locB.distanceFromEarth);
-}
+export { getDistanceBetween } from './utils';
 
 /**
  * Check if a location is reachable based on ship's range and current fuel

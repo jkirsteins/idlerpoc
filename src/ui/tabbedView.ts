@@ -1,7 +1,9 @@
-import type { GameData, CrewEquipmentId } from '../models';
+import type { GameData } from '../models';
 import { getActiveShip } from '../models';
-import type { PlayingTab } from './renderer';
+import type { PlayingTab, TabbedViewCallbacks } from './types';
 import type { Component } from './component';
+
+export type { TabbedViewCallbacks } from './types';
 import { getShipClass } from '../shipClasses';
 import { createShipTab } from './shipTab';
 import { createCrewTab } from './crewTab';
@@ -30,43 +32,6 @@ let creditDeltaTimeout: number | null = null;
 
 // Track last viewed log entry count for unread badge
 let lastViewedLogCount = 0;
-
-export interface TabbedViewCallbacks {
-  onReset: () => void;
-  onTabChange: (tab: PlayingTab) => void;
-  onJobAssign: (crewId: string, jobSlotId: string) => void;
-  onJobUnassign: (crewId: string) => void;
-  onAutoAssignCrew: () => void;
-  onUndock: () => void;
-  onDock: () => void;
-  onEngineOn: () => void;
-  onEngineOff: () => void;
-  onToggleNavigation: () => void;
-  onSelectCrew: (crewId: string) => void;
-  onLevelUp: (crewId: string) => void;
-  onAssignSkillPoint: (crewId: string, skillId: string) => void;
-  onEquipItem: (crewId: string, itemId: string) => void;
-  onUnequipItem: (crewId: string, itemId: string) => void;
-  onAcceptQuest: (questId: string) => void;
-  onAssignRoute: (questId: string) => void;
-  onUnassignRoute: () => void;
-  onAdvanceDay: () => void;
-  onDockAtNearestPort: () => void;
-  onResumeContract: () => void;
-  onAbandonContract: () => void;
-  onBuyFuel: () => void;
-  onStartTrip: (destinationId: string) => void;
-  onHireCrew: (crewId: string) => void;
-  onBuyEquipment: (equipmentId: CrewEquipmentId) => void;
-  onSellEquipment: (itemId: string) => void;
-  onSelectShip: (shipId: string) => void;
-  onBuyShip: (classId: string, shipName: string) => void;
-  onTransferCrew: (
-    crewId: string,
-    fromShipId: string,
-    toShipId: string
-  ) => void;
-}
 
 export interface TabbedViewState {
   gameData: GameData;

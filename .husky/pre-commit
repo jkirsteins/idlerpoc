@@ -3,3 +3,13 @@ npx lint-staged
 # Run TypeScript type check to catch type errors and warnings
 echo "Running TypeScript type check..."
 npx tsc --noEmit
+
+# Check for circular dependencies (causes TDZ errors on Safari/iOS)
+echo "Checking for circular dependencies..."
+CIRCULAR_OUTPUT=$(npx madge --circular --extensions ts --no-spinner --warning src/ 2>/dev/null)
+if echo "$CIRCULAR_OUTPUT" | grep -q "Found [0-9]"; then
+  echo "ERROR: Circular dependencies detected!"
+  echo "Circular imports cause TDZ errors on Safari/iOS. Fix before committing."
+  echo "$CIRCULAR_OUTPUT"
+  exit 1
+fi

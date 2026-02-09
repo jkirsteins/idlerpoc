@@ -59,14 +59,21 @@ const app = document.getElementById('app')!;
 // Initialize the combat system encounter resolver
 initCombatSystem();
 
-let state: GameState;
-try {
-  state = initializeState();
-} catch (e) {
-  console.error('Failed to initialize game state, clearing save:', e);
-  clearGame();
-  state = { phase: 'no_game' };
+/** Show a dismissable banner at the top of the page. */
+function showErrorBanner(message: string): void {
+  const banner = document.createElement('div');
+  banner.className = 'error-banner';
+  banner.style.cssText =
+    'background:#5c1a1a;color:#ff9b9b;padding:0.75rem 1rem;text-align:center;' +
+    'font-size:0.9rem;position:relative;cursor:pointer;';
+  banner.textContent = message + ' (tap to dismiss)';
+  banner.addEventListener('click', () => banner.remove());
+  document.body.prepend(banner);
 }
+
+// All module-level `let` variables MUST be declared before initializeState()
+// is called, otherwise Safari hits a Temporal Dead Zone error (the `let`
+// bindings are hoisted but not initialized until the declaration is reached).
 let tickInterval: number | null = null;
 
 /** State for ongoing batched catch-up processing */
@@ -90,6 +97,17 @@ let hiddenSnapshot: {
   gameTime: number;
   realTimestamp: number;
 } | null = null;
+
+let state: GameState;
+try {
+  state = initializeState();
+} catch (e) {
+  console.error('Failed to initialize game state, clearing save:', e);
+  clearGame();
+  state = { phase: 'no_game' };
+  const errorDetail = e instanceof Error ? e.message : String(e);
+  showErrorBanner(`Save corrupted and cleared: ${errorDetail}`);
+}
 
 /**
  * Build a CatchUpReport summarising what happened during an absence.
@@ -355,7 +373,11 @@ const callbacks: RendererCallbacks = {
     shipClassId: ShipClassId
   ) => {
     const gameData = createNewGame(captainName, shipName, shipClassId);
-    saveGame(gameData);
+    if (!saveGame(gameData)) {
+      showErrorBanner(
+        'Warning: could not save game. Storage may be unavailable on this device.'
+      );
+    }
     state = { phase: 'playing', gameData, activeTab: 'ship' };
     renderApp();
   },
@@ -1534,8 +1556,24 @@ function onVisibilityChange(): void {
         realTimestamp: Date.now(),
       };
     }
+    // Ensure state is persisted when the tab is hidden — iOS Safari doesn't
+    // reliably fire beforeunload, but visibilitychange + pagehide cover it.
+    if (state.phase === 'playing') {
+      saveGame(state.gameData);
+    }
   } else if (document.visibilityState === 'visible') {
     processPendingTicks();
+  }
+}
+
+/**
+ * Last-chance save when the page is about to be unloaded.
+ * On iOS Safari, `pagehide` fires reliably on pull-to-refresh and tab close
+ * whereas `beforeunload` does not.
+ */
+function onPageHide(): void {
+  if (state.phase === 'playing') {
+    saveGame(state.gameData);
   }
 }
 
@@ -1543,6 +1581,7 @@ function startTickSystem(): void {
   if (tickInterval !== null) return;
 
   document.addEventListener('visibilitychange', onVisibilityChange);
+  window.addEventListener('pagehide', onPageHide);
   tickInterval = window.setInterval(processPendingTicks, 1000);
 }
 
@@ -1552,6 +1591,7 @@ function stopTickSystem(): void {
     tickInterval = null;
   }
   document.removeEventListener('visibilitychange', onVisibilityChange);
+  window.removeEventListener('pagehide', onPageHide);
 }
 
 function renderApp(): void {

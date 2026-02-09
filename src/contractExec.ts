@@ -5,7 +5,11 @@ import { generateAllLocationQuests } from './questGen';
 import { getDaysSinceEpoch, TICKS_PER_DAY } from './timeSystem';
 import { generateHireableCrewByLocation } from './gameFactory';
 import { awardEventXP, logLevelUps } from './skillProgression';
-import { checkAutoRefuel, autoRestartRouteTrip } from './routeAssignment';
+import {
+  checkAutoRefuel,
+  autoRestartRouteTrip,
+  setAcceptQuestFn,
+} from './routeAssignment';
 import { getFuelPricePerKg } from './ui/refuelDialog';
 import { unassignCrewFromAllSlots } from './jobSlots';
 
@@ -14,6 +18,10 @@ import { unassignCrewFromAllSlots } from './jobSlots';
  *
  * Manages active contract state and transitions (per-ship)
  */
+
+// Register acceptQuest with routeAssignment to break circular dependency.
+// acceptQuest is a hoisted function declaration, so this is safe at top-level.
+setAcceptQuestFn(acceptQuest);
 
 /**
  * Auto-refuel a ship to 100% at a station between legs.

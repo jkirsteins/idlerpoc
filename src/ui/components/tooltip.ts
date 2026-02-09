@@ -14,19 +14,6 @@ export function attachTooltip(
   tooltip.innerHTML = options.content;
   document.body.appendChild(tooltip);
 
-  const showTooltip = (e: MouseEvent) => {
-    tooltip.classList.add('visible');
-    updateTooltipPosition(e, tooltip, element, options.followMouse ?? false);
-    activeTooltip = tooltip;
-  };
-
-  const hideTooltip = () => {
-    tooltip.classList.remove('visible');
-    if (activeTooltip === tooltip) {
-      activeTooltip = null;
-    }
-  };
-
   const updateTooltipPosition = (
     e: MouseEvent,
     tip: HTMLElement,
@@ -69,6 +56,19 @@ export function attachTooltip(
 
       tip.style.left = `${left}px`;
       tip.style.top = `${top}px`;
+    }
+  };
+
+  const showTooltip = (e: MouseEvent) => {
+    tooltip.classList.add('visible');
+    updateTooltipPosition(e, tooltip, element, options.followMouse ?? false);
+    activeTooltip = tooltip;
+  };
+
+  const hideTooltip = () => {
+    tooltip.classList.remove('visible');
+    if (activeTooltip === tooltip) {
+      activeTooltip = null;
     }
   };
 

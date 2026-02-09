@@ -1,6 +1,6 @@
 import type { GameData, CrewMember, CrewEquipmentId } from '../models';
 import { getActiveShip } from '../models';
-import type { TabbedViewCallbacks } from './tabbedView';
+import type { TabbedViewCallbacks } from './types';
 import {
   getCrewEquipmentDefinition,
   getAllCrewEquipmentDefinitions,
@@ -944,6 +944,12 @@ function renderEquipmentShop(
   tabs.style.gap = '1rem';
   tabs.style.marginBottom = '1rem';
 
+  const itemsDiv = document.createElement('div');
+
+  const sellTab = document.createElement('button');
+  sellTab.textContent = 'Sell Equipment';
+  sellTab.className = 'shop-tab';
+
   const buyTab = document.createElement('button');
   buyTab.textContent = 'Buy Equipment';
   buyTab.className = 'shop-tab active';
@@ -953,11 +959,6 @@ function renderEquipmentShop(
     itemsDiv.innerHTML = '';
     itemsDiv.appendChild(renderBuyList(gameData, callbacks));
   });
-  tabs.appendChild(buyTab);
-
-  const sellTab = document.createElement('button');
-  sellTab.textContent = 'Sell Equipment';
-  sellTab.className = 'shop-tab';
   sellTab.addEventListener('click', () => {
     sellTab.classList.add('active');
     buyTab.classList.remove('active');
@@ -968,7 +969,6 @@ function renderEquipmentShop(
 
   section.appendChild(tabs);
 
-  const itemsDiv = document.createElement('div');
   itemsDiv.appendChild(renderBuyList(gameData, callbacks));
   section.appendChild(itemsDiv);
 

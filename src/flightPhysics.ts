@@ -1,7 +1,7 @@
 import type { Ship, FlightState, WorldLocation } from './models';
 import { getEngineDefinition, type EngineDefinition } from './engines';
 import { getShipClass, type ShipClass } from './shipClasses';
-import { getDistanceBetween } from './worldGen';
+import { getDistanceBetween } from './utils';
 import { GAME_SECONDS_PER_TICK } from './timeSystem';
 import { isHelmManned } from './jobSlots';
 

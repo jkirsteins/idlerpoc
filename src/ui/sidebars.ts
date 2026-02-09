@@ -1,6 +1,6 @@
 import type { GameData } from '../models';
 import { getActiveShip } from '../models';
-import type { PlayingTab } from './renderer';
+import type { PlayingTab } from './types';
 import { computePowerStatus } from '../powerSystem';
 import { getEngineDefinition } from '../engines';
 import { getEquipmentDefinition } from '../equipment';
