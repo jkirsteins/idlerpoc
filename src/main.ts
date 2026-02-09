@@ -78,9 +78,8 @@ try {
   console.error('Failed to initialize game state, clearing save:', e);
   clearGame();
   state = { phase: 'no_game' };
-  showErrorBanner(
-    'Your save was corrupted and had to be cleared. Sorry about that!'
-  );
+  const errorDetail = e instanceof Error ? e.message : String(e);
+  showErrorBanner(`Save corrupted and cleared: ${errorDetail}`);
 }
 let tickInterval: number | null = null;
 
@@ -370,7 +369,11 @@ const callbacks: RendererCallbacks = {
     shipClassId: ShipClassId
   ) => {
     const gameData = createNewGame(captainName, shipName, shipClassId);
-    saveGame(gameData);
+    if (!saveGame(gameData)) {
+      showErrorBanner(
+        'Warning: could not save game. Storage may be unavailable on this device.'
+      );
+    }
     state = { phase: 'playing', gameData, activeTab: 'ship' };
     renderApp();
   },
