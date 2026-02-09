@@ -71,16 +71,9 @@ function showErrorBanner(message: string): void {
   document.body.prepend(banner);
 }
 
-let state: GameState;
-try {
-  state = initializeState();
-} catch (e) {
-  console.error('Failed to initialize game state, clearing save:', e);
-  clearGame();
-  state = { phase: 'no_game' };
-  const errorDetail = e instanceof Error ? e.message : String(e);
-  showErrorBanner(`Save corrupted and cleared: ${errorDetail}`);
-}
+// All module-level `let` variables MUST be declared before initializeState()
+// is called, otherwise Safari hits a Temporal Dead Zone error (the `let`
+// bindings are hoisted but not initialized until the declaration is reached).
 let tickInterval: number | null = null;
 
 /** State for ongoing batched catch-up processing */
@@ -104,6 +97,17 @@ let hiddenSnapshot: {
   gameTime: number;
   realTimestamp: number;
 } | null = null;
+
+let state: GameState;
+try {
+  state = initializeState();
+} catch (e) {
+  console.error('Failed to initialize game state, clearing save:', e);
+  clearGame();
+  state = { phase: 'no_game' };
+  const errorDetail = e instanceof Error ? e.message : String(e);
+  showErrorBanner(`Save corrupted and cleared: ${errorDetail}`);
+}
 
 /**
  * Build a CatchUpReport summarising what happened during an absence.
