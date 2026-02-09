@@ -182,7 +182,8 @@ export function createNavigationView(
               ship,
               currentLocation,
               location,
-              false
+              false,
+              ship.flightProfileBurnFraction
             );
             const travelTime = formatDualTime(flight.totalTime);
 

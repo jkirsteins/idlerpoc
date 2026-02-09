@@ -237,12 +237,19 @@ export function calculateFuelMassRequired(
  * low-thrust ships that coast aren't overcharged.
  *
  * Shared by questGen (estimation) and contractExec (leg checks).
+ *
+ * @param burnFraction 0.1-1.0: fraction of delta-v budget to use (1.0 = max speed)
  */
-export function calculateOneLegFuelKg(ship: Ship, distanceKm: number): number {
+export function calculateOneLegFuelKg(
+  ship: Ship,
+  distanceKm: number,
+  burnFraction: number = 1.0
+): number {
   const shipClass = getShipClass(ship.classId);
   const engineDef = getEngineDefinition(ship.engine.definitionId);
   if (!shipClass) return 0;
 
+  const clampedBurnFraction = Math.max(0.1, Math.min(1.0, burnFraction));
   const distanceMeters = distanceKm * 1000;
   const thrust = engineDef.thrust;
   const specificImpulse = getSpecificImpulse(engineDef);
@@ -262,16 +269,17 @@ export function calculateOneLegFuelKg(ship: Ship, distanceKm: number): number {
   // Brachistochrone delta-v
   const brachistochroneDeltaV = 2 * Math.sqrt(distanceMeters * acceleration);
 
-  // Available delta-v with current fuel
+  // Available delta-v with current fuel, scaled by burn fraction
   const availableDeltaV = calculateDeltaV(
     currentMass,
     dryMass,
     specificImpulse
   );
-  const allocatedDeltaV = Math.min(
+  const maxAllocatedDeltaV = Math.min(
     availableDeltaV * 0.5,
     0.5 * engineDef.maxDeltaV
   );
+  const allocatedDeltaV = maxAllocatedDeltaV * clampedBurnFraction;
 
   // Use brachistochrone if budget allows, otherwise burn-coast-burn
   const legDeltaV = Math.min(brachistochroneDeltaV, allocatedDeltaV);
@@ -300,18 +308,26 @@ export function calculateFuelCost(
 /**
  * Initialize a new flight from origin to destination
  * Uses current ship mass (including fuel) for acceleration calculations
+ *
+ * @param burnFraction 0.1-1.0: fraction of allocated delta-v budget to use.
+ *   1.0 = max speed (use full budget, shortest trip, most fuel).
+ *   Lower values coast more, saving fuel at the cost of longer trips.
  */
 export function initializeFlight(
   ship: Ship,
   origin: WorldLocation,
   destination: WorldLocation,
-  dockOnArrival: boolean = false
+  dockOnArrival: boolean = false,
+  burnFraction: number = 1.0
 ): FlightState {
   const engineDef = getEngineDefinition(ship.engine.definitionId);
   const shipClass = getShipClass(ship.classId);
   if (!shipClass) {
     throw new Error(`Unknown ship class: ${ship.classId}`);
   }
+
+  // Clamp burn fraction to valid range
+  const clampedBurnFraction = Math.max(0.1, Math.min(1.0, burnFraction));
 
   // Calculate distance in meters
   const distanceKm = getDistanceBetween(origin, destination);
@@ -328,10 +344,12 @@ export function initializeFlight(
   const availableDeltaV = calculateDeltaV(wetMass, dryMass, specificImpulse);
 
   // Use 50% of available delta-v for this trip (need margin for deceleration)
-  const allocatedDeltaV = Math.min(
+  // Then scale by burnFraction: lower fraction = less delta-v used = more coasting
+  const maxAllocatedDeltaV = Math.min(
     availableDeltaV * 0.5,
     0.5 * engineDef.maxDeltaV
   );
+  const allocatedDeltaV = maxAllocatedDeltaV * clampedBurnFraction;
 
   // Calculate cruise velocity (half delta-v for accel, half for decel)
   const v_cruise = allocatedDeltaV / 2;
@@ -374,6 +392,7 @@ export function initializeFlight(
     totalTime,
     acceleration: initialAcceleration,
     dockOnArrival,
+    burnFraction: clampedBurnFraction,
   };
 }
 

@@ -126,6 +126,7 @@ export interface FlightState {
   totalTime: number; // game-seconds for full leg
   acceleration: number; // m/s² during burns
   dockOnArrival: boolean;
+  burnFraction: number; // 0.1-1.0: fraction of delta-v budget to use (1.0 = max speed)
 }
 
 export interface ShipLocation {
@@ -227,6 +228,7 @@ export interface Ship {
   metrics: ShipMetrics; // Performance tracking for fleet management
   role?: 'courier' | 'freighter' | 'scout' | 'combat' | 'luxury'; // Player-assigned specialization
   activeFlightPlan?: FlightState; // Current flight plan (replaces location.flight)
+  flightProfileBurnFraction: number; // 0.1-1.0: per-ship flight profile setting (1.0 = max speed, lower = more coasting, less fuel)
 }
 
 export type QuestType =

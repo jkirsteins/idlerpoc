@@ -83,6 +83,17 @@ export function loadGame(): GameData | null {
         if (ship.role === undefined) {
           ship.role = undefined;
         }
+        // Backfill flight profile burn fraction (default: max speed)
+        if (ship.flightProfileBurnFraction === undefined) {
+          ship.flightProfileBurnFraction = 1.0;
+        }
+        // Backfill burnFraction on active flight plans
+        if (
+          ship.activeFlightPlan &&
+          ship.activeFlightPlan.burnFraction === undefined
+        ) {
+          ship.activeFlightPlan.burnFraction = 1.0;
+        }
       }
     }
 

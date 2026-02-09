@@ -190,7 +190,13 @@ export function acceptQuest(
   delete ship.location.dockedAt;
   delete ship.location.orbitingAt;
 
-  ship.activeFlightPlan = initializeFlight(ship, origin, destination, false);
+  ship.activeFlightPlan = initializeFlight(
+    ship,
+    origin,
+    destination,
+    false,
+    ship.flightProfileBurnFraction
+  );
 
   ship.engine.state = 'warming_up';
   ship.engine.warmupProgress = 0;
@@ -343,7 +349,8 @@ export function completeLeg(gameData: GameData, ship: Ship): void {
         ship,
         nextOrigin,
         nextDestination,
-        false
+        false,
+        ship.flightProfileBurnFraction
       );
       ship.engine.state = 'warming_up';
       ship.engine.warmupProgress = 0;
@@ -490,7 +497,8 @@ export function completeLeg(gameData: GameData, ship: Ship): void {
         ship,
         nextOrigin,
         nextDestination,
-        false
+        false,
+        ship.flightProfileBurnFraction
       );
       ship.engine.state = 'warming_up';
       ship.engine.warmupProgress = 0;
@@ -556,7 +564,8 @@ export function resumeContract(gameData: GameData, ship: Ship): void {
     ship,
     currentLoc,
     nextDestination,
-    false
+    false,
+    ship.flightProfileBurnFraction
   );
   ship.engine.state = 'warming_up';
   ship.engine.warmupProgress = 0;
