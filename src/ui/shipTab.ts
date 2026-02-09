@@ -70,6 +70,8 @@ function snapshotShipProps(gameData: GameData, showNav: boolean) {
     flightDist: ship.activeFlightPlan?.distanceCovered,
     flightTotal: ship.activeFlightPlan?.totalDistance,
     flightDest: ship.activeFlightPlan?.destination,
+    flightVelocity: ship.activeFlightPlan?.currentVelocity,
+    flightPhase: ship.activeFlightPlan?.phase,
     crewCount: ship.crew.length,
     cargoCount: ship.cargo.length,
     equipCount: ship.equipment.length,
