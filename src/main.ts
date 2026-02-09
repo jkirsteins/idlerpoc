@@ -868,9 +868,6 @@ const callbacks: RendererCallbacks = {
       return;
     if (ship.activeContract) return;
 
-    // Helm must be manned to start a trip
-    if (!isHelmManned(ship)) return;
-
     const currentLocationId =
       ship.location.dockedAt || ship.location.orbitingAt;
     if (!currentLocationId) return;
@@ -884,14 +881,10 @@ const callbacks: RendererCallbacks = {
 
     if (!origin || !destination) return;
 
-    import('./flightPhysics').then(({ initializeFlight }) => {
+    import('./flightPhysics').then(({ startShipFlight }) => {
       if (state.phase !== 'playing') return;
 
-      ship.location.status = 'in_flight';
-      delete ship.location.dockedAt;
-      delete ship.location.orbitingAt;
-
-      ship.activeFlightPlan = initializeFlight(
+      const departed = startShipFlight(
         ship,
         origin,
         destination,
@@ -899,8 +892,7 @@ const callbacks: RendererCallbacks = {
         ship.flightProfileBurnFraction
       );
 
-      ship.engine.state = 'warming_up';
-      ship.engine.warmupProgress = 0;
+      if (!departed) return; // Helm unmanned — UI already reflects this
 
       addLog(
         state.gameData.log,
