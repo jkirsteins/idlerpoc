@@ -148,13 +148,6 @@ function applyShipTick(gameData: GameData, ship: Ship): boolean {
   if (ship.location.status === 'in_flight') {
     const engineDef = getEngineDefinition(ship.engine.definitionId);
 
-    // Check if engine room is staffed and operational
-    const engineRoom = ship.rooms.find((r) => r.type === 'engine_room');
-    const engineRoomStaffed =
-      engineRoom &&
-      engineRoom.state === 'operational' &&
-      engineRoom.assignedCrewIds.length > 0;
-
     // 1. Engine warmup progress
     if (ship.engine.state === 'warming_up') {
       ship.engine.warmupProgress = Math.min(
@@ -175,7 +168,7 @@ function applyShipTick(gameData: GameData, ship: Ship): boolean {
       // Fuel consumption during burn phases (mass-based, pro-rated)
       // Burns are pro-rated to the actual seconds spent accelerating/decelerating
       // within this tick, so phase transitions mid-tick don't over- or under-charge.
-      if (ship.engine.state === 'online' && engineRoomStaffed) {
+      if (ship.engine.state === 'online') {
         const burnSeconds = calculateBurnSecondsInTick(
           ship.activeFlightPlan,
           GAME_SECONDS_PER_TICK
