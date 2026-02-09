@@ -45,6 +45,55 @@ export interface ShipTabCallbacks {
   onBuyShip?: (classId: string, shipName: string) => void;
 }
 
+/** Snapshot the props the ship tab renders so we can shallow-compare. */
+function snapshotShipProps(gameData: GameData, showNav: boolean) {
+  const ship = getActiveShip(gameData);
+  return {
+    showNav,
+    shipId: ship.id,
+    fuelKg: ship.fuelKg,
+    maxFuelKg: ship.maxFuelKg,
+    engineState: ship.engine.state,
+    warmupProgress: ship.engine.warmupProgress,
+    engineDef: ship.engine.definitionId,
+    locationStatus: ship.location.status,
+    dockedAt: ship.location.dockedAt,
+    orbitingAt: ship.location.orbitingAt,
+    flightDist: ship.activeFlightPlan?.distanceCovered,
+    flightTotal: ship.activeFlightPlan?.totalDistance,
+    flightDest: ship.activeFlightPlan?.destination,
+    crewCount: ship.crew.length,
+    cargoCount: ship.cargo.length,
+    equipCount: ship.equipment.length,
+    // Crew roster identity + stats that affect the rendered UI
+    crew: ship.crew.map((c) => c.id + c.name + c.level + c.isCaptain).join(),
+    crewSkills: ship.crew
+      .map(
+        (c) =>
+          `${c.skills.piloting}${c.skills.astrogation}${c.skills.engineering}${c.skills.strength}`
+      )
+      .join(),
+    // Job slot assignments drive the assign/remove buttons
+    slots: ship.jobSlots.map((s) => s.id + ':' + s.assignedCrewId).join(),
+    // Equipment degradation drives the wear bars
+    equipDeg: ship.equipment
+      .map((eq) => eq.definitionId + eq.degradation.toFixed(1))
+      .join(),
+    // Room states
+    rooms: ship.rooms.map((r) => r.id + r.state).join(),
+  };
+}
+
+type ShipSnapshot = ReturnType<typeof snapshotShipProps>;
+
+function shipPropsChanged(a: ShipSnapshot | null, b: ShipSnapshot): boolean {
+  if (!a) return true;
+  for (const key of Object.keys(b) as Array<keyof ShipSnapshot>) {
+    if (a[key] !== b[key]) return true;
+  }
+  return false;
+}
+
 export function createShipTab(
   gameData: GameData,
   showNavigation: boolean,
@@ -53,8 +102,13 @@ export function createShipTab(
   const container = document.createElement('div');
   container.className = 'ship-tab';
   let currentShowNav = showNavigation;
+  let lastSnapshot: ShipSnapshot | null = null;
 
   function rebuild(gameData: GameData) {
+    const snap = snapshotShipProps(gameData, currentShowNav);
+    if (!shipPropsChanged(lastSnapshot, snap)) return;
+    lastSnapshot = snap;
+
     container.replaceChildren();
 
     if (currentShowNav) {
