@@ -124,34 +124,18 @@ export function deduceRoleFromSkills(skills: CrewSkills): CrewRole {
 }
 
 /**
- * Generate skills weighted toward a specific role.
- * Primary skill gets 20-40, secondary skills get 5-20.
- *
- * @param targetRole The desired role for this crew member
- * @returns A CrewSkills object weighted toward that role
+ * Generate starting skills for a crew member. All crew start at zero
+ * and train skills through job assignments during flight.
  */
-export function generateSkillsForRole(targetRole: CrewRole): CrewSkills {
-  // Find the skill that maps to this role
-  const primarySkill = Object.entries(SKILL_TO_ROLE).find(
-    ([_, role]) => role === targetRole
-  )?.[0] as SkillId | undefined;
-
-  // Generate base skills (5-20 for all)
-  const skills: CrewSkills = {
-    piloting: Math.floor(Math.random() * 16) + 5, // 5-20
-    astrogation: Math.floor(Math.random() * 16) + 5, // 5-20
-    engineering: Math.floor(Math.random() * 16) + 5, // 5-20
-    strength: Math.floor(Math.random() * 16) + 5, // 5-20
-    charisma: Math.floor(Math.random() * 16) + 5, // 5-20
-    loyalty: Math.floor(Math.random() * 16) + 5, // 5-20
+export function generateSkillsForRole(_targetRole: CrewRole): CrewSkills {
+  return {
+    piloting: 0,
+    astrogation: 0,
+    engineering: 0,
+    strength: 0,
+    charisma: 0,
+    loyalty: 0,
   };
-
-  // Boost primary skill to 20-40
-  if (primarySkill) {
-    skills[primarySkill] = Math.floor(Math.random() * 21) + 20; // 20-40
-  }
-
-  return skills;
 }
 
 /**
