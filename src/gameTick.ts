@@ -2,7 +2,7 @@ import type { GameData, Ship, EncounterResult } from './models';
 import { getEngineDefinition } from './engines';
 import {
   advanceFlight,
-  isEngineBurning,
+  calculateBurnSecondsInTick,
   calculateFuelFlowRate,
   getSpecificImpulse,
 } from './flightPhysics';
@@ -172,23 +172,23 @@ function applyShipTick(gameData: GameData, ship: Ship): boolean {
     if (ship.activeFlightPlan && ship.engine.state === 'online') {
       const flightComplete = advanceFlight(ship.activeFlightPlan);
 
-      // Fuel consumption during burn phases (mass-based)
-      const engineBurning = isEngineBurning(ship.activeFlightPlan);
-      if (
-        engineBurning &&
-        ship.engine.state === 'online' &&
-        engineRoomStaffed
-      ) {
-        // Calculate fuel flow rate using rocket equation
-        const specificImpulse = getSpecificImpulse(engineDef);
-        const fuelFlowRateKgPerSec = calculateFuelFlowRate(
-          engineDef.thrust,
-          specificImpulse
+      // Fuel consumption during burn phases (mass-based, pro-rated)
+      // Burns are pro-rated to the actual seconds spent accelerating/decelerating
+      // within this tick, so phase transitions mid-tick don't over- or under-charge.
+      if (ship.engine.state === 'online' && engineRoomStaffed) {
+        const burnSeconds = calculateBurnSecondsInTick(
+          ship.activeFlightPlan,
+          GAME_SECONDS_PER_TICK
         );
-
-        // Consume fuel for this tick
-        const fuelConsumedKg = fuelFlowRateKgPerSec * GAME_SECONDS_PER_TICK;
-        ship.fuelKg = Math.max(0, ship.fuelKg - fuelConsumedKg);
+        if (burnSeconds > 0) {
+          const specificImpulse = getSpecificImpulse(engineDef);
+          const fuelFlowRateKgPerSec = calculateFuelFlowRate(
+            engineDef.thrust,
+            specificImpulse
+          );
+          const fuelConsumedKg = fuelFlowRateKgPerSec * burnSeconds;
+          ship.fuelKg = Math.max(0, ship.fuelKg - fuelConsumedKg);
+        }
       }
 
       changed = true;

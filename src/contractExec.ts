@@ -1,25 +1,65 @@
 import type { GameData, Ship, ActiveContract, Quest } from './models';
-import {
-  initializeFlight,
-  calculateFuelMassRequired,
-  getCurrentShipMass,
-  getSpecificImpulse,
-} from './flightPhysics';
+import { initializeFlight } from './flightPhysics';
 import { addLog } from './logSystem';
-import { getShipClass } from './shipClasses';
 import { generateAllLocationQuests } from './questGen';
 import { getDaysSinceEpoch, TICKS_PER_DAY } from './timeSystem';
 import { generateHireableCrewByLocation } from './gameFactory';
-import { getEngineDefinition } from './engines';
-import { getDistanceBetween } from './worldGen';
 import { awardEventXP, logLevelUps } from './skillProgression';
 import { checkAutoRefuel, autoRestartRouteTrip } from './routeAssignment';
+import { getFuelPricePerKg } from './ui/refuelDialog';
 
 /**
  * Contract Execution
  *
  * Manages active contract state and transitions (per-ship)
  */
+
+/**
+ * Auto-refuel a ship to 100% at a station between legs.
+ * Always tops up the tank. If the ship can't afford a full refuel, auto-pauses.
+ */
+function tryAutoRefuelForLeg(
+  gameData: GameData,
+  ship: Ship,
+  locationId: string
+): boolean {
+  const fuelNeededKg = ship.maxFuelKg - ship.fuelKg;
+  if (fuelNeededKg <= 0) return true; // Already full
+
+  const location = gameData.world.locations.find((l) => l.id === locationId);
+  if (!location || !location.services.includes('refuel')) {
+    return false;
+  }
+
+  const pricePerKg = getFuelPricePerKg(location);
+  const fullCost = Math.round(fuelNeededKg * pricePerKg);
+
+  if (gameData.credits >= fullCost) {
+    ship.fuelKg = ship.maxFuelKg;
+    gameData.credits -= fullCost;
+    ship.metrics.fuelCostsPaid += fullCost;
+
+    addLog(
+      gameData.log,
+      gameData.gameTime,
+      'refueled',
+      `Auto-refueled ${ship.name} at ${location.name}: ${Math.round(fuelNeededKg).toLocaleString()} kg (${fullCost.toLocaleString()} cr)`,
+      ship.name
+    );
+    return true;
+  }
+
+  // Can't afford full tank — auto-pause
+  gameData.isPaused = true;
+  addLog(
+    gameData.log,
+    gameData.gameTime,
+    'refueled',
+    `${ship.name} cannot afford refuel at ${location.name} (${fullCost.toLocaleString()} cr needed, have ${gameData.credits.toLocaleString()} cr)`,
+    ship.name
+  );
+  return false;
+}
 
 /**
  * Get location IDs where player ships are docked
@@ -272,30 +312,13 @@ export function completeLeg(gameData: GameData, ship: Ship): void {
 
       const nextOrigin = destLoc;
       const nextDestination = originLoc;
-      const distanceKm = getDistanceBetween(nextOrigin, nextDestination);
 
-      const shipClass = getShipClass(ship.classId);
-      if (!shipClass) return;
-      const engineDef = getEngineDefinition(ship.engine.definitionId);
+      // Auto-refuel to 100% at destination before return trip
+      const hasFuel = tryAutoRefuelForLeg(gameData, ship, arrivalLocation.id);
 
-      // Calculate required delta-v for this trip
-      const distanceMeters = distanceKm * 1000;
-      const currentMass = getCurrentShipMass(ship);
-      const thrust = engineDef.thrust;
-      const acceleration = thrust / currentMass;
-      const requiredDeltaV = 2 * Math.sqrt(distanceMeters * acceleration);
-
-      // Calculate fuel mass required
-      const dryMass = shipClass.mass + ship.crew.length * 80;
-      const specificImpulse = getSpecificImpulse(engineDef);
-      const requiredFuelKg = calculateFuelMassRequired(
-        dryMass,
-        requiredDeltaV,
-        specificImpulse
-      );
-
-      if (ship.fuelKg < requiredFuelKg * 1.1) {
+      if (!hasFuel) {
         activeContract.paused = true;
+        gameData.isPaused = true;
         ship.location.status = 'docked';
         ship.location.dockedAt = arrivalLocation.id;
         delete ship.location.orbitingAt;
@@ -436,30 +459,13 @@ export function completeLeg(gameData: GameData, ship: Ship): void {
 
       const nextOrigin = originLoc;
       const nextDestination = destLoc;
-      const distanceKm = getDistanceBetween(nextOrigin, nextDestination);
 
-      const shipClass = getShipClass(ship.classId);
-      if (!shipClass) return;
-      const engineDef = getEngineDefinition(ship.engine.definitionId);
+      // Auto-refuel to 100% at origin before next outbound trip
+      const hasFuel = tryAutoRefuelForLeg(gameData, ship, arrivalLocation.id);
 
-      // Calculate required delta-v for this trip
-      const distanceMeters = distanceKm * 1000;
-      const currentMass = getCurrentShipMass(ship);
-      const thrust = engineDef.thrust;
-      const acceleration = thrust / currentMass;
-      const requiredDeltaV = 2 * Math.sqrt(distanceMeters * acceleration);
-
-      // Calculate fuel mass required
-      const dryMass = shipClass.mass + ship.crew.length * 80;
-      const specificImpulse = getSpecificImpulse(engineDef);
-      const requiredFuelKg = calculateFuelMassRequired(
-        dryMass,
-        requiredDeltaV,
-        specificImpulse
-      );
-
-      if (ship.fuelKg < requiredFuelKg * 1.1) {
+      if (!hasFuel) {
         activeContract.paused = true;
+        gameData.isPaused = true;
         ship.location.status = 'docked';
         ship.location.dockedAt = arrivalLocation.id;
         delete ship.location.orbitingAt;

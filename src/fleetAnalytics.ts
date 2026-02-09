@@ -2,6 +2,7 @@ import type { GameData, Ship, Quest } from './models';
 import { getShipClass } from './shipClasses';
 import { getEngineDefinition } from './engines';
 import {
+  calculateAvailableCargoCapacity,
   calculateFuelMassRequired,
   getCurrentShipMass,
   getSpecificImpulse,
@@ -318,22 +319,25 @@ export function matchShipToContract(
     }
   }
 
-  // Check cargo capacity
+  // Check cargo capacity (available space after fuel allocation)
   if (quest.cargoRequired > 0) {
-    if (quest.cargoRequired > shipClass.cargoCapacity) {
+    const availableCargo = calculateAvailableCargoCapacity(
+      shipClass.cargoCapacity
+    );
+    if (quest.cargoRequired > availableCargo) {
       score = 1;
       reasons.push(
-        `❌ Cargo: ${quest.cargoRequired} kg (ship max: ${shipClass.cargoCapacity} kg)`
+        `❌ Cargo: ${quest.cargoRequired} kg (ship max: ${Math.floor(availableCargo)} kg)`
       );
-    } else if (quest.cargoRequired > shipClass.cargoCapacity * 0.8) {
+    } else if (quest.cargoRequired > availableCargo * 0.8) {
       score -= 0.5;
       reasons.push(
-        `⚠️ Cargo tight: ${quest.cargoRequired} kg (${Math.round((quest.cargoRequired / shipClass.cargoCapacity) * 100)}% capacity)`
+        `⚠️ Cargo tight: ${quest.cargoRequired} kg (${Math.round((quest.cargoRequired / availableCargo) * 100)}% capacity)`
       );
     } else {
       score += 0.5;
       reasons.push(
-        `✅ Cargo: ${quest.cargoRequired} kg (${Math.round((quest.cargoRequired / shipClass.cargoCapacity) * 100)}% capacity)`
+        `✅ Cargo: ${quest.cargoRequired} kg (${Math.round((quest.cargoRequired / availableCargo) * 100)}% capacity)`
       );
     }
   }

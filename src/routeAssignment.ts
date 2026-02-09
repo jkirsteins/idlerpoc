@@ -3,6 +3,7 @@ import { canAcceptQuest } from './questGen';
 import { acceptQuest } from './contractExec';
 import { addLog } from './logSystem';
 import { generateId } from './gameFactory';
+import { getFuelPricePerKg } from './ui/refuelDialog';
 
 /**
  * Route Assignment System
@@ -144,9 +145,10 @@ export function checkAutoRefuel(
   const fuelPercentage = (ship.fuelKg / ship.maxFuelKg) * 100;
 
   if (fuelPercentage < threshold) {
-    // Calculate refuel amount and cost (0.5 cr per kg)
+    // Calculate refuel amount and cost using location-based pricing
     const fuelNeededKg = ship.maxFuelKg - ship.fuelKg;
-    const fuelCost = Math.round(fuelNeededKg * 0.5); // 0.5 credits per kg
+    const pricePerKg = getFuelPricePerKg(location);
+    const fuelCost = Math.round(fuelNeededKg * pricePerKg);
 
     if (gameData.credits >= fuelCost) {
       ship.fuelKg = ship.maxFuelKg;
@@ -159,7 +161,7 @@ export function checkAutoRefuel(
         gameData.log,
         gameData.gameTime,
         'refueled',
-        `Auto-refueled at ${location.name} (${fuelCost} credits)`,
+        `Auto-refueled ${ship.name} at ${location.name}: ${Math.round(fuelNeededKg).toLocaleString()} kg (${fuelCost.toLocaleString()} cr)`,
         ship.name
       );
 

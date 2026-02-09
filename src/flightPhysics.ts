@@ -44,6 +44,18 @@ export function calculateFuelTankCapacity(
 }
 
 /**
+ * Calculate available cargo capacity after fuel allocation.
+ * This is the maximum cargo a ship can carry on a single trip.
+ *
+ * cargoCapacity is a shared pool: 70% fuel, 30% available for cargo.
+ * All cargo validation should use this function instead of raw cargoCapacity.
+ */
+export function calculateAvailableCargoCapacity(cargoCapacity: number): number {
+  const FUEL_FRACTION = 0.7;
+  return cargoCapacity * (1 - FUEL_FRACTION);
+}
+
+/**
  * Calculate current ship mass including fuel, cargo, and crew
  */
 export function getCurrentShipMass(ship: Ship): number {
@@ -218,6 +230,56 @@ export function calculateFuelMassRequired(
 }
 
 /**
+ * Calculate one-way fuel for a ship+distance, accounting for burn-coast-burn.
+ *
+ * Uses the same flight-profile logic as initializeFlight():
+ * caps the required delta-v at the ship's per-leg budget so that
+ * low-thrust ships that coast aren't overcharged.
+ *
+ * Shared by questGen (estimation) and contractExec (leg checks).
+ */
+export function calculateOneLegFuelKg(ship: Ship, distanceKm: number): number {
+  const shipClass = getShipClass(ship.classId);
+  const engineDef = getEngineDefinition(ship.engine.definitionId);
+  if (!shipClass) return 0;
+
+  const distanceMeters = distanceKm * 1000;
+  const thrust = engineDef.thrust;
+  const specificImpulse = getSpecificImpulse(engineDef);
+
+  // Dry mass = everything except fuel
+  const dryMass =
+    shipClass.mass +
+    ship.crew.length * 80 +
+    ship.cargo.reduce((sum, _item) => sum + 10, 0);
+
+  // Current wet mass
+  const currentMass = getCurrentShipMass(ship);
+
+  // Acceleration (using current mass for consistency with initializeFlight)
+  const acceleration = thrust / currentMass;
+
+  // Brachistochrone delta-v
+  const brachistochroneDeltaV = 2 * Math.sqrt(distanceMeters * acceleration);
+
+  // Available delta-v with current fuel
+  const availableDeltaV = calculateDeltaV(
+    currentMass,
+    dryMass,
+    specificImpulse
+  );
+  const allocatedDeltaV = Math.min(
+    availableDeltaV * 0.5,
+    0.5 * engineDef.maxDeltaV
+  );
+
+  // Use brachistochrone if budget allows, otherwise burn-coast-burn
+  const legDeltaV = Math.min(brachistochroneDeltaV, allocatedDeltaV);
+
+  return calculateFuelMassRequired(dryMass, legDeltaV, specificImpulse);
+}
+
+/**
  * TEMPORARY STUB: Calculate fuel cost for a trip
  * TODO: Replace with proper implementation using Tsiolkovsky equation
  * Returns fuel mass in kg required for the trip
@@ -328,6 +390,47 @@ export function calculateFuelFlowRate(
   specificImpulse: number
 ): number {
   return thrust / (specificImpulse * G0);
+}
+
+/**
+ * Calculate how many seconds of a tick were spent in burn phases.
+ *
+ * Burn phases are [0, burnTime] (acceleration) and
+ * [burnTime + coastTime, totalTime] (deceleration).
+ * This allows pro-rated fuel consumption instead of full-tick charging.
+ */
+export function calculateBurnSecondsInTick(
+  flight: FlightState,
+  dt: number
+): number {
+  const tEnd = flight.elapsedTime;
+  const tStart = tEnd - dt;
+
+  if (flight.coastTime === 0) {
+    // Brachistochrone: burning the entire flight
+    const effectiveStart = Math.max(tStart, 0);
+    const effectiveEnd = Math.min(tEnd, flight.totalTime);
+    return Math.max(0, effectiveEnd - effectiveStart);
+  }
+
+  let burnSeconds = 0;
+
+  // Acceleration phase: [0, burnTime]
+  const accelStart = Math.max(tStart, 0);
+  const accelEnd = Math.min(tEnd, flight.burnTime);
+  if (accelEnd > accelStart) {
+    burnSeconds += accelEnd - accelStart;
+  }
+
+  // Deceleration phase: [burnTime + coastTime, totalTime]
+  const decelPhaseStart = flight.burnTime + flight.coastTime;
+  const decelStart = Math.max(tStart, decelPhaseStart);
+  const decelEnd = Math.min(tEnd, flight.totalTime);
+  if (decelEnd > decelStart) {
+    burnSeconds += decelEnd - decelStart;
+  }
+
+  return burnSeconds;
 }
 
 /**

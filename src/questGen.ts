@@ -2,7 +2,10 @@ import type { Quest, Ship, WorldLocation, World } from './models';
 import { getShipClass } from './shipClasses';
 import { getDistanceBetween } from './worldGen';
 import {
+  calculateAvailableCargoCapacity,
+  calculateDeltaV,
   calculateFuelMassRequired,
+  calculateFuelTankCapacity,
   getCurrentShipMass,
   getSpecificImpulse,
 } from './flightPhysics';
@@ -11,25 +14,62 @@ import { getEngineDefinition } from './engines';
 import { getCrewRoleDefinition } from './crewRoles';
 import { calculatePositionDanger } from './encounterSystem';
 
-// Fuel pricing constant (credits per kg)
-const FUEL_PRICE_PER_KG = 0.5; // Will be configurable per station in future
+// Fuel pricing constant for payment calculations (credits per kg)
+// Matches base rate from refuelDialog.ts getFuelPricePerKg()
+// Actual station prices range from 1.6 (Earth/LEO) to 5.0 (Outer System)
+const FUEL_PRICE_PER_KG = 2.0;
 
 /**
- * Helper: Calculate fuel mass required for a trip in kg
+ * Helper: Calculate fuel mass required for a one-way trip in kg
+ *
+ * Uses the same flight profile logic as initializeFlight():
+ * - If the ship has enough delta-v for brachistochrone (flip-and-burn), use that
+ * - Otherwise use burn-coast-burn with the ship's allocated delta-v budget
+ *
+ * This prevents overestimating fuel for low-thrust ships that would coast
+ * rather than burn continuously.
  */
 function calculateTripFuelKg(ship: Ship, distanceKm: number): number {
   const shipClass = getShipClass(ship.classId);
   const engineDef = getEngineDefinition(ship.engine.definitionId);
 
   const distanceMeters = distanceKm * 1000;
-  const currentMass = getCurrentShipMass(ship);
   const thrust = engineDef.thrust;
-  const acceleration = thrust / currentMass;
-  const requiredDeltaV = 2 * Math.sqrt(distanceMeters * acceleration);
-  const dryMass = shipClass ? shipClass.mass + ship.crew.length * 80 : 200000;
   const specificImpulse = getSpecificImpulse(engineDef);
 
-  return calculateFuelMassRequired(dryMass, requiredDeltaV, specificImpulse);
+  // Dry mass = everything except fuel (hull + crew + cargo)
+  // Cargo stays on the ship, so it's part of dry mass for Tsiolkovsky
+  const dryMass = shipClass
+    ? shipClass.mass +
+      ship.crew.length * 80 +
+      ship.cargo.reduce((sum, _item) => sum + 10, 0)
+    : 200000;
+
+  // Wet mass at full fuel tank
+  const maxFuelKg = shipClass
+    ? calculateFuelTankCapacity(shipClass.cargoCapacity, engineDef)
+    : 0;
+  const fullMass = dryMass + maxFuelKg;
+
+  // Acceleration at full fuel (worst case, heaviest)
+  const acceleration = thrust / fullMass;
+
+  // Brachistochrone delta-v: minimum-time trajectory (accel to midpoint, decel to destination)
+  const brachistochroneDeltaV = 2 * Math.sqrt(distanceMeters * acceleration);
+
+  // Available delta-v with full tank (matching initializeFlight logic)
+  const availableDeltaV = calculateDeltaV(fullMass, dryMass, specificImpulse);
+
+  // Allocate 50% for one leg (reserve 50% for return trip)
+  const allocatedDeltaV = Math.min(
+    availableDeltaV * 0.5,
+    0.5 * engineDef.maxDeltaV
+  );
+
+  // Use brachistochrone if we have budget, otherwise burn-coast-burn
+  const legDeltaV = Math.min(brachistochroneDeltaV, allocatedDeltaV);
+
+  return calculateFuelMassRequired(dryMass, legDeltaV, specificImpulse);
 }
 
 /**
@@ -228,8 +268,12 @@ function generateDeliveryQuest(
   const distanceKm = getDistanceBetween(origin, destination);
   const cargoType = CARGO_TYPES[Math.floor(Math.random() * CARGO_TYPES.length)];
 
-  // Cargo between 1,000 - 10,000 kg
-  const cargoKg = Math.round(1000 + Math.random() * 9000);
+  // Cargo between 1,000 - 10,000 kg, capped at 80% of available cargo space
+  const shipClass = getShipClass(ship.classId);
+  const maxCargo = shipClass
+    ? Math.floor(calculateAvailableCargoCapacity(shipClass.cargoCapacity) * 0.8)
+    : 1000;
+  const cargoKg = Math.round(Math.min(1000 + Math.random() * 9000, maxCargo));
 
   const payment = calculatePayment(ship, distanceKm, cargoKg);
   const estimatedTime = estimateTripTime(ship, distanceKm);
@@ -298,7 +342,15 @@ function generateFreightQuest(
   const distanceKm = getDistanceBetween(origin, destination);
   const cargoType = CARGO_TYPES[Math.floor(Math.random() * CARGO_TYPES.length)];
 
-  const cargoKg = Math.round(1000 + Math.random() * 9000);
+  const shipClassFreight = getShipClass(ship.classId);
+  const maxCargoFreight = shipClassFreight
+    ? Math.floor(
+        calculateAvailableCargoCapacity(shipClassFreight.cargoCapacity) * 0.8
+      )
+    : 1000;
+  const cargoKg = Math.round(
+    Math.min(1000 + Math.random() * 9000, maxCargoFreight)
+  );
   const trips = Math.floor(2 + Math.random() * 4); // 2-5 trips
 
   const paymentPerTrip = Math.round(
@@ -339,8 +391,10 @@ function generateSupplyQuest(
   // Total cargo between 20,000 - 50,000 kg
   const totalCargoKg = Math.round(20000 + Math.random() * 30000);
   const shipClass = getShipClass(ship.classId);
-  const cargoCapacity = shipClass ? shipClass.cargoCapacity : 5000;
-  const cargoPerTrip = Math.min(cargoCapacity * 0.8, 10000); // Use 80% of capacity
+  const availableCargoSupply = shipClass
+    ? calculateAvailableCargoCapacity(shipClass.cargoCapacity)
+    : 1500;
+  const cargoPerTrip = Math.min(availableCargoSupply * 0.8, 10000); // Use 80% of available cargo
 
   const payment = Math.round(
     calculatePayment(ship, distanceKm, totalCargoKg) * 1.5
@@ -377,7 +431,13 @@ function generateStandingFreightQuest(
   const distanceKm = getDistanceBetween(origin, destination);
   const cargoType = CARGO_TYPES[Math.floor(Math.random() * CARGO_TYPES.length)];
 
-  const cargoKg = Math.round(1000 + Math.random() * 9000);
+  const shipClassSF = getShipClass(ship.classId);
+  const maxCargoSF = shipClassSF
+    ? Math.floor(
+        calculateAvailableCargoCapacity(shipClassSF.cargoCapacity) * 0.8
+      )
+    : 1000;
+  const cargoKg = Math.round(Math.min(1000 + Math.random() * 9000, maxCargoSF));
   const paymentPerTrip = Math.round(
     calculatePayment(ship, distanceKm, cargoKg) * 0.7
   ); // 70% of one-off rate
@@ -564,8 +624,14 @@ export function generatePersistentTradeRoutes(
     const distanceKm = getDistanceBetween(location, partner);
     const tradeGood = getTradeGood(location, partner);
 
-    // Cargo scales with origin's economic power
-    const cargoKg = 1000 + location.size * 500;
+    // Cargo scales with origin's economic power, capped by ship's available cargo capacity
+    const shipClassTR = getShipClass(ship.classId);
+    const maxCargoTR = shipClassTR
+      ? Math.floor(
+          calculateAvailableCargoCapacity(shipClassTR.cargoCapacity) * 0.8
+        )
+      : 1000;
+    const cargoKg = Math.min(1000 + location.size * 500, maxCargoTR);
 
     const paymentPerTrip = calculateTradeRoutePayment(
       ship,
@@ -691,11 +757,14 @@ export function canAcceptQuest(
     return { canAccept: false, reason: 'Unknown ship class' };
   }
 
-  // Check cargo capacity
-  if (quest.cargoRequired > shipClass.cargoCapacity) {
+  // Check cargo capacity (available space after fuel allocation)
+  const availableCargo = calculateAvailableCargoCapacity(
+    shipClass.cargoCapacity
+  );
+  if (quest.cargoRequired > availableCargo) {
     return {
       canAccept: false,
-      reason: `Insufficient cargo capacity (need ${quest.cargoRequired.toLocaleString()} kg, have ${shipClass.cargoCapacity.toLocaleString()} kg)`,
+      reason: `Insufficient cargo capacity (need ${quest.cargoRequired.toLocaleString()} kg, have ${Math.floor(availableCargo).toLocaleString()} kg)`,
     };
   }
 

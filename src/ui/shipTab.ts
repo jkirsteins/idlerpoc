@@ -8,7 +8,10 @@ import { getEquipmentDefinition } from '../equipment';
 import { getEngineDefinition } from '../engines';
 import { createNavigationView } from './navigationView';
 import { getGravitySource } from '../gravitySystem';
-import { computeMaxRange } from '../flightPhysics';
+import {
+  calculateAvailableCargoCapacity,
+  computeMaxRange,
+} from '../flightPhysics';
 import { formatDualTime, GAME_SECONDS_PER_TICK } from '../timeSystem';
 import { renderStatBar } from './components/statBar';
 import { attachTooltip, formatPowerTooltip } from './components/tooltip';
@@ -638,7 +641,9 @@ function renderRoomCard(
     roomCard.appendChild(automatedMsg);
 
     const shipClass = getShipClass(ship.classId);
-    const maxCapacity = shipClass?.cargoCapacity ?? 0;
+    const maxCapacity = shipClass
+      ? Math.floor(calculateAvailableCargoCapacity(shipClass.cargoCapacity))
+      : 0;
 
     // For now, estimate cargo weight: assume each item is ~100 kg
     // TODO: Add actual weight property to equipment definitions

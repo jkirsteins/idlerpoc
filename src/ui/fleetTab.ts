@@ -2,7 +2,11 @@ import type { GameData, Ship } from '../models';
 import { getActiveShip } from '../models';
 import { getShipClass, SHIP_CLASSES } from '../shipClasses';
 import { getEngineDefinition } from '../engines';
-import { computeMaxRange, calculateFuelCost } from '../flightPhysics';
+import {
+  calculateAvailableCargoCapacity,
+  computeMaxRange,
+  calculateFuelCost,
+} from '../flightPhysics';
 import { getDistanceBetween } from '../worldGen';
 import { createFleetPanel } from './fleetPanel';
 import { formatDualTime } from '../timeSystem';
@@ -915,7 +919,10 @@ function renderShipPurchase(
     const rangeLabel = getRangeLabel(maxRangeKm);
     const rangeFormatted = formatLargeNumber(maxRangeKm);
 
-    specs.innerHTML = `Crew: ${shipClass.maxCrew} | Cargo: ${shipClass.cargoCapacity.toLocaleString()} kg | Equipment: ${shipClass.equipmentSlotDefs.length} slots<br>Range: <span style="color: #4ade80; font-weight: bold;">${rangeFormatted} km</span> <span style="color: #aaa;">(${rangeLabel})</span>`;
+    const availableCargoKg = Math.floor(
+      calculateAvailableCargoCapacity(shipClass.cargoCapacity)
+    );
+    specs.innerHTML = `Crew: ${shipClass.maxCrew} | Cargo: ${availableCargoKg.toLocaleString()} kg | Equipment: ${shipClass.equipmentSlotDefs.length} slots<br>Range: <span style="color: #4ade80; font-weight: bold;">${rangeFormatted} km</span> <span style="color: #aaa;">(${rangeLabel})</span>`;
     specs.title = `Max range with default engine: ${maxRangeKm.toLocaleString()} km`;
     card.appendChild(specs);
 
