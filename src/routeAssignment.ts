@@ -2,7 +2,7 @@ import type { GameData, Ship, Quest } from './models';
 import { canAcceptQuest } from './questGen';
 import { acceptQuest } from './contractExec';
 import { addLog } from './logSystem';
-import { generateId } from './gameFactory';
+import { generateId } from './utils';
 import { getFuelPricePerKg } from './ui/refuelDialog';
 
 /**

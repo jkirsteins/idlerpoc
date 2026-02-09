@@ -21,13 +21,12 @@ import { getEquipmentDefinition, canEquipInSlot } from './equipment';
 import { calculateFuelTankCapacity } from './flightPhysics';
 import { getEngineDefinition } from './engines';
 import { generateJobSlotsForShip, autoAssignCrewToJobs } from './jobSlots';
+import { generateId } from './utils';
+
+export { generateId } from './utils';
 
 const HIRE_BASE_COST = 500;
 const HIRE_LEVEL_MULTIPLIER = 200;
-
-export function generateId(): string {
-  return Math.random().toString(36).substring(2, 11);
-}
 
 function createEquipmentInstance(definitionId: EquipmentId): EquipmentInstance {
   return {
