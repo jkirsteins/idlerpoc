@@ -93,7 +93,13 @@ export function createTabbedView(
   let currentTab = activeTab;
   let currentShowNav = showNavigation;
   let currentSelectedCrewId = selectedCrewId;
-  let activeTabComponent: Component | null = null;
+
+  // ── Keep-alive tab components ──────────────────────────────────────
+  // Tab components are created lazily on first visit and kept alive
+  // forever. Every tick, ALL alive tabs receive update() so they stay
+  // current even when hidden. Switching tabs just toggles visibility.
+  const tabComponents = new Map<PlayingTab, Component>();
+  const tabWrappers = new Map<PlayingTab, HTMLElement>();
 
   // ── Stable tab bar (created once, updated in-place to preserve scroll) ──
   const tabBarEl = document.createElement('div');
@@ -214,6 +220,19 @@ export function createTabbedView(
     }
   }
 
+  /** Lazily create the component for `tab` and mount its wrapper div. */
+  function ensureTab(tab: PlayingTab, gameData: GameData): void {
+    if (tabComponents.has(tab)) return;
+    const component = makeTabComponent(tab, gameData);
+    const wrapper = document.createElement('div');
+    wrapper.className = 'tab-content-wrapper';
+    wrapper.style.display = 'none';
+    wrapper.appendChild(component.el);
+    tabContentArea.appendChild(wrapper);
+    tabComponents.set(tab, component);
+    tabWrappers.set(tab, wrapper);
+  }
+
   function rebuild(gameData: GameData) {
     // Rebuild header and tab bar (always visible, cheap to recreate)
     headerArea.replaceChildren(renderShipHeader(gameData, callbacks));
@@ -223,28 +242,32 @@ export function createTabbedView(
       lastViewedLogCount = gameData.log.length;
     }
 
-    // Tab content: reuse component if same tab, create new if changed
-    if (!activeTabComponent) {
-      activeTabComponent = makeTabComponent(currentTab, gameData);
-      tabContentArea.replaceChildren(activeTabComponent.el);
-    } else {
-      // Pass extra state to specific tab types
-      const comp = activeTabComponent as Component & Record<string, unknown>;
-      if (
-        currentTab === 'crew' &&
-        typeof comp.setSelectedCrewId === 'function'
-      ) {
-        (comp.setSelectedCrewId as (id: string | undefined) => void)(
-          currentSelectedCrewId
-        );
-      }
-      if (
-        currentTab === 'ship' &&
-        typeof comp.setShowNavigation === 'function'
-      ) {
-        (comp.setShowNavigation as (v: boolean) => void)(currentShowNav);
-      }
-      activeTabComponent.update(gameData);
+    // Ensure the active tab exists (lazy creation on first visit)
+    ensureTab(currentTab, gameData);
+
+    // Show/hide: only the active tab wrapper is visible
+    for (const [tab, wrapper] of tabWrappers) {
+      wrapper.style.display = tab === currentTab ? '' : 'none';
+    }
+
+    // Pass extra per-tab state before updating
+    const shipComp = tabComponents.get('ship') as
+      | (Component & { setShowNavigation?: (v: boolean) => void })
+      | undefined;
+    if (shipComp?.setShowNavigation) {
+      shipComp.setShowNavigation(currentShowNav);
+    }
+
+    const crewComp = tabComponents.get('crew') as
+      | (Component & { setSelectedCrewId?: (id: string | undefined) => void })
+      | undefined;
+    if (crewComp?.setSelectedCrewId) {
+      crewComp.setSelectedCrewId(currentSelectedCrewId);
+    }
+
+    // Update ALL alive tab components so every view stays live
+    for (const [, component] of tabComponents) {
+      component.update(gameData);
     }
   }
 
@@ -256,11 +279,9 @@ export function createTabbedView(
       rebuild(gameData);
     },
     updateView(state: TabbedViewState) {
-      const tabChanged = state.activeTab !== currentTab;
       currentTab = state.activeTab;
       currentShowNav = state.showNavigation;
       currentSelectedCrewId = state.selectedCrewId;
-      if (tabChanged) activeTabComponent = null;
       rebuild(state.gameData);
     },
   };

@@ -1,8 +1,7 @@
-import type { GameData, Quest, FlightState, Ship } from '../models';
+import type { GameData, Quest, Ship } from '../models';
 import { getActiveShip } from '../models';
 import {
   formatDuration,
-  formatRealDuration,
   GAME_SECONDS_PER_TICK,
   gameSecondsToTicks,
 } from '../timeSystem';
@@ -11,20 +10,18 @@ import {
   calculateTripFuelKg,
   estimateTripTime,
 } from '../questGen';
-import { getGForce } from '../flightPhysics';
 import { getCrewRoleDefinition } from '../crewRoles';
 import {
   estimateRouteRisk,
   getThreatLevel,
   getThreatNarrative,
-  getShipPositionKm,
-  calculatePositionDanger,
 } from '../encounterSystem';
 import { renderThreatBadge } from './threatBadge';
 import type { Component } from './component';
 import { formatFuelMass, calculateFuelPercentage } from './fuelFormatting';
 import { getDistanceBetween } from '../worldGen';
 import { getFuelPricePerKg } from './refuelDialog';
+import { renderFlightStatus } from './flightStatus';
 
 export interface WorkTabCallbacks {
   onAcceptQuest: (questId: string) => void;
@@ -86,10 +83,16 @@ interface FlightProfileControl {
   el: HTMLElement;
   slider: HTMLInputElement;
   label: HTMLElement;
+  /** Update the mutable ship reference so the slider mutates the correct ship. */
+  updateShipRef: (ship: Ship) => void;
 }
 
 function createFlightProfileControl(gameData: GameData): FlightProfileControl {
-  const ship = getActiveShip(gameData);
+  // Mutable reference — updated by updateFlightProfileControl each tick
+  // so the slider always mutates the *current* active ship even after
+  // the player switches ships (keep-alive tabs survive across switches).
+  let currentShip = getActiveShip(gameData);
+
   const el = document.createElement('div');
   el.className = 'flight-profile-control';
   el.style.cssText = `
@@ -112,7 +115,7 @@ function createFlightProfileControl(gameData: GameData): FlightProfileControl {
   const label = document.createElement('span');
   label.style.cssText =
     'font-size: 0.85rem; color: #4a9eff; font-weight: bold;';
-  label.textContent = `${Math.round(ship.flightProfileBurnFraction * 100)}% — ${getProfileLabel(ship.flightProfileBurnFraction)}`;
+  label.textContent = `${Math.round(currentShip.flightProfileBurnFraction * 100)}% — ${getProfileLabel(currentShip.flightProfileBurnFraction)}`;
   header.appendChild(label);
 
   el.appendChild(header);
@@ -132,11 +135,13 @@ function createFlightProfileControl(gameData: GameData): FlightProfileControl {
   slider.min = '10';
   slider.max = '100';
   slider.step = '10';
-  slider.value = String(Math.round(ship.flightProfileBurnFraction * 100));
+  slider.value = String(
+    Math.round(currentShip.flightProfileBurnFraction * 100)
+  );
   slider.style.cssText = 'flex: 1; cursor: pointer;';
   slider.addEventListener('input', () => {
     const fraction = parseInt(slider.value) / 100;
-    ship.flightProfileBurnFraction = fraction;
+    currentShip.flightProfileBurnFraction = fraction;
     label.textContent = `${slider.value}% — ${getProfileLabel(fraction)}`;
   });
   sliderRow.appendChild(slider);
@@ -156,13 +161,23 @@ function createFlightProfileControl(gameData: GameData): FlightProfileControl {
     'Lower = longer coast phase, less fuel. Higher = shorter trip, more fuel.';
   el.appendChild(desc);
 
-  return { el, slider, label };
+  return {
+    el,
+    slider,
+    label,
+    updateShipRef: (ship: Ship) => {
+      currentShip = ship;
+    },
+  };
 }
 
 function updateFlightProfileControl(
   control: FlightProfileControl,
   ship: Ship
 ): void {
+  // Always refresh the mutable ref so the slider mutates the right ship
+  control.updateShipRef(ship);
+
   const currentSliderVal = parseInt(control.slider.value);
   const shipVal = Math.round(ship.flightProfileBurnFraction * 100);
   // Only update if the ship value changed externally (e.g. switched ships)
@@ -620,140 +635,6 @@ function renderActiveContract(
   container.appendChild(actions);
 
   return container;
-}
-
-function renderFlightStatus(
-  flight: FlightState,
-  gameData: GameData,
-  ship: import('../models').Ship
-): HTMLElement {
-  const status = document.createElement('div');
-  status.className = 'flight-status';
-
-  const heading = document.createElement('h4');
-  heading.textContent = 'Flight Status';
-  status.appendChild(heading);
-
-  // Origin and destination
-  const origin = gameData.world.locations.find((l) => l.id === flight.origin);
-  const destination = gameData.world.locations.find(
-    (l) => l.id === flight.destination
-  );
-
-  const route = document.createElement('div');
-  route.className = 'flight-route';
-  route.textContent = `${origin?.name} → ${destination?.name}`;
-  status.appendChild(route);
-
-  // Flight profile indicator
-  if (flight.burnFraction < 1.0) {
-    const profileDiv = document.createElement('div');
-    profileDiv.style.cssText =
-      'font-size: 0.85rem; color: #4a9eff; margin-bottom: 2px;';
-    profileDiv.textContent = `Profile: ${Math.round(flight.burnFraction * 100)}% — ${getProfileLabel(flight.burnFraction)}`;
-    status.appendChild(profileDiv);
-  }
-
-  // Regional threat status
-  const currentKm = getShipPositionKm(ship, gameData.world);
-  const positionDanger = calculatePositionDanger(currentKm, gameData.world);
-  // Map position danger to a cumulative-like risk for threat level display
-  const dangerRisk =
-    positionDanger > 3
-      ? 0.35
-      : positionDanger > 1.5
-        ? 0.2
-        : positionDanger > 0.5
-          ? 0.08
-          : 0.02;
-  const regionalThreat = getThreatLevel(dangerRisk);
-  const regionalNarrative = getThreatNarrative(regionalThreat);
-
-  const regionalStatus = document.createElement('div');
-  regionalStatus.className = `regional-status threat-${regionalThreat}`;
-  regionalStatus.textContent = `Crossing ${regionalNarrative.toLowerCase()}`;
-  status.appendChild(regionalStatus);
-
-  // Phase (or engine warmup)
-  const phase = document.createElement('div');
-  phase.className = 'flight-phase';
-  let phaseText = '';
-
-  if (ship.engine.state === 'warming_up') {
-    const warmupPercent = Math.round(ship.engine.warmupProgress);
-    phaseText = `Phase: Engine Warming Up (${warmupPercent}%)`;
-  } else {
-    switch (flight.phase) {
-      case 'accelerating':
-        phaseText = 'Phase: Accelerating';
-        break;
-      case 'coasting':
-        phaseText = 'Phase: Coasting (0g)';
-        break;
-      case 'decelerating':
-        phaseText = 'Phase: Decelerating';
-        break;
-    }
-  }
-  phase.textContent = phaseText;
-  status.appendChild(phase);
-
-  // G-force
-  const gForce = getGForce(flight);
-  const gForceDiv = document.createElement('div');
-  gForceDiv.className = 'flight-gforce';
-  gForceDiv.textContent = `G-force: ${gForce.toFixed(4)}g`;
-  status.appendChild(gForceDiv);
-
-  // Velocity (adaptive display)
-  const velocity = document.createElement('div');
-  velocity.className = 'flight-velocity';
-  const velocityMs = flight.currentVelocity;
-  if (velocityMs < 1000) {
-    velocity.textContent = `Velocity: ${velocityMs.toFixed(1)} m/s`;
-  } else {
-    velocity.textContent = `Velocity: ${(velocityMs / 1000).toFixed(2)} km/s`;
-  }
-  status.appendChild(velocity);
-
-  // Distance progress
-  const progressBar = document.createElement('div');
-  progressBar.className = 'progress-bar';
-
-  const progressLabel = document.createElement('div');
-  const percent = (flight.distanceCovered / flight.totalDistance) * 100;
-  progressLabel.textContent = `Distance: ${percent.toFixed(1)}%`;
-  progressBar.appendChild(progressLabel);
-
-  const bar = document.createElement('div');
-  bar.className = 'bar';
-  const fill = document.createElement('div');
-  fill.className = 'fill';
-  fill.style.width = `${percent}%`;
-  bar.appendChild(fill);
-  progressBar.appendChild(bar);
-
-  status.appendChild(progressBar);
-
-  // ETA (with real-time estimation)
-  const remainingTime = flight.totalTime - flight.elapsedTime;
-  const remainingTicks = Math.ceil(remainingTime / GAME_SECONDS_PER_TICK);
-
-  // Add warmup overhead if engine is still warming up
-  let totalRealSeconds = remainingTicks;
-  if (ship.engine.state === 'warming_up') {
-    const remainingWarmup = 100 - ship.engine.warmupProgress;
-    // Estimate warmup ticks (simplified - actual rate depends on engine definition)
-    const estimatedWarmupTicks = Math.ceil(remainingWarmup / 5); // rough estimate
-    totalRealSeconds += estimatedWarmupTicks;
-  }
-
-  const eta = document.createElement('div');
-  eta.className = 'flight-eta';
-  eta.textContent = `ETA: ${formatDuration(remainingTime)} (~${formatRealDuration(totalRealSeconds)} real)`;
-  status.appendChild(eta);
-
-  return status;
 }
 
 function renderPausedContract(
