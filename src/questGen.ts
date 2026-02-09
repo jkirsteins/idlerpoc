@@ -28,11 +28,18 @@ const FUEL_PRICE_PER_KG = 2.0;
  *
  * This prevents overestimating fuel for low-thrust ships that would coast
  * rather than burn continuously.
+ *
+ * @param burnFraction 0.1-1.0: fraction of delta-v budget to use (1.0 = max speed)
  */
-function calculateTripFuelKg(ship: Ship, distanceKm: number): number {
+export function calculateTripFuelKg(
+  ship: Ship,
+  distanceKm: number,
+  burnFraction: number = 1.0
+): number {
   const shipClass = getShipClass(ship.classId);
   const engineDef = getEngineDefinition(ship.engine.definitionId);
 
+  const clampedBurnFraction = Math.max(0.1, Math.min(1.0, burnFraction));
   const distanceMeters = distanceKm * 1000;
   const thrust = engineDef.thrust;
   const specificImpulse = getSpecificImpulse(engineDef);
@@ -60,11 +67,12 @@ function calculateTripFuelKg(ship: Ship, distanceKm: number): number {
   // Available delta-v with full tank (matching initializeFlight logic)
   const availableDeltaV = calculateDeltaV(fullMass, dryMass, specificImpulse);
 
-  // Allocate 50% for one leg (reserve 50% for return trip)
-  const allocatedDeltaV = Math.min(
+  // Allocate 50% for one leg (reserve 50% for return trip), scaled by burn fraction
+  const maxAllocatedDeltaV = Math.min(
     availableDeltaV * 0.5,
     0.5 * engineDef.maxDeltaV
   );
+  const allocatedDeltaV = maxAllocatedDeltaV * clampedBurnFraction;
 
   // Use brachistochrone if we have budget, otherwise burn-coast-burn
   const legDeltaV = Math.min(brachistochroneDeltaV, allocatedDeltaV);
@@ -205,11 +213,18 @@ function calculateCrewSkillBonus(ship: Ship): number {
 
 /**
  * Estimate trip time in game seconds using simplified burn-coast-burn physics
+ *
+ * @param burnFraction 0.1-1.0: fraction of delta-v budget to use (1.0 = max speed)
  */
-function estimateTripTime(ship: Ship, distanceKm: number): number {
+export function estimateTripTime(
+  ship: Ship,
+  distanceKm: number,
+  burnFraction: number = 1.0
+): number {
   const shipClass = getShipClass(ship.classId);
   if (!shipClass) return 0;
 
+  const clampedBurnFraction = Math.max(0.1, Math.min(1.0, burnFraction));
   const engineDef = getEngineDefinition(ship.engine.definitionId);
   const distanceMeters = distanceKm * 1000;
   const mass = shipClass.mass;
@@ -217,8 +232,9 @@ function estimateTripTime(ship: Ship, distanceKm: number): number {
   const acceleration = thrust / mass;
 
   // Use fixed cruise velocity (same as computeMaxRange and initializeFlight)
-  // 50% fuel budget for one-way trip
-  const allocatedDeltaV = 0.5 * engineDef.maxDeltaV;
+  // 50% fuel budget for one-way trip, scaled by burn fraction
+  const maxAllocatedDeltaV = 0.5 * engineDef.maxDeltaV;
+  const allocatedDeltaV = maxAllocatedDeltaV * clampedBurnFraction;
 
   // Check if mini-brachistochrone (short trip)
   const dv_brachistochrone = 2 * Math.sqrt(distanceMeters * acceleration);

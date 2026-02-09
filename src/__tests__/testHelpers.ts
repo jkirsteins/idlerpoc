@@ -101,6 +101,7 @@ export function createTestFlight(
     totalTime: 2_000_000,
     acceleration: 0.02,
     dockOnArrival: false,
+    burnFraction: 1.0,
     ...overrides,
   };
 }
@@ -172,6 +173,7 @@ export function createTestShip(overrides: Partial<Ship> = {}): Ship {
       lastActivityTime: 0,
     },
     role: undefined,
+    flightProfileBurnFraction: 1.0,
     ...overrides,
   };
 

@@ -273,6 +273,7 @@ function createStartingShip(
       lastActivityTime: 0,
     },
     role: undefined,
+    flightProfileBurnFraction: 1.0,
   };
 }
 
@@ -330,6 +331,7 @@ export function createAdditionalShip(
       lastActivityTime: 0,
     },
     role: undefined,
+    flightProfileBurnFraction: 1.0,
   };
 }
 

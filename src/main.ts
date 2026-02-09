@@ -882,7 +882,13 @@ const callbacks: RendererCallbacks = {
       delete ship.location.dockedAt;
       delete ship.location.orbitingAt;
 
-      ship.activeFlightPlan = initializeFlight(ship, origin, destination, true);
+      ship.activeFlightPlan = initializeFlight(
+        ship,
+        origin,
+        destination,
+        true,
+        ship.flightProfileBurnFraction
+      );
 
       ship.engine.state = 'warming_up';
       ship.engine.warmupProgress = 0;

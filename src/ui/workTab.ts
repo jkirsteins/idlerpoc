@@ -1,11 +1,16 @@
-import type { GameData, Quest, FlightState } from '../models';
+import type { GameData, Quest, FlightState, Ship } from '../models';
 import { getActiveShip } from '../models';
 import {
   formatDuration,
   formatRealDuration,
   GAME_SECONDS_PER_TICK,
+  gameSecondsToTicks,
 } from '../timeSystem';
-import { canAcceptQuest } from '../questGen';
+import {
+  canAcceptQuest,
+  calculateTripFuelKg,
+  estimateTripTime,
+} from '../questGen';
 import { getGForce } from '../flightPhysics';
 import { getCrewRoleDefinition } from '../crewRoles';
 import {
@@ -18,6 +23,8 @@ import {
 import { renderThreatBadge } from './threatBadge';
 import type { Component } from './component';
 import { formatFuelMass, calculateFuelPercentage } from './fuelFormatting';
+import { getDistanceBetween } from '../worldGen';
+import { getFuelPricePerKg } from './refuelDialog';
 
 export interface WorkTabCallbacks {
   onAcceptQuest: (questId: string) => void;
@@ -35,39 +42,135 @@ export function createWorkTab(
   const container = document.createElement('div');
   container.className = 'work-tab';
 
+  // Persistent flight profile slider - created once, survives rebuilds
+  const profileControl = createFlightProfileControl(gameData);
+
   function rebuild(gameData: GameData) {
     container.replaceChildren();
     const ship = getActiveShip(gameData);
     const activeContract = ship.activeContract;
-
-    console.log('renderWorkTab - status:', ship.location.status);
-    console.log('renderWorkTab - activeContract:', activeContract);
 
     if (
       (ship.location.status === 'docked' ||
         ship.location.status === 'orbiting') &&
       !activeContract
     ) {
-      console.log('renderWorkTab - Rendering available work');
+      // Update slider to match current ship setting (e.g. after switching ships)
+      updateFlightProfileControl(profileControl, ship);
+      container.appendChild(profileControl.el);
       const workContent = renderAvailableWork(gameData, callbacks);
-      console.log(
-        'renderWorkTab - workContent children:',
-        workContent.children.length
-      );
       container.appendChild(workContent);
     } else if (activeContract && activeContract.paused) {
-      console.log('renderWorkTab - Rendering paused contract');
       container.appendChild(renderPausedContract(gameData, callbacks));
     } else if (activeContract) {
-      console.log('renderWorkTab - Rendering active contract');
       container.appendChild(renderActiveContract(gameData, callbacks));
-    } else {
-      console.log('renderWorkTab - NO CONDITION MET!');
     }
   }
 
   rebuild(gameData);
   return { el: container, update: rebuild };
+}
+
+/**
+ * Flight profile presets for display labels
+ */
+function getProfileLabel(burnFraction: number): string {
+  if (burnFraction >= 0.95) return 'Max Speed';
+  if (burnFraction >= 0.75) return 'Fast';
+  if (burnFraction >= 0.5) return 'Balanced';
+  if (burnFraction >= 0.3) return 'Economical';
+  return 'Max Economy';
+}
+
+interface FlightProfileControl {
+  el: HTMLElement;
+  slider: HTMLInputElement;
+  label: HTMLElement;
+}
+
+function createFlightProfileControl(gameData: GameData): FlightProfileControl {
+  const ship = getActiveShip(gameData);
+  const el = document.createElement('div');
+  el.className = 'flight-profile-control';
+  el.style.cssText = `
+    margin-bottom: 0.75rem;
+    padding: 0.75rem;
+    background: rgba(74, 158, 255, 0.05);
+    border: 1px solid #333;
+    border-radius: 4px;
+  `;
+
+  const header = document.createElement('div');
+  header.style.cssText =
+    'display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;';
+
+  const title = document.createElement('span');
+  title.style.cssText = 'font-weight: bold; font-size: 0.9rem; color: #ccc;';
+  title.textContent = 'Flight Profile';
+  header.appendChild(title);
+
+  const label = document.createElement('span');
+  label.style.cssText =
+    'font-size: 0.85rem; color: #4a9eff; font-weight: bold;';
+  label.textContent = `${Math.round(ship.flightProfileBurnFraction * 100)}% — ${getProfileLabel(ship.flightProfileBurnFraction)}`;
+  header.appendChild(label);
+
+  el.appendChild(header);
+
+  // Slider row with labels
+  const sliderRow = document.createElement('div');
+  sliderRow.style.cssText = 'display: flex; align-items: center; gap: 8px;';
+
+  const leftLabel = document.createElement('span');
+  leftLabel.style.cssText =
+    'font-size: 0.75rem; color: #888; white-space: nowrap;';
+  leftLabel.textContent = 'Economy';
+  sliderRow.appendChild(leftLabel);
+
+  const slider = document.createElement('input');
+  slider.type = 'range';
+  slider.min = '10';
+  slider.max = '100';
+  slider.step = '10';
+  slider.value = String(Math.round(ship.flightProfileBurnFraction * 100));
+  slider.style.cssText = 'flex: 1; cursor: pointer;';
+  slider.addEventListener('input', () => {
+    const fraction = parseInt(slider.value) / 100;
+    ship.flightProfileBurnFraction = fraction;
+    label.textContent = `${slider.value}% — ${getProfileLabel(fraction)}`;
+  });
+  sliderRow.appendChild(slider);
+
+  const rightLabel = document.createElement('span');
+  rightLabel.style.cssText =
+    'font-size: 0.75rem; color: #888; white-space: nowrap;';
+  rightLabel.textContent = 'Max Speed';
+  sliderRow.appendChild(rightLabel);
+
+  el.appendChild(sliderRow);
+
+  // Description
+  const desc = document.createElement('div');
+  desc.style.cssText = 'font-size: 0.75rem; color: #666; margin-top: 0.4rem;';
+  desc.textContent =
+    'Lower = longer coast phase, less fuel. Higher = shorter trip, more fuel.';
+  el.appendChild(desc);
+
+  return { el, slider, label };
+}
+
+function updateFlightProfileControl(
+  control: FlightProfileControl,
+  ship: Ship
+): void {
+  const currentSliderVal = parseInt(control.slider.value);
+  const shipVal = Math.round(ship.flightProfileBurnFraction * 100);
+  // Only update if the ship value changed externally (e.g. switched ships)
+  // Don't overwrite while user is dragging
+  if (currentSliderVal !== shipVal) {
+    control.slider.value = String(shipVal);
+    control.label.textContent = `${shipVal}% — ${getProfileLabel(ship.flightProfileBurnFraction)}`;
+  }
 }
 
 function renderAvailableWork(
@@ -274,39 +377,73 @@ function renderQuestCard(
     details.appendChild(tripsInfo);
   }
 
+  // Recalculate fuel and time based on flight profile
+  const burnFraction = ship.flightProfileBurnFraction ?? 1.0;
+  const distanceKm =
+    origin && destination ? getDistanceBetween(origin, destination) : 0;
+
+  // Profile-aware fuel estimate (round trip)
+  const profileFuelKg =
+    distanceKm > 0
+      ? calculateTripFuelKg(ship, distanceKm, burnFraction) * 2
+      : quest.estimatedFuelPerTrip;
+
+  // Profile-aware time estimate (round trip in game seconds)
+  const profileTimeSecs =
+    distanceKm > 0
+      ? estimateTripTime(ship, distanceKm, burnFraction) * 2
+      : quest.estimatedTripTicks * GAME_SECONDS_PER_TICK;
+  const profileTimeTicks = gameSecondsToTicks(profileTimeSecs);
+
   const fuelInfo = document.createElement('div');
-  // TODO: quest.estimatedFuelPerTrip needs to be in kg from quest generation
-  // For now, assuming it's already in kg if the value is > 100, otherwise treat as %
-  if (quest.estimatedFuelPerTrip > 100) {
-    fuelInfo.textContent = `Fuel: ~${formatFuelMass(quest.estimatedFuelPerTrip)} per trip`;
-  } else {
-    // Legacy percentage display (will be removed once quest gen is updated)
-    fuelInfo.textContent = `Fuel: ~${Math.round(quest.estimatedFuelPerTrip)}% per trip`;
-  }
+  fuelInfo.textContent = `Fuel: ~${formatFuelMass(profileFuelKg)} per trip`;
   details.appendChild(fuelInfo);
 
   const timeInfo = document.createElement('div');
-  // Convert ticks to game seconds and display as in-game time
-  const gameSecondsPerTrip = quest.estimatedTripTicks * 1800; // 1 tick = 1800 game seconds
-  timeInfo.textContent = `Time: ~${formatDuration(gameSecondsPerTrip)} per trip`;
+  timeInfo.textContent = `Time: ~${formatDuration(profileTimeSecs)} per trip`;
   details.appendChild(timeInfo);
 
-  // Calculate crew cost for this trip
-  let totalCrewCost = 0;
+  // Calculate costs and profit
+  let crewSalaryPerTick = 0;
   for (const crew of ship.crew) {
     const roleDef = getCrewRoleDefinition(crew.role);
     if (roleDef) {
-      totalCrewCost += roleDef.salary;
+      crewSalaryPerTick += roleDef.salary;
     }
   }
-  const tripCrewCost = Math.round(totalCrewCost * quest.estimatedTripTicks);
+  const tripCrewCost = Math.round(crewSalaryPerTick * profileTimeTicks);
+
+  // Fuel cost in credits (using local station price)
+  const currentLocation = gameData.world.locations.find(
+    (l) => l.id === (ship.location.dockedAt || ship.location.orbitingAt)
+  );
+  const fuelPricePerKg = currentLocation
+    ? getFuelPricePerKg(currentLocation)
+    : 2.0;
+  const tripFuelCost = Math.round(profileFuelKg * fuelPricePerKg);
 
   if (tripCrewCost > 0) {
     const crewCostInfo = document.createElement('div');
-    crewCostInfo.textContent = `Crew Salaries: ~${tripCrewCost} credits per trip`;
+    crewCostInfo.textContent = `Crew Salaries: ~${tripCrewCost.toLocaleString()} cr per trip`;
     crewCostInfo.style.color = '#ffa500';
     details.appendChild(crewCostInfo);
   }
+
+  const fuelCostInfo = document.createElement('div');
+  fuelCostInfo.textContent = `Fuel Cost: ~${tripFuelCost.toLocaleString()} cr per trip`;
+  fuelCostInfo.style.color = '#ffa500';
+  details.appendChild(fuelCostInfo);
+
+  // Profit/loss estimate
+  const tripPayment =
+    quest.paymentPerTrip > 0 ? quest.paymentPerTrip : quest.paymentOnCompletion;
+  const totalCost = tripCrewCost + tripFuelCost;
+  const profit = tripPayment - totalCost;
+
+  const profitInfo = document.createElement('div');
+  profitInfo.style.cssText = `font-weight: bold; margin-top: 4px; color: ${profit >= 0 ? '#4caf50' : '#e94560'};`;
+  profitInfo.textContent = `Est. Profit: ${profit >= 0 ? '+' : ''}${profit.toLocaleString()} cr per trip`;
+  details.appendChild(profitInfo);
 
   // Route risk threat badge
   if (origin && destination) {
@@ -507,6 +644,15 @@ function renderFlightStatus(
   route.className = 'flight-route';
   route.textContent = `${origin?.name} → ${destination?.name}`;
   status.appendChild(route);
+
+  // Flight profile indicator
+  if (flight.burnFraction < 1.0) {
+    const profileDiv = document.createElement('div');
+    profileDiv.style.cssText =
+      'font-size: 0.85rem; color: #4a9eff; margin-bottom: 2px;';
+    profileDiv.textContent = `Profile: ${Math.round(flight.burnFraction * 100)}% — ${getProfileLabel(flight.burnFraction)}`;
+    status.appendChild(profileDiv);
+  }
 
   // Regional threat status
   const currentKm = getShipPositionKm(ship, gameData.world);
