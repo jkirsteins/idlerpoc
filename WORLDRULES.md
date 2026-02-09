@@ -435,24 +435,24 @@ This creates natural trade-offs: Class I ships are slow AND supply-limited, maki
 
 **Game Time Progression**:
 
-- 1 tick = 1 real second = 30 game minutes (1,800 game seconds)
-- 1 game day = 48 ticks (~48 real seconds)
-- 1 game month (30 days) = 1,440 ticks (~24 real minutes)
+- 1 tick = 1 real second = 3 game minutes (180 game seconds)
+- 1 game day = 480 ticks (~8 real minutes)
+- 1 game month (30 days) = 14,400 ticks (~4 real hours)
 
 **Epoch**: 2247-01-01 00:00 (gameTime = 0)
 
 **Time Advancement**:
 
-- Time advances automatically during flight (1,800 game seconds per tick)
+- Time advances automatically during flight (180 game seconds per tick)
 - Time is frozen when docked
 - Players can manually advance time by one day when docked (with no active contract)
 - Quests regenerate when advancing the day
 
-**Flight Time Calculations**:
+**Pacing (idle-game layered clocks)**:
 
-- Short hops (< 1,000 km): A few ticks (seconds of real time)
-- Medium distances (1,000-500,000 km): Minutes of real time
-- Long distances (> 500,000 km): Extended real time (Mars trip: ~58 minutes real time)
+- Short routes (Earth→Meridian): ~5-8 real minutes (short clock — active players)
+- Medium routes (Earth→Forge): ~1.5-2.7 real hours (medium clock — check-in-later players)
+- Long routes (Earth→Mars): hours (long clock — set-and-forget players)
 - Flight times are calculated using burn-coast-burn physics (see implementation)
 
 ---
@@ -461,24 +461,24 @@ This creates natural trade-offs: Class I ships are slow AND supply-limited, maki
 
 ### Salary System
 
-Crew members require regular payment for their services. Salaries are deducted every tick (30 game minutes) during flight operations. When docked, time is frozen and no salaries are charged.
+Crew members require regular payment for their services. Salaries are deducted every tick (3 game minutes) during flight operations. When docked, time is frozen and no salaries are charged.
 
 **Salary Rates (credits per tick):**
 
-| Role      | Salary/Tick | Salary/Day (48 ticks) | Role Justification                       |
-| --------- | ----------- | --------------------- | ---------------------------------------- |
-| Captain   | 0           | 0                     | Owner-operator, earns from ship profits  |
-| Pilot     | 1           | 48                    | Essential bridge crew, flight operations |
-| Navigator | 1           | 48                    | Route planning and hazard analysis       |
-| Engineer  | 1.5         | 72                    | Critical for engine and ship systems     |
-| Cook      | 0.5         | 24                    | Morale specialist, crew welfare          |
-| Medic     | 0.75        | 36                    | Medical care, crew health maintenance    |
-| Gunner    | 0.75        | 36                    | Combat capability, ship security         |
-| Mechanic  | 1           | 48                    | Repairs and maintenance specialist       |
+| Role      | Salary/Tick | Salary/Day (480 ticks) | Role Justification                       |
+| --------- | ----------- | ---------------------- | ---------------------------------------- |
+| Captain   | 0           | 0                      | Owner-operator, earns from ship profits  |
+| Pilot     | 0.1         | 48                     | Essential bridge crew, flight operations |
+| Navigator | 0.1         | 48                     | Route planning and hazard analysis       |
+| Engineer  | 0.15        | 72                     | Critical for engine and ship systems     |
+| Cook      | 0.05        | 24                     | Morale specialist, crew welfare          |
+| Medic     | 0.075       | 36                     | Medical care, crew health maintenance    |
+| Gunner    | 0.075       | 36                     | Combat capability, ship security         |
+| Mechanic  | 0.1         | 48                     | Repairs and maintenance specialist       |
 
 **Economic Pressure:**
 
-A typical 3-person starting crew (captain + pilot + engineer) costs **2.5 credits/tick** or **120 credits/day** during active flight time. This creates constant economic pressure to:
+A typical 3-person starting crew (captain + pilot + engineer) costs **0.25 credits/tick** or **120 credits/day** during active flight time. This creates constant economic pressure to:
 
 - Accept profitable contracts
 - Minimize idle flight time

@@ -233,14 +233,14 @@ Example with NTR-200 (4,000 N thrust):
 
 Current implementation uses:
 
-- **1 tick** = 1,800 game seconds (30 game minutes)
-- Engine **fuelConsumptionRate** is defined as "% per tick"
+- **1 tick** = 180 game seconds (3 game minutes)
+- Engine **fuelConsumptionRate** is defined as "% per tick" (legacy, not used in current physics)
 
-New implementation should:
+Current implementation:
 
-- Convert to **kg per second** consumption rate
+- Converts to **kg per second** consumption rate
 - Based on thrust, Isp, and mass flow calculations
-- Multiply by tick duration (1,800 seconds) for per-tick consumption
+- Multiply by burn seconds within tick duration for per-tick consumption
 
 Mass flow rate formula:
 
@@ -256,11 +256,11 @@ Example for NTR-200:
 ṁ ≈ 0.453 kg/s
 ```
 
-Per tick (1,800 s):
+Per tick (180 s):
 
 ```
-fuel_per_tick = 0.453 × 1,800
-fuel_per_tick ≈ 815 kg per tick (during burn phases)
+fuel_per_tick = 0.453 × 180
+fuel_per_tick ≈ 81.5 kg per tick (during burn phases)
 ```
 
 ## Notes for Testing

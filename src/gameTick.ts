@@ -230,7 +230,7 @@ function applyShipTick(gameData: GameData, ship: Ship): boolean {
         const netRadiation = Math.max(0, engineRadiation - totalShielding);
 
         if (netRadiation > 0) {
-          const radiationDamagePerTick = netRadiation / 10;
+          const radiationDamagePerTick = netRadiation / 100;
 
           for (const crew of ship.crew) {
             const medbay = ship.rooms.find((r) => r.type === 'medbay');
@@ -267,7 +267,7 @@ function applyShipTick(gameData: GameData, ship: Ship): boolean {
           for (const eq of ship.equipment) {
             const eqDef = getEquipmentDefinition(eq.definitionId);
             if (eqDef?.hasDegradation && eq.degradation < 100) {
-              const baseDegradation = 0.05;
+              const baseDegradation = 0.005;
               const heatDegradation =
                 baseDegradation * heatDegradationMultiplier;
               eq.degradation = Math.min(100, eq.degradation + heatDegradation);
@@ -288,7 +288,7 @@ function applyShipTick(gameData: GameData, ship: Ship): boolean {
         );
 
         if (confinementEq && engineDef.containmentComplexity > 0) {
-          let confinementDegradationRate = 0.1;
+          let confinementDegradationRate = 0.01;
 
           if (!reactorRoomStaffed) {
             confinementDegradationRate *= 3;
@@ -323,7 +323,7 @@ function applyShipTick(gameData: GameData, ship: Ship): boolean {
   for (const equipment of ship.equipment) {
     if (equipment.definitionId === 'air_filters') {
       if (equipment.degradation < 100) {
-        equipment.degradation = Math.min(100, equipment.degradation + 0.05);
+        equipment.degradation = Math.min(100, equipment.degradation + 0.005);
         changed = true;
       }
     }

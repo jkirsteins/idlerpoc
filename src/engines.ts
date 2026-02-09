@@ -30,7 +30,7 @@ export const ENGINE_DEFINITIONS: EngineDefinition[] = [
     powerOutput: 50,
     fuelType: 'LOX/LH2',
     fuelConsumptionRate: 0.5,
-    warmupRate: 20, // 5 ticks to warm up
+    warmupRate: 33.3, // 3 ticks to warm up
     selfPowerDraw: 5,
     thrust: 1500, // 0.003g on 50t Station Keeper
     maxDeltaV: 1000, // m/s
@@ -49,7 +49,7 @@ export const ENGINE_DEFINITIONS: EngineDefinition[] = [
     powerOutput: 120,
     fuelType: 'Liquid Hydrogen',
     fuelConsumptionRate: 0.1,
-    warmupRate: 10, // 10 ticks to warm up
+    warmupRate: 20, // 5 ticks to warm up
     selfPowerDraw: 8,
     thrust: 4000, // 0.002g on 200t Wayfarer
     maxDeltaV: 20000, // m/s
@@ -68,7 +68,7 @@ export const ENGINE_DEFINITIONS: EngineDefinition[] = [
     powerOutput: 150,
     fuelType: 'Liquid Hydrogen',
     fuelConsumptionRate: 0.12,
-    warmupRate: 10, // 10 ticks to warm up
+    warmupRate: 20, // 5 ticks to warm up
     selfPowerDraw: 10,
     thrust: 10000, // 0.0029g on 350t Corsair
     maxDeltaV: 30000, // m/s
@@ -87,7 +87,7 @@ export const ENGINE_DEFINITIONS: EngineDefinition[] = [
     powerOutput: 200,
     fuelType: 'Liquid Hydrogen',
     fuelConsumptionRate: 0.15,
-    warmupRate: 6.67, // ~15 ticks to warm up
+    warmupRate: 12.5, // 8 ticks to warm up
     selfPowerDraw: 15,
     thrust: 20000, // 0.004g on 500t Dreadnought
     maxDeltaV: 40000, // m/s
@@ -106,7 +106,7 @@ export const ENGINE_DEFINITIONS: EngineDefinition[] = [
     powerOutput: 140,
     fuelType: 'Liquid Hydrogen',
     fuelConsumptionRate: 0.1,
-    warmupRate: 12.5, // 8 ticks to warm up
+    warmupRate: 25, // 4 ticks to warm up
     selfPowerDraw: 8,
     thrust: 7500, // 0.003g on 250t Phantom
     maxDeltaV: 25000, // m/s
@@ -126,7 +126,7 @@ export const ENGINE_DEFINITIONS: EngineDefinition[] = [
     powerOutput: 400,
     fuelType: 'Deuterium',
     fuelConsumptionRate: 0.08,
-    warmupRate: 3.33, // ~30 ticks to warm up
+    warmupRate: 10, // 10 ticks to warm up
     selfPowerDraw: 20,
     thrust: 50000, // 0.05g on typical torch ship
     maxDeltaV: 150000, // m/s
@@ -145,7 +145,7 @@ export const ENGINE_DEFINITIONS: EngineDefinition[] = [
     powerOutput: 600,
     fuelType: 'D-He3 Mix',
     fuelConsumptionRate: 0.1,
-    warmupRate: 2.5, // ~40 ticks to warm up
+    warmupRate: 8.33, // 12 ticks to warm up
     selfPowerDraw: 30,
     thrust: 80000, // 0.08g on typical torch ship
     maxDeltaV: 300000, // m/s
@@ -164,7 +164,7 @@ export const ENGINE_DEFINITIONS: EngineDefinition[] = [
     powerOutput: 800,
     fuelType: 'D-He3 Mix',
     fuelConsumptionRate: 0.12,
-    warmupRate: 2.0, // ~50 ticks to warm up
+    warmupRate: 6.67, // 15 ticks to warm up
     selfPowerDraw: 40,
     thrust: 100000, // 0.1g on typical torch ship
     maxDeltaV: 500000, // m/s
@@ -184,7 +184,7 @@ export const ENGINE_DEFINITIONS: EngineDefinition[] = [
     powerOutput: 1200,
     fuelType: 'D-He3 Mix',
     fuelConsumptionRate: 0.15,
-    warmupRate: 1.25, // ~80 ticks to warm up
+    warmupRate: 5.0, // 20 ticks to warm up
     selfPowerDraw: 60,
     thrust: 500000, // 5g+ on cruiser-class vessels
     maxDeltaV: 1000000, // m/s

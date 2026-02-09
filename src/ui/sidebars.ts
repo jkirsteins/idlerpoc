@@ -67,41 +67,7 @@ export function createLeftSidebar(
     });
     timeControlsSection.appendChild(playPauseBtn);
 
-    // Speed status display
-    const speedStatus = document.createElement('div');
-    speedStatus.style.fontSize = '11px';
-    speedStatus.style.color = '#aaa';
-    speedStatus.style.marginBottom = '6px';
-    const currentSpeed = gameData.timeSpeed ?? 1;
-    speedStatus.textContent = gameData.isPaused
-      ? 'Speed: -- (paused)'
-      : `Speed: ${currentSpeed}x`;
-    timeControlsSection.appendChild(speedStatus);
-
-    // Speed Controls Row
-    const speedRow = document.createElement('div');
-    speedRow.className = 'time-speed-controls';
-    speedRow.style.display = 'flex';
-    speedRow.style.gap = '4px';
-
-    for (const speed of [1, 2, 5] as const) {
-      const speedBtn = document.createElement('button');
-      speedBtn.className = 'time-speed-btn';
-      speedBtn.textContent = `${speed}x`;
-      speedBtn.disabled = gameData.isPaused;
-
-      const currentSpeed = gameData.timeSpeed ?? 1;
-      if (currentSpeed === speed && !gameData.isPaused) {
-        speedBtn.classList.add('active');
-      }
-
-      speedBtn.addEventListener('click', () => {
-        if (callbacks.onSetSpeed) callbacks.onSetSpeed(speed);
-      });
-      speedRow.appendChild(speedBtn);
-    }
-
-    timeControlsSection.appendChild(speedRow);
+    // Speed controls hidden from player UI (keyboard shortcuts 1/2/5 still work for dev testing)
     sidebar.appendChild(timeControlsSection);
 
     // Credits section

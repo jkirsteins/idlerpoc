@@ -21,13 +21,13 @@ import { addLog } from './logSystem';
  * XP rates per tick by room type
  */
 const ROOM_XP_RATES: Partial<Record<RoomType, number>> = {
-  bridge: 0.5,
-  engine_room: 0.5,
-  reactor_room: 0.75,
-  point_defense_station: 0.5,
-  armory: 0.25,
-  cantina: 0.25,
-  medbay: 0.25,
+  bridge: 0.05,
+  engine_room: 0.05,
+  reactor_room: 0.075,
+  point_defense_station: 0.05,
+  armory: 0.025,
+  cantina: 0.025,
+  medbay: 0.025,
 };
 
 /**

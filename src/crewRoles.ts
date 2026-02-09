@@ -5,7 +5,7 @@ export interface CrewRoleDefinition {
   name: string;
   description: string;
   preferredRoom: RoomType;
-  salary: number; // Credits per tick during flight
+  salary: number; // Credits per tick during flight (scaled for 180 gs/tick)
 }
 
 export const CREW_ROLE_DEFINITIONS: CrewRoleDefinition[] = [
@@ -21,49 +21,49 @@ export const CREW_ROLE_DEFINITIONS: CrewRoleDefinition[] = [
     name: 'Pilot',
     description: 'Handles ship operations and helm control during flight.',
     preferredRoom: 'bridge',
-    salary: 1,
+    salary: 0.1,
   },
   {
     role: 'navigator',
     name: 'Navigator',
     description: 'Plots routes, analyzes hazards, operates scanners.',
     preferredRoom: 'bridge',
-    salary: 1,
+    salary: 0.1,
   },
   {
     role: 'engineer',
     name: 'Engineer',
     description: 'Keeps the engines running smoothly.',
     preferredRoom: 'engine_room',
-    salary: 1.5,
+    salary: 0.15,
   },
   {
     role: 'cook',
     name: 'Cook',
     description: 'Prepares meals and boosts crew morale.',
     preferredRoom: 'cantina',
-    salary: 0.5,
+    salary: 0.05,
   },
   {
     role: 'medic',
     name: 'Medic',
     description: 'Treats injuries and illnesses.',
     preferredRoom: 'medbay',
-    salary: 0.75,
+    salary: 0.075,
   },
   {
     role: 'gunner',
     name: 'Gunner',
     description: 'Operates weapons systems.',
     preferredRoom: 'armory',
-    salary: 0.75,
+    salary: 0.075,
   },
   {
     role: 'mechanic',
     name: 'Mechanic',
     description: 'Repairs ship systems and equipment.',
     preferredRoom: 'engine_room',
-    salary: 1,
+    salary: 0.1,
   },
 ];
 
