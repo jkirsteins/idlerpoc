@@ -93,6 +93,7 @@ npm run dev
 - **Event Log**: Comprehensive log of all events (departures, arrivals, payments, contract completions, encounters)
 - **Resource Tracking**: Monitor credits, fuel, crew count, crew costs per tick, and power consumption
 - **Equipment Trading**: Buy and sell crew equipment at stations with trade services (50% sell value)
+- **Live UI Architecture**: All tabs use mount-once/update-on-tick pattern — tab components are created once and kept alive, receiving live updates every tick even when hidden. Switching tabs is instant with no stale data. Shared flight status strip appears on both Ship and Work tabs during flight.
 - **Responsive Design**: Mobile-friendly layout with collapsible sidebar drawer, compact status bar, scrollable tabs, and adaptive grids for phone/tablet screens
 - **Real-time Simulation**: Elapsed-time tick system that catches up based on real time passed — works across browser throttling, background tabs, and phone sleep. Catch-up report modal shown for long absences
 - **Game Data Catalogs**:

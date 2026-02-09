@@ -21,6 +21,7 @@ import {
   calculateFuelPercentage,
   getFuelColorClass,
 } from './fuelFormatting';
+import { renderFlightStrip } from './flightStatus';
 
 export interface ShipTabCallbacks {
   onCrewAssign: (crewId: string, roomId: string) => void;
@@ -75,6 +76,12 @@ export function createShipTab(
     }
     if (engineDef.containmentComplexity > 0) {
       container.appendChild(renderContainmentBar(gameData));
+    }
+
+    // Flight status strip (shown when in flight)
+    if (ship.location.status === 'in_flight') {
+      const strip = renderFlightStrip(gameData);
+      if (strip) container.appendChild(strip);
     }
 
     // Ship stats panel
