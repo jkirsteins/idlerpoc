@@ -7,12 +7,71 @@ import { generateHireableCrewByLocation } from './gameFactory';
 import { getDistanceBetween } from './worldGen';
 import { awardEventXP, logLevelUps } from './skillProgression';
 import { checkAutoRefuel, autoRestartRouteTrip } from './routeAssignment';
+import { getFuelPricePerKg } from './ui/refuelDialog';
 
 /**
  * Contract Execution
  *
  * Manages active contract state and transitions (per-ship)
  */
+
+/**
+ * Try to auto-refuel a ship at a station before continuing to the next leg.
+ * Uses location-based fuel pricing. Returns true if the ship now has enough fuel.
+ */
+function tryAutoRefuelForLeg(
+  gameData: GameData,
+  ship: Ship,
+  locationId: string,
+  requiredFuelKg: number
+): boolean {
+  // Already have enough fuel
+  if (ship.fuelKg >= requiredFuelKg * 1.1) return true;
+
+  const location = gameData.world.locations.find((l) => l.id === locationId);
+  if (!location || !location.services.includes('refuel')) return false;
+
+  const fuelNeededKg = ship.maxFuelKg - ship.fuelKg;
+  if (fuelNeededKg <= 0) return ship.fuelKg >= requiredFuelKg * 1.1;
+
+  const pricePerKg = getFuelPricePerKg(location);
+  const fullCost = Math.round(fuelNeededKg * pricePerKg);
+
+  if (gameData.credits >= fullCost) {
+    // Can afford full tank
+    ship.fuelKg = ship.maxFuelKg;
+    gameData.credits -= fullCost;
+    ship.metrics.fuelCostsPaid += fullCost;
+
+    addLog(
+      gameData.log,
+      gameData.gameTime,
+      'refueled',
+      `Auto-refueled at ${location.name} (${fullCost.toLocaleString()} credits)`,
+      ship.name
+    );
+    return true;
+  }
+
+  // Can't afford full tank — buy as much as we can
+  const affordableKg = Math.floor(gameData.credits / pricePerKg);
+  if (affordableKg > 0) {
+    const partialCost = Math.round(affordableKg * pricePerKg);
+    ship.fuelKg += affordableKg;
+    gameData.credits -= partialCost;
+    ship.metrics.fuelCostsPaid += partialCost;
+
+    addLog(
+      gameData.log,
+      gameData.gameTime,
+      'refueled',
+      `Partial auto-refuel at ${location.name}: ${affordableKg.toLocaleString()} kg (${partialCost.toLocaleString()} credits, low funds)`,
+      ship.name
+    );
+  }
+
+  return ship.fuelKg >= requiredFuelKg * 1.1;
+}
 
 /**
  * Get location IDs where player ships are docked
@@ -270,8 +329,17 @@ export function completeLeg(gameData: GameData, ship: Ship): void {
       // Calculate fuel required for return leg (burn-coast-burn aware)
       const requiredFuelKg = calculateOneLegFuelKg(ship, distanceKm);
 
-      if (ship.fuelKg < requiredFuelKg * 1.1) {
+      // Auto-refuel at destination before return trip
+      const hasFuel = tryAutoRefuelForLeg(
+        gameData,
+        ship,
+        arrivalLocation.id,
+        requiredFuelKg
+      );
+
+      if (!hasFuel) {
         activeContract.paused = true;
+        gameData.isPaused = true;
         ship.location.status = 'docked';
         ship.location.dockedAt = arrivalLocation.id;
         delete ship.location.orbitingAt;
@@ -417,8 +485,17 @@ export function completeLeg(gameData: GameData, ship: Ship): void {
       // Calculate fuel required for next leg (burn-coast-burn aware)
       const requiredFuelKg = calculateOneLegFuelKg(ship, distanceKm);
 
-      if (ship.fuelKg < requiredFuelKg * 1.1) {
+      // Auto-refuel at origin before next outbound trip
+      const hasFuel = tryAutoRefuelForLeg(
+        gameData,
+        ship,
+        arrivalLocation.id,
+        requiredFuelKg
+      );
+
+      if (!hasFuel) {
         activeContract.paused = true;
+        gameData.isPaused = true;
         ship.location.status = 'docked';
         ship.location.dockedAt = arrivalLocation.id;
         delete ship.location.orbitingAt;
