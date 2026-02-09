@@ -1007,7 +1007,7 @@ function renderShipJobsCard(
     for (const slot of repairSlots) {
       const crew = ship.crew.find((c) => c.id === slot.assignedCrewId);
       if (crew) {
-        totalRepairPts += crew.skills.engineering * 0.5;
+        totalRepairPts += crew.skills.engineering * 0.05;
       }
     }
     const degradedCount = ship.equipment.filter(

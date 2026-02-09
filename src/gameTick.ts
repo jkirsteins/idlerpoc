@@ -432,7 +432,7 @@ function applyShipTick(gameData: GameData, ship: Ship): boolean {
     if (repairEngineers.length > 0) {
       let totalRepairPoints = 0;
       for (const eng of repairEngineers) {
-        totalRepairPoints += eng.skills.engineering * 0.5;
+        totalRepairPoints += eng.skills.engineering * 0.05;
       }
 
       // Distribute repair points equally across degraded equipment

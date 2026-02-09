@@ -193,26 +193,26 @@ function calculateCrewSkillBonus(ship: Ship): number {
 
   // Scanner crew: astrogation bonus (navigator equivalent)
   for (const crew of getCrewForJobType(ship, 'scanner')) {
-    const pointsAbove5 = Math.max(0, crew.skills.astrogation - 5);
-    bonus += pointsAbove5 * 0.02;
+    const pointsAbove50 = Math.max(0, crew.skills.astrogation - 50);
+    bonus += pointsAbove50 * 0.002;
   }
 
   // Drive ops crew: engineering bonus
   for (const crew of getCrewForJobType(ship, 'drive_ops')) {
-    const pointsAbove5 = Math.max(0, crew.skills.engineering - 5);
-    bonus += pointsAbove5 * 0.01;
+    const pointsAbove50 = Math.max(0, crew.skills.engineering - 50);
+    bonus += pointsAbove50 * 0.001;
   }
 
   // Galley crew: charisma bonus (cook equivalent)
   for (const crew of getCrewForJobType(ship, 'galley')) {
-    const pointsAbove5 = Math.max(0, crew.skills.charisma - 5);
-    bonus += pointsAbove5 * 0.03;
+    const pointsAbove50 = Math.max(0, crew.skills.charisma - 50);
+    bonus += pointsAbove50 * 0.003;
   }
 
   // Comms crew: charisma bonus for negotiation
   for (const crew of getCrewForJobType(ship, 'comms')) {
-    const pointsAbove5 = Math.max(0, crew.skills.charisma - 5);
-    bonus += pointsAbove5 * 0.02;
+    const pointsAbove50 = Math.max(0, crew.skills.charisma - 50);
+    bonus += pointsAbove50 * 0.002;
   }
 
   return bonus;
