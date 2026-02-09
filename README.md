@@ -81,8 +81,9 @@ npm run dev
   - Real-time exposure monitoring and pre-departure warnings
 - **Encounter & Combat System**:
   - Per-tick pirate encounter detection derived from position, engine heat, and crew skills
-  - Auto-resolve combat pipeline: Evade → Negotiate → Combat → Outcome
-  - Five outcomes: evasion, negotiation (ransom), victory (bounty), harassment (minor damage), boarding (major losses)
+  - Auto-resolve combat pipeline: Evade → Negotiate → Flee (if outmatched) → Combat → Outcome
+  - Six outcomes: evasion, negotiation (ransom), fled (emergency escape), victory (bounty), harassment (minor damage), boarding (major losses)
+  - Combat variance: randomized pirate attack strength (±30%) and defense effectiveness (±15%) ensure borderline fights are unpredictable
   - Defense score from point defense equipment (PD-40 Flak Turret, PD-10 Laser), deflector shields (Magnetic Debris Deflector, EM-1 Micro Deflector), armory crew weapons, and ship mass
   - Starting ship equipped with basic defense (micro deflector) and attack (PD laser) systems
   - Regional threat levels (Clear/Caution/Danger/Critical) based on distance from Terran Alliance and proximity to lawless zones

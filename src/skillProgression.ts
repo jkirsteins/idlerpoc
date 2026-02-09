@@ -85,6 +85,7 @@ export type XPEvent =
   | { type: 'encounter_victory' }
   | { type: 'encounter_harassment' }
   | { type: 'encounter_boarding' }
+  | { type: 'encounter_fled' }
   | { type: 'contract_completed'; tripsCompleted: number }
   | { type: 'first_arrival'; locationId: string };
 
@@ -213,6 +214,18 @@ export function awardEventXP(ship: Ship, event: XPEvent): LevelUpResult[] {
       for (const crew of ship.crew) {
         grantXP(crew, 'loyalty', 10);
         grantXP(crew, 'strength', 10);
+      }
+      break;
+    }
+
+    case 'encounter_fled': {
+      // Bridge crew earn piloting XP (evasive maneuvers under fire)
+      const bridge = ship.rooms.find((r) => r.type === 'bridge');
+      if (bridge) {
+        for (const crewId of bridge.assignedCrewIds) {
+          const crew = ship.crew.find((c) => c.id === crewId);
+          if (crew) grantXP(crew, 'piloting', 8);
+        }
       }
       break;
     }

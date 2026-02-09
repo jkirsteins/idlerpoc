@@ -300,6 +300,7 @@ export type LogEntryType =
   | 'encounter_victory'
   | 'encounter_harassment'
   | 'encounter_boarding'
+  | 'encounter_fled'
   | 'crew_level_up'
   | 'crew_role_change';
 
@@ -317,6 +318,7 @@ export interface EncounterStats {
   victories: number;
   harassments: number;
   boardings: number;
+  fled: number;
 }
 
 export type EncounterOutcome =
@@ -324,7 +326,8 @@ export type EncounterOutcome =
   | 'negotiated'
   | 'victory'
   | 'harassment'
-  | 'boarding';
+  | 'boarding'
+  | 'fled';
 
 export interface EncounterResult {
   type: EncounterOutcome;
@@ -353,6 +356,7 @@ export type ToastType =
   | 'encounter_victory'
   | 'encounter_harassment'
   | 'encounter_boarding'
+  | 'encounter_fled'
   | 'level_up'
   | 'credits_gained'
   | 'credits_lost';
@@ -371,6 +375,7 @@ export interface CatchUpShipReport {
   negotiated: number;
   victories: number;
   harassments: number;
+  fled: number;
   creditsDelta: number;
   avgHealthLost: number;
 }
