@@ -13,7 +13,14 @@ import {
   calculateAvailableCargoCapacity,
   computeMaxRange,
 } from '../flightPhysics';
-import { formatDualTime, GAME_SECONDS_PER_TICK } from '../timeSystem';
+import {
+  formatDualTime,
+  GAME_SECONDS_PER_TICK,
+  TICKS_PER_DAY,
+} from '../timeSystem';
+
+/** Ticks per game hour (used to convert per-tick rates to per-hour for display) */
+const TICKS_PER_HOUR = TICKS_PER_DAY / 24;
 import { renderStatBar } from './components/statBar';
 import { attachTooltip, formatPowerTooltip } from './components/tooltip';
 import type { Component } from './component';
@@ -304,8 +311,9 @@ function renderOxygenBar(gameData: GameData): HTMLElement {
   if (ship.location.status === 'docked') {
     valueLabel = `${oxygenStatus.oxygenLevel.toFixed(0)}% (Station Supply)`;
   } else {
-    const sign = oxygenStatus.netChange >= 0 ? '+' : '';
-    valueLabel = `${oxygenStatus.oxygenLevel.toFixed(1)}% (${sign}${oxygenStatus.netChange.toFixed(1)} O2/tick)`;
+    const netPerHour = oxygenStatus.netChange * TICKS_PER_HOUR;
+    const sign = netPerHour >= 0 ? '+' : '';
+    valueLabel = `${oxygenStatus.oxygenLevel.toFixed(1)}% (${sign}${netPerHour.toFixed(1)} O2/hr)`;
   }
 
   // Color based on oxygen level
@@ -357,22 +365,26 @@ function renderOxygenBar(gameData: GameData): HTMLElement {
       '<div class="custom-tooltip-section">O2 Generation:</div>'
     );
     for (const item of oxygenStatus.generationItems) {
+      const itemPerHour = item.output * TICKS_PER_HOUR;
       tooltipParts.push(
-        `<div class="custom-tooltip-item">${item.name}: ${item.output.toFixed(1)} O2/tick</div>`
+        `<div class="custom-tooltip-item">${item.name}: ${itemPerHour.toFixed(1)} O2/hr</div>`
       );
     }
+    const genPerHour = oxygenStatus.totalGeneration * TICKS_PER_HOUR;
     tooltipParts.push(
-      `<div><span class="custom-tooltip-label">Total Generation:</span> <span class="custom-tooltip-value">${oxygenStatus.totalGeneration.toFixed(1)} O2/tick</span></div>`
+      `<div><span class="custom-tooltip-label">Total Generation:</span> <span class="custom-tooltip-value">${genPerHour.toFixed(1)} O2/hr</span></div>`
     );
   }
 
+  const consumePerHour = oxygenStatus.totalConsumption * TICKS_PER_HOUR;
   tooltipParts.push(
-    `<div><span class="custom-tooltip-label">Crew Consumption:</span> <span class="custom-tooltip-value">${oxygenStatus.totalConsumption.toFixed(1)} O2/tick (${ship.crew.length} crew)</span></div>`
+    `<div><span class="custom-tooltip-label">Crew Consumption:</span> <span class="custom-tooltip-value">${consumePerHour.toFixed(1)} O2/hr (${ship.crew.length} crew)</span></div>`
   );
 
-  const sign = oxygenStatus.netChange >= 0 ? '+' : '';
+  const tooltipNetPerHour = oxygenStatus.netChange * TICKS_PER_HOUR;
+  const sign = tooltipNetPerHour >= 0 ? '+' : '';
   tooltipParts.push(
-    `<div><span class="custom-tooltip-label">Net Change:</span> <span class="custom-tooltip-value">${sign}${oxygenStatus.netChange.toFixed(1)} O2/tick</span></div>`
+    `<div><span class="custom-tooltip-label">Net Change:</span> <span class="custom-tooltip-value">${sign}${tooltipNetPerHour.toFixed(1)} O2/hr</span></div>`
   );
 
   if (!oxygenStatus.isPowered && ship.location.status !== 'docked') {
