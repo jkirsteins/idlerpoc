@@ -3,6 +3,7 @@ import { getEngineDefinition, type EngineDefinition } from './engines';
 import { getShipClass, type ShipClass } from './shipClasses';
 import { getDistanceBetween } from './worldGen';
 import { GAME_SECONDS_PER_TICK } from './timeSystem';
+import { isHelmManned } from './jobSlots';
 
 /**
  * Flight Physics
@@ -394,6 +395,42 @@ export function initializeFlight(
     dockOnArrival,
     burnFraction: clampedBurnFraction,
   };
+}
+
+/**
+ * Central gate for all flight starts. Every code path that puts a ship
+ * in flight MUST go through this function.
+ *
+ * Returns false (and does nothing) when helm is unmanned. The caller
+ * is responsible for deciding what to do (pause contract, log, etc.).
+ */
+export function startShipFlight(
+  ship: Ship,
+  origin: WorldLocation,
+  destination: WorldLocation,
+  dockOnArrival: boolean = false,
+  burnFraction: number = 1.0
+): boolean {
+  if (!isHelmManned(ship)) {
+    return false;
+  }
+
+  ship.location.status = 'in_flight';
+  delete ship.location.dockedAt;
+  delete ship.location.orbitingAt;
+
+  ship.activeFlightPlan = initializeFlight(
+    ship,
+    origin,
+    destination,
+    dockOnArrival,
+    burnFraction
+  );
+
+  ship.engine.state = 'warming_up';
+  ship.engine.warmupProgress = 0;
+
+  return true;
 }
 
 /**

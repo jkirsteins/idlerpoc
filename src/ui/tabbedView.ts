@@ -34,8 +34,9 @@ let lastViewedLogCount = 0;
 export interface TabbedViewCallbacks {
   onReset: () => void;
   onTabChange: (tab: PlayingTab) => void;
-  onCrewAssign: (crewId: string, roomId: string) => void;
-  onCrewUnassign: (crewId: string, roomId: string) => void;
+  onJobAssign: (crewId: string, jobSlotId: string) => void;
+  onJobUnassign: (crewId: string) => void;
+  onAutoAssignCrew: () => void;
   onUndock: () => void;
   onDock: () => void;
   onEngineOn: () => void;
@@ -175,8 +176,9 @@ export function createTabbedView(
     switch (tab) {
       case 'ship':
         return createShipTab(gameData, currentShowNav, {
-          onCrewAssign: callbacks.onCrewAssign,
-          onCrewUnassign: callbacks.onCrewUnassign,
+          onJobAssign: callbacks.onJobAssign,
+          onJobUnassign: callbacks.onJobUnassign,
+          onAutoAssignCrew: callbacks.onAutoAssignCrew,
           onUndock: callbacks.onUndock,
           onDock: callbacks.onDock,
           onEngineOn: callbacks.onEngineOn,

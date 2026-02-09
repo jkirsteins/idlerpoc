@@ -13,6 +13,7 @@ import { gameSecondsToTicks, GAME_SECONDS_PER_TICK } from './timeSystem';
 import { getEngineDefinition } from './engines';
 import { getCrewRoleDefinition } from './crewRoles';
 import { calculatePositionDanger } from './encounterSystem';
+import { getCrewForJobType } from './jobSlots';
 
 // Fuel pricing constant for payment calculations (credits per kg)
 // Matches base rate from refuelDialog.ts getFuelPricePerKg()
@@ -190,22 +191,28 @@ function calculatePayment(
 function calculateCrewSkillBonus(ship: Ship): number {
   let bonus = 0;
 
-  for (const room of ship.rooms) {
-    for (const crewId of room.assignedCrewIds) {
-      const crew = ship.crew.find((c) => c.id === crewId);
-      if (!crew) continue;
+  // Scanner crew: astrogation bonus (navigator equivalent)
+  for (const crew of getCrewForJobType(ship, 'scanner')) {
+    const pointsAbove5 = Math.max(0, crew.skills.astrogation - 5);
+    bonus += pointsAbove5 * 0.02;
+  }
 
-      if (room.type === 'bridge' && crew.role === 'navigator') {
-        const pointsAbove5 = Math.max(0, crew.skills.astrogation - 5);
-        bonus += pointsAbove5 * 0.02;
-      } else if (room.type === 'engine_room' && crew.role === 'engineer') {
-        const pointsAbove5 = Math.max(0, crew.skills.engineering - 5);
-        bonus += pointsAbove5 * 0.01;
-      } else if (room.type === 'cantina' && crew.role === 'cook') {
-        const pointsAbove5 = Math.max(0, crew.skills.charisma - 5);
-        bonus += pointsAbove5 * 0.03;
-      }
-    }
+  // Drive ops crew: engineering bonus
+  for (const crew of getCrewForJobType(ship, 'drive_ops')) {
+    const pointsAbove5 = Math.max(0, crew.skills.engineering - 5);
+    bonus += pointsAbove5 * 0.01;
+  }
+
+  // Galley crew: charisma bonus (cook equivalent)
+  for (const crew of getCrewForJobType(ship, 'galley')) {
+    const pointsAbove5 = Math.max(0, crew.skills.charisma - 5);
+    bonus += pointsAbove5 * 0.03;
+  }
+
+  // Comms crew: charisma bonus for negotiation
+  for (const crew of getCrewForJobType(ship, 'comms')) {
+    const pointsAbove5 = Math.max(0, crew.skills.charisma - 5);
+    bonus += pointsAbove5 * 0.02;
   }
 
   return bonus;

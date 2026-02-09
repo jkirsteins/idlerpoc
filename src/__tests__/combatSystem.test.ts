@@ -18,6 +18,8 @@ import {
   createTestRoom,
   createTestEquipment,
   createTestFlight,
+  assignCrewToJob,
+  clearJobSlots,
 } from './testHelpers';
 
 describe('generateThreatLevel', () => {
@@ -71,8 +73,8 @@ describe('attemptEvasion', () => {
       activeFlightPlan: createTestFlight({ currentVelocity: 50_000 }),
     });
     // Clear bridge crew and remove scanner
-    const bridge = ship.rooms.find((r) => r.type === 'bridge')!;
-    bridge.assignedCrewIds = [];
+    clearJobSlots(ship, 'helm');
+    clearJobSlots(ship, 'scanner');
     ship.equipment = ship.equipment.filter(
       (eq) => eq.definitionId !== 'nav_scanner'
     );
@@ -86,8 +88,8 @@ describe('attemptEvasion', () => {
       location: { status: 'in_flight' },
       activeFlightPlan: createTestFlight({ currentVelocity: 200_000 }),
     });
-    const bridge = ship.rooms.find((r) => r.type === 'bridge')!;
-    bridge.assignedCrewIds = [];
+    clearJobSlots(ship, 'helm');
+    clearJobSlots(ship, 'scanner');
     ship.equipment = ship.equipment.filter(
       (eq) => eq.definitionId !== 'nav_scanner'
     );
@@ -101,8 +103,8 @@ describe('attemptEvasion', () => {
       location: { status: 'in_flight' },
       activeFlightPlan: createTestFlight({ currentVelocity: 0 }),
     });
-    const bridge = ship.rooms.find((r) => r.type === 'bridge')!;
-    bridge.assignedCrewIds = [];
+    clearJobSlots(ship, 'helm');
+    clearJobSlots(ship, 'scanner');
     ship.equipment = [createTestEquipment({ definitionId: 'nav_scanner' })];
 
     const result = attemptEvasion(ship);
@@ -125,7 +127,6 @@ describe('attemptEvasion', () => {
     });
     const bridge = createTestRoom({
       type: 'bridge',
-      assignedCrewIds: [navigator.id],
     });
     const ship = createTestShip({
       rooms: [bridge],
@@ -136,6 +137,8 @@ describe('attemptEvasion', () => {
       },
       activeFlightPlan: createTestFlight({ currentVelocity: 0 }),
     });
+    // Assign navigator to scanner (astrogation-based) slot
+    assignCrewToJob(ship, navigator.id, 'scanner', bridge.id);
 
     const result = attemptEvasion(ship);
     expect(result.chance).toBeCloseTo(
@@ -157,7 +160,6 @@ describe('attemptEvasion', () => {
     });
     const bridge = createTestRoom({
       type: 'bridge',
-      assignedCrewIds: [navigator.id],
     });
     const ship = createTestShip({
       rooms: [bridge],
@@ -168,6 +170,8 @@ describe('attemptEvasion', () => {
       },
       activeFlightPlan: createTestFlight({ currentVelocity: 100_000 }),
     });
+    // Assign navigator to scanner (astrogation-based) slot
+    assignCrewToJob(ship, navigator.id, 'scanner', bridge.id);
 
     const result = attemptEvasion(ship);
     // 0.30 (velocity cap) + 0.15 (scanner) + 0.20 (skill 10) = 0.65
@@ -295,7 +299,6 @@ describe('calculateDefenseScore', () => {
     });
     const pdStation = createTestRoom({
       type: 'point_defense_station',
-      assignedCrewIds: [gunner.id],
     });
     const ship = createTestShip({
       classId: 'wayfarer',
@@ -303,6 +306,7 @@ describe('calculateDefenseScore', () => {
       crew: [gunner],
       equipment: [createTestEquipment({ definitionId: 'point_defense' })],
     });
+    assignCrewToJob(ship, gunner.id, 'fire_control', pdStation.id);
 
     const score = calculateDefenseScore(ship);
     // PD: 20 * (1 + 0.5 + 5*0.05) = 20 * 1.75 = 35 + mass: 2.0 = 37.0
@@ -323,7 +327,6 @@ describe('calculateDefenseScore', () => {
     });
     const armory = createTestRoom({
       type: 'armory',
-      assignedCrewIds: [gunner.id],
     });
     const ship = createTestShip({
       classId: 'wayfarer',
@@ -331,6 +334,7 @@ describe('calculateDefenseScore', () => {
       crew: [gunner],
       equipment: [],
     });
+    assignCrewToJob(ship, gunner.id, 'arms_maint', armory.id);
 
     const score = calculateDefenseScore(ship);
     // Armory: strength(5) + rifle(7) = 12, health 100% → 12 + mass: 2.0 = 14.0
@@ -352,7 +356,6 @@ describe('calculateDefenseScore', () => {
     });
     const armory = createTestRoom({
       type: 'armory',
-      assignedCrewIds: [gunner.id],
     });
     const ship = createTestShip({
       classId: 'wayfarer',
@@ -360,6 +363,7 @@ describe('calculateDefenseScore', () => {
       crew: [gunner],
       equipment: [],
     });
+    assignCrewToJob(ship, gunner.id, 'arms_maint', armory.id);
 
     const score = calculateDefenseScore(ship);
     // Armory: (5 + 7) * 0.5 = 6 + mass: 2.0 = 8.0
@@ -815,17 +819,18 @@ describe('resolveEncounter', () => {
     });
     const bridge = createTestRoom({
       type: 'bridge',
-      assignedCrewIds: [navigator.id],
     });
     const gameData = createTestGameData();
     const ship = gameData.ships[0];
     ship.rooms = [bridge];
     ship.crew = [navigator];
+    ship.jobSlots = [];
     ship.equipment = [createTestEquipment({ definitionId: 'nav_scanner' })];
     ship.location = {
       status: 'in_flight',
     };
     ship.activeFlightPlan = createTestFlight({ currentVelocity: 30_000 });
+    assignCrewToJob(ship, navigator.id, 'scanner', bridge.id);
 
     // Evasion chance will be ~0.53, so roll < 0.53 succeeds
     vi.mocked(Math.random).mockReturnValue(0.1);

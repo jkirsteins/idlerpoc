@@ -9,6 +9,7 @@ import type {
 import { getEngineDefinition, type EngineDefinition } from './engines';
 import { getShipClass } from './shipClasses';
 import { GAME_SECONDS_PER_TICK } from './timeSystem';
+import { getCrewForJobType } from './jobSlots';
 
 /**
  * Encounter Detection System
@@ -148,15 +149,18 @@ export function calculateHeatSignature(
  * Skilled navigators reduce encounter probability by plotting evasive routes.
  */
 export function calculateCrewSkillFactor(ship: Ship): number {
-  const bridge = ship.rooms.find((r) => r.type === 'bridge');
-  if (!bridge || bridge.assignedCrewIds.length === 0) {
+  // Scanner crew contribute astrogation skill to route evasion
+  const scannerCrew = getCrewForJobType(ship, 'scanner');
+  const helmCrew = getCrewForJobType(ship, 'helm');
+  const relevantCrew = [...scannerCrew, ...helmCrew];
+
+  if (relevantCrew.length === 0) {
     return 1.0; // No navigator = no reduction
   }
 
   let bestAstrogation = 0;
-  for (const crewId of bridge.assignedCrewIds) {
-    const crew = ship.crew.find((c) => c.id === crewId);
-    if (crew && crew.skills.astrogation > bestAstrogation) {
+  for (const crew of relevantCrew) {
+    if (crew.skills.astrogation > bestAstrogation) {
       bestAstrogation = crew.skills.astrogation;
     }
   }

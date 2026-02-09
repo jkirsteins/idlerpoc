@@ -1,5 +1,5 @@
 import type { GameData, Ship, ActiveContract, Quest } from './models';
-import { initializeFlight } from './flightPhysics';
+import { startShipFlight } from './flightPhysics';
 import { addLog } from './logSystem';
 import { generateAllLocationQuests } from './questGen';
 import { getDaysSinceEpoch, TICKS_PER_DAY } from './timeSystem';
@@ -7,6 +7,7 @@ import { generateHireableCrewByLocation } from './gameFactory';
 import { awardEventXP, logLevelUps } from './skillProgression';
 import { checkAutoRefuel, autoRestartRouteTrip } from './routeAssignment';
 import { getFuelPricePerKg } from './ui/refuelDialog';
+import { unassignCrewFromAllSlots } from './jobSlots';
 
 /**
  * Contract Execution
@@ -104,12 +105,7 @@ function removeUnpaidCrew(gameData: GameData, ship: Ship): void {
       ship.crew.splice(crewIndex, 1);
     }
 
-    for (const room of ship.rooms) {
-      const roomIndex = room.assignedCrewIds.indexOf(crew.id);
-      if (roomIndex !== -1) {
-        room.assignedCrewIds.splice(roomIndex, 1);
-      }
-    }
+    unassignCrewFromAllSlots(ship, crew.id);
 
     addLog(
       gameData.log,
@@ -186,11 +182,7 @@ export function acceptQuest(
     throw new Error('Invalid quest locations');
   }
 
-  ship.location.status = 'in_flight';
-  delete ship.location.dockedAt;
-  delete ship.location.orbitingAt;
-
-  ship.activeFlightPlan = initializeFlight(
+  const departed = startShipFlight(
     ship,
     origin,
     destination,
@@ -198,8 +190,18 @@ export function acceptQuest(
     ship.flightProfileBurnFraction
   );
 
-  ship.engine.state = 'warming_up';
-  ship.engine.warmupProgress = 0;
+  if (!departed) {
+    // No helm crew — cannot fly. Pause contract and stay docked.
+    ship.activeContract.paused = true;
+    addLog(
+      gameData.log,
+      gameTime,
+      'contract_accepted',
+      `Contract "${quest.title}" accepted but helm is unmanned — assign a crew member to helm to depart.`,
+      ship.name
+    );
+    return;
+  }
 
   addLog(
     gameData.log,
@@ -345,15 +347,36 @@ export function completeLeg(gameData: GameData, ship: Ship): void {
         return;
       }
 
-      ship.activeFlightPlan = initializeFlight(
+      const departed = startShipFlight(
         ship,
         nextOrigin,
         nextDestination,
         false,
         ship.flightProfileBurnFraction
       );
-      ship.engine.state = 'warming_up';
-      ship.engine.warmupProgress = 0;
+
+      if (!departed) {
+        // No helm crew — pause contract at current location
+        activeContract.paused = true;
+        ship.location.status = 'docked';
+        ship.location.dockedAt = arrivalLocation.id;
+        delete ship.location.orbitingAt;
+        delete ship.activeFlightPlan;
+        ship.engine.state = 'off';
+        ship.engine.warmupProgress = 0;
+
+        addLog(
+          gameData.log,
+          gameTime,
+          'arrival',
+          `Helm unmanned at ${arrivalLocation.name}! Contract "${quest.title}" paused — assign crew to helm.`,
+          ship.name
+        );
+
+        checkFirstArrival(gameData, ship, arrivalLocation.id);
+        removeUnpaidCrew(gameData, ship);
+        return;
+      }
 
       addLog(
         gameData.log,
@@ -493,15 +516,36 @@ export function completeLeg(gameData: GameData, ship: Ship): void {
         return;
       }
 
-      ship.activeFlightPlan = initializeFlight(
+      const departed = startShipFlight(
         ship,
         nextOrigin,
         nextDestination,
         false,
         ship.flightProfileBurnFraction
       );
-      ship.engine.state = 'warming_up';
-      ship.engine.warmupProgress = 0;
+
+      if (!departed) {
+        // No helm crew — pause contract at current location
+        activeContract.paused = true;
+        ship.location.status = 'docked';
+        ship.location.dockedAt = arrivalLocation.id;
+        delete ship.location.orbitingAt;
+        delete ship.activeFlightPlan;
+        ship.engine.state = 'off';
+        ship.engine.warmupProgress = 0;
+
+        addLog(
+          gameData.log,
+          gameTime,
+          'arrival',
+          `Helm unmanned at ${arrivalLocation.name}! Contract "${quest.title}" paused — assign crew to helm.`,
+          ship.name
+        );
+
+        checkFirstArrival(gameData, ship, arrivalLocation.id);
+        removeUnpaidCrew(gameData, ship);
+        return;
+      }
 
       addLog(
         gameData.log,
@@ -555,20 +599,27 @@ export function resumeContract(gameData: GameData, ship: Ship): void {
   const nextDestination =
     ship.activeContract.leg === 'outbound' ? destLoc : originLoc;
 
-  ship.activeContract.paused = false;
-  ship.location.status = 'in_flight';
-  delete ship.location.dockedAt;
-  delete ship.location.orbitingAt;
-
-  ship.activeFlightPlan = initializeFlight(
+  const departed = startShipFlight(
     ship,
     currentLoc,
     nextDestination,
     false,
     ship.flightProfileBurnFraction
   );
-  ship.engine.state = 'warming_up';
-  ship.engine.warmupProgress = 0;
+
+  if (!departed) {
+    // No helm crew — stay paused
+    addLog(
+      gameData.log,
+      gameTime,
+      'departure',
+      `Cannot resume contract — helm is unmanned. Assign crew to helm to depart.`,
+      ship.name
+    );
+    return;
+  }
+
+  ship.activeContract.paused = false;
 
   addLog(
     gameData.log,

@@ -11,6 +11,7 @@ import { getShipPositionKm } from './encounterSystem';
 import { addLog } from './logSystem';
 import { setEncounterResolver } from './gameTick';
 import { awardEventXP, logLevelUps, type XPEvent } from './skillProgression';
+import { getCrewForJobType } from './jobSlots';
 
 /**
  * Combat System
@@ -134,15 +135,14 @@ export function attemptEvasion(ship: Ship): {
   );
   const scannerBonus = navScanner ? COMBAT_CONSTANTS.EVASION_SCANNER_BONUS : 0;
 
-  // Best astrogation skill from bridge crew
-  const bridge = ship.rooms.find((r) => r.type === 'bridge');
+  // Best astrogation skill from scanner/helm crew
+  const scannerCrew = getCrewForJobType(ship, 'scanner');
+  const helmCrew = getCrewForJobType(ship, 'helm');
+  const bridgeCrew = [...scannerCrew, ...helmCrew];
   let bestAstrogation = 0;
-  if (bridge) {
-    for (const crewId of bridge.assignedCrewIds) {
-      const crew = ship.crew.find((c) => c.id === crewId);
-      if (crew && crew.skills.astrogation > bestAstrogation) {
-        bestAstrogation = crew.skills.astrogation;
-      }
+  for (const crew of bridgeCrew) {
+    if (crew.skills.astrogation > bestAstrogation) {
+      bestAstrogation = crew.skills.astrogation;
     }
   }
   const astrogationBonus =
@@ -197,21 +197,15 @@ export function calculateDefenseScore(ship: Ship): number {
     const pdEffectiveness = 1 - pdEquipment.degradation / 200;
     let pdScore = COMBAT_CONSTANTS.PD_BASE_SCORE * pdEffectiveness;
 
-    // Point Defense Station staffing bonus
-    const pdStation = ship.rooms.find(
-      (r) => r.type === 'point_defense_station'
-    );
-    if (
-      pdStation &&
-      pdStation.state === 'operational' &&
-      pdStation.assignedCrewIds.length > 0
-    ) {
-      const pdCrew = pdStation.assignedCrewIds
-        .map((id) => ship.crew.find((c) => c.id === id))
-        .filter(Boolean);
+    // PD station staffing bonus from fire_control + targeting job slots
+    const pdCrew = [
+      ...getCrewForJobType(ship, 'fire_control'),
+      ...getCrewForJobType(ship, 'targeting'),
+    ];
+    if (pdCrew.length > 0) {
       const bestGunnerSkill = Math.max(
         0,
-        ...pdCrew.map((c) => c!.skills.strength)
+        ...pdCrew.map((c) => c.skills.strength)
       );
       const staffingBonus =
         COMBAT_CONSTANTS.PD_STAFFING_BASE_BONUS +
@@ -222,26 +216,21 @@ export function calculateDefenseScore(ship: Ship): number {
     defenseScore += pdScore;
   }
 
-  // 2. Crew in armory with weapons
-  const armory = ship.rooms.find((r) => r.type === 'armory');
-  if (armory && armory.state === 'operational') {
-    for (const crewId of armory.assignedCrewIds) {
-      const crew = ship.crew.find((c) => c.id === crewId);
-      if (crew) {
-        let crewCombat = crew.skills.strength;
+  // 2. Crew in arms_maint job slots with weapons
+  const armoryCrew = getCrewForJobType(ship, 'arms_maint');
+  for (const crew of armoryCrew) {
+    let crewCombat = crew.skills.strength;
 
-        // Weapon attack scores
-        for (const eq of crew.equipment) {
-          const eqDef = getCrewEquipmentDefinition(eq.definitionId);
-          crewCombat += eqDef.attackScore;
-        }
-
-        // Health modifier
-        crewCombat *= crew.health / 100;
-
-        defenseScore += crewCombat;
-      }
+    // Weapon attack scores
+    for (const eq of crew.equipment) {
+      const eqDef = getCrewEquipmentDefinition(eq.definitionId);
+      crewCombat += eqDef.attackScore;
     }
+
+    // Health modifier
+    crewCombat *= crew.health / 100;
+
+    defenseScore += crewCombat;
   }
 
   // 3. Deflector Shield passive defense

@@ -10,8 +10,11 @@ import type { GameData } from '../models';
  *   - Factory is named `createXxx(initialState, callbacks)`.
  *   - Callbacks are captured in the closure; only changing state is
  *     passed to `update()`.
- *   - `update()` calls `el.replaceChildren()` and rebuilds inner
- *     content.  The container element itself is never replaced.
+ *   - `update()` snapshots the rendered props and shallow-compares
+ *     against the previous snapshot.  If nothing changed, the
+ *     rebuild is skipped entirely — no DOM work.  Only when props
+ *     differ does the component call `el.replaceChildren()`.
+ *   - The container element itself is never replaced.
  */
 export interface Component {
   readonly el: HTMLElement;

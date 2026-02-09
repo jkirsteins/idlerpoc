@@ -55,8 +55,9 @@ export interface RendererCallbacks {
   onWizardCancel: () => void;
   onReset: () => void;
   onTabChange: (tab: PlayingTab) => void;
-  onCrewAssign: (crewId: string, roomId: string) => void;
-  onCrewUnassign: (crewId: string, roomId: string) => void;
+  onJobAssign: (crewId: string, jobSlotId: string) => void;
+  onJobUnassign: (crewId: string) => void;
+  onAutoAssignCrew: () => void;
   onUndock: () => void;
   onDock: () => void;
   onEngineOn: () => void;
@@ -296,8 +297,9 @@ function mountPlayingLayout(
     {
       onReset: callbacks.onReset,
       onTabChange: callbacks.onTabChange,
-      onCrewAssign: callbacks.onCrewAssign,
-      onCrewUnassign: callbacks.onCrewUnassign,
+      onJobAssign: callbacks.onJobAssign,
+      onJobUnassign: callbacks.onJobUnassign,
+      onAutoAssignCrew: callbacks.onAutoAssignCrew,
       onUndock: callbacks.onUndock,
       onDock: callbacks.onDock,
       onEngineOn: callbacks.onEngineOn,

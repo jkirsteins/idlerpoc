@@ -21,7 +21,73 @@ import {
 } from '../gravitySystem';
 import { TICKS_PER_DAY } from '../timeSystem';
 import { calculateTickXP } from '../skillProgression';
+import { getCrewJobSlot, getJobSlotDefinition } from '../jobSlots';
 import type { Component } from './component';
+
+/** Snapshot the props the crew tab renders so we can shallow-compare. */
+function snapshotCrewProps(
+  gameData: GameData,
+  selectedCrewId: string | undefined
+) {
+  const ship = getActiveShip(gameData);
+  return {
+    selectedCrewId,
+    shipId: ship.id,
+    locationStatus: ship.location.status,
+    dockedAt: ship.location.dockedAt,
+    cargoCount: ship.cargo.length,
+    credits: gameData.credits,
+    shipsCount: gameData.ships.length,
+    // Crew roster identity + all rendered fields
+    crew: ship.crew
+      .map(
+        (c) =>
+          `${c.id},${c.health},${c.morale},${c.level},${c.xp},${c.unspentSkillPoints},${c.unpaidTicks},${c.zeroGExposure},${c.equipment.length}`
+      )
+      .join(';'),
+    crewSkills: ship.crew
+      .map(
+        (c) =>
+          `${c.skills.piloting}${c.skills.astrogation}${c.skills.engineering}${c.skills.strength}${c.skills.charisma}${c.skills.loyalty}`
+      )
+      .join(),
+    crewEquip: ship.crew
+      .flatMap((c) => c.equipment.map((eq) => eq.id + eq.definitionId))
+      .join(),
+    cargo: ship.cargo.map((i) => i.id + i.definitionId).join(),
+    // Hireable crew at docked location
+    hireable: ship.location.dockedAt
+      ? (gameData.hireableCrewByLocation[ship.location.dockedAt] || [])
+          .map((h) => h.id)
+          .join()
+      : '',
+    // Job slot assignments (affects training indicator)
+    slots: ship.jobSlots.map((s) => s.id + ':' + s.assignedCrewId).join(),
+    // Other docked ships (affects transfer section)
+    otherShips:
+      ship.location.status === 'docked'
+        ? gameData.ships
+            .filter(
+              (s) =>
+                s.id !== ship.id &&
+                s.location.status === 'docked' &&
+                s.location.dockedAt === ship.location.dockedAt
+            )
+            .map((s) => s.id)
+            .join()
+        : '',
+  };
+}
+
+type CrewSnapshot = ReturnType<typeof snapshotCrewProps>;
+
+function crewPropsChanged(a: CrewSnapshot | null, b: CrewSnapshot): boolean {
+  if (!a) return true;
+  for (const key of Object.keys(b) as Array<keyof CrewSnapshot>) {
+    if (a[key] !== b[key]) return true;
+  }
+  return false;
+}
 
 export function createCrewTab(
   gameData: GameData,
@@ -31,10 +97,15 @@ export function createCrewTab(
   const container = document.createElement('div');
   container.className = 'crew-tab';
   let currentSelectedCrewId = selectedCrewId;
+  let lastSnapshot: CrewSnapshot | null = null;
 
   function rebuild(gameData: GameData) {
-    container.replaceChildren();
     const selectedCrewId = currentSelectedCrewId;
+    const snap = snapshotCrewProps(gameData, selectedCrewId);
+    if (!crewPropsChanged(lastSnapshot, snap)) return;
+    lastSnapshot = snap;
+
+    container.replaceChildren();
     const ship = getActiveShip(gameData);
 
     const layout = document.createElement('div');
@@ -226,12 +297,10 @@ function renderCrewDetail(
   // Stats section
   panel.appendChild(renderStatsSection(crew));
 
-  // Room training indicator (show what skill is being trained)
+  // Job training indicator (show what skill is being trained)
   if (ship.location.status === 'in_flight') {
-    const assignedRoom = ship.rooms.find((r) =>
-      r.assignedCrewIds.includes(crew.id)
-    );
-    const xpResult = calculateTickXP(crew, assignedRoom ?? null);
+    const jobSlot = getCrewJobSlot(ship, crew.id);
+    const xpResult = calculateTickXP(crew, jobSlot?.type ?? null);
     if (xpResult) {
       const trainingDiv = document.createElement('div');
       trainingDiv.className = 'training-indicator';
@@ -244,7 +313,9 @@ function renderCrewDetail(
       trainingDiv.style.color = '#4ade80';
       const skillName =
         xpResult.skill.charAt(0).toUpperCase() + xpResult.skill.slice(1);
-      trainingDiv.textContent = `Training: ${skillName} (+${xpResult.xp} XP/tick)`;
+      const jobDef = jobSlot ? getJobSlotDefinition(jobSlot.type) : null;
+      const jobName = jobDef ? jobDef.name : 'Unknown';
+      trainingDiv.textContent = `${jobName}: Training ${skillName} (+${xpResult.xp} XP/tick)`;
       panel.appendChild(trainingDiv);
     }
   }
