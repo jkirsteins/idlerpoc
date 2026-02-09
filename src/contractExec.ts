@@ -1,16 +1,9 @@
 import type { GameData, Ship, ActiveContract, Quest } from './models';
-import {
-  initializeFlight,
-  calculateFuelMassRequired,
-  getCurrentShipMass,
-  getSpecificImpulse,
-} from './flightPhysics';
+import { initializeFlight, calculateOneLegFuelKg } from './flightPhysics';
 import { addLog } from './logSystem';
-import { getShipClass } from './shipClasses';
 import { generateAllLocationQuests } from './questGen';
 import { getDaysSinceEpoch, TICKS_PER_DAY } from './timeSystem';
 import { generateHireableCrewByLocation } from './gameFactory';
-import { getEngineDefinition } from './engines';
 import { getDistanceBetween } from './worldGen';
 import { awardEventXP, logLevelUps } from './skillProgression';
 import { checkAutoRefuel, autoRestartRouteTrip } from './routeAssignment';
@@ -274,25 +267,8 @@ export function completeLeg(gameData: GameData, ship: Ship): void {
       const nextDestination = originLoc;
       const distanceKm = getDistanceBetween(nextOrigin, nextDestination);
 
-      const shipClass = getShipClass(ship.classId);
-      if (!shipClass) return;
-      const engineDef = getEngineDefinition(ship.engine.definitionId);
-
-      // Calculate required delta-v for this trip
-      const distanceMeters = distanceKm * 1000;
-      const currentMass = getCurrentShipMass(ship);
-      const thrust = engineDef.thrust;
-      const acceleration = thrust / currentMass;
-      const requiredDeltaV = 2 * Math.sqrt(distanceMeters * acceleration);
-
-      // Calculate fuel mass required
-      const dryMass = shipClass.mass + ship.crew.length * 80;
-      const specificImpulse = getSpecificImpulse(engineDef);
-      const requiredFuelKg = calculateFuelMassRequired(
-        dryMass,
-        requiredDeltaV,
-        specificImpulse
-      );
+      // Calculate fuel required for return leg (burn-coast-burn aware)
+      const requiredFuelKg = calculateOneLegFuelKg(ship, distanceKm);
 
       if (ship.fuelKg < requiredFuelKg * 1.1) {
         activeContract.paused = true;
@@ -438,25 +414,8 @@ export function completeLeg(gameData: GameData, ship: Ship): void {
       const nextDestination = destLoc;
       const distanceKm = getDistanceBetween(nextOrigin, nextDestination);
 
-      const shipClass = getShipClass(ship.classId);
-      if (!shipClass) return;
-      const engineDef = getEngineDefinition(ship.engine.definitionId);
-
-      // Calculate required delta-v for this trip
-      const distanceMeters = distanceKm * 1000;
-      const currentMass = getCurrentShipMass(ship);
-      const thrust = engineDef.thrust;
-      const acceleration = thrust / currentMass;
-      const requiredDeltaV = 2 * Math.sqrt(distanceMeters * acceleration);
-
-      // Calculate fuel mass required
-      const dryMass = shipClass.mass + ship.crew.length * 80;
-      const specificImpulse = getSpecificImpulse(engineDef);
-      const requiredFuelKg = calculateFuelMassRequired(
-        dryMass,
-        requiredDeltaV,
-        specificImpulse
-      );
+      // Calculate fuel required for next leg (burn-coast-burn aware)
+      const requiredFuelKg = calculateOneLegFuelKg(ship, distanceKm);
 
       if (ship.fuelKg < requiredFuelKg * 1.1) {
         activeContract.paused = true;
