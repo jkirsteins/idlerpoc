@@ -20,6 +20,7 @@ import { generateAllLocationQuests } from './questGen';
 import { getEquipmentDefinition, canEquipInSlot } from './equipment';
 import { calculateFuelTankCapacity } from './flightPhysics';
 import { getEngineDefinition } from './engines';
+import { generateJobSlotsForShip, autoAssignCrewToJobs } from './jobSlots';
 
 const HIRE_BASE_COST = 500;
 const HIRE_LEVEL_MULTIPLIER = 200;
@@ -75,7 +76,6 @@ function createRoom(type: Room['type']): Room {
     id: generateId(),
     type,
     state: 'operational',
-    assignedCrewIds: [],
   };
 }
 
@@ -209,24 +209,6 @@ function createStartingShip(
     crew.push(createCrewMember(generateCrewName(), 'cook'));
   }
 
-  // Assign crew to rooms
-  const bridgeRoom = rooms.find((r) => r.type === 'bridge');
-  const engineRoom = rooms.find((r) => r.type === 'engine_room');
-  const cantinaRoom = rooms.find((r) => r.type === 'cantina');
-
-  if (bridgeRoom) {
-    bridgeRoom.assignedCrewIds.push(captain.id, pilot.id);
-  }
-  if (engineRoom) {
-    engineRoom.assignedCrewIds.push(engineer.id);
-  }
-  if (cantinaRoom) {
-    const cook = crew.find((c) => c.role === 'cook');
-    if (cook) {
-      cantinaRoom.assignedCrewIds.push(cook.id);
-    }
-  }
-
   const { equipmentSlots, equipment } = createShipEquipment(shipClassId);
   const engine = createEngineInstance(shipClassId);
 
@@ -243,12 +225,13 @@ function createStartingShip(
     engineDef
   );
 
-  return {
+  const ship: Ship = {
     id: generateId(),
     name: shipName,
     classId: shipClassId,
     rooms,
     crew,
+    jobSlots: [],
     fuelKg: maxFuelKg, // Start with full tank
     maxFuelKg,
     equipment,
@@ -275,6 +258,12 @@ function createStartingShip(
     role: undefined,
     flightProfileBurnFraction: 1.0,
   };
+
+  // Generate job slots from rooms + equipment, then auto-assign crew
+  ship.jobSlots = generateJobSlotsForShip(ship);
+  autoAssignCrewToJobs(ship);
+
+  return ship;
 }
 
 /**
@@ -301,12 +290,13 @@ export function createAdditionalShip(
     engineDef
   );
 
-  return {
+  const ship: Ship = {
     id: generateId(),
     name: shipName,
     classId: shipClassId,
     rooms,
     crew: [],
+    jobSlots: [],
     fuelKg: maxFuelKg, // Start with full tank
     maxFuelKg,
     equipment,
@@ -333,6 +323,11 @@ export function createAdditionalShip(
     role: undefined,
     flightProfileBurnFraction: 1.0,
   };
+
+  // Generate job slots from rooms + equipment (no crew to assign yet)
+  ship.jobSlots = generateJobSlotsForShip(ship);
+
+  return ship;
 }
 
 export function createNewGame(

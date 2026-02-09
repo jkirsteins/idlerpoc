@@ -1,13 +1,10 @@
-import type { RoomType, CrewRole } from './models';
+import type { RoomType } from './models';
 
 export interface RoomDefinition {
   type: RoomType;
   name: string;
   description: string;
   icon: string;
-  preferredRole?: CrewRole;
-  minCrew: number;
-  maxCrew: number;
   powerDraw: number;
   alwaysPowered: boolean;
 }
@@ -18,9 +15,6 @@ export const ROOM_DEFINITIONS: RoomDefinition[] = [
     name: 'Bridge',
     description: 'The command center of the ship.',
     icon: '\u{1F39B}\uFE0F', // control knobs
-    preferredRole: 'pilot',
-    minCrew: 1,
-    maxCrew: 3,
     powerDraw: 8,
     alwaysPowered: false,
   },
@@ -29,9 +23,6 @@ export const ROOM_DEFINITIONS: RoomDefinition[] = [
     name: 'Cantina',
     description: 'Where the crew eats and relaxes.',
     icon: '\u{1F37A}', // beer mug
-    preferredRole: 'cook',
-    minCrew: 1,
-    maxCrew: 2,
     powerDraw: 3,
     alwaysPowered: false,
   },
@@ -40,9 +31,6 @@ export const ROOM_DEFINITIONS: RoomDefinition[] = [
     name: 'Engine Room',
     description: 'The heart of the ship that keeps it running.',
     icon: '\u2699\uFE0F', // gear
-    preferredRole: 'engineer',
-    minCrew: 1,
-    maxCrew: 4,
     powerDraw: 5,
     alwaysPowered: false,
   },
@@ -51,9 +39,6 @@ export const ROOM_DEFINITIONS: RoomDefinition[] = [
     name: 'Medbay',
     description: 'Medical facilities for treating injuries.',
     icon: '\u{1FA7A}', // stethoscope
-    preferredRole: 'medic',
-    minCrew: 1,
-    maxCrew: 2,
     powerDraw: 4,
     alwaysPowered: false,
   },
@@ -62,8 +47,6 @@ export const ROOM_DEFINITIONS: RoomDefinition[] = [
     name: 'Cargo Hold',
     description: 'Storage for goods and equipment.',
     icon: '\u{1F4E6}', // package
-    minCrew: 0,
-    maxCrew: 0,
     powerDraw: 2,
     alwaysPowered: true,
   },
@@ -72,9 +55,6 @@ export const ROOM_DEFINITIONS: RoomDefinition[] = [
     name: 'Armory',
     description: 'Weapons storage and maintenance.',
     icon: '\u{1F52B}', // pistol
-    preferredRole: 'gunner',
-    minCrew: 1,
-    maxCrew: 3,
     powerDraw: 3,
     alwaysPowered: false,
   },
@@ -83,8 +63,6 @@ export const ROOM_DEFINITIONS: RoomDefinition[] = [
     name: 'Quarters',
     description: 'Crew sleeping quarters.',
     icon: '\u{1F6CF}\uFE0F', // bed
-    minCrew: 0,
-    maxCrew: 2,
     powerDraw: 2,
     alwaysPowered: true,
   },
@@ -94,9 +72,6 @@ export const ROOM_DEFINITIONS: RoomDefinition[] = [
     description:
       'Fusion containment management. Separate from engine thrust control.',
     icon: '⚛️', // atom symbol
-    preferredRole: 'engineer',
-    minCrew: 1,
-    maxCrew: 3,
     powerDraw: 6,
     alwaysPowered: false,
   },
@@ -105,9 +80,6 @@ export const ROOM_DEFINITIONS: RoomDefinition[] = [
     name: 'Point Defense Station',
     description: 'Fire control for PD systems. Gunner-operated.',
     icon: '🎯', // target
-    preferredRole: 'gunner',
-    minCrew: 1,
-    maxCrew: 2,
     powerDraw: 8,
     alwaysPowered: false,
   },

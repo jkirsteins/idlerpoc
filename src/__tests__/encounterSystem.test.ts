@@ -17,6 +17,8 @@ import {
   createTestWorld,
   createTestCrew,
   createTestFlight,
+  assignCrewToJob,
+  clearJobSlots,
 } from './testHelpers';
 
 describe('calculatePositionDanger', () => {
@@ -140,25 +142,27 @@ describe('calculateHeatSignature', () => {
 });
 
 describe('calculateCrewSkillFactor', () => {
-  it('returns 1.0 when no crew on bridge', () => {
+  it('returns 1.0 when no crew in scanner/helm slots', () => {
     const ship = createTestShip();
-    // Clear bridge crew
-    const bridge = ship.rooms.find((r) => r.type === 'bridge')!;
-    bridge.assignedCrewIds = [];
+    // Clear helm and scanner slots
+    clearJobSlots(ship, 'helm');
+    clearJobSlots(ship, 'scanner');
 
     expect(calculateCrewSkillFactor(ship)).toBe(1.0);
   });
 
   it('returns 1.0 when no bridge room exists', () => {
-    const ship = createTestShip();
-    ship.rooms = ship.rooms.filter((r) => r.type !== 'bridge');
+    const ship = createTestShip({
+      rooms: [],
+      jobSlots: [],
+    });
 
     expect(calculateCrewSkillFactor(ship)).toBe(1.0);
   });
 
   it('reduces with astrogation skill 5', () => {
     const ship = createTestShip();
-    // Default test ship has astrogation 5 on bridge
+    // Default test ship has navigator (astrogation 5) on helm
     const factor = calculateCrewSkillFactor(ship);
     expect(factor).toBeCloseTo(1 / (1 + 5 * 0.08), 3);
     expect(factor).toBeCloseTo(0.714, 2);
@@ -176,16 +180,18 @@ describe('calculateCrewSkillFactor', () => {
       },
     });
     const ship = createTestShip();
-    const bridge = ship.rooms.find((r) => r.type === 'bridge')!;
-    bridge.assignedCrewIds = [crew.id];
+    // Clear default crew assignment and assign new crew
+    clearJobSlots(ship, 'helm');
+    clearJobSlots(ship, 'scanner');
     ship.crew = [crew];
+    assignCrewToJob(ship, crew.id, 'scanner');
 
     const factor = calculateCrewSkillFactor(ship);
     expect(factor).toBeCloseTo(1 / (1 + 10 * 0.08), 3);
     expect(factor).toBeCloseTo(0.556, 2);
   });
 
-  it('uses best astrogation among multiple bridge crew', () => {
+  it('uses best astrogation among scanner/helm crew', () => {
     const navigator = createTestCrew({
       skills: {
         piloting: 3,
@@ -207,9 +213,11 @@ describe('calculateCrewSkillFactor', () => {
       },
     });
     const ship = createTestShip();
-    const bridge = ship.rooms.find((r) => r.type === 'bridge')!;
-    bridge.assignedCrewIds = [navigator.id, pilot.id];
+    clearJobSlots(ship, 'helm');
+    clearJobSlots(ship, 'scanner');
     ship.crew = [navigator, pilot];
+    assignCrewToJob(ship, navigator.id, 'scanner');
+    assignCrewToJob(ship, pilot.id, 'helm');
 
     const factor = calculateCrewSkillFactor(ship);
     // Should use skill 8 (the best)
@@ -228,9 +236,10 @@ describe('calculateCrewSkillFactor', () => {
       },
     });
     const ship = createTestShip();
-    const bridge = ship.rooms.find((r) => r.type === 'bridge')!;
-    bridge.assignedCrewIds = [crew.id];
+    clearJobSlots(ship, 'helm');
+    clearJobSlots(ship, 'scanner');
     ship.crew = [crew];
+    assignCrewToJob(ship, crew.id, 'helm');
 
     expect(calculateCrewSkillFactor(ship)).toBe(1.0);
   });
@@ -462,7 +471,8 @@ describe('calculateEncounterChance', () => {
     ship.activeFlightPlan = createTestFlight();
 
     // Low skill navigator
-    const bridge = ship.rooms.find((r) => r.type === 'bridge')!;
+    clearJobSlots(ship, 'helm');
+    clearJobSlots(ship, 'scanner');
     const lowSkillCrew = createTestCrew({
       skills: {
         piloting: 3,
@@ -473,11 +483,12 @@ describe('calculateEncounterChance', () => {
         loyalty: 2,
       },
     });
-    bridge.assignedCrewIds = [lowSkillCrew.id];
     ship.crew = [lowSkillCrew];
+    assignCrewToJob(ship, lowSkillCrew.id, 'helm');
     const chanceLowSkill = calculateEncounterChance(ship, gameData);
 
     // High skill navigator
+    clearJobSlots(ship, 'helm');
     const highSkillCrew = createTestCrew({
       skills: {
         piloting: 3,
@@ -488,8 +499,8 @@ describe('calculateEncounterChance', () => {
         loyalty: 2,
       },
     });
-    bridge.assignedCrewIds = [highSkillCrew.id];
     ship.crew = [highSkillCrew];
+    assignCrewToJob(ship, highSkillCrew.id, 'helm');
     const chanceHighSkill = calculateEncounterChance(ship, gameData);
 
     expect(chanceHighSkill).toBeLessThan(chanceLowSkill);

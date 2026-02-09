@@ -1,8 +1,8 @@
-import type { GameData, Room, CrewMember } from '../models';
+import type { GameData, Room, JobSlot } from '../models';
 import { getActiveShip } from '../models';
 import { getShipClass } from '../shipClasses';
 import { getRoomDefinition } from '../rooms';
-import { getCrewRoleName, getCrewRoleDefinition } from '../crewRoles';
+import { getCrewRoleName } from '../crewRoles';
 import { computePowerStatus } from '../powerSystem';
 import { getEquipmentDefinition } from '../equipment';
 import { getEngineDefinition } from '../engines';
@@ -22,10 +22,19 @@ import {
   getFuelColorClass,
 } from './fuelFormatting';
 import { renderFlightStrip } from './flightStatus';
+import {
+  getRoomJobSlots,
+  getRoomCrewCount,
+  getUnassignedCrew,
+  getJobSlotDefinition,
+  isRoomStaffed,
+  isHelmManned,
+} from '../jobSlots';
 
 export interface ShipTabCallbacks {
-  onCrewAssign: (crewId: string, roomId: string) => void;
-  onCrewUnassign: (crewId: string, roomId: string) => void;
+  onJobAssign: (crewId: string, jobSlotId: string) => void;
+  onJobUnassign: (crewId: string) => void;
+  onAutoAssignCrew: () => void;
   onUndock: () => void;
   onDock: () => void;
   onEngineOn: () => void;
@@ -48,7 +57,6 @@ export function createShipTab(
   function rebuild(gameData: GameData) {
     container.replaceChildren();
 
-    // If navigation is open, show navigation view instead
     if (currentShowNav) {
       container.appendChild(
         createNavigationView(gameData, {
@@ -87,8 +95,8 @@ export function createShipTab(
     // Ship stats panel
     container.appendChild(renderShipStatsPanel(gameData));
 
-    // Room grid
-    container.appendChild(renderRoomGrid(gameData, callbacks));
+    // Job slots grid (organized by room + ship-wide)
+    container.appendChild(renderJobSlotsGrid(gameData, callbacks));
 
     // Gravity status panel
     container.appendChild(renderGravityStatus(gameData));
@@ -96,8 +104,8 @@ export function createShipTab(
     // Equipment section
     container.appendChild(renderEquipmentSection(gameData));
 
-    // Staging area (unassigned crew)
-    container.appendChild(renderStagingArea(gameData, callbacks));
+    // Unassigned crew
+    container.appendChild(renderUnassignedCrew(gameData, callbacks));
   }
 
   rebuild(gameData);
@@ -109,6 +117,8 @@ export function createShipTab(
     },
   };
 }
+
+// ── Status bars (fuel, power, radiation, heat, containment) ──────
 
 function renderFuelBar(gameData: GameData): HTMLElement {
   const ship = getActiveShip(gameData);
@@ -150,22 +160,19 @@ function renderPowerBar(gameData: GameData): HTMLElement {
       ? `${powerStatus.totalDraw}/${powerStatus.totalOutput} kW (${powerStatus.percentage.toFixed(0)}%)`
       : '0 kW (NO POWER)';
 
-  // Build tooltip showing power draw breakdown
   const drawItems: Array<{ name: string; draw: number }> = [];
 
-  // Rooms
   for (const room of ship.rooms) {
     const roomDef = getRoomDefinition(room.type);
     if (!roomDef) continue;
     const isActive =
       roomDef.alwaysPowered ||
-      (room.assignedCrewIds.length > 0 && room.state === 'operational');
+      (isRoomStaffed(ship, room.id) && room.state === 'operational');
     if (isActive && roomDef.powerDraw > 0) {
       drawItems.push({ name: roomDef.name, draw: roomDef.powerDraw });
     }
   }
 
-  // Equipment
   for (const equipment of ship.equipment) {
     const equipDef = getEquipmentDefinition(equipment.definitionId);
     if (equipDef && equipDef.powerDraw > 0) {
@@ -173,7 +180,6 @@ function renderPowerBar(gameData: GameData): HTMLElement {
     }
   }
 
-  // Engine self-draw
   if (ship.engine.state === 'online' && engineDef.selfPowerDraw > 0) {
     drawItems.push({
       name: `${engineDef.name} (self)`,
@@ -188,21 +194,16 @@ function renderPowerBar(gameData: GameData): HTMLElement {
     drawItems
   );
 
-  // Show full capacity when power is available, with draw as overlay
   const basePercentage =
     powerStatus.powerSource === 'berth' || powerStatus.powerSource === 'drives'
       ? 100
       : 0;
 
-  // Determine overlay color based on power draw
   let overlayColorClass = 'bar-warning';
   if (powerStatus.isOverloaded) {
     overlayColorClass = 'bar-danger';
   }
 
-  // powerStatus.percentage is (draw/output)*100
-  // For 32 kW draw / 50 kW capacity = 64%
-  // Overlay should show this drawn percentage
   const drawnPercentage = powerStatus.percentage;
 
   const statBar = renderStatBar({
@@ -220,7 +221,6 @@ function renderPowerBar(gameData: GameData): HTMLElement {
         : undefined,
   });
 
-  // Attach custom tooltip
   attachTooltip(statBar, {
     content: tooltipContent,
     followMouse: false,
@@ -234,7 +234,6 @@ function renderRadiationBar(gameData: GameData): HTMLElement {
   const engineDef = getEngineDefinition(ship.engine.definitionId);
   const engineRadiation = engineDef.radiationOutput || 0;
 
-  // Calculate total shielding
   let totalShielding = 0;
   for (const eq of ship.equipment) {
     const eqDef = getEquipmentDefinition(eq.definitionId);
@@ -274,7 +273,6 @@ function renderHeatBar(gameData: GameData): HTMLElement {
   const engineDef = getEngineDefinition(ship.engine.definitionId);
   const engineHeat = engineDef.wasteHeatOutput || 0;
 
-  // Calculate total heat dissipation
   let totalDissipation = 0;
   for (const eq of ship.equipment) {
     const eqDef = getEquipmentDefinition(eq.definitionId);
@@ -336,9 +334,7 @@ function renderContainmentBar(gameData: GameData): HTMLElement {
 
   const reactorRoom = ship.rooms.find((r) => r.type === 'reactor_room');
   const staffingNote =
-    reactorRoom && reactorRoom.assignedCrewIds.length === 0
-      ? ' [UNSTAFFED]'
-      : '';
+    reactorRoom && !isRoomStaffed(ship, reactorRoom.id) ? ' [UNSTAFFED]' : '';
 
   const valueLabel = `${integrity.toFixed(0)}% integrity${staffingNote}`;
 
@@ -350,6 +346,8 @@ function renderContainmentBar(gameData: GameData): HTMLElement {
     mode: 'full',
   });
 }
+
+// ── Ship stats panel ─────────────────────────────────────────────
 
 function renderShipStatsPanel(gameData: GameData): HTMLElement {
   const ship = getActiveShip(gameData);
@@ -378,7 +376,6 @@ function renderShipStatsPanel(gameData: GameData): HTMLElement {
   const statsGrid = document.createElement('div');
   statsGrid.className = 'ship-capabilities-grid';
 
-  // Max Range
   const maxRangeKm = computeMaxRange(shipClass, engineDef);
   const rangeLabel = getRangeLabel(maxRangeKm);
   const rangeDiv = document.createElement('div');
@@ -386,15 +383,12 @@ function renderShipStatsPanel(gameData: GameData): HTMLElement {
   rangeDiv.title = `Derived from: Engine (${engineDef.name}) + Ship Mass (${(shipClass.mass / 1000).toFixed(0)}t) + Consumables`;
   statsGrid.appendChild(rangeDiv);
 
-  // Max Acceleration
   const acceleration = engineDef.thrust / shipClass.mass;
   const accelerationG = acceleration / 9.81;
   const accelDiv = document.createElement('div');
   accelDiv.innerHTML = `<span style="color: #888;">Max Accel:</span> <span style="color: #4ade80;">${accelerationG.toFixed(4)}g</span><br><span style="font-size: 0.75rem; color: #aaa;">(${engineDef.thrust.toLocaleString()} N)</span>`;
-  accelDiv.title = `Thrust (${engineDef.thrust} N) / Ship Mass (${shipClass.mass} kg)`;
   statsGrid.appendChild(accelDiv);
 
-  // Equipment Slots
   const maxSlots = shipClass.equipmentSlotDefs.length;
   const usedSlots = ship.equipment.length;
   const standardSlots = shipClass.equipmentSlotDefs.filter((s) =>
@@ -407,64 +401,26 @@ function renderShipStatsPanel(gameData: GameData): HTMLElement {
   slotsDiv.innerHTML = `<span style="color: #888;">Equipment Slots:</span> <span style="color: #4ade80;">${usedSlots}/${maxSlots}</span><br><span style="font-size: 0.75rem; color: #aaa;">${standardSlots} Standard, ${structuralSlots} Structural</span>`;
   statsGrid.appendChild(slotsDiv);
 
-  // Ship Class & Tier
   const tierDiv = document.createElement('div');
   const tierColor = getTierColor(shipClass.tier);
   tierDiv.innerHTML = `<span style="color: #888;">Class:</span> <span style="color: ${tierColor}; font-weight: bold;">${shipClass.tier}</span><br><span style="font-size: 0.75rem; color: #aaa;">${shipClass.name}</span>`;
   statsGrid.appendChild(tierDiv);
 
-  // Ship Mass
   const massDiv = document.createElement('div');
-  massDiv.innerHTML = `<span style="color: #888;">Ship Mass:</span> <span style="color: #aaa;">${(shipClass.mass / 1000).toFixed(0)} tons</span><br><span style="font-size: 0.75rem; color: #aaa;">(${shipClass.mass.toLocaleString()} kg)</span>`;
-  massDiv.title = 'Affects acceleration and fuel consumption';
+  massDiv.innerHTML = `<span style="color: #888;">Ship Mass:</span> <span style="color: #aaa;">${(shipClass.mass / 1000).toFixed(0)} tons</span>`;
   statsGrid.appendChild(massDiv);
 
-  // Crew Capacity
-  const assignedCrewCount = ship.crew.length;
   const crewDiv = document.createElement('div');
-  crewDiv.innerHTML = `<span style="color: #888;">Crew:</span> <span style="color: #aaa;">${assignedCrewCount}/${shipClass.maxCrew}</span>`;
+  crewDiv.innerHTML = `<span style="color: #888;">Crew:</span> <span style="color: #aaa;">${ship.crew.length}/${shipClass.maxCrew}</span>`;
   statsGrid.appendChild(crewDiv);
 
   section.appendChild(statsGrid);
   return section;
 }
 
-function formatLargeNumber(num: number): string {
-  if (num >= 1_000_000) {
-    return (num / 1_000_000).toFixed(1) + 'M';
-  } else if (num >= 1_000) {
-    return (num / 1_000).toFixed(0) + 'K';
-  }
-  return num.toFixed(0);
-}
+// ── Job slots grid ───────────────────────────────────────────────
 
-function getRangeLabel(rangeKm: number): string {
-  if (rangeKm < 50_000) return 'LEO/MEO';
-  if (rangeKm < 1_000_000) return 'GEO/Cislunar';
-  if (rangeKm < 10_000_000) return 'Inner System';
-  if (rangeKm < 100_000_000) return 'Mars';
-  if (rangeKm < 500_000_000) return 'Jupiter';
-  return 'Outer System';
-}
-
-function getTierColor(tier: string): string {
-  switch (tier) {
-    case 'I':
-      return '#888';
-    case 'II':
-      return '#4a9eff';
-    case 'III':
-      return '#ff9f43';
-    case 'IV':
-      return '#ff6b6b';
-    case 'V':
-      return '#a29bfe';
-    default:
-      return '#fff';
-  }
-}
-
-function renderRoomGrid(
+function renderJobSlotsGrid(
   gameData: GameData,
   callbacks: ShipTabCallbacks
 ): HTMLElement {
@@ -472,11 +428,134 @@ function renderRoomGrid(
   const grid = document.createElement('div');
   grid.className = 'room-grid';
 
+  // Room-based cards with their job slots
   for (const room of ship.rooms) {
     grid.appendChild(renderRoomCard(room, gameData, callbacks));
   }
 
+  // Ship-wide jobs section (repair)
+  const shipJobs = ship.jobSlots.filter((s) => !s.sourceRoomId);
+  if (shipJobs.length > 0) {
+    grid.appendChild(renderShipJobsCard(shipJobs, gameData, callbacks));
+  }
+
   return grid;
+}
+
+function renderJobSlotRow(
+  slot: JobSlot,
+  gameData: GameData,
+  callbacks: ShipTabCallbacks
+): HTMLElement {
+  const ship = getActiveShip(gameData);
+  const def = getJobSlotDefinition(slot.type);
+  const crew = slot.assignedCrewId
+    ? (ship.crew.find((c) => c.id === slot.assignedCrewId) ?? null)
+    : null;
+
+  const row = document.createElement('div');
+  row.className = 'room-crew-item';
+  row.style.display = 'flex';
+  row.style.alignItems = 'center';
+  row.style.gap = '0.5rem';
+
+  // Job icon + name
+  const jobLabel = document.createElement('span');
+  jobLabel.style.fontSize = '0.85rem';
+  jobLabel.style.minWidth = '90px';
+  jobLabel.style.color = def?.required ? '#fbbf24' : '#aaa';
+  jobLabel.textContent = `${def?.icon ?? '?'} ${def?.name ?? slot.type}`;
+  if (def?.skill) {
+    const skillBadge = document.createElement('span');
+    skillBadge.style.fontSize = '0.7rem';
+    skillBadge.style.color = '#666';
+    skillBadge.style.marginLeft = '4px';
+    skillBadge.textContent = `(${def.skill})`;
+    jobLabel.appendChild(skillBadge);
+  }
+  row.appendChild(jobLabel);
+
+  if (crew) {
+    // Show assigned crew
+    const crewSpan = document.createElement('span');
+    crewSpan.className = 'crew-name-short';
+    crewSpan.style.flex = '1';
+
+    if (crew.isCaptain) {
+      const badge = document.createElement('span');
+      badge.className = 'captain-badge';
+      badge.textContent = 'CPT ';
+      crewSpan.appendChild(badge);
+    }
+
+    crewSpan.appendChild(document.createTextNode(crew.name.split(' ')[0]));
+
+    // Show skill level for this job
+    if (def?.skill) {
+      const skillVal = crew.skills[def.skill];
+      const lvl = document.createElement('span');
+      lvl.style.fontSize = '0.75rem';
+      lvl.style.color = '#4a9eff';
+      lvl.style.marginLeft = '4px';
+      lvl.textContent = `[${skillVal}]`;
+      crewSpan.appendChild(lvl);
+    }
+
+    row.appendChild(crewSpan);
+
+    const removeBtn = document.createElement('button');
+    removeBtn.className = 'small-button';
+    removeBtn.textContent = 'Remove';
+    removeBtn.addEventListener('click', () => callbacks.onJobUnassign(crew.id));
+    row.appendChild(removeBtn);
+  } else {
+    // Empty slot — show dropdown to assign
+    const unassigned = getUnassignedCrew(ship);
+    if (unassigned.length > 0) {
+      const select = document.createElement('select');
+      select.className = 'crew-select';
+      select.style.flex = '1';
+
+      const defaultOpt = document.createElement('option');
+      defaultOpt.value = '';
+      defaultOpt.textContent = '-- assign --';
+      select.appendChild(defaultOpt);
+
+      // Sort by affinity: highest relevant skill first
+      const sorted = [...unassigned].sort((a, b) => {
+        if (!def?.skill) return 0;
+        return b.skills[def.skill] - a.skills[def.skill];
+      });
+
+      for (const c of sorted) {
+        const opt = document.createElement('option');
+        opt.value = c.id;
+        const prefix = c.isCaptain ? 'CPT ' : '';
+        const skillInfo = def?.skill
+          ? ` [${def.skill}: ${c.skills[def.skill]}]`
+          : '';
+        opt.textContent = `${prefix}${c.name} (${getCrewRoleName(c.role)})${skillInfo}`;
+        select.appendChild(opt);
+      }
+
+      select.addEventListener('change', (e) => {
+        const crewId = (e.target as HTMLSelectElement).value;
+        if (crewId) {
+          callbacks.onJobAssign(crewId, slot.id);
+        }
+      });
+
+      row.appendChild(select);
+    } else {
+      const emptyLabel = document.createElement('span');
+      emptyLabel.style.color = '#555';
+      emptyLabel.style.flex = '1';
+      emptyLabel.textContent = '(empty)';
+      row.appendChild(emptyLabel);
+    }
+  }
+
+  return row;
 }
 
 function renderRoomCard(
@@ -486,9 +565,8 @@ function renderRoomCard(
 ): HTMLElement {
   const ship = getActiveShip(gameData);
   const roomDef = getRoomDefinition(room.type);
-  const assignedCrew = room.assignedCrewIds
-    .map((id) => ship.crew.find((c) => c.id === id))
-    .filter((c): c is CrewMember => c !== undefined);
+  const slots = getRoomJobSlots(ship, room.id);
+  const assignedCount = getRoomCrewCount(ship, room.id);
 
   const roomCard = document.createElement('div');
   roomCard.className = `room-card room-${room.state}`;
@@ -520,127 +598,12 @@ function renderRoomCard(
     roomCard.appendChild(powerBadge);
   }
 
-  // Engine room shows equipped engine
+  // Engine room special: show equipped engine + controls
   if (room.type === 'engine_room') {
-    const engineDef = getEngineDefinition(ship.engine.definitionId);
-
-    const equipmentSlot = document.createElement('div');
-    equipmentSlot.className = 'room-equipment-slot';
-
-    const slotLabel = document.createElement('div');
-    slotLabel.className = 'equipment-slot-label';
-    slotLabel.textContent = 'Engine Slot (1/1)';
-    equipmentSlot.appendChild(slotLabel);
-
-    const engineItem = document.createElement('div');
-    engineItem.className = 'room-equipment-item';
-
-    const engineIcon = document.createElement('div');
-    engineIcon.className = 'equipment-item-icon';
-    engineIcon.textContent = engineDef.icon;
-    engineItem.appendChild(engineIcon);
-
-    const engineInfo = document.createElement('div');
-    engineInfo.className = 'equipment-item-info';
-
-    const engineName = document.createElement('div');
-    engineName.className = 'equipment-item-name';
-    engineName.textContent = engineDef.name;
-    engineInfo.appendChild(engineName);
-
-    const engineType = document.createElement('div');
-    engineType.className = 'equipment-item-type';
-    engineType.textContent = engineDef.type;
-    engineInfo.appendChild(engineType);
-
-    // Engine specs
-    const engineSpecs = document.createElement('div');
-    engineSpecs.className = 'equipment-item-specs';
-    engineSpecs.style.fontSize = '0.75rem';
-    engineSpecs.style.color = '#888';
-    engineSpecs.style.marginTop = '0.25rem';
-    const shipClass = getShipClass(ship.classId);
-    const acceleration = shipClass ? engineDef.thrust / shipClass.mass : 0;
-    const accelerationG = acceleration / 9.81;
-    engineSpecs.innerHTML = `Thrust: ${(engineDef.thrust / 1000).toFixed(1)}kN | Accel: ${accelerationG.toFixed(4)}g | ΔV: ${(engineDef.maxDeltaV / 1000).toFixed(0)}km/s`;
-    engineSpecs.title = `Thrust: ${engineDef.thrust.toLocaleString()} N\nAcceleration on this ship: ${accelerationG.toFixed(4)}g\nDelta-V Budget: ${engineDef.maxDeltaV.toLocaleString()} m/s`;
-    engineInfo.appendChild(engineSpecs);
-
-    // Engine state indicator
-    const engineState = document.createElement('div');
-    engineState.className = 'equipment-item-state';
-    if (ship.engine.state === 'off') {
-      engineState.textContent = '⚫ OFF';
-      engineState.style.color = '#ff6b6b';
-    } else if (ship.engine.state === 'warming_up') {
-      engineState.textContent = `🟡 WARMING ${ship.engine.warmupProgress.toFixed(0)}%`;
-      engineState.style.color = '#ffc107';
-    } else {
-      engineState.textContent = '🟢 ONLINE';
-      engineState.style.color = '#4caf50';
-    }
-    engineInfo.appendChild(engineState);
-
-    engineItem.appendChild(engineInfo);
-    equipmentSlot.appendChild(engineItem);
-
-    // Engine controls (on/off button)
-    const isDocked = ship.location.status === 'docked';
-    const bridgeRoom = ship.rooms.find((r) => r.type === 'bridge');
-    const hasControlCrew =
-      assignedCrew.length > 0 ||
-      (bridgeRoom && bridgeRoom.assignedCrewIds.length > 0);
-
-    if (!isDocked && hasControlCrew) {
-      const controls = document.createElement('div');
-      controls.className = 'room-equipment-controls';
-
-      if (ship.engine.state === 'off') {
-        const onBtn = document.createElement('button');
-        onBtn.className = 'small-button';
-        onBtn.textContent = 'Turn On';
-        onBtn.addEventListener('click', callbacks.onEngineOn);
-        controls.appendChild(onBtn);
-      } else {
-        const offBtn = document.createElement('button');
-        offBtn.className = 'small-button';
-        offBtn.textContent = 'Turn Off';
-        offBtn.addEventListener('click', callbacks.onEngineOff);
-        controls.appendChild(offBtn);
-      }
-
-      equipmentSlot.appendChild(controls);
-    } else if (!isDocked && !hasControlCrew) {
-      const warning = document.createElement('div');
-      warning.className = 'equipment-warning';
-      warning.textContent = 'Bridge or Engine Room must be staffed';
-      equipmentSlot.appendChild(warning);
-    }
-
-    roomCard.appendChild(equipmentSlot);
-
-    // Show warmup progress bar if warming up
-    if (ship.engine.state === 'warming_up') {
-      const engineDef = getEngineDefinition(ship.engine.definitionId);
-      const remainingPercent = 100 - ship.engine.warmupProgress;
-      const ticksRemaining = remainingPercent / engineDef.warmupRate;
-      const gameSecondsRemaining = ticksRemaining * GAME_SECONDS_PER_TICK;
-      const timeLabel = formatDualTime(gameSecondsRemaining);
-
-      const warmupBar = renderStatBar({
-        label: 'WARMUP',
-        percentage: ship.engine.warmupProgress,
-        valueLabel: `${ship.engine.warmupProgress.toFixed(0)}% - ${timeLabel} remaining`,
-        colorClass: 'bar-good',
-        mode: 'full',
-      });
-      warmupBar.style.fontSize = '0.85em';
-      warmupBar.style.marginTop = '0.5em';
-      roomCard.appendChild(warmupBar);
-    }
+    roomCard.appendChild(renderEngineSlot(gameData, callbacks));
   }
 
-  // Cargo hold is automated
+  // Cargo hold is automated — no job slots
   if (room.type === 'cargo_hold') {
     const automatedMsg = document.createElement('div');
     automatedMsg.className = 'room-automated';
@@ -652,8 +615,6 @@ function renderRoomCard(
       ? Math.floor(calculateAvailableCargoCapacity(shipClass.cargoCapacity))
       : 0;
 
-    // For now, estimate cargo weight: assume each item is ~100 kg
-    // TODO: Add actual weight property to equipment definitions
     const currentCargo = ship.cargo.length * 100;
     const cargoPercent =
       maxCapacity > 0 ? (currentCargo / maxCapacity) * 100 : 0;
@@ -663,7 +624,6 @@ function renderRoomCard(
     capacity.textContent = `Cargo: ${currentCargo.toLocaleString()} / ${maxCapacity.toLocaleString()} kg`;
     roomCard.appendChild(capacity);
 
-    // Progress bar
     const progressBar = document.createElement('div');
     progressBar.className = 'cargo-progress-bar';
     const progressFill = document.createElement('div');
@@ -678,110 +638,37 @@ function renderRoomCard(
   // Crew count
   const crewCount = document.createElement('div');
   crewCount.className = 'room-crew-count';
-  crewCount.textContent = `${assignedCrew.length}/${roomDef?.maxCrew ?? 0}`;
+  crewCount.textContent = `${assignedCount}/${slots.length}`;
   roomCard.appendChild(crewCount);
 
-  // Assigned crew list
+  // Job slot list
   const crewList = document.createElement('div');
   crewList.className = 'room-crew-list';
 
-  if (assignedCrew.length === 0) {
+  if (slots.length === 0) {
     const emptyMsg = document.createElement('div');
     emptyMsg.className = 'room-crew-empty';
-    emptyMsg.textContent = 'No crew assigned';
+    emptyMsg.textContent = 'No job slots';
     crewList.appendChild(emptyMsg);
   } else {
-    for (const crew of assignedCrew) {
-      const crewItem = document.createElement('div');
-      crewItem.className = 'room-crew-item';
-
-      const crewName = document.createElement('span');
-      crewName.className = 'crew-name-short';
-
-      // Add captain badge if applicable
-      if (crew.isCaptain) {
-        const captainBadge = document.createElement('span');
-        captainBadge.className = 'captain-badge';
-        captainBadge.textContent = 'CPT ';
-        crewName.appendChild(captainBadge);
-      }
-
-      const nameText = document.createTextNode(crew.name.split(' ')[0]);
-      crewName.appendChild(nameText);
-
-      // Check if crew is in preferred room
-      const crewRoleDef = getCrewRoleDefinition(crew.role);
-      const isPreferred = crewRoleDef?.preferredRoom === room.type;
-      if (isPreferred) {
-        const star = document.createElement('span');
-        star.className = 'preferred-star';
-        star.textContent = ' ★';
-        star.title = 'Crew in preferred room';
-        crewName.appendChild(star);
-      }
-
-      crewItem.appendChild(crewName);
-
-      const removeBtn = document.createElement('button');
-      removeBtn.className = 'small-button';
-      removeBtn.textContent = 'Remove';
-      removeBtn.addEventListener('click', () =>
-        callbacks.onCrewUnassign(crew.id, room.id)
-      );
-      crewItem.appendChild(removeBtn);
-
-      crewList.appendChild(crewItem);
+    for (const slot of slots) {
+      crewList.appendChild(renderJobSlotRow(slot, gameData, callbacks));
     }
   }
 
   roomCard.appendChild(crewList);
 
-  // Add crew dropdown (only if below max capacity)
-  if (roomDef && assignedCrew.length < roomDef.maxCrew) {
-    const unassignedCrew = getUnassignedCrew(gameData);
-    if (unassignedCrew.length > 0) {
-      const addCrewSection = document.createElement('div');
-      addCrewSection.className = 'room-add-crew';
-
-      const select = document.createElement('select');
-      select.className = 'crew-select';
-
-      const defaultOption = document.createElement('option');
-      defaultOption.value = '';
-      defaultOption.textContent = 'Assign crew...';
-      select.appendChild(defaultOption);
-
-      for (const crew of unassignedCrew) {
-        const option = document.createElement('option');
-        option.value = crew.id;
-        const captainPrefix = crew.isCaptain ? 'CPT ' : '';
-        option.textContent = `${captainPrefix}${crew.name} (${getCrewRoleName(crew.role)})`;
-        select.appendChild(option);
-      }
-
-      select.addEventListener('change', (e) => {
-        const crewId = (e.target as HTMLSelectElement).value;
-        if (crewId) {
-          callbacks.onCrewAssign(crewId, room.id);
-        }
-      });
-
-      addCrewSection.appendChild(select);
-      roomCard.appendChild(addCrewSection);
-    }
-  }
-
-  // Bridge-specific actions: Navigation
+  // Bridge-specific: Navigation button (requires helm to be manned)
   if (room.type === 'bridge') {
     const bridgeActions = document.createElement('div');
     bridgeActions.className = 'room-actions';
 
     const navBtn = document.createElement('button');
     navBtn.className = 'room-action-btn';
-    navBtn.textContent = '🗺️ Navigation';
-    navBtn.disabled = assignedCrew.length === 0;
-    if (assignedCrew.length === 0) {
-      navBtn.title = 'Bridge must be staffed to access navigation';
+    navBtn.textContent = '\uD83D\uDDFA\uFE0F Navigation';
+    navBtn.disabled = !isHelmManned(ship);
+    if (!isHelmManned(ship)) {
+      navBtn.title = 'Helm must be manned to access navigation';
     }
     navBtn.addEventListener('click', callbacks.onToggleNavigation);
     bridgeActions.appendChild(navBtn);
@@ -791,6 +678,322 @@ function renderRoomCard(
 
   return roomCard;
 }
+
+function renderEngineSlot(
+  gameData: GameData,
+  callbacks: ShipTabCallbacks
+): HTMLElement {
+  const ship = getActiveShip(gameData);
+  const engineDef = getEngineDefinition(ship.engine.definitionId);
+
+  const equipmentSlot = document.createElement('div');
+  equipmentSlot.className = 'room-equipment-slot';
+
+  const slotLabel = document.createElement('div');
+  slotLabel.className = 'equipment-slot-label';
+  slotLabel.textContent = 'Engine Slot (1/1)';
+  equipmentSlot.appendChild(slotLabel);
+
+  const engineItem = document.createElement('div');
+  engineItem.className = 'room-equipment-item';
+
+  const engineIcon = document.createElement('div');
+  engineIcon.className = 'equipment-item-icon';
+  engineIcon.textContent = engineDef.icon;
+  engineItem.appendChild(engineIcon);
+
+  const engineInfo = document.createElement('div');
+  engineInfo.className = 'equipment-item-info';
+
+  const engineName = document.createElement('div');
+  engineName.className = 'equipment-item-name';
+  engineName.textContent = engineDef.name;
+  engineInfo.appendChild(engineName);
+
+  const engineType = document.createElement('div');
+  engineType.className = 'equipment-item-type';
+  engineType.textContent = engineDef.type;
+  engineInfo.appendChild(engineType);
+
+  const shipClass = getShipClass(ship.classId);
+  const acceleration = shipClass ? engineDef.thrust / shipClass.mass : 0;
+  const accelerationG = acceleration / 9.81;
+
+  const engineSpecs = document.createElement('div');
+  engineSpecs.className = 'equipment-item-specs';
+  engineSpecs.style.fontSize = '0.75rem';
+  engineSpecs.style.color = '#888';
+  engineSpecs.style.marginTop = '0.25rem';
+  engineSpecs.innerHTML = `Thrust: ${(engineDef.thrust / 1000).toFixed(1)}kN | Accel: ${accelerationG.toFixed(4)}g | \u0394V: ${(engineDef.maxDeltaV / 1000).toFixed(0)}km/s`;
+  engineInfo.appendChild(engineSpecs);
+
+  const engineState = document.createElement('div');
+  engineState.className = 'equipment-item-state';
+  if (ship.engine.state === 'off') {
+    engineState.textContent = '\u26AB OFF';
+    engineState.style.color = '#ff6b6b';
+  } else if (ship.engine.state === 'warming_up') {
+    engineState.textContent = `\uD83D\uDFE1 WARMING ${ship.engine.warmupProgress.toFixed(0)}%`;
+    engineState.style.color = '#ffc107';
+  } else {
+    engineState.textContent = '\uD83D\uDFE2 ONLINE';
+    engineState.style.color = '#4caf50';
+  }
+  engineInfo.appendChild(engineState);
+
+  engineItem.appendChild(engineInfo);
+  equipmentSlot.appendChild(engineItem);
+
+  // Engine controls
+  const isDocked = ship.location.status === 'docked';
+  const hasHelm = isHelmManned(ship);
+  const hasEngineerRoom = isRoomStaffed(
+    ship,
+    ship.rooms.find((r) => r.type === 'engine_room')?.id ?? ''
+  );
+  const hasControlCrew = hasHelm || hasEngineerRoom;
+
+  if (!isDocked && hasControlCrew) {
+    const controls = document.createElement('div');
+    controls.className = 'room-equipment-controls';
+
+    if (ship.engine.state === 'off') {
+      const onBtn = document.createElement('button');
+      onBtn.className = 'small-button';
+      onBtn.textContent = 'Turn On';
+      onBtn.addEventListener('click', callbacks.onEngineOn);
+      controls.appendChild(onBtn);
+    } else {
+      const offBtn = document.createElement('button');
+      offBtn.className = 'small-button';
+      offBtn.textContent = 'Turn Off';
+      offBtn.addEventListener('click', callbacks.onEngineOff);
+      controls.appendChild(offBtn);
+    }
+
+    equipmentSlot.appendChild(controls);
+  } else if (!isDocked && !hasControlCrew) {
+    const warning = document.createElement('div');
+    warning.className = 'equipment-warning';
+    warning.textContent = 'Helm or Engine Room must be staffed';
+    equipmentSlot.appendChild(warning);
+  }
+
+  // Warmup progress bar
+  if (ship.engine.state === 'warming_up') {
+    const remainingPercent = 100 - ship.engine.warmupProgress;
+    const ticksRemaining = remainingPercent / engineDef.warmupRate;
+    const gameSecondsRemaining = ticksRemaining * GAME_SECONDS_PER_TICK;
+    const timeLabel = formatDualTime(gameSecondsRemaining);
+
+    const warmupBar = renderStatBar({
+      label: 'WARMUP',
+      percentage: ship.engine.warmupProgress,
+      valueLabel: `${ship.engine.warmupProgress.toFixed(0)}% - ${timeLabel} remaining`,
+      colorClass: 'bar-good',
+      mode: 'full',
+    });
+    warmupBar.style.fontSize = '0.85em';
+    warmupBar.style.marginTop = '0.5em';
+    equipmentSlot.appendChild(warmupBar);
+  }
+
+  return equipmentSlot;
+}
+
+function renderShipJobsCard(
+  shipJobs: JobSlot[],
+  gameData: GameData,
+  callbacks: ShipTabCallbacks
+): HTMLElement {
+  const card = document.createElement('div');
+  card.className = 'room-card room-operational';
+
+  const icon = document.createElement('div');
+  icon.className = 'room-icon';
+  icon.textContent = '\uD83D\uDD27';
+  card.appendChild(icon);
+
+  const name = document.createElement('div');
+  name.className = 'room-name';
+  name.textContent = 'Ship Jobs';
+  card.appendChild(name);
+
+  const ship = getActiveShip(gameData);
+  const filledCount = shipJobs.filter((s) => s.assignedCrewId !== null).length;
+  const crewCount = document.createElement('div');
+  crewCount.className = 'room-crew-count';
+  crewCount.textContent = `${filledCount}/${shipJobs.length}`;
+  card.appendChild(crewCount);
+
+  // Show repair points if any engineers assigned
+  const repairSlots = shipJobs.filter(
+    (s) => s.type === 'repair' && s.assignedCrewId !== null
+  );
+  if (repairSlots.length > 0) {
+    let totalRepairPts = 0;
+    for (const slot of repairSlots) {
+      const crew = ship.crew.find((c) => c.id === slot.assignedCrewId);
+      if (crew) {
+        totalRepairPts += crew.skills.engineering * 0.5;
+      }
+    }
+    const degradedCount = ship.equipment.filter(
+      (eq) => eq.degradation > 0
+    ).length;
+
+    const repairInfo = document.createElement('div');
+    repairInfo.style.fontSize = '0.8rem';
+    repairInfo.style.color = '#4ade80';
+    repairInfo.style.padding = '0.25rem 0';
+    repairInfo.textContent = `Repair: ${totalRepairPts.toFixed(1)} pts/tick${degradedCount > 0 ? ` \u2192 ${degradedCount} items` : ''}`;
+    card.appendChild(repairInfo);
+  }
+
+  const crewList = document.createElement('div');
+  crewList.className = 'room-crew-list';
+
+  for (const slot of shipJobs) {
+    crewList.appendChild(renderJobSlotRow(slot, gameData, callbacks));
+  }
+
+  card.appendChild(crewList);
+
+  return card;
+}
+
+// ── Unassigned crew (staging area) ───────────────────────────────
+
+function renderUnassignedCrew(
+  gameData: GameData,
+  callbacks: ShipTabCallbacks
+): HTMLElement {
+  const ship = getActiveShip(gameData);
+  const unassigned = getUnassignedCrew(ship);
+
+  const staging = document.createElement('div');
+  staging.className = 'staging-area';
+
+  const headerRow = document.createElement('div');
+  headerRow.style.display = 'flex';
+  headerRow.style.alignItems = 'center';
+  headerRow.style.justifyContent = 'space-between';
+
+  const title = document.createElement('h3');
+  title.textContent = `Unassigned Crew (${unassigned.length})`;
+  headerRow.appendChild(title);
+
+  // Auto-assign button
+  if (ship.crew.length > 0) {
+    const autoBtn = document.createElement('button');
+    autoBtn.className = 'small-button';
+    autoBtn.textContent = 'Auto-Assign All';
+    autoBtn.addEventListener('click', callbacks.onAutoAssignCrew);
+    headerRow.appendChild(autoBtn);
+  }
+
+  staging.appendChild(headerRow);
+
+  if (unassigned.length === 0) {
+    const emptyMsg = document.createElement('p');
+    emptyMsg.className = 'staging-empty';
+    emptyMsg.textContent = 'All crew members are assigned to jobs.';
+    staging.appendChild(emptyMsg);
+  } else {
+    const crewList = document.createElement('div');
+    crewList.className = 'staging-crew-list';
+
+    // Collect all empty slots for the dropdown
+    const emptySlots = ship.jobSlots.filter((s) => s.assignedCrewId === null);
+
+    for (const crew of unassigned) {
+      const crewRow = document.createElement('div');
+      crewRow.className = 'staging-crew-row';
+
+      const crewInfo = document.createElement('div');
+      crewInfo.className = 'staging-crew-info';
+
+      const nameEl = document.createElement('div');
+      nameEl.className = 'staging-crew-name';
+      if (crew.isCaptain) {
+        const captainBadge = document.createElement('span');
+        captainBadge.className = 'captain-badge';
+        captainBadge.textContent = 'CPT ';
+        nameEl.appendChild(captainBadge);
+      }
+      nameEl.appendChild(document.createTextNode(crew.name));
+      crewInfo.appendChild(nameEl);
+
+      const role = document.createElement('div');
+      role.className = 'staging-crew-role';
+      role.textContent = getCrewRoleName(crew.role);
+      crewInfo.appendChild(role);
+
+      const stats = document.createElement('div');
+      stats.className = 'staging-crew-stats';
+      stats.innerHTML = `<span class="stat health">HP: ${crew.health}</span><span class="stat morale">M: ${crew.morale}</span><span class="stat level">Lv: ${crew.level}</span>`;
+      crewInfo.appendChild(stats);
+
+      crewRow.appendChild(crewInfo);
+
+      // Job slot assignment dropdown
+      if (emptySlots.length > 0) {
+        const assignSection = document.createElement('div');
+        assignSection.className = 'staging-crew-assign';
+
+        const select = document.createElement('select');
+        select.className = 'crew-select';
+
+        const defaultOption = document.createElement('option');
+        defaultOption.value = '';
+        defaultOption.textContent = 'Assign to job...';
+        select.appendChild(defaultOption);
+
+        for (const slot of emptySlots) {
+          const slotDef = getJobSlotDefinition(slot.type);
+          if (!slotDef) continue;
+
+          // Find room name for context
+          let locationLabel = '';
+          if (slot.sourceRoomId) {
+            const room = ship.rooms.find((r) => r.id === slot.sourceRoomId);
+            const roomDef = room ? getRoomDefinition(room.type) : null;
+            locationLabel = roomDef ? ` (${roomDef.name})` : '';
+          } else {
+            locationLabel = ' (Ship)';
+          }
+
+          const skillInfo = slotDef.skill
+            ? ` [${slotDef.skill}: ${crew.skills[slotDef.skill]}]`
+            : '';
+
+          const option = document.createElement('option');
+          option.value = slot.id;
+          option.textContent = `${slotDef.name}${locationLabel}${skillInfo}`;
+          select.appendChild(option);
+        }
+
+        select.addEventListener('change', (e) => {
+          const slotId = (e.target as HTMLSelectElement).value;
+          if (slotId) {
+            callbacks.onJobAssign(crew.id, slotId);
+          }
+        });
+
+        assignSection.appendChild(select);
+        crewRow.appendChild(assignSection);
+      }
+
+      crewList.appendChild(crewRow);
+    }
+
+    staging.appendChild(crewList);
+  }
+
+  return staging;
+}
+
+// ── Gravity status ───────────────────────────────────────────────
 
 function renderGravityStatus(gameData: GameData): HTMLElement {
   const ship = getActiveShip(gameData);
@@ -803,7 +1006,6 @@ function renderGravityStatus(gameData: GameData): HTMLElement {
 
   const gravitySource = getGravitySource(ship);
 
-  // Source line
   const sourceLine = document.createElement('div');
   sourceLine.className = 'gravity-line';
 
@@ -814,21 +1016,20 @@ function renderGravityStatus(gameData: GameData): HTMLElement {
   const sourceValue = document.createElement('span');
   if (gravitySource.type === 'rotating_habitat') {
     sourceValue.textContent = 'Rotating Habitat';
-    sourceValue.style.color = '#4ade80'; // green
+    sourceValue.style.color = '#4ade80';
   } else if (gravitySource.type === 'centrifuge') {
     sourceValue.textContent = 'Centrifuge Pod';
-    sourceValue.style.color = '#4ade80'; // green
+    sourceValue.style.color = '#4ade80';
   } else if (gravitySource.type === 'thrust' && gravitySource.thrustG) {
     sourceValue.textContent = `Thrust (${gravitySource.thrustG.toFixed(2)}g)`;
-    sourceValue.style.color = '#fbbf24'; // yellow
+    sourceValue.style.color = '#fbbf24';
   } else {
     sourceValue.textContent = 'None';
-    sourceValue.style.color = '#f87171'; // red
+    sourceValue.style.color = '#f87171';
   }
   sourceLine.appendChild(sourceValue);
   section.appendChild(sourceLine);
 
-  // Exposure rate line
   const exposureLine = document.createElement('div');
   exposureLine.className = 'gravity-line';
 
@@ -838,8 +1039,7 @@ function renderGravityStatus(gameData: GameData): HTMLElement {
 
   const exposureValue = document.createElement('span');
 
-  // Calculate exposure rate
-  let rate = 100; // base 100%
+  let rate = 100;
 
   if (
     gravitySource.type === 'rotating_habitat' ||
@@ -847,15 +1047,13 @@ function renderGravityStatus(gameData: GameData): HTMLElement {
   ) {
     rate = 0;
     exposureValue.textContent = '0%';
-    exposureValue.style.color = '#4ade80'; // green
+    exposureValue.style.color = '#4ade80';
   } else {
-    // Check for thrust reduction
     if (gravitySource.type === 'thrust' && gravitySource.thrustG) {
       const reduction = Math.min(100, gravitySource.thrustG * 100);
       rate = Math.max(0, 100 - reduction);
     }
 
-    // Check for exercise module
     const hasExerciseModule = ship.equipment.some((eq) => {
       const def = getEquipmentDefinition(eq.definitionId);
       return def?.id === 'exercise_module';
@@ -865,7 +1063,6 @@ function renderGravityStatus(gameData: GameData): HTMLElement {
       rate *= 0.5;
     }
 
-    // Count crew with g_seats (just for display info)
     const crewWithGSeats = ship.crew.filter((crew) =>
       crew.equipment.some((eq) => eq.definitionId === 'g_seat')
     ).length;
@@ -873,14 +1070,13 @@ function renderGravityStatus(gameData: GameData): HTMLElement {
     exposureValue.textContent = `${rate.toFixed(0)}%`;
 
     if (rate === 0) {
-      exposureValue.style.color = '#4ade80'; // green
+      exposureValue.style.color = '#4ade80';
     } else if (rate <= 50) {
-      exposureValue.style.color = '#fbbf24'; // yellow
+      exposureValue.style.color = '#fbbf24';
     } else {
-      exposureValue.style.color = '#f87171'; // red
+      exposureValue.style.color = '#f87171';
     }
 
-    // Add modifiers note
     const modifiers: string[] = [];
     if (gravitySource.type === 'thrust') {
       modifiers.push('thrust burn');
@@ -906,6 +1102,8 @@ function renderGravityStatus(gameData: GameData): HTMLElement {
 
   return section;
 }
+
+// ── Equipment section ────────────────────────────────────────────
 
 function renderEquipmentSection(gameData: GameData): HTMLElement {
   const ship = getActiveShip(gameData);
@@ -949,7 +1147,6 @@ function renderEquipmentSection(gameData: GameData): HTMLElement {
 
     item.appendChild(info);
 
-    // Degradation bar (if applicable)
     if (equipDef.hasDegradation) {
       const degradationBar = renderStatBar({
         label: 'Wear',
@@ -976,119 +1173,39 @@ function renderEquipmentSection(gameData: GameData): HTMLElement {
   return section;
 }
 
-function renderStagingArea(
-  gameData: GameData,
-  callbacks: ShipTabCallbacks
-): HTMLElement {
-  const ship = getActiveShip(gameData);
-  const unassignedCrew = getUnassignedCrew(gameData);
+// ── Helpers ──────────────────────────────────────────────────────
 
-  const staging = document.createElement('div');
-  staging.className = 'staging-area';
-
-  const title = document.createElement('h3');
-  title.textContent = 'Unassigned Crew';
-  staging.appendChild(title);
-
-  if (unassignedCrew.length === 0) {
-    const emptyMsg = document.createElement('p');
-    emptyMsg.className = 'staging-empty';
-    emptyMsg.textContent = 'All crew members are assigned to rooms.';
-    staging.appendChild(emptyMsg);
-  } else {
-    const crewList = document.createElement('div');
-    crewList.className = 'staging-crew-list';
-
-    for (const crew of unassignedCrew) {
-      const crewRow = document.createElement('div');
-      crewRow.className = 'staging-crew-row';
-
-      const crewInfo = document.createElement('div');
-      crewInfo.className = 'staging-crew-info';
-
-      const name = document.createElement('div');
-      name.className = 'staging-crew-name';
-      if (crew.isCaptain) {
-        const captainBadge = document.createElement('span');
-        captainBadge.className = 'captain-badge';
-        captainBadge.textContent = 'CPT ';
-        name.appendChild(captainBadge);
-      }
-      name.appendChild(document.createTextNode(crew.name));
-      crewInfo.appendChild(name);
-
-      const role = document.createElement('div');
-      role.className = 'staging-crew-role';
-      role.textContent = getCrewRoleName(crew.role);
-      crewInfo.appendChild(role);
-
-      const stats = document.createElement('div');
-      stats.className = 'staging-crew-stats';
-      stats.innerHTML = `<span class="stat health">HP: ${crew.health}</span><span class="stat morale">M: ${crew.morale}</span><span class="stat level">Lv: ${crew.level}</span>`;
-      crewInfo.appendChild(stats);
-
-      const skills = document.createElement('div');
-      skills.className = 'staging-crew-skills';
-      skills.innerHTML = `<span class="skill">STR: ${crew.skills.strength}</span><span class="skill">LOY: ${crew.skills.loyalty}</span><span class="skill">CHA: ${crew.skills.charisma}</span>`;
-      crewInfo.appendChild(skills);
-
-      crewRow.appendChild(crewInfo);
-
-      // Room assignment dropdown
-      const assignSection = document.createElement('div');
-      assignSection.className = 'staging-crew-assign';
-
-      const select = document.createElement('select');
-      select.className = 'crew-select';
-
-      const defaultOption = document.createElement('option');
-      defaultOption.value = '';
-      defaultOption.textContent = 'Assign to room...';
-      select.appendChild(defaultOption);
-
-      for (const room of ship.rooms) {
-        const roomDef = getRoomDefinition(room.type);
-        if (!roomDef) continue;
-
-        // Skip cargo hold (maxCrew is 0)
-        if (roomDef.maxCrew === 0) continue;
-
-        const assignedCount = room.assignedCrewIds.length;
-        if (assignedCount >= roomDef.maxCrew) continue; // Room full
-
-        const option = document.createElement('option');
-        option.value = room.id;
-        option.textContent = `${roomDef.name} (${assignedCount}/${roomDef.maxCrew})`;
-        select.appendChild(option);
-      }
-
-      select.addEventListener('change', (e) => {
-        const roomId = (e.target as HTMLSelectElement).value;
-        if (roomId) {
-          callbacks.onCrewAssign(crew.id, roomId);
-        }
-      });
-
-      assignSection.appendChild(select);
-      crewRow.appendChild(assignSection);
-
-      crewList.appendChild(crewRow);
-    }
-
-    staging.appendChild(crewList);
+function formatLargeNumber(num: number): string {
+  if (num >= 1_000_000) {
+    return (num / 1_000_000).toFixed(1) + 'M';
+  } else if (num >= 1_000) {
+    return (num / 1_000).toFixed(0) + 'K';
   }
-
-  return staging;
+  return num.toFixed(0);
 }
 
-function getUnassignedCrew(gameData: GameData): CrewMember[] {
-  const ship = getActiveShip(gameData);
-  const assignedIds = new Set<string>();
-  for (const room of ship.rooms) {
-    for (const crewId of room.assignedCrewIds) {
-      assignedIds.add(crewId);
-    }
-  }
+function getRangeLabel(rangeKm: number): string {
+  if (rangeKm < 50_000) return 'LEO/MEO';
+  if (rangeKm < 1_000_000) return 'GEO/Cislunar';
+  if (rangeKm < 10_000_000) return 'Inner System';
+  if (rangeKm < 100_000_000) return 'Mars';
+  if (rangeKm < 500_000_000) return 'Jupiter';
+  return 'Outer System';
+}
 
-  return ship.crew.filter((crew) => !assignedIds.has(crew.id));
+function getTierColor(tier: string): string {
+  switch (tier) {
+    case 'I':
+      return '#888';
+    case 'II':
+      return '#4a9eff';
+    case 'III':
+      return '#ff9f43';
+    case 'IV':
+      return '#ff6b6b';
+    case 'V':
+      return '#a29bfe';
+    default:
+      return '#fff';
+  }
 }

@@ -48,6 +48,11 @@ import {
   getGravityDegradationLevel,
 } from './gravitySystem';
 import { getShipClass } from './shipClasses';
+import {
+  isHelmManned,
+  unassignCrewFromAllSlots,
+  autoAssignCrewToJobs,
+} from './jobSlots';
 
 const app = document.getElementById('app')!;
 
@@ -357,37 +362,43 @@ const callbacks: RendererCallbacks = {
     }
   },
 
-  onCrewAssign: (crewId, roomId) => {
+  onJobAssign: (crewId, jobSlotId) => {
     if (state.phase !== 'playing') return;
     const ship = getActiveShip(state.gameData);
 
-    for (const room of ship.rooms) {
-      const index = room.assignedCrewIds.indexOf(crewId);
-      if (index !== -1) {
-        room.assignedCrewIds.splice(index, 1);
-      }
-    }
+    // First remove crew from any existing job slot
+    unassignCrewFromAllSlots(ship, crewId);
 
-    const targetRoom = ship.rooms.find((r) => r.id === roomId);
-    if (targetRoom && !targetRoom.assignedCrewIds.includes(crewId)) {
-      targetRoom.assignedCrewIds.push(crewId);
+    // Assign to target job slot
+    const slot = ship.jobSlots.find((s) => s.id === jobSlotId);
+    if (slot) {
+      // If slot already has someone, unassign them first
+      if (slot.assignedCrewId) {
+        // The previous occupant becomes unassigned
+        slot.assignedCrewId = null;
+      }
+      slot.assignedCrewId = crewId;
     }
 
     saveGame(state.gameData);
     renderApp();
   },
 
-  onCrewUnassign: (crewId, roomId) => {
+  onJobUnassign: (crewId) => {
     if (state.phase !== 'playing') return;
     const ship = getActiveShip(state.gameData);
 
-    const room = ship.rooms.find((r) => r.id === roomId);
-    if (room) {
-      const index = room.assignedCrewIds.indexOf(crewId);
-      if (index !== -1) {
-        room.assignedCrewIds.splice(index, 1);
-      }
-    }
+    unassignCrewFromAllSlots(ship, crewId);
+
+    saveGame(state.gameData);
+    renderApp();
+  },
+
+  onAutoAssignCrew: () => {
+    if (state.phase !== 'playing') return;
+    const ship = getActiveShip(state.gameData);
+
+    autoAssignCrewToJobs(ship);
 
     saveGame(state.gameData);
     renderApp();
@@ -397,9 +408,8 @@ const callbacks: RendererCallbacks = {
     if (state.phase !== 'playing') return;
     const ship = getActiveShip(state.gameData);
 
-    // Check minimum crew on bridge
-    const bridge = ship.rooms.find((r) => r.type === 'bridge');
-    if (!bridge || bridge.assignedCrewIds.length === 0) return;
+    // Helm must be manned to undock
+    if (!isHelmManned(ship)) return;
 
     // Save current location before transitioning to orbiting
     const currentLocation = ship.location.dockedAt;
@@ -858,9 +868,8 @@ const callbacks: RendererCallbacks = {
       return;
     if (ship.activeContract) return;
 
-    // Check minimum crew on bridge
-    const bridge = ship.rooms.find((r) => r.type === 'bridge');
-    if (!bridge || bridge.assignedCrewIds.length === 0) return;
+    // Helm must be manned to start a trip
+    if (!isHelmManned(ship)) return;
 
     const currentLocationId =
       ship.location.dockedAt || ship.location.orbitingAt;
@@ -1095,13 +1104,8 @@ const callbacks: RendererCallbacks = {
     // Remove from source ship
     fromShip.crew.splice(crewIndex, 1);
 
-    // Remove from any rooms on source ship
-    for (const room of fromShip.rooms) {
-      const idx = room.assignedCrewIds.indexOf(crewId);
-      if (idx !== -1) {
-        room.assignedCrewIds.splice(idx, 1);
-      }
-    }
+    // Remove from any job slots on source ship
+    unassignCrewFromAllSlots(fromShip, crewId);
 
     // Add to target ship
     toShip.crew.push(crew);

@@ -19,18 +19,21 @@ npm run dev
 - **Engine System**:
   - Multiple engine types with different warmup times and power outputs
   - Engine warmup mechanic when undocking or turning on engines
-  - Manual engine control (turn on/off) when bridge or engine room is staffed
+  - Manual engine control (turn on/off) when helm is manned or engine room is staffed
   - Power source changes based on docked status
   - Burn-coast-burn flight physics with realistic thrust and delta-v
-- **Interactive Crew Management**:
-  - Assign multiple crew to rooms (respecting room capacity)
-  - Staging area for unassigned crew
-  - Visual indicators for crew in preferred rooms and captain badge
+- **Job Slot Crew Assignment**:
+  - Crew are assigned to discrete job slots, not rooms directly
+  - Rooms generate job slots (bridge → Helm + Comms, engine room → Drive Ops, etc.)
+  - Ship equipment generates additional slots (nav scanner → Scan Ops, point defense → Targeting)
+  - Ship-wide repair slots accept multiple engineers generating repair points
+  - Bidirectional skill coupling: jobs train crew skills (XP) and crew skill levels produce ship bonuses
+  - Passive slots (Patient, Rest) benefit crew without training skills
+  - Helm is the only required job — no helm crew means the ship coasts
+  - Auto-assign crew to best-fit slots based on skill affinity
   - Crew skills (Piloting, Astrogation, Engineering, Strength, Charisma, Loyalty) and levels (1-20)
   - 8 crew roles including Navigator (astrogation specialist)
-  - Room-specific outputs (navigation, power, morale, health, etc.)
-  - Skill-based role assignment system
-  - Crew salaries paid per tick during flight (0.05-0.15 credits/tick depending on role)
+  - Crew salaries paid per tick during flight (0.5-1.5 credits/tick depending on role)
   - Unpaid crew depart at next station
   - Hire new crew at stations with hiring services
 - **Navigation System**:

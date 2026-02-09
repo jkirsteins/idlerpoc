@@ -21,6 +21,7 @@ import {
 } from '../gravitySystem';
 import { TICKS_PER_DAY } from '../timeSystem';
 import { calculateTickXP } from '../skillProgression';
+import { getCrewJobSlot, getJobSlotDefinition } from '../jobSlots';
 import type { Component } from './component';
 
 export function createCrewTab(
@@ -226,12 +227,10 @@ function renderCrewDetail(
   // Stats section
   panel.appendChild(renderStatsSection(crew));
 
-  // Room training indicator (show what skill is being trained)
+  // Job training indicator (show what skill is being trained)
   if (ship.location.status === 'in_flight') {
-    const assignedRoom = ship.rooms.find((r) =>
-      r.assignedCrewIds.includes(crew.id)
-    );
-    const xpResult = calculateTickXP(crew, assignedRoom ?? null);
+    const jobSlot = getCrewJobSlot(ship, crew.id);
+    const xpResult = calculateTickXP(crew, jobSlot?.type ?? null);
     if (xpResult) {
       const trainingDiv = document.createElement('div');
       trainingDiv.className = 'training-indicator';
@@ -244,7 +243,9 @@ function renderCrewDetail(
       trainingDiv.style.color = '#4ade80';
       const skillName =
         xpResult.skill.charAt(0).toUpperCase() + xpResult.skill.slice(1);
-      trainingDiv.textContent = `Training: ${skillName} (+${xpResult.xp} XP/tick)`;
+      const jobDef = jobSlot ? getJobSlotDefinition(jobSlot.type) : null;
+      const jobName = jobDef ? jobDef.name : 'Unknown';
+      trainingDiv.textContent = `${jobName}: Training ${skillName} (+${xpResult.xp} XP/tick)`;
       panel.appendChild(trainingDiv);
     }
   }

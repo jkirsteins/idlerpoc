@@ -10,8 +10,10 @@ import type {
   ShipClassId,
   EngineId,
   FlightPhase,
+  JobSlotType,
 } from '../models';
 import { generateWorld } from '../worldGen';
+import { generateJobSlotsForShip } from '../jobSlots';
 
 /**
  * Test helper factory functions.
@@ -57,7 +59,6 @@ export function createTestRoom(overrides: Partial<Room> = {}): Room {
     id: uid(),
     type: 'bridge',
     state: 'operational',
-    assignedCrewIds: [],
     ...overrides,
   };
 }
@@ -122,12 +123,10 @@ export function createTestShip(overrides: Partial<Ship> = {}): Ship {
 
   const bridge = createTestRoom({
     type: 'bridge',
-    assignedCrewIds: [bridgeCrew.id],
   });
 
   const engineRoom = createTestRoom({
     type: 'engine_room',
-    assignedCrewIds: [],
   });
 
   const captain = createTestCrew({
@@ -142,6 +141,7 @@ export function createTestShip(overrides: Partial<Ship> = {}): Ship {
     classId: 'wayfarer' as ShipClassId,
     rooms: [bridge, engineRoom],
     crew: [captain, bridgeCrew],
+    jobSlots: [],
     fuelKg: 22400, // 80% of 28,000 kg max fuel (Wayfarer)
     maxFuelKg: 28000, // 70% of 40,000 kg cargo capacity
     equipment: [
@@ -177,6 +177,16 @@ export function createTestShip(overrides: Partial<Ship> = {}): Ship {
     ...overrides,
   };
 
+  // Generate job slots from rooms/equipment if not explicitly provided
+  if (!('jobSlots' in overrides)) {
+    defaultShip.jobSlots = generateJobSlotsForShip(defaultShip);
+    // Auto-assign navigator to helm
+    const helmSlot = defaultShip.jobSlots.find((s) => s.type === 'helm');
+    if (helmSlot) {
+      helmSlot.assignedCrewId = bridgeCrew.id;
+    }
+  }
+
   // If ship is not in_flight, clear activeFlightPlan unless explicitly provided
   if (
     defaultShip.location.status !== 'in_flight' &&
@@ -186,6 +196,44 @@ export function createTestShip(overrides: Partial<Ship> = {}): Ship {
   }
 
   return defaultShip;
+}
+
+/**
+ * Test helper: assign a crew member to a job slot of the given type.
+ * If no slot of that type exists, creates one.
+ */
+export function assignCrewToJob(
+  ship: Ship,
+  crewId: string,
+  jobType: JobSlotType,
+  sourceRoomId?: string
+): void {
+  // Find an empty slot of the right type
+  let slot = ship.jobSlots.find(
+    (s) => s.type === jobType && s.assignedCrewId === null
+  );
+  if (!slot) {
+    // Create a slot on-the-fly for test convenience
+    slot = {
+      id: `test-slot-${nextId++}`,
+      type: jobType,
+      assignedCrewId: null,
+      sourceRoomId,
+    };
+    ship.jobSlots.push(slot);
+  }
+  slot.assignedCrewId = crewId;
+}
+
+/**
+ * Test helper: clear all crew assignments from slots of the given type.
+ */
+export function clearJobSlots(ship: Ship, jobType: JobSlotType): void {
+  for (const slot of ship.jobSlots) {
+    if (slot.type === jobType) {
+      slot.assignedCrewId = null;
+    }
+  }
 }
 
 export function createTestWorld(): World {

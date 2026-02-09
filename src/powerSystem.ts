@@ -2,6 +2,7 @@ import type { Ship } from './models';
 import { getRoomDefinition } from './rooms';
 import { getEquipmentDefinition } from './equipment';
 import { getEngineDefinition } from './engines';
+import { isRoomStaffed } from './jobSlots';
 
 export type PowerSource = 'berth' | 'drives' | 'warming_up' | 'none';
 
@@ -50,10 +51,10 @@ export function computePowerStatus(ship: Ship): PowerStatus {
     const roomDef = getRoomDefinition(room.type);
     if (!roomDef) continue;
 
-    // Room is active if it's always powered OR has crew assigned and is operational
+    // Room is active if it's always powered OR has job slots with crew and is operational
     const isActive =
       roomDef.alwaysPowered ||
-      (room.assignedCrewIds.length > 0 && room.state === 'operational');
+      (isRoomStaffed(ship, room.id) && room.state === 'operational');
 
     if (isActive) {
       totalDraw += roomDef.powerDraw;

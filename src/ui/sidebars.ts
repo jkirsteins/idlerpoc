@@ -172,7 +172,10 @@ export function createLeftSidebar(
       if (!roomDef) continue;
       const isActive =
         roomDef.alwaysPowered ||
-        (room.assignedCrewIds.length > 0 && room.state === 'operational');
+        (ship.jobSlots.some(
+          (s) => s.sourceRoomId === room.id && s.assignedCrewId !== null
+        ) &&
+          room.state === 'operational');
       if (isActive && roomDef.powerDraw > 0) {
         drawItems.push({ name: roomDef.name, draw: roomDef.powerDraw });
       }

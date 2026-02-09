@@ -7,6 +7,7 @@ import { generateHireableCrewByLocation } from './gameFactory';
 import { awardEventXP, logLevelUps } from './skillProgression';
 import { checkAutoRefuel, autoRestartRouteTrip } from './routeAssignment';
 import { getFuelPricePerKg } from './ui/refuelDialog';
+import { unassignCrewFromAllSlots } from './jobSlots';
 
 /**
  * Contract Execution
@@ -104,12 +105,7 @@ function removeUnpaidCrew(gameData: GameData, ship: Ship): void {
       ship.crew.splice(crewIndex, 1);
     }
 
-    for (const room of ship.rooms) {
-      const roomIndex = room.assignedCrewIds.indexOf(crew.id);
-      if (roomIndex !== -1) {
-        room.assignedCrewIds.splice(roomIndex, 1);
-      }
-    }
+    unassignCrewFromAllSlots(ship, crew.id);
 
     addLog(
       gameData.log,

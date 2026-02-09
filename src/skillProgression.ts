@@ -1,77 +1,45 @@
 import type {
   CrewMember,
-  Room,
   Ship,
   SkillId,
-  RoomType,
+  JobSlotType,
   LogEntry,
 } from './models';
 import { getLevelForXP } from './levelSystem';
 import { deduceRoleFromSkills, getPrimarySkillForRole } from './crewRoles';
 import { addLog } from './logSystem';
+import { getCrewJobSlot, getJobSlotDefinition } from './jobSlots';
 
 /**
  * Skill Progression System
  *
- * Crew members earn XP by doing their jobs. Room assignment during flight
- * determines which skill they practice and how fast they improve.
+ * Crew members earn XP by working their job slots. Job slot assignment during
+ * flight determines which skill they practice and how fast they improve.
  */
 
-/**
- * XP rates per tick by room type
- */
-const ROOM_XP_RATES: Partial<Record<RoomType, number>> = {
-  bridge: 0.05,
-  engine_room: 0.05,
-  reactor_room: 0.075,
-  point_defense_station: 0.05,
-  armory: 0.025,
-  cantina: 0.025,
-  medbay: 0.025,
-};
-
-/**
- * Which skill a room trains, mapped from the room's role archetype.
- */
-const ROOM_TRAINED_SKILL: Partial<Record<RoomType, SkillId>> = {
-  bridge: 'piloting', // default; navigators override to astrogation
-  engine_room: 'engineering',
-  reactor_room: 'engineering',
-  point_defense_station: 'strength',
-  armory: 'strength',
-  cantina: 'charisma',
-  medbay: 'loyalty',
-};
-
-/** Skill matching bonus multiplier (crew's top skill matches room's trained skill) */
+/** Skill matching bonus multiplier (crew's top skill matches job's skill) */
 const SKILL_MATCH_MULTIPLIER = 1.5;
 
 /**
- * Calculate XP earned per tick for a crew member based on room assignment.
+ * Calculate XP earned per tick for a crew member based on job slot assignment.
  * Returns the skill being trained and XP amount, or null if no XP earned.
  */
 export function calculateTickXP(
   crew: CrewMember,
-  room: Room | null
+  jobSlotType: JobSlotType | null
 ): { skill: SkillId; xp: number } | null {
-  if (!room) return null;
+  if (!jobSlotType) return null;
 
-  const baseXP = ROOM_XP_RATES[room.type];
-  if (!baseXP) return null;
+  const def = getJobSlotDefinition(jobSlotType);
+  if (!def || !def.skill || def.xpPerTick <= 0) return null;
 
-  // Determine which skill this room trains
-  let skill = ROOM_TRAINED_SKILL[room.type];
-  if (!skill) return null;
+  const skill = def.skill;
+  const baseXP = def.xpPerTick;
 
-  // Bridge special case: navigators train astrogation instead of piloting
-  if (room.type === 'bridge' && crew.role === 'navigator') {
-    skill = 'astrogation';
-  }
-
-  // Skill matching bonus: if crew's highest skill matches the room's trained skill
+  // Skill matching bonus: if crew's highest skill matches the job's skill
   const primarySkill = getPrimarySkillForRole(crew.role);
-  const matchesRoom = primarySkill === skill;
-  const xp = matchesRoom ? baseXP * SKILL_MATCH_MULTIPLIER : baseXP;
+  const matchesJob = primarySkill === skill;
+  const xp = matchesJob ? baseXP * SKILL_MATCH_MULTIPLIER : baseXP;
 
   return { skill, xp };
 }
@@ -134,10 +102,10 @@ export function applyPassiveXP(ship: Ship): LevelUpResult[] {
   const levelUps: LevelUpResult[] = [];
 
   for (const crew of ship.crew) {
-    // Find which room this crew member is assigned to
-    const room = ship.rooms.find((r) => r.assignedCrewIds.includes(crew.id));
+    const jobSlot = getCrewJobSlot(ship, crew.id);
+    const jobSlotType = jobSlot?.type ?? null;
 
-    const xpResult = calculateTickXP(crew, room ?? null);
+    const xpResult = calculateTickXP(crew, jobSlotType);
     if (xpResult) {
       const levelUp = applyXP(crew, xpResult.xp);
       if (levelUp) {
@@ -151,14 +119,13 @@ export function applyPassiveXP(ship: Ship): LevelUpResult[] {
 
 /**
  * Award event XP to relevant crew members on a ship.
+ * Uses job slot assignments to determine who earns what.
  * Returns any level-up results for logging.
  */
 export function awardEventXP(ship: Ship, event: XPEvent): LevelUpResult[] {
   const levelUps: LevelUpResult[] = [];
 
   function grantXP(crew: CrewMember, skill: SkillId, amount: number): void {
-    // XP goes to the crew member's total XP (not per-skill)
-    // The skill parameter documents what they learned, but XP is unified
     void skill; // unified XP system — skill param is informational
     const levelUp = applyXP(crew, amount);
     if (levelUp) {
@@ -166,42 +133,46 @@ export function awardEventXP(ship: Ship, event: XPEvent): LevelUpResult[] {
     }
   }
 
+  // Helper: get crew assigned to specific job types
+  function crewInJobTypes(types: JobSlotType[]): CrewMember[] {
+    const crewIds = ship.jobSlots
+      .filter((s) => types.includes(s.type) && s.assignedCrewId !== null)
+      .map((s) => s.assignedCrewId!);
+    return crewIds
+      .map((id) => ship.crew.find((c) => c.id === id))
+      .filter((c): c is CrewMember => c !== undefined);
+  }
+
   switch (event.type) {
     case 'encounter_evaded': {
       // Bridge crew earn astrogation XP
-      const bridge = ship.rooms.find((r) => r.type === 'bridge');
-      if (bridge) {
-        for (const crewId of bridge.assignedCrewIds) {
-          const crew = ship.crew.find((c) => c.id === crewId);
-          if (crew) grantXP(crew, 'astrogation', 10);
-        }
+      const bridgeCrew = crewInJobTypes(['helm', 'scanner', 'comms']);
+      for (const crew of bridgeCrew) {
+        grantXP(crew, 'astrogation', 10);
       }
       break;
     }
 
     case 'encounter_negotiated': {
-      // Negotiator (by ID) earns charisma XP
       const negotiator = ship.crew.find((c) => c.id === event.negotiatorId);
       if (negotiator) grantXP(negotiator, 'charisma', 15);
       break;
     }
 
     case 'encounter_victory': {
-      // Armory + PD station crew earn strength XP
-      const combatRooms = ship.rooms.filter(
-        (r) => r.type === 'armory' || r.type === 'point_defense_station'
-      );
-      for (const room of combatRooms) {
-        for (const crewId of room.assignedCrewIds) {
-          const crew = ship.crew.find((c) => c.id === crewId);
-          if (crew) grantXP(crew, 'strength', 20);
-        }
+      // Combat job crew earn strength XP
+      const combatCrew = crewInJobTypes([
+        'arms_maint',
+        'fire_control',
+        'targeting',
+      ]);
+      for (const crew of combatCrew) {
+        grantXP(crew, 'strength', 20);
       }
       break;
     }
 
     case 'encounter_harassment': {
-      // All crew earn loyalty XP (survived together)
       for (const crew of ship.crew) {
         grantXP(crew, 'loyalty', 5);
       }
@@ -209,7 +180,6 @@ export function awardEventXP(ship: Ship, event: XPEvent): LevelUpResult[] {
     }
 
     case 'encounter_boarding': {
-      // All crew earn loyalty + strength XP
       for (const crew of ship.crew) {
         grantXP(crew, 'loyalty', 10);
         grantXP(crew, 'strength', 10);
@@ -218,7 +188,6 @@ export function awardEventXP(ship: Ship, event: XPEvent): LevelUpResult[] {
     }
 
     case 'contract_completed': {
-      // All crew earn XP based on trips completed
       const xpPerCrew = 5 * event.tripsCompleted;
       for (const crew of ship.crew) {
         const primarySkill = getPrimarySkillForRole(crew.role);
@@ -228,7 +197,6 @@ export function awardEventXP(ship: Ship, event: XPEvent): LevelUpResult[] {
     }
 
     case 'first_arrival': {
-      // All crew earn astrogation XP
       for (const crew of ship.crew) {
         grantXP(crew, 'astrogation', 15);
       }

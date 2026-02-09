@@ -40,11 +40,19 @@ This file tracks deferred features and known gaps that are not currently priorit
 
 - **Slow-Start High-Efficiency Engine Type**: An engine class that trades very long warmup times (e.g., 2+ game days) for significantly better fuel efficiency once running. Creates a strategic choice: quick departure vs. fuel savings on long hauls. Would reward players who plan ahead and start warmup early. Could pair with a "pre-heat while docked" mechanic.
 
+## Deferred Job Slot System Features
+
+- **Repair Prioritization**: Allow players to prioritize which degraded equipment gets repair points first.
+- **Job Slot Bonuses from Skill Level**: Scale ship bonuses more granularly (fuel efficiency from piloting, warmup speed from engineering, etc.).
+- **Training Rooms**: Dedicated training facility room that boosts XP gain for assigned crew.
+- **Job Slot Equipment Requirements**: Some jobs could require specific crew equipment (e.g., EVA suit for external repair).
+- **Shift System**: Crew fatigue from extended job assignment; rotate crew between jobs and rest.
+
 ## Other Known Gaps
 
-- **Equipment Repair at Stations**: Degraded equipment cannot currently be repaired.
+- **Equipment Repair at Stations**: Degraded equipment cannot currently be repaired (in-flight repair now via job slots).
 - **Morale System**: Morale exists but has no game effects yet.
-- **Health Recovery Mechanic**: Health can decrease but has no recovery system.
+- **Health Recovery Mechanic**: Health can decrease; patient job slot provides in-flight recovery. Station recovery not yet implemented.
 - **Ship Unlocking**: All ships except Station Keeper are locked. Need unlock progression system.
 - **Cargo Weight Estimation**: Currently hardcoded `* 100`. Need proper cargo weight tracking.
 - **Cargo Space Limit**: Currently hardcoded `maxSpace = 20`. Should use ship cargo capacity.

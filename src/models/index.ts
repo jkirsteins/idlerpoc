@@ -195,7 +195,37 @@ export interface Room {
   id: string;
   type: RoomType;
   state: RoomState;
-  assignedCrewIds: string[];
+}
+
+/**
+ * Job slot types - each represents a specific crew position.
+ * Room-sourced: helm, comms, drive_ops, containment, galley, patient, arms_maint, fire_control, rest
+ * Equipment-sourced: scanner (nav_scanner), targeting (point_defense)
+ * Ship-wide: repair
+ */
+export type JobSlotType =
+  | 'helm'
+  | 'scanner'
+  | 'comms'
+  | 'drive_ops'
+  | 'containment'
+  | 'galley'
+  | 'patient'
+  | 'arms_maint'
+  | 'fire_control'
+  | 'targeting'
+  | 'rest'
+  | 'repair';
+
+/**
+ * A job slot instance on a ship. Crew are assigned to job slots, not rooms.
+ */
+export interface JobSlot {
+  id: string;
+  type: JobSlotType;
+  assignedCrewId: string | null; // single crew per slot (repair allows multiple slots)
+  sourceRoomId?: string; // room that generated this slot
+  sourceEquipmentId?: string; // equipment that generated this slot
 }
 
 export interface ShipMetrics {
@@ -215,6 +245,7 @@ export interface Ship {
   classId: ShipClassId;
   rooms: Room[];
   crew: CrewMember[];
+  jobSlots: JobSlot[]; // Crew assignment via job slots
   fuelKg: number; // Current fuel mass in kilograms
   maxFuelKg: number; // Fuel tank capacity in kilograms
   equipment: EquipmentInstance[];

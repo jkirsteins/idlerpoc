@@ -17,6 +17,7 @@ import {
 } from './gravitySystem';
 import { calculateEncounterChance } from './encounterSystem';
 import { applyPassiveXP, logLevelUps } from './skillProgression';
+import { getCrewForJobType, isRoomStaffed, getCrewJobSlot } from './jobSlots';
 
 /**
  * Encounter system hook.
@@ -226,12 +227,14 @@ function applyShipTick(gameData: GameData, ship: Ship): boolean {
           const radiationDamagePerTick = netRadiation / 100;
 
           for (const crew of ship.crew) {
+            // Check if crew is a patient in medbay (via job slot)
+            const crewJob = getCrewJobSlot(ship, crew.id);
+            const isPatient = crewJob?.type === 'patient';
             const medbay = ship.rooms.find((r) => r.type === 'medbay');
-            const isInMedbay = medbay?.assignedCrewIds.includes(crew.id);
 
             let damage = radiationDamagePerTick;
 
-            if (isInMedbay && medbay?.state === 'operational') {
+            if (isPatient && medbay?.state === 'operational') {
               damage *= 0.5;
             }
 
@@ -274,7 +277,7 @@ function applyShipTick(gameData: GameData, ship: Ship): boolean {
         const reactorRoomStaffed =
           reactorRoom &&
           reactorRoom.state === 'operational' &&
-          reactorRoom.assignedCrewIds.length > 0;
+          isRoomStaffed(ship, reactorRoom.id);
 
         const confinementEq = ship.equipment.find(
           (eq) => eq.definitionId === 'mag_confinement'
@@ -365,6 +368,43 @@ function applyShipTick(gameData: GameData, ship: Ship): boolean {
     const levelUps = applyPassiveXP(ship);
     if (levelUps.length > 0) {
       logLevelUps(gameData.log, gameData.gameTime, ship.name, levelUps);
+    }
+
+    // === PASSIVE JOB SLOT EFFECTS ===
+
+    // Patient: health regeneration (2 HP/tick when in operational medbay)
+    for (const slot of ship.jobSlots) {
+      if (slot.type === 'patient' && slot.assignedCrewId) {
+        const medbay = slot.sourceRoomId
+          ? ship.rooms.find((r) => r.id === slot.sourceRoomId)
+          : null;
+        if (medbay?.state === 'operational') {
+          const crew = ship.crew.find((c) => c.id === slot.assignedCrewId);
+          if (crew && crew.health < 100) {
+            crew.health = Math.min(100, crew.health + 2);
+          }
+        }
+      }
+    }
+
+    // Repair: engineering skill generates repair points distributed to degraded equipment
+    const repairEngineers = getCrewForJobType(ship, 'repair');
+    if (repairEngineers.length > 0) {
+      let totalRepairPoints = 0;
+      for (const eng of repairEngineers) {
+        totalRepairPoints += eng.skills.engineering * 0.5;
+      }
+
+      // Distribute repair points equally across degraded equipment
+      const degradedEquipment = ship.equipment.filter(
+        (eq) => eq.degradation > 0
+      );
+      if (degradedEquipment.length > 0 && totalRepairPoints > 0) {
+        const pointsPerEquipment = totalRepairPoints / degradedEquipment.length;
+        for (const eq of degradedEquipment) {
+          eq.degradation = Math.max(0, eq.degradation - pointsPerEquipment);
+        }
+      }
     }
 
     changed = true;
