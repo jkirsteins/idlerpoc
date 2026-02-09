@@ -147,7 +147,7 @@ export function checkAutoRefuel(
   if (fuelPercentage < threshold) {
     // Calculate refuel amount and cost using location-based pricing
     const fuelNeededKg = ship.maxFuelKg - ship.fuelKg;
-    const pricePerKg = getFuelPricePerKg(location);
+    const pricePerKg = getFuelPricePerKg(location, ship);
     const fuelCost = Math.round(fuelNeededKg * pricePerKg);
 
     if (gameData.credits >= fuelCost) {

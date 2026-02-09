@@ -28,10 +28,15 @@ npm run dev
   - Ship equipment generates additional slots (nav scanner → Scan Ops, point defense → Targeting)
   - Ship-wide repair slots accept multiple engineers generating repair points
   - Direct skill training: jobs train crew skills with diminishing returns (no XP intermediary)
+  - **10 named skill ranks** (Untrained → Master) with non-linear distribution for idle-game pacing
+  - **Skill progress bars** showing advancement toward next rank
+  - **Commerce skill** trained by captain/first officer completing trade routes — improves quest pay and fuel pricing
+  - **Specialization system**: at skill 50, crew can lock in +50% training speed in one skill (-25% others)
+  - **Piloting skill gates ship class**: Class II requires 25, Class III requires 50, etc.
   - Passive slots (Patient, Rest) benefit crew without training skills
   - Helm is the only required job — no helm crew means the ship coasts
   - Auto-assign crew to best-fit slots based on skill affinity
-  - Crew skills (Piloting, Astrogation, Engineering, Strength, Charisma, Loyalty) on 1-100 scale
+  - Crew skills (Piloting, Astrogation, Engineering, Strength, Charisma, Loyalty, Commerce) on 1-100 scale
   - 8 crew roles including Navigator (astrogation specialist)
   - Crew salaries paid per tick during flight (0.5-1.5 credits/tick depending on role)
   - Unpaid crew depart at next station
@@ -118,6 +123,7 @@ npm run dev
   - 3 factions (Terran Alliance, Free Traders Guild, Kreth Collective)
   - 9 crew equipment items (weapons, tools, accessories, armor, gravity countermeasures)
   - Progressive XP/leveling system (20 levels)
+  - 10-rank skill progression with commerce, specialization, and gameplay unlocks (see `docs/skill-system.md`)
   - 8 world locations with varied services and quest availability
 
 ## Scripts

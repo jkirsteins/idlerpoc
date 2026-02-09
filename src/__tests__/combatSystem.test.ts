@@ -124,6 +124,7 @@ describe('attemptEvasion', () => {
         strength: 2,
         charisma: 2,
         loyalty: 2,
+        commerce: 0,
       },
     });
     const bridge = createTestRoom({
@@ -157,6 +158,7 @@ describe('attemptEvasion', () => {
         strength: 10,
         charisma: 10,
         loyalty: 10,
+        commerce: 0,
       },
     });
     const bridge = createTestRoom({
@@ -190,6 +192,7 @@ describe('attemptNegotiation', () => {
         strength: 3,
         charisma: 0,
         loyalty: 3,
+        commerce: 0,
       },
     });
     const ship = createTestShip({ crew: [crew] });
@@ -208,6 +211,7 @@ describe('attemptNegotiation', () => {
         strength: 15,
         charisma: 100,
         loyalty: 15,
+        commerce: 0,
       },
     });
     const ship = createTestShip({ crew: [crew] });
@@ -227,6 +231,7 @@ describe('attemptNegotiation', () => {
         strength: 10,
         charisma: 80,
         loyalty: 10,
+        commerce: 0,
       },
     });
     const pilot = createTestCrew({
@@ -238,6 +243,7 @@ describe('attemptNegotiation', () => {
         strength: 10,
         charisma: 15,
         loyalty: 10,
+        commerce: 0,
       },
     });
     const ship = createTestShip({ crew: [pilot, cook] });
@@ -296,6 +302,7 @@ describe('calculateDefenseScore', () => {
         strength: 50,
         charisma: 10,
         loyalty: 10,
+        commerce: 0,
       },
     });
     const pdStation = createTestRoom({
@@ -323,6 +330,7 @@ describe('calculateDefenseScore', () => {
         strength: 50,
         charisma: 10,
         loyalty: 10,
+        commerce: 0,
       },
       equipment: [{ id: 'rifle-1', definitionId: 'rifle' }],
     });
@@ -352,6 +360,7 @@ describe('calculateDefenseScore', () => {
         strength: 50,
         charisma: 10,
         loyalty: 10,
+        commerce: 0,
       },
       equipment: [{ id: 'rifle-1', definitionId: 'rifle' }],
     });
@@ -816,6 +825,7 @@ describe('resolveEncounter', () => {
         strength: 2,
         charisma: 2,
         loyalty: 2,
+        commerce: 0,
       },
     });
     const bridge = createTestRoom({
@@ -855,6 +865,7 @@ describe('resolveEncounter', () => {
           strength: 1,
           charisma: 0,
           loyalty: 1,
+          commerce: 0,
         },
       }),
     ];
@@ -955,6 +966,7 @@ describe('combat variance', () => {
         strength: 2,
         charisma: 0,
         loyalty: 2,
+        commerce: 0,
       },
     });
     const ship = createTestShip({

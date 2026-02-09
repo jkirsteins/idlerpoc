@@ -44,9 +44,20 @@ This file tracks deferred features and known gaps that are not currently priorit
 
 - **Repair Prioritization**: Allow players to prioritize which degraded equipment gets repair points first.
 - **Job Slot Bonuses from Skill Level**: Scale ship bonuses more granularly (fuel efficiency from piloting, warmup speed from engineering, etc.).
-- **Training Rooms**: Dedicated training facility room that boosts XP gain for assigned crew.
+- **Training Rooms**: Dedicated training facility room that boosts skill training rate for assigned crew.
 - **Job Slot Equipment Requirements**: Some jobs could require specific crew equipment (e.g., EVA suit for external repair).
 - **Shift System**: Crew fatigue from extended job assignment; rotate crew between jobs and rest.
+
+## Deferred Skill System Features
+
+- **Enforce Piloting Tier Requirements**: Block ship purchase/departure when no helm crew meets the piloting tier. Currently defined in skillRanks.ts but not enforced.
+- **Skill Threshold Effects (non-piloting)**: Implement the remaining skill thresholds documented in `docs/skill-system.md` — charisma auto-negotiation at 75, engineering repair doubling at 75, strength bounty bonus at 75, loyalty salary discount at 50, etc.
+- **Skill-Based Equipment Requirements**: Require minimum strength for heavy weapons, engineering for advanced tools.
+- **Mastery Traits**: Award a permanent crew trait when reaching skill 100 (Master rank).
+- **Commerce for Non-Captains**: Allow quartermaster role to earn commerce at a reduced rate.
+- **Prestige/Reset Loop**: Long-term engagement mechanic — "retire" experienced crew for permanent bonuses on future hires.
+- **Event Gain Scaling**: Scale flat event gains inversely to rank bracket to prevent high-level spikiness (combat +3.0 is huge at skill 95).
+- **Stronger Match Bonus**: Consider increasing SKILL_MATCH_MULTIPLIER from 1.5x to 3x to make crew assignment more impactful.
 
 ## Other Known Gaps
 

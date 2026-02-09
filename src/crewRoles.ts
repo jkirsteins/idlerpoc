@@ -78,9 +78,10 @@ export function getCrewRoleName(role: CrewRole): string {
 }
 
 /**
- * Mapping of skills to their corresponding roles
+ * Mapping of skills to their corresponding roles.
+ * Commerce is excluded — it doesn't determine role (trained by captains/first officers via trade).
  */
-const SKILL_TO_ROLE: Record<SkillId, CrewRole> = {
+const SKILL_TO_ROLE: Partial<Record<SkillId, CrewRole>> = {
   piloting: 'pilot',
   astrogation: 'navigator',
   engineering: 'engineer',
@@ -120,7 +121,7 @@ export function deduceRoleFromSkills(skills: CrewSkills): CrewRole {
     }
   }
 
-  return SKILL_TO_ROLE[highestSkill];
+  return SKILL_TO_ROLE[highestSkill] ?? 'pilot';
 }
 
 /**
@@ -136,7 +137,7 @@ export function generateSkillsForRole(targetRole: CrewRole): CrewSkills {
     ([_, role]) => role === targetRole
   )?.[0] as SkillId | undefined;
 
-  // Generate base skills (5-20 for all)
+  // Generate base skills (5-20 for all, commerce starts at 0)
   const skills: CrewSkills = {
     piloting: Math.floor(Math.random() * 16) + 5, // 5-20
     astrogation: Math.floor(Math.random() * 16) + 5, // 5-20
@@ -144,6 +145,7 @@ export function generateSkillsForRole(targetRole: CrewRole): CrewSkills {
     strength: Math.floor(Math.random() * 16) + 5, // 5-20
     charisma: Math.floor(Math.random() * 16) + 5, // 5-20
     loyalty: Math.floor(Math.random() * 16) + 5, // 5-20
+    commerce: 0, // Only trained via completing trade routes
   };
 
   // Boost primary skill to 20-40

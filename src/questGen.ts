@@ -14,6 +14,7 @@ import { getEngineDefinition } from './engines';
 import { getCrewRoleDefinition } from './crewRoles';
 import { calculatePositionDanger } from './encounterSystem';
 import { getCrewForJobType } from './jobSlots';
+import { getCommercePaymentBonus } from './skillRanks';
 
 // Fuel pricing constant for payment calculations (credits per kg)
 // Matches base rate from refuelDialog.ts getFuelPricePerKg()
@@ -176,7 +177,11 @@ function calculatePayment(
 
   // 5. Skill-based crew bonus (reputation from skilled crew)
   const crewBonus = calculateCrewSkillBonus(ship);
-  const payment = basePayment * (1 + crewBonus);
+
+  // 6. Commerce bonus from captain's trading experience
+  const commerceBonus = getShipCommerceBonus(ship);
+
+  const payment = basePayment * (1 + crewBonus + commerceBonus);
 
   return Math.round(payment);
 }
@@ -216,6 +221,16 @@ function calculateCrewSkillBonus(ship: Ship): number {
   }
 
   return bonus;
+}
+
+/**
+ * Get commerce payment bonus from the ship's captain (or highest-commerce crew).
+ * Commerce is trained by completing trade routes and provides better pay.
+ */
+function getShipCommerceBonus(ship: Ship): number {
+  const captain = ship.crew.find((c) => c.isCaptain);
+  const commerceSkill = captain?.skills.commerce ?? 0;
+  return getCommercePaymentBonus(commerceSkill);
 }
 
 /**
@@ -606,12 +621,15 @@ function calculateTradeRoutePayment(
   // 6. Crew skill bonus (same system as regular quests)
   const crewBonus = calculateCrewSkillBonus(ship);
 
+  // 7. Commerce bonus from captain's trading experience
+  const commerceBonus = getShipCommerceBonus(ship);
+
   const payment =
     (costFloor + distanceBonus) *
     cargoPremium *
     dangerPremium *
     locationFactor *
-    (1 + crewBonus);
+    (1 + crewBonus + commerceBonus);
 
   return Math.round(payment);
 }

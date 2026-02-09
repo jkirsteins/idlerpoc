@@ -32,7 +32,7 @@ function tryAutoRefuelForLeg(
     return false;
   }
 
-  const pricePerKg = getFuelPricePerKg(location);
+  const pricePerKg = getFuelPricePerKg(location, ship);
   const fullCost = Math.round(fuelNeededKg * pricePerKg);
 
   if (gameData.credits >= fullCost) {

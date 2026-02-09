@@ -177,6 +177,7 @@ describe('calculateCrewSkillFactor', () => {
         strength: 10,
         charisma: 10,
         loyalty: 10,
+        commerce: 0,
       },
     });
     const ship = createTestShip();
@@ -200,6 +201,7 @@ describe('calculateCrewSkillFactor', () => {
         strength: 10,
         charisma: 10,
         loyalty: 10,
+        commerce: 0,
       },
     });
     const pilot = createTestCrew({
@@ -210,6 +212,7 @@ describe('calculateCrewSkillFactor', () => {
         strength: 10,
         charisma: 10,
         loyalty: 10,
+        commerce: 0,
       },
     });
     const ship = createTestShip();
@@ -233,6 +236,7 @@ describe('calculateCrewSkillFactor', () => {
         strength: 3,
         charisma: 3,
         loyalty: 3,
+        commerce: 0,
       },
     });
     const ship = createTestShip();
@@ -481,6 +485,7 @@ describe('calculateEncounterChance', () => {
         strength: 2,
         charisma: 2,
         loyalty: 2,
+        commerce: 0,
       },
     });
     ship.crew = [lowSkillCrew];
@@ -497,6 +502,7 @@ describe('calculateEncounterChance', () => {
         strength: 2,
         charisma: 2,
         loyalty: 2,
+        commerce: 0,
       },
     });
     ship.crew = [highSkillCrew];

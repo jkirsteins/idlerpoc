@@ -22,6 +22,13 @@ import {
 import { TICKS_PER_DAY } from '../timeSystem';
 import { calculateTickTraining } from '../skillProgression';
 import { getCrewJobSlot, getJobSlotDefinition } from '../jobSlots';
+import {
+  getSkillRank,
+  getNextRank,
+  getRankProgress,
+  SPECIALIZATION_THRESHOLD,
+} from '../skillRanks';
+import type { SkillId } from '../models';
 import type { Component } from './component';
 
 /** Snapshot the props the crew tab renders so we can shallow-compare. */
@@ -48,7 +55,7 @@ function snapshotCrewProps(
     crewSkills: ship.crew
       .map(
         (c) =>
-          `${c.skills.piloting}${c.skills.astrogation}${c.skills.engineering}${c.skills.strength}${c.skills.charisma}${c.skills.loyalty}`
+          `${c.skills.piloting}${c.skills.astrogation}${c.skills.engineering}${c.skills.strength}${c.skills.charisma}${c.skills.loyalty}${c.skills.commerce}${c.specialization?.skillId ?? ''}`
       )
       .join(),
     crewEquip: ship.crew
@@ -317,7 +324,7 @@ function renderCrewDetail(
   }
 
   // Skills section
-  panel.appendChild(renderSkillsSection(crew));
+  panel.appendChild(renderSkillsSection(crew, callbacks));
 
   // Equipment section
   panel.appendChild(renderEquipmentSection(crew, callbacks));
@@ -569,7 +576,96 @@ function renderLevelUpButton(
   return button;
 }
 
-function renderSkillsSection(crew: CrewMember): HTMLElement {
+function renderSkillRow(crew: CrewMember, skillId: SkillId): HTMLElement {
+  const skillRow = document.createElement('div');
+  skillRow.className = 'skill-row';
+  skillRow.style.marginBottom = '0.5rem';
+
+  const topRow = document.createElement('div');
+  topRow.style.display = 'flex';
+  topRow.style.justifyContent = 'space-between';
+  topRow.style.alignItems = 'center';
+  topRow.style.marginBottom = '2px';
+
+  const skillLabel = document.createElement('span');
+  skillLabel.className = 'skill-label';
+  const skillName = skillId.charAt(0).toUpperCase() + skillId.slice(1);
+
+  const rawValue = crew.skills[skillId];
+  const intValue = Math.floor(rawValue);
+  const rank = getSkillRank(intValue);
+  const isSpecialized = crew.specialization?.skillId === skillId;
+
+  skillLabel.textContent = `${skillName}:`;
+  topRow.appendChild(skillLabel);
+
+  const rightSpan = document.createElement('span');
+  rightSpan.style.display = 'flex';
+  rightSpan.style.alignItems = 'center';
+  rightSpan.style.gap = '0.5rem';
+
+  // Rank label
+  const rankSpan = document.createElement('span');
+  rankSpan.style.fontSize = '0.8rem';
+  rankSpan.style.color =
+    rank.index >= 8 ? '#fbbf24' : rank.index >= 6 ? '#4ade80' : '#888';
+  rankSpan.textContent = rank.name;
+  if (isSpecialized) {
+    rankSpan.style.fontWeight = 'bold';
+    rankSpan.textContent += ' *';
+  }
+  rightSpan.appendChild(rankSpan);
+
+  // Numeric value
+  const skillValue = document.createElement('span');
+  skillValue.className = 'skill-value';
+
+  if (skillId === 'strength') {
+    const level = getGravityDegradationLevel(crew.zeroGExposure);
+    const multiplier = getStrengthMultiplier(level);
+    const effectiveStrength = Math.floor(rawValue * multiplier);
+    if (level !== 'none') {
+      skillValue.innerHTML = `${intValue} <span style="opacity: 0.6">(eff: ${effectiveStrength})</span>`;
+    } else {
+      skillValue.textContent = `${intValue}`;
+    }
+  } else {
+    skillValue.textContent = `${intValue}`;
+  }
+
+  rightSpan.appendChild(skillValue);
+  topRow.appendChild(rightSpan);
+  skillRow.appendChild(topRow);
+
+  // Progress bar toward next rank
+  const nextRank = getNextRank(intValue);
+  if (nextRank) {
+    const progress = getRankProgress(rawValue);
+    const barContainer = document.createElement('div');
+    barContainer.style.width = '100%';
+    barContainer.style.height = '4px';
+    barContainer.style.backgroundColor = 'rgba(255,255,255,0.1)';
+    barContainer.style.borderRadius = '2px';
+    barContainer.style.overflow = 'hidden';
+
+    const barFill = document.createElement('div');
+    barFill.style.width = `${progress}%`;
+    barFill.style.height = '100%';
+    barFill.style.backgroundColor = isSpecialized ? '#4ade80' : '#4a90e2';
+    barFill.style.borderRadius = '2px';
+    barFill.style.transition = 'width 0.3s ease';
+    barContainer.appendChild(barFill);
+
+    skillRow.appendChild(barContainer);
+  }
+
+  return skillRow;
+}
+
+function renderSkillsSection(
+  crew: CrewMember,
+  callbacks: TabbedViewCallbacks
+): HTMLElement {
   const section = document.createElement('div');
   section.className = 'crew-detail-section';
 
@@ -582,13 +678,26 @@ function renderSkillsSection(crew: CrewMember): HTMLElement {
   title.textContent = 'Skills';
   header.appendChild(title);
 
+  // Specialization indicator
+  if (crew.specialization) {
+    const specBadge = document.createElement('span');
+    specBadge.style.fontSize = '0.8rem';
+    specBadge.style.color = '#4ade80';
+    specBadge.style.fontWeight = 'bold';
+    const specName =
+      crew.specialization.skillId.charAt(0).toUpperCase() +
+      crew.specialization.skillId.slice(1);
+    specBadge.textContent = `Specialized: ${specName}`;
+    header.appendChild(specBadge);
+  }
+
   section.appendChild(header);
 
   const skills = document.createElement('div');
   skills.className = 'crew-skills';
 
-  // Render each skill
-  const skillIds: Array<keyof typeof crew.skills> = [
+  // Core combat/utility skills
+  const coreSkillIds: SkillId[] = [
     'piloting',
     'astrogation',
     'engineering',
@@ -597,37 +706,13 @@ function renderSkillsSection(crew: CrewMember): HTMLElement {
     'loyalty',
   ];
 
-  for (const skillId of skillIds) {
-    const skillRow = document.createElement('div');
-    skillRow.className = 'skill-row';
+  for (const skillId of coreSkillIds) {
+    skills.appendChild(renderSkillRow(crew, skillId));
+  }
 
-    const skillLabel = document.createElement('span');
-    skillLabel.className = 'skill-label';
-    skillLabel.textContent =
-      skillId.charAt(0).toUpperCase() + skillId.slice(1) + ':';
-    skillRow.appendChild(skillLabel);
-
-    const skillValue = document.createElement('span');
-    skillValue.className = 'skill-value';
-
-    // Show effective strength if degraded
-    if (skillId === 'strength') {
-      const level = getGravityDegradationLevel(crew.zeroGExposure);
-      const multiplier = getStrengthMultiplier(level);
-      const effectiveStrength = Math.floor(crew.skills.strength * multiplier);
-
-      if (level !== 'none') {
-        skillValue.innerHTML = `${Math.floor(crew.skills.strength)} <span style="opacity: 0.6">(eff: ${effectiveStrength})</span>`;
-      } else {
-        skillValue.textContent = `${Math.floor(crew.skills[skillId])}`;
-      }
-    } else {
-      skillValue.textContent = `${Math.floor(crew.skills[skillId])}`;
-    }
-
-    skillRow.appendChild(skillValue);
-
-    skills.appendChild(skillRow);
+  // Commerce (only shown for captain or if > 0)
+  if (crew.isCaptain || crew.skills.commerce > 0) {
+    skills.appendChild(renderSkillRow(crew, 'commerce'));
   }
 
   // Show "Ranged Combat" attribute if weapon equipped
@@ -653,6 +738,52 @@ function renderSkillsSection(crew: CrewMember): HTMLElement {
   }
 
   section.appendChild(skills);
+
+  // Specialization button (if eligible and not yet specialized)
+  if (!crew.specialization) {
+    const eligibleSkills = coreSkillIds.filter(
+      (s) => Math.floor(crew.skills[s]) >= SPECIALIZATION_THRESHOLD
+    );
+    if (eligibleSkills.length > 0) {
+      const specSection = document.createElement('div');
+      specSection.style.marginTop = '0.75rem';
+      specSection.style.padding = '0.75rem';
+      specSection.style.background = 'rgba(74, 222, 128, 0.1)';
+      specSection.style.border = '1px solid rgba(74, 222, 128, 0.3)';
+      specSection.style.borderRadius = '4px';
+
+      const specLabel = document.createElement('div');
+      specLabel.style.fontSize = '0.85rem';
+      specLabel.style.marginBottom = '0.5rem';
+      specLabel.style.color = '#4ade80';
+      specLabel.textContent =
+        'Specialization available! +50% training in chosen skill, -25% in others.';
+      specSection.appendChild(specLabel);
+
+      const specControls = document.createElement('div');
+      specControls.style.display = 'flex';
+      specControls.style.gap = '0.5rem';
+      specControls.style.flexWrap = 'wrap';
+
+      for (const skillId of eligibleSkills) {
+        const btn = document.createElement('button');
+        const sName = skillId.charAt(0).toUpperCase() + skillId.slice(1);
+        btn.textContent = `Specialize: ${sName}`;
+        btn.style.padding = '0.4rem 0.8rem';
+        btn.style.fontSize = '0.85rem';
+        btn.addEventListener('click', () => {
+          if (callbacks.onSpecializeCrew) {
+            callbacks.onSpecializeCrew(crew.id, skillId);
+          }
+        });
+        specControls.appendChild(btn);
+      }
+
+      specSection.appendChild(specControls);
+      section.appendChild(specSection);
+    }
+  }
+
   return section;
 }
 

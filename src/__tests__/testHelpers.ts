@@ -41,6 +41,7 @@ export function createTestCrew(
       strength: 15,
       charisma: 15,
       loyalty: 15,
+      commerce: 0,
     },
     xp: 0,
     level: 1,
@@ -117,6 +118,7 @@ export function createTestShip(overrides: Partial<Ship> = {}): Ship {
       strength: 10,
       charisma: 10,
       loyalty: 10,
+      commerce: 0,
     },
   });
 

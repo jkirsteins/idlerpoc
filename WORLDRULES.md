@@ -663,10 +663,13 @@ This ensures roles are meaningful at creation but allows growth and specializati
 
 ### Skill Caps & Growth
 
-- Maximum skill: 10 (mastery)
-- Skill points earned: 1 per level gained
-- No skill can exceed 10
+- Skills scale 1-100 with 10 named ranks (Untrained → Master)
+- Training is passive via job slot assignment with diminishing returns
+- Specialization available at skill 50: +50% training in chosen skill, -25% in others
+- Commerce (7th skill): trained by captain/first officer completing trade routes, improves pay and fuel pricing
+- Piloting skill gates ship class access (Class II: 25, Class III: 50, Class IV: 75, Class V: 95)
 - Crew can shift roles by developing different skills (though rare)
+- See `docs/skill-system.md` for full details
 
 ### Implementation Requirements
 

@@ -8,6 +8,8 @@ import type {
 import { getPrimarySkillForRole } from './crewRoles';
 import { addLog } from './logSystem';
 import { getCrewJobSlot, getJobSlotDefinition } from './jobSlots';
+import { checkRankCrossing } from './skillRanks';
+import { getSpecializationMultiplier } from './skillRanks';
 
 /**
  * Direct Skill Training System
@@ -54,7 +56,13 @@ export function calculateTickTraining(
   const primarySkill = getPrimarySkillForRole(crew.role);
   const matchBonus = primarySkill === skill ? SKILL_MATCH_MULTIPLIER : 1.0;
 
-  const gain = baseRate * diminishingFactor * matchBonus;
+  // Specialization multiplier: bonus for specialized skill, penalty for others
+  const specMultiplier = getSpecializationMultiplier(
+    skill,
+    crew.specialization
+  );
+
+  const gain = baseRate * diminishingFactor * matchBonus * specMultiplier;
 
   return { skill, gain };
 }
@@ -67,6 +75,8 @@ export interface SkillUpResult {
   crewName: string;
   skill: SkillId;
   newLevel: number;
+  /** Non-null if this level-up crossed a named rank boundary */
+  newRank?: string;
 }
 
 /**
@@ -89,11 +99,13 @@ export function applyTraining(
   const newFloor = Math.floor(crew.skills[skill]);
 
   if (newFloor > oldFloor) {
+    const rankCross = checkRankCrossing(oldFloor, newFloor);
     return {
       crewId: crew.id,
       crewName: crew.name,
       skill,
       newLevel: newFloor,
+      newRank: rankCross?.name,
     };
   }
 
@@ -229,6 +241,20 @@ export function awardEventSkillGains(
         const primarySkill = getPrimarySkillForRole(crew.role);
         grantSkill(crew, primarySkill ?? 'piloting', gain);
       }
+
+      // Captain and first officer (highest loyalty non-captain) earn commerce from trade
+      const commerceGain = 1.0 + 0.5 * event.tripsCompleted;
+      const captain = ship.crew.find((c) => c.isCaptain);
+      if (captain) {
+        grantSkill(captain, 'commerce', commerceGain);
+      }
+      // First officer = non-captain crew with highest loyalty
+      const firstOfficer = ship.crew
+        .filter((c) => !c.isCaptain)
+        .sort((a, b) => b.skills.loyalty - a.skills.loyalty)[0];
+      if (firstOfficer) {
+        grantSkill(firstOfficer, 'commerce', commerceGain * 0.5);
+      }
       break;
     }
 
@@ -255,12 +281,23 @@ export function logSkillUps(
 ): void {
   for (const su of skillUps) {
     const skillName = su.skill.charAt(0).toUpperCase() + su.skill.slice(1);
-    addLog(
-      log,
-      gameTime,
-      'crew_level_up',
-      `${su.crewName}'s ${skillName} has reached ${su.newLevel}!`,
-      shipName
-    );
+    if (su.newRank) {
+      // Rank boundary crossed — prominent message
+      addLog(
+        log,
+        gameTime,
+        'crew_level_up',
+        `${su.crewName} has become ${su.newRank} in ${skillName} (${su.newLevel})!`,
+        shipName
+      );
+    } else {
+      addLog(
+        log,
+        gameTime,
+        'crew_level_up',
+        `${su.crewName}'s ${skillName} has reached ${su.newLevel}`,
+        shipName
+      );
+    }
   }
 }

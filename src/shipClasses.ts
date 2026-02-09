@@ -5,9 +5,10 @@ import type {
   EngineId,
   EquipmentSlotTag,
   ShipFeatureId,
+  ShipClassTier,
 } from './models';
 
-export type ShipClassTier = 'I' | 'II' | 'III' | 'IV' | 'V';
+export type { ShipClassTier };
 
 export interface ShipClass {
   id: ShipClassId;

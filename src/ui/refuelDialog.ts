@@ -4,9 +4,10 @@
  * Allows players to purchase fuel by kilogram with location-based pricing.
  */
 
-import type { GameData, WorldLocation } from '../models';
+import type { GameData, WorldLocation, Ship } from '../models';
 import { getActiveShip } from '../models';
 import { formatFuelMass } from './fuelFormatting';
+import { getCommerceFuelDiscount } from '../skillRanks';
 
 export interface RefuelDialogCallbacks {
   onConfirm: (fuelKg: number) => void;
@@ -22,25 +23,42 @@ export interface RefuelDialogCallbacks {
  * - Mid System: 1.5x (moderate premium)
  * - Outer System: 2.5x (expensive, scarce)
  */
-export function getFuelPricePerKg(location: WorldLocation): number {
+export function getFuelPricePerKg(
+  location: WorldLocation,
+  ship?: Ship
+): number {
   const basePricePerKg = 2; // credits per kg
 
   // Distance-based pricing
   const distanceFromEarth = location.distanceFromEarth;
 
+  let locationMultiplier: number;
   if (distanceFromEarth < 1000) {
     // Earth/LEO - abundant fuel
-    return basePricePerKg * 0.8;
+    locationMultiplier = 0.8;
   } else if (distanceFromEarth < 100000) {
     // Inner system - standard pricing
-    return basePricePerKg * 1.0;
+    locationMultiplier = 1.0;
   } else if (distanceFromEarth < 1000000) {
     // Mid system - moderate premium
-    return basePricePerKg * 1.5;
+    locationMultiplier = 1.5;
   } else {
     // Outer system - expensive
-    return basePricePerKg * 2.5;
+    locationMultiplier = 2.5;
   }
+
+  let price = basePricePerKg * locationMultiplier;
+
+  // Commerce discount from captain's trading experience
+  if (ship) {
+    const captain = ship.crew.find((c) => c.isCaptain);
+    if (captain) {
+      const discount = getCommerceFuelDiscount(captain.skills.commerce);
+      price *= 1 - discount;
+    }
+  }
+
+  return price;
 }
 
 /**
@@ -52,7 +70,7 @@ export function createRefuelDialog(
   callbacks: RefuelDialogCallbacks
 ): HTMLElement {
   const ship = getActiveShip(gameData);
-  const pricePerKg = getFuelPricePerKg(location);
+  const pricePerKg = getFuelPricePerKg(location, ship);
   const maxPurchaseKg = ship.maxFuelKg - ship.fuelKg;
 
   // Create modal overlay

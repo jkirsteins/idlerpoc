@@ -1,4 +1,4 @@
-import type { GameData, CrewEquipmentId } from '../models';
+import type { GameData, CrewEquipmentId, SkillId } from '../models';
 import { getActiveShip } from '../models';
 import type { PlayingTab } from './renderer';
 import type { Component } from './component';
@@ -65,6 +65,7 @@ export interface TabbedViewCallbacks {
     fromShipId: string,
     toShipId: string
   ) => void;
+  onSpecializeCrew?: (crewId: string, skillId: SkillId) => void;
 }
 
 export interface TabbedViewState {

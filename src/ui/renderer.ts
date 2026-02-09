@@ -92,6 +92,10 @@ export interface RendererCallbacks {
     fromShipId: string,
     toShipId: string
   ) => void;
+  onSpecializeCrew?: (
+    crewId: string,
+    skillId: import('../models').SkillId
+  ) => void;
   onDismissCatchUp: () => void;
 }
 

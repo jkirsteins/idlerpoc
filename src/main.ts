@@ -8,6 +8,7 @@ import type {
   CatchUpShipReport,
   Toast,
   EncounterResult,
+  SkillId,
 } from './models';
 import { getActiveShip } from './models';
 import {
@@ -38,6 +39,7 @@ import {
   resumeContract,
   abandonContract,
 } from './contractExec';
+import { getSkillRank } from './skillRanks';
 import { assignShipToRoute, unassignShipFromRoute } from './routeAssignment';
 import { addLog } from './logSystem';
 import { getCrewEquipmentDefinition } from './crewEquipment';
@@ -824,7 +826,8 @@ const callbacks: RendererCallbacks = {
       onConfirm: (fuelKg: number) => {
         if (state.phase !== 'playing') return;
 
-        const pricePerKg = getFuelPricePerKg(location);
+        const ship = getActiveShip(state.gameData);
+        const pricePerKg = getFuelPricePerKg(location, ship);
         const totalCost = Math.round(fuelKg * pricePerKg);
 
         if (state.gameData.credits >= totalCost && fuelKg > 0) {
@@ -1107,6 +1110,36 @@ const callbacks: RendererCallbacks = {
       state.gameData.gameTime,
       'crew_hired',
       `${crew.name} transferred from ${fromShip.name} to ${toShip.name}`
+    );
+
+    saveGame(state.gameData);
+    renderApp();
+  },
+
+  onSpecializeCrew: (crewId: string, skillId: SkillId) => {
+    if (state.phase !== 'playing') return;
+    const ship = getActiveShip(state.gameData);
+    const crew = ship.crew.find((c) => c.id === crewId);
+    if (!crew || crew.specialization) return;
+
+    const level = Math.floor(crew.skills[skillId]);
+    if (level < 50) return;
+
+    const rank = getSkillRank(level);
+
+    crew.specialization = {
+      skillId,
+      rankAtSpecialization: rank.name,
+      specializedAt: state.gameData.gameTime,
+    };
+
+    const skillName = skillId.charAt(0).toUpperCase() + skillId.slice(1);
+    addLog(
+      state.gameData.log,
+      state.gameData.gameTime,
+      'crew_level_up',
+      `${crew.name} has specialized in ${skillName}! +50% training speed.`,
+      ship.name
     );
 
     saveGame(state.gameData);
