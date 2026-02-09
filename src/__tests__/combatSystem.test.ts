@@ -124,6 +124,7 @@ describe('attemptEvasion', () => {
         strength: 2,
         charisma: 2,
         loyalty: 2,
+        commerce: 0,
       },
     });
     const bridge = createTestRoom({
@@ -151,12 +152,13 @@ describe('attemptEvasion', () => {
   it('maximum evasion chance is about 65%', () => {
     const navigator = createTestCrew({
       skills: {
-        piloting: 3,
-        astrogation: 10,
-        engineering: 2,
-        strength: 2,
-        charisma: 2,
-        loyalty: 2,
+        piloting: 15,
+        astrogation: 100,
+        engineering: 10,
+        strength: 10,
+        charisma: 10,
+        loyalty: 10,
+        commerce: 0,
       },
     });
     const bridge = createTestRoom({
@@ -175,7 +177,7 @@ describe('attemptEvasion', () => {
     assignCrewToJob(ship, navigator.id, 'scanner', bridge.id);
 
     const result = attemptEvasion(ship);
-    // 0.30 (velocity cap) + 0.15 (scanner) + 0.20 (skill 10) = 0.65
+    // 0.30 (velocity cap) + 0.15 (scanner) + 0.20 (skill 100 * 0.002) = 0.65
     expect(result.chance).toBeCloseTo(0.65, 1);
   });
 });
@@ -190,6 +192,7 @@ describe('attemptNegotiation', () => {
         strength: 3,
         charisma: 0,
         loyalty: 3,
+        commerce: 0,
       },
     });
     const ship = createTestShip({ crew: [crew] });
@@ -198,16 +201,17 @@ describe('attemptNegotiation', () => {
     expect(result.chance).toBe(0);
   });
 
-  it('returns 50% chance with charisma 10', () => {
+  it('returns 50% chance with charisma 100', () => {
     const crew = createTestCrew({
       name: 'Smooth Talker',
       skills: {
-        piloting: 3,
-        astrogation: 3,
-        engineering: 3,
-        strength: 3,
-        charisma: 10,
-        loyalty: 3,
+        piloting: 15,
+        astrogation: 15,
+        engineering: 15,
+        strength: 15,
+        charisma: 100,
+        loyalty: 15,
+        commerce: 0,
       },
     });
     const ship = createTestShip({ crew: [crew] });
@@ -221,29 +225,31 @@ describe('attemptNegotiation', () => {
     const cook = createTestCrew({
       name: 'Chef',
       skills: {
-        piloting: 2,
-        astrogation: 2,
-        engineering: 2,
-        strength: 2,
-        charisma: 8,
-        loyalty: 2,
+        piloting: 10,
+        astrogation: 10,
+        engineering: 10,
+        strength: 10,
+        charisma: 80,
+        loyalty: 10,
+        commerce: 0,
       },
     });
     const pilot = createTestCrew({
       name: 'Pilot',
       skills: {
-        piloting: 8,
-        astrogation: 5,
-        engineering: 2,
-        strength: 2,
-        charisma: 3,
-        loyalty: 2,
+        piloting: 50,
+        astrogation: 30,
+        engineering: 10,
+        strength: 10,
+        charisma: 15,
+        loyalty: 10,
+        commerce: 0,
       },
     });
     const ship = createTestShip({ crew: [pilot, cook] });
 
     const result = attemptNegotiation(ship);
-    expect(result.chance).toBe(8 / 20);
+    expect(result.chance).toBe(80 / 200);
     expect(result.negotiatorName).toBe('Chef');
   });
 });
@@ -290,12 +296,13 @@ describe('calculateDefenseScore', () => {
   it('includes PD station staffing bonus', () => {
     const gunner = createTestCrew({
       skills: {
-        piloting: 2,
-        astrogation: 2,
-        engineering: 2,
-        strength: 5,
-        charisma: 2,
-        loyalty: 2,
+        piloting: 10,
+        astrogation: 10,
+        engineering: 10,
+        strength: 50,
+        charisma: 10,
+        loyalty: 10,
+        commerce: 0,
       },
     });
     const pdStation = createTestRoom({
@@ -310,19 +317,20 @@ describe('calculateDefenseScore', () => {
     assignCrewToJob(ship, gunner.id, 'fire_control', pdStation.id);
 
     const score = calculateDefenseScore(ship);
-    // PD: 20 * (1 + 0.5 + 5*0.05) = 20 * 1.75 = 35 + mass: 2.0 = 37.0
+    // PD: 20 * (1 + 0.5 + 50*0.005) = 20 * 1.75 = 35 + mass: 2.0 = 37.0
     expect(score).toBeCloseTo(37.0, 0);
   });
 
   it('includes armory crew with weapons', () => {
     const gunner = createTestCrew({
       skills: {
-        piloting: 2,
-        astrogation: 2,
-        engineering: 2,
-        strength: 5,
-        charisma: 2,
-        loyalty: 2,
+        piloting: 10,
+        astrogation: 10,
+        engineering: 10,
+        strength: 50,
+        charisma: 10,
+        loyalty: 10,
+        commerce: 0,
       },
       equipment: [{ id: 'rifle-1', definitionId: 'rifle' }],
     });
@@ -338,7 +346,7 @@ describe('calculateDefenseScore', () => {
     assignCrewToJob(ship, gunner.id, 'arms_maint', armory.id);
 
     const score = calculateDefenseScore(ship);
-    // Armory: strength(5) + rifle(7) = 12, health 100% → 12 + mass: 2.0 = 14.0
+    // Armory: strength(50)/10 + rifle(7) = 12, health 100% → 12 + mass: 2.0 = 14.0
     expect(score).toBeCloseTo(14.0, 0);
   });
 
@@ -346,12 +354,13 @@ describe('calculateDefenseScore', () => {
     const gunner = createTestCrew({
       health: 50,
       skills: {
-        piloting: 2,
-        astrogation: 2,
-        engineering: 2,
-        strength: 5,
-        charisma: 2,
-        loyalty: 2,
+        piloting: 10,
+        astrogation: 10,
+        engineering: 10,
+        strength: 50,
+        charisma: 10,
+        loyalty: 10,
+        commerce: 0,
       },
       equipment: [{ id: 'rifle-1', definitionId: 'rifle' }],
     });
@@ -367,7 +376,7 @@ describe('calculateDefenseScore', () => {
     assignCrewToJob(ship, gunner.id, 'arms_maint', armory.id);
 
     const score = calculateDefenseScore(ship);
-    // Armory: (5 + 7) * 0.5 = 6 + mass: 2.0 = 8.0
+    // Armory: (50/10 + 7) * 0.5 = 6 + mass: 2.0 = 8.0
     expect(score).toBeCloseTo(8.0, 0);
   });
 
@@ -816,6 +825,7 @@ describe('resolveEncounter', () => {
         strength: 2,
         charisma: 2,
         loyalty: 2,
+        commerce: 0,
       },
     });
     const bridge = createTestRoom({
@@ -855,6 +865,7 @@ describe('resolveEncounter', () => {
           strength: 1,
           charisma: 0,
           loyalty: 1,
+          commerce: 0,
         },
       }),
     ];
@@ -955,6 +966,7 @@ describe('combat variance', () => {
         strength: 2,
         charisma: 0,
         loyalty: 2,
+        commerce: 0,
       },
     });
     const ship = createTestShip({

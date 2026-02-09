@@ -433,7 +433,7 @@ function renderQuestCard(
     (l) => l.id === (ship.location.dockedAt || ship.location.orbitingAt)
   );
   const fuelPricePerKg = currentLocation
-    ? getFuelPricePerKg(currentLocation)
+    ? getFuelPricePerKg(currentLocation, ship)
     : 2.0;
   const tripFuelCost = Math.round(profileFuelKg * fuelPricePerKg);
 

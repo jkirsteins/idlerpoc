@@ -20,8 +20,15 @@ import {
   getNextThreshold,
 } from '../gravitySystem';
 import { TICKS_PER_DAY } from '../timeSystem';
-import { calculateTickXP } from '../skillProgression';
+import { calculateTickTraining } from '../skillProgression';
 import { getCrewJobSlot, getJobSlotDefinition } from '../jobSlots';
+import {
+  getSkillRank,
+  getNextRank,
+  getRankProgress,
+  SPECIALIZATION_THRESHOLD,
+} from '../skillRanks';
+import type { SkillId } from '../models';
 import type { Component } from './component';
 
 /** Snapshot the props the crew tab renders so we can shallow-compare. */
@@ -42,13 +49,13 @@ function snapshotCrewProps(
     crew: ship.crew
       .map(
         (c) =>
-          `${c.id},${c.health},${c.morale},${c.level},${c.xp},${c.unspentSkillPoints},${c.unpaidTicks},${c.zeroGExposure},${c.equipment.length}`
+          `${c.id},${c.health},${c.morale},${c.level},${c.xp},${c.unpaidTicks},${c.zeroGExposure},${c.equipment.length}`
       )
       .join(';'),
     crewSkills: ship.crew
       .map(
         (c) =>
-          `${c.skills.piloting}${c.skills.astrogation}${c.skills.engineering}${c.skills.strength}${c.skills.charisma}${c.skills.loyalty}`
+          `${c.skills.piloting}${c.skills.astrogation}${c.skills.engineering}${c.skills.strength}${c.skills.charisma}${c.skills.loyalty}${c.skills.commerce}${c.specialization?.skillId ?? ''}`
       )
       .join(),
     crewEquip: ship.crew
@@ -191,17 +198,6 @@ function renderCrewList(
     levelDiv.textContent = `Level ${crew.level}`;
     item.appendChild(levelDiv);
 
-    // Show skill points badge if crew has unspent points
-    if (crew.unspentSkillPoints > 0) {
-      const skillBadge = document.createElement('div');
-      skillBadge.className = 'skill-badge';
-      skillBadge.textContent = `+${crew.unspentSkillPoints} skill pt${crew.unspentSkillPoints > 1 ? 's' : ''}`;
-      skillBadge.style.color = '#4ade80';
-      skillBadge.style.fontSize = '0.75rem';
-      skillBadge.style.fontWeight = 'bold';
-      item.appendChild(skillBadge);
-    }
-
     // Show unpaid badge if crew has unpaid ticks
     if (crew.unpaidTicks > 0 && !crew.isCaptain) {
       const unpaidBadge = document.createElement('div');
@@ -300,8 +296,8 @@ function renderCrewDetail(
   // Job training indicator (show what skill is being trained)
   if (ship.location.status === 'in_flight') {
     const jobSlot = getCrewJobSlot(ship, crew.id);
-    const xpResult = calculateTickXP(crew, jobSlot?.type ?? null);
-    if (xpResult) {
+    const trainingResult = calculateTickTraining(crew, jobSlot?.type ?? null);
+    if (trainingResult) {
       const trainingDiv = document.createElement('div');
       trainingDiv.className = 'training-indicator';
       trainingDiv.style.padding = '0.5rem 0.75rem';
@@ -312,10 +308,11 @@ function renderCrewDetail(
       trainingDiv.style.fontSize = '0.9rem';
       trainingDiv.style.color = '#4ade80';
       const skillName =
-        xpResult.skill.charAt(0).toUpperCase() + xpResult.skill.slice(1);
+        trainingResult.skill.charAt(0).toUpperCase() +
+        trainingResult.skill.slice(1);
       const jobDef = jobSlot ? getJobSlotDefinition(jobSlot.type) : null;
       const jobName = jobDef ? jobDef.name : 'Unknown';
-      trainingDiv.textContent = `${jobName}: Training ${skillName} (+${xpResult.xp} XP/tick)`;
+      trainingDiv.textContent = `${jobName}: Training ${skillName}`;
       panel.appendChild(trainingDiv);
     }
   }
@@ -579,6 +576,92 @@ function renderLevelUpButton(
   return button;
 }
 
+function renderSkillRow(crew: CrewMember, skillId: SkillId): HTMLElement {
+  const skillRow = document.createElement('div');
+  skillRow.className = 'skill-row';
+  skillRow.style.marginBottom = '0.5rem';
+
+  const topRow = document.createElement('div');
+  topRow.style.display = 'flex';
+  topRow.style.justifyContent = 'space-between';
+  topRow.style.alignItems = 'center';
+  topRow.style.marginBottom = '2px';
+
+  const skillLabel = document.createElement('span');
+  skillLabel.className = 'skill-label';
+  const skillName = skillId.charAt(0).toUpperCase() + skillId.slice(1);
+
+  const rawValue = crew.skills[skillId];
+  const intValue = Math.floor(rawValue);
+  const rank = getSkillRank(intValue);
+  const isSpecialized = crew.specialization?.skillId === skillId;
+
+  skillLabel.textContent = `${skillName}:`;
+  topRow.appendChild(skillLabel);
+
+  const rightSpan = document.createElement('span');
+  rightSpan.style.display = 'flex';
+  rightSpan.style.alignItems = 'center';
+  rightSpan.style.gap = '0.5rem';
+
+  // Rank label
+  const rankSpan = document.createElement('span');
+  rankSpan.style.fontSize = '0.8rem';
+  rankSpan.style.color =
+    rank.index >= 8 ? '#fbbf24' : rank.index >= 6 ? '#4ade80' : '#888';
+  rankSpan.textContent = rank.name;
+  if (isSpecialized) {
+    rankSpan.style.fontWeight = 'bold';
+    rankSpan.textContent += ' *';
+  }
+  rightSpan.appendChild(rankSpan);
+
+  // Numeric value
+  const skillValue = document.createElement('span');
+  skillValue.className = 'skill-value';
+
+  if (skillId === 'strength') {
+    const level = getGravityDegradationLevel(crew.zeroGExposure);
+    const multiplier = getStrengthMultiplier(level);
+    const effectiveStrength = Math.floor(rawValue * multiplier);
+    if (level !== 'none') {
+      skillValue.innerHTML = `${intValue} <span style="opacity: 0.6">(eff: ${effectiveStrength})</span>`;
+    } else {
+      skillValue.textContent = `${intValue}`;
+    }
+  } else {
+    skillValue.textContent = `${intValue}`;
+  }
+
+  rightSpan.appendChild(skillValue);
+  topRow.appendChild(rightSpan);
+  skillRow.appendChild(topRow);
+
+  // Progress bar toward next rank
+  const nextRank = getNextRank(intValue);
+  if (nextRank) {
+    const progress = getRankProgress(rawValue);
+    const barContainer = document.createElement('div');
+    barContainer.style.width = '100%';
+    barContainer.style.height = '4px';
+    barContainer.style.backgroundColor = 'rgba(255,255,255,0.1)';
+    barContainer.style.borderRadius = '2px';
+    barContainer.style.overflow = 'hidden';
+
+    const barFill = document.createElement('div');
+    barFill.style.width = `${progress}%`;
+    barFill.style.height = '100%';
+    barFill.style.backgroundColor = isSpecialized ? '#4ade80' : '#4a90e2';
+    barFill.style.borderRadius = '2px';
+    barFill.style.transition = 'width 0.3s ease';
+    barContainer.appendChild(barFill);
+
+    skillRow.appendChild(barContainer);
+  }
+
+  return skillRow;
+}
+
 function renderSkillsSection(
   crew: CrewMember,
   callbacks: TabbedViewCallbacks
@@ -595,11 +678,17 @@ function renderSkillsSection(
   title.textContent = 'Skills';
   header.appendChild(title);
 
-  if (crew.unspentSkillPoints > 0) {
-    const pointsLabel = document.createElement('span');
-    pointsLabel.className = 'unspent-points';
-    pointsLabel.textContent = `${crew.unspentSkillPoints} point${crew.unspentSkillPoints > 1 ? 's' : ''} available`;
-    header.appendChild(pointsLabel);
+  // Specialization indicator
+  if (crew.specialization) {
+    const specBadge = document.createElement('span');
+    specBadge.style.fontSize = '0.8rem';
+    specBadge.style.color = '#4ade80';
+    specBadge.style.fontWeight = 'bold';
+    const specName =
+      crew.specialization.skillId.charAt(0).toUpperCase() +
+      crew.specialization.skillId.slice(1);
+    specBadge.textContent = `Specialized: ${specName}`;
+    header.appendChild(specBadge);
   }
 
   section.appendChild(header);
@@ -607,8 +696,8 @@ function renderSkillsSection(
   const skills = document.createElement('div');
   skills.className = 'crew-skills';
 
-  // Render each skill
-  const skillIds: Array<keyof typeof crew.skills> = [
+  // Core combat/utility skills
+  const coreSkillIds: SkillId[] = [
     'piloting',
     'astrogation',
     'engineering',
@@ -617,48 +706,13 @@ function renderSkillsSection(
     'loyalty',
   ];
 
-  for (const skillId of skillIds) {
-    const skillRow = document.createElement('div');
-    skillRow.className = 'skill-row';
+  for (const skillId of coreSkillIds) {
+    skills.appendChild(renderSkillRow(crew, skillId));
+  }
 
-    const skillLabel = document.createElement('span');
-    skillLabel.className = 'skill-label';
-    skillLabel.textContent =
-      skillId.charAt(0).toUpperCase() + skillId.slice(1) + ':';
-    skillRow.appendChild(skillLabel);
-
-    const skillValue = document.createElement('span');
-    skillValue.className = 'skill-value';
-
-    // Show effective strength if degraded
-    if (skillId === 'strength') {
-      const level = getGravityDegradationLevel(crew.zeroGExposure);
-      const multiplier = getStrengthMultiplier(level);
-      const effectiveStrength = Math.floor(crew.skills.strength * multiplier);
-
-      if (level !== 'none') {
-        skillValue.innerHTML = `${crew.skills.strength} <span style="opacity: 0.6">(eff: ${effectiveStrength})</span>`;
-      } else {
-        skillValue.textContent = `${crew.skills[skillId]}`;
-      }
-    } else {
-      skillValue.textContent = `${crew.skills[skillId]}`;
-    }
-
-    skillRow.appendChild(skillValue);
-
-    // +1 button
-    if (crew.unspentSkillPoints > 0 && crew.skills[skillId] < 10) {
-      const plusButton = document.createElement('button');
-      plusButton.className = 'skill-plus-button';
-      plusButton.textContent = '+1';
-      plusButton.addEventListener('click', () =>
-        callbacks.onAssignSkillPoint(crew.id, skillId)
-      );
-      skillRow.appendChild(plusButton);
-    }
-
-    skills.appendChild(skillRow);
+  // Commerce (only shown for captain or if > 0)
+  if (crew.isCaptain || crew.skills.commerce > 0) {
+    skills.appendChild(renderSkillRow(crew, 'commerce'));
   }
 
   // Show "Ranged Combat" attribute if weapon equipped
@@ -684,6 +738,52 @@ function renderSkillsSection(
   }
 
   section.appendChild(skills);
+
+  // Specialization button (if eligible and not yet specialized)
+  if (!crew.specialization) {
+    const eligibleSkills = coreSkillIds.filter(
+      (s) => Math.floor(crew.skills[s]) >= SPECIALIZATION_THRESHOLD
+    );
+    if (eligibleSkills.length > 0) {
+      const specSection = document.createElement('div');
+      specSection.style.marginTop = '0.75rem';
+      specSection.style.padding = '0.75rem';
+      specSection.style.background = 'rgba(74, 222, 128, 0.1)';
+      specSection.style.border = '1px solid rgba(74, 222, 128, 0.3)';
+      specSection.style.borderRadius = '4px';
+
+      const specLabel = document.createElement('div');
+      specLabel.style.fontSize = '0.85rem';
+      specLabel.style.marginBottom = '0.5rem';
+      specLabel.style.color = '#4ade80';
+      specLabel.textContent =
+        'Specialization available! +50% training in chosen skill, -25% in others.';
+      specSection.appendChild(specLabel);
+
+      const specControls = document.createElement('div');
+      specControls.style.display = 'flex';
+      specControls.style.gap = '0.5rem';
+      specControls.style.flexWrap = 'wrap';
+
+      for (const skillId of eligibleSkills) {
+        const btn = document.createElement('button');
+        const sName = skillId.charAt(0).toUpperCase() + skillId.slice(1);
+        btn.textContent = `Specialize: ${sName}`;
+        btn.style.padding = '0.4rem 0.8rem';
+        btn.style.fontSize = '0.85rem';
+        btn.addEventListener('click', () => {
+          if (callbacks.onSpecializeCrew) {
+            callbacks.onSpecializeCrew(crew.id, skillId);
+          }
+        });
+        specControls.appendChild(btn);
+      }
+
+      specSection.appendChild(specControls);
+      section.appendChild(specSection);
+    }
+  }
+
   return section;
 }
 
@@ -891,7 +991,7 @@ function renderHiringSection(
     const skills = document.createElement('div');
     skills.style.fontSize = '0.85rem';
     skills.style.color = '#888';
-    skills.textContent = `Skills: Pilot ${candidate.skills.piloting} | Nav ${candidate.skills.astrogation} | Eng ${candidate.skills.engineering} | Str ${candidate.skills.strength}`;
+    skills.textContent = `Skills: Pilot ${Math.floor(candidate.skills.piloting)} | Nav ${Math.floor(candidate.skills.astrogation)} | Eng ${Math.floor(candidate.skills.engineering)} | Str ${Math.floor(candidate.skills.strength)}`;
     infoDiv.appendChild(skills);
 
     candidateDiv.appendChild(infoDiv);

@@ -80,7 +80,10 @@ export type SkillId =
   | 'engineering'
   | 'strength'
   | 'charisma'
-  | 'loyalty';
+  | 'loyalty'
+  | 'commerce';
+
+export type ShipClassTier = 'I' | 'II' | 'III' | 'IV' | 'V';
 
 export type EngineId =
   | 'chemical_bipropellant'
@@ -139,12 +142,19 @@ export interface ShipLocation {
 }
 
 export interface CrewSkills {
-  piloting: number; // 1-10
-  astrogation: number; // 1-10
-  engineering: number; // 1-10
-  strength: number; // 1-10
-  charisma: number; // 1-10
-  loyalty: number; // 1-10
+  piloting: number; // 1-100
+  astrogation: number; // 1-100
+  engineering: number; // 1-100
+  strength: number; // 1-100
+  charisma: number; // 1-100
+  loyalty: number; // 1-100
+  commerce: number; // 0-100, trained by captain/first officer completing trade routes
+}
+
+export interface SkillSpecialization {
+  skillId: SkillId;
+  rankAtSpecialization: string;
+  specializedAt: number; // gameTime
 }
 
 export interface CrewEquipmentInstance {
@@ -187,10 +197,10 @@ export interface CrewMember {
   level: number;
   isCaptain: boolean;
   equipment: CrewEquipmentInstance[];
-  unspentSkillPoints: number;
   unpaidTicks: number; // Accumulated ticks of unpaid salary
   hireCost: number; // Cost to hire this crew member (reference)
   zeroGExposure: number; // cumulative game-seconds in zero-g
+  specialization?: SkillSpecialization; // locked-in skill specialization
 }
 
 export interface Room {

@@ -59,7 +59,6 @@ export interface RendererCallbacks {
   onToggleNavigation: () => void;
   onSelectCrew: (crewId: string) => void;
   onLevelUp: (crewId: string) => void;
-  onAssignSkillPoint: (crewId: string, skillId: string) => void;
   onEquipItem: (crewId: string, itemId: string) => void;
   onUnequipItem: (crewId: string, itemId: string) => void;
   onAcceptQuest: (questId: string) => void;
@@ -86,6 +85,10 @@ export interface RendererCallbacks {
     crewId: string,
     fromShipId: string,
     toShipId: string
+  ) => void;
+  onSpecializeCrew?: (
+    crewId: string,
+    skillId: import('../models').SkillId
   ) => void;
   onDismissCatchUp: () => void;
 }
@@ -301,7 +304,6 @@ function mountPlayingLayout(
       onToggleNavigation: callbacks.onToggleNavigation,
       onSelectCrew: callbacks.onSelectCrew,
       onLevelUp: callbacks.onLevelUp,
-      onAssignSkillPoint: callbacks.onAssignSkillPoint,
       onEquipItem: callbacks.onEquipItem,
       onUnequipItem: callbacks.onUnequipItem,
       onAcceptQuest: callbacks.onAcceptQuest,

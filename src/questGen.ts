@@ -14,6 +14,7 @@ import { getEngineDefinition } from './engines';
 import { getCrewRoleDefinition } from './crewRoles';
 import { calculatePositionDanger } from './encounterSystem';
 import { getCrewForJobType } from './jobSlots';
+import { getCommercePaymentBonus } from './skillRanks';
 
 // Fuel pricing constant for payment calculations (credits per kg)
 // Matches base rate from refuelDialog.ts getFuelPricePerKg()
@@ -176,7 +177,11 @@ function calculatePayment(
 
   // 5. Skill-based crew bonus (reputation from skilled crew)
   const crewBonus = calculateCrewSkillBonus(ship);
-  const payment = basePayment * (1 + crewBonus);
+
+  // 6. Commerce bonus from captain's trading experience
+  const commerceBonus = getShipCommerceBonus(ship);
+
+  const payment = basePayment * (1 + crewBonus + commerceBonus);
 
   return Math.round(payment);
 }
@@ -193,29 +198,39 @@ function calculateCrewSkillBonus(ship: Ship): number {
 
   // Scanner crew: astrogation bonus (navigator equivalent)
   for (const crew of getCrewForJobType(ship, 'scanner')) {
-    const pointsAbove5 = Math.max(0, crew.skills.astrogation - 5);
-    bonus += pointsAbove5 * 0.02;
+    const pointsAbove50 = Math.max(0, crew.skills.astrogation - 50);
+    bonus += pointsAbove50 * 0.002;
   }
 
   // Drive ops crew: engineering bonus
   for (const crew of getCrewForJobType(ship, 'drive_ops')) {
-    const pointsAbove5 = Math.max(0, crew.skills.engineering - 5);
-    bonus += pointsAbove5 * 0.01;
+    const pointsAbove50 = Math.max(0, crew.skills.engineering - 50);
+    bonus += pointsAbove50 * 0.001;
   }
 
   // Galley crew: charisma bonus (cook equivalent)
   for (const crew of getCrewForJobType(ship, 'galley')) {
-    const pointsAbove5 = Math.max(0, crew.skills.charisma - 5);
-    bonus += pointsAbove5 * 0.03;
+    const pointsAbove50 = Math.max(0, crew.skills.charisma - 50);
+    bonus += pointsAbove50 * 0.003;
   }
 
   // Comms crew: charisma bonus for negotiation
   for (const crew of getCrewForJobType(ship, 'comms')) {
-    const pointsAbove5 = Math.max(0, crew.skills.charisma - 5);
-    bonus += pointsAbove5 * 0.02;
+    const pointsAbove50 = Math.max(0, crew.skills.charisma - 50);
+    bonus += pointsAbove50 * 0.002;
   }
 
   return bonus;
+}
+
+/**
+ * Get commerce payment bonus from the ship's captain (or highest-commerce crew).
+ * Commerce is trained by completing trade routes and provides better pay.
+ */
+function getShipCommerceBonus(ship: Ship): number {
+  const captain = ship.crew.find((c) => c.isCaptain);
+  const commerceSkill = captain?.skills.commerce ?? 0;
+  return getCommercePaymentBonus(commerceSkill);
 }
 
 /**
@@ -606,12 +621,15 @@ function calculateTradeRoutePayment(
   // 6. Crew skill bonus (same system as regular quests)
   const crewBonus = calculateCrewSkillBonus(ship);
 
+  // 7. Commerce bonus from captain's trading experience
+  const commerceBonus = getShipCommerceBonus(ship);
+
   const payment =
     (costFloor + distanceBonus) *
     cargoPremium *
     dangerPremium *
     locationFactor *
-    (1 + crewBonus);
+    (1 + crewBonus + commerceBonus);
 
   return Math.round(payment);
 }

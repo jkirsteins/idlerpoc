@@ -694,7 +694,7 @@ function renderJobSlotRow(
 
     // Show skill level for this job
     if (def?.skill) {
-      const skillVal = crew.skills[def.skill];
+      const skillVal = Math.floor(crew.skills[def.skill]);
       const lvl = document.createElement('span');
       lvl.style.fontSize = '0.75rem';
       lvl.style.color = '#4a9eff';
@@ -734,7 +734,7 @@ function renderJobSlotRow(
         opt.value = c.id;
         const prefix = c.isCaptain ? 'CPT ' : '';
         const skillInfo = def?.skill
-          ? ` [${def.skill}: ${c.skills[def.skill]}]`
+          ? ` [${def.skill}: ${Math.floor(c.skills[def.skill])}]`
           : '';
         opt.textContent = `${prefix}${c.name} (${getCrewRoleName(c.role)})${skillInfo}`;
         select.appendChild(opt);
@@ -1037,7 +1037,7 @@ function renderShipJobsCard(
     for (const slot of repairSlots) {
       const crew = ship.crew.find((c) => c.id === slot.assignedCrewId);
       if (crew) {
-        totalRepairPts += crew.skills.engineering * 0.5;
+        totalRepairPts += crew.skills.engineering * 0.05;
       }
     }
     const degradedCount = ship.equipment.filter(
@@ -1166,7 +1166,7 @@ function renderUnassignedCrew(
           }
 
           const skillInfo = slotDef.skill
-            ? ` [${slotDef.skill}: ${crew.skills[slotDef.skill]}]`
+            ? ` [${slotDef.skill}: ${Math.floor(crew.skills[slotDef.skill])}]`
             : '';
 
           const option = document.createElement('option');

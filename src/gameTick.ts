@@ -16,7 +16,7 @@ import {
   getDegradationDescription,
 } from './gravitySystem';
 import { calculateEncounterChance } from './encounterSystem';
-import { applyPassiveXP, logLevelUps } from './skillProgression';
+import { applyPassiveTraining, logSkillUps } from './skillProgression';
 import { getCrewForJobType, isRoomStaffed, getCrewJobSlot } from './jobSlots';
 import { applyOxygenTick, getOxygenHealthDamage } from './lifeSupportSystem';
 
@@ -404,10 +404,10 @@ function applyShipTick(gameData: GameData, ship: Ship): boolean {
       }
     }
 
-    // Passive skill XP (during flight)
-    const levelUps = applyPassiveXP(ship);
-    if (levelUps.length > 0) {
-      logLevelUps(gameData.log, gameData.gameTime, ship.name, levelUps);
+    // Passive skill training (during flight)
+    const skillUps = applyPassiveTraining(ship);
+    if (skillUps.length > 0) {
+      logSkillUps(gameData.log, gameData.gameTime, ship.name, skillUps);
     }
 
     // === PASSIVE JOB SLOT EFFECTS ===
@@ -432,7 +432,7 @@ function applyShipTick(gameData: GameData, ship: Ship): boolean {
     if (repairEngineers.length > 0) {
       let totalRepairPoints = 0;
       for (const eng of repairEngineers) {
-        totalRepairPoints += eng.skills.engineering * 0.5;
+        totalRepairPoints += eng.skills.engineering * 0.05;
       }
 
       // Distribute repair points equally across degraded equipment

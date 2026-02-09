@@ -1,4 +1,4 @@
-import type { CrewEquipmentId } from '../models';
+import type { CrewEquipmentId, SkillId } from '../models';
 
 /**
  * Shared UI types extracted to break circular dependencies
@@ -27,7 +27,6 @@ export interface TabbedViewCallbacks {
   onToggleNavigation: () => void;
   onSelectCrew: (crewId: string) => void;
   onLevelUp: (crewId: string) => void;
-  onAssignSkillPoint: (crewId: string, skillId: string) => void;
   onEquipItem: (crewId: string, itemId: string) => void;
   onUnequipItem: (crewId: string, itemId: string) => void;
   onAcceptQuest: (questId: string) => void;
@@ -49,4 +48,5 @@ export interface TabbedViewCallbacks {
     fromShipId: string,
     toShipId: string
   ) => void;
+  onSpecializeCrew?: (crewId: string, skillId: SkillId) => void;
 }
