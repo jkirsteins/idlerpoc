@@ -54,7 +54,14 @@ const app = document.getElementById('app')!;
 // Initialize the combat system encounter resolver
 initCombatSystem();
 
-let state: GameState = initializeState();
+let state: GameState;
+try {
+  state = initializeState();
+} catch (e) {
+  console.error('Failed to initialize game state, clearing save:', e);
+  clearGame();
+  state = { phase: 'no_game' };
+}
 let tickInterval: number | null = null;
 
 /** State for ongoing batched catch-up processing */
@@ -239,7 +246,15 @@ function fastForwardTicks(gameData: GameData): CatchUpReport | null {
     const prevGameTime = gameData.gameTime;
 
     for (let i = 0; i < totalTicks; i++) {
-      applyTick(gameData, true);
+      try {
+        applyTick(gameData, true);
+      } catch (e) {
+        console.error(
+          `Tick ${i} failed during fast-forward, skipping rest:`,
+          e
+        );
+        break;
+      }
     }
 
     const encounterResults = drainEncounterResults();
@@ -1280,10 +1295,19 @@ function processCatchUpBatch(): void {
   const remaining = activeCatchUp.totalTicks - activeCatchUp.ticksProcessed;
   const batch = Math.min(remaining, CATCH_UP_BATCH_SIZE);
 
+  let processed = 0;
   for (let i = 0; i < batch; i++) {
-    applyTick(state.gameData, true);
+    try {
+      applyTick(state.gameData, true);
+      processed++;
+    } catch (e) {
+      console.error('Tick failed during catch-up batch, finishing early:', e);
+      // Skip remaining ticks to avoid repeated failures
+      activeCatchUp.ticksProcessed = activeCatchUp.totalTicks;
+      break;
+    }
   }
-  activeCatchUp.ticksProcessed += batch;
+  activeCatchUp.ticksProcessed += processed;
 
   if (activeCatchUp.ticksProcessed >= activeCatchUp.totalTicks) {
     // Done — build report and show it
@@ -1409,7 +1433,12 @@ function processPendingTicks(): void {
 
   let changed = false;
   for (let i = 0; i < totalTicks; i++) {
-    changed = applyTick(state.gameData, isCatchUp) || changed;
+    try {
+      changed = applyTick(state.gameData, isCatchUp) || changed;
+    } catch (e) {
+      console.error('Tick failed during processing:', e);
+      break;
+    }
   }
 
   state.gameData.lastTickTimestamp = now;
@@ -1497,7 +1526,20 @@ function stopTickSystem(): void {
 }
 
 function renderApp(): void {
-  render(app, state, callbacks);
+  try {
+    render(app, state, callbacks);
+  } catch (e) {
+    console.error('Render failed:', e);
+    // Show minimal error UI instead of blank screen
+    app.innerHTML =
+      '<div style="color:#ff6b6b;padding:2rem;text-align:center;">' +
+      '<h2>Something went wrong</h2>' +
+      '<p>The game encountered an error. Your save may be incompatible.</p>' +
+      '<button onclick="localStorage.removeItem(\'spaceship_game_data\');location.reload()" ' +
+      'style="margin-top:1rem;padding:0.5rem 1rem;cursor:pointer;">Reset &amp; Reload</button>' +
+      '</div>';
+    return;
+  }
 
   if (state.phase === 'playing') {
     startTickSystem();
