@@ -30,7 +30,7 @@ This file tracks deferred features and known gaps that are not currently priorit
 - **Fuel Reserve System**: Warn when fuel below safety threshold (e.g., 20% of route requirement). Add "Reserve Fuel Lock" toggle.
 - **Modular Fuel Tanks**: Purchasable tank upgrades (Extended Range Tank, Cargo Maximizer). Requires equipment installation UI.
 - **Fuel Trading Mechanics**: Buy fuel at low prices, sell at high prices for speculation gameplay. Requires cargo system integration.
-- **Emergency Fuel Delivery**: Rescue mechanic for stranded ships (distress beacon, fuel cost + delivery fee).
+- **Emergency Fuel Delivery**: Rescue mechanic for stranded ships (distress beacon, fuel cost + delivery fee). Currently ships that run dry mid-flight still complete their leg on the pre-computed trajectory — this item would add a "stranded" state with distress beacon, drift to nearest station, and rescue fee.
 - **Flight Profile Selection**: Let players choose between brachistochrone (fastest, most fuel) and burn-coast-burn (slower, fuel-efficient) profiles. Torch ships default to brachistochrone but could save fuel on short hops by coasting. Needs UI for profile picker on quest/navigation screen, updated fuel estimates, and trip time recalculation.
 - **Fuel Efficiency Upgrades**: Engine modifications to reduce fuel consumption (e.g., "Optimized Nozzles" equipment).
 - **Alternative Propellant Support**: Chemical bipropellant vs monopropellant, ion drives, etc. Needs fuel type system per engine.
