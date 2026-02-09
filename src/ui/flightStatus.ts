@@ -216,6 +216,29 @@ export function renderFlightStrip(gameData: GameData): HTMLElement | null {
   barContainer.appendChild(barFill);
   strip.appendChild(barContainer);
 
+  // Speed line
+  const speedLine = document.createElement('div');
+  speedLine.style.cssText =
+    'font-size: 0.85rem; color: #4ade80; margin-bottom: 4px; display: flex; justify-content: space-between; align-items: center;';
+
+  const velocityMs = flight.currentVelocity;
+  const speedText = document.createElement('span');
+  if (velocityMs < 1000) {
+    speedText.textContent = `${velocityMs.toFixed(1)} m/s`;
+  } else {
+    speedText.textContent = `${(velocityMs / 1000).toFixed(2)} km/s`;
+  }
+  speedText.style.fontWeight = 'bold';
+  speedLine.appendChild(speedText);
+
+  const gForce = getGForce(flight);
+  const gText = document.createElement('span');
+  gText.style.cssText = 'font-size: 0.8rem; color: #aaa;';
+  gText.textContent = gForce > 0 ? `${gForce.toFixed(4)}g` : '0g';
+  speedLine.appendChild(gText);
+
+  strip.appendChild(speedLine);
+
   // Stats line
   const statsLine = document.createElement('div');
   statsLine.style.cssText =
