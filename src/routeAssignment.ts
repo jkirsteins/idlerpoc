@@ -161,7 +161,7 @@ export function checkAutoRefuel(
         gameData.log,
         gameData.gameTime,
         'refueled',
-        `Auto-refueled at ${location.name} (${fuelCost} credits)`,
+        `Auto-refueled ${ship.name} at ${location.name}: ${Math.round(fuelNeededKg).toLocaleString()} kg (${fuelCost.toLocaleString()} cr)`,
         ship.name
       );
 

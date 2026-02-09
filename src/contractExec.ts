@@ -18,6 +18,12 @@ import { getFuelPricePerKg } from './ui/refuelDialog';
 /**
  * Try to auto-refuel a ship at a station before continuing to the next leg.
  * Uses location-based fuel pricing. Returns true if the ship now has enough fuel.
+ *
+ * For route-assigned ships with autoRefuel enabled, also proactively refuels
+ * when fuel percentage drops below the configured threshold (default 30%).
+ * This prevents gradual fuel depletion where each leg uses slightly less fuel
+ * than the previous (lighter ship = less fuel needed), causing the "enough for
+ * next leg" check to always pass while the tank slowly drains.
  */
 function tryAutoRefuelForLeg(
   gameData: GameData,
@@ -25,14 +31,25 @@ function tryAutoRefuelForLeg(
   locationId: string,
   requiredFuelKg: number
 ): boolean {
-  // Already have enough fuel
-  if (ship.fuelKg >= requiredFuelKg * 1.1) return true;
+  const hasEnoughForLeg = ship.fuelKg >= requiredFuelKg * 1.1;
+
+  // For route-assigned ships, also check percentage threshold
+  let belowThreshold = false;
+  if (ship.routeAssignment?.autoRefuel) {
+    const fuelPercentage = (ship.fuelKg / ship.maxFuelKg) * 100;
+    belowThreshold = fuelPercentage < ship.routeAssignment.autoRefuelThreshold;
+  }
+
+  // No refuel needed if enough fuel for leg AND above threshold
+  if (hasEnoughForLeg && !belowThreshold) return true;
 
   const location = gameData.world.locations.find((l) => l.id === locationId);
-  if (!location || !location.services.includes('refuel')) return false;
+  if (!location || !location.services.includes('refuel')) {
+    return hasEnoughForLeg; // Can't refuel, but may still have enough for next leg
+  }
 
   const fuelNeededKg = ship.maxFuelKg - ship.fuelKg;
-  if (fuelNeededKg <= 0) return ship.fuelKg >= requiredFuelKg * 1.1;
+  if (fuelNeededKg <= 0) return true; // Already full
 
   const pricePerKg = getFuelPricePerKg(location);
   const fullCost = Math.round(fuelNeededKg * pricePerKg);
@@ -47,7 +64,7 @@ function tryAutoRefuelForLeg(
       gameData.log,
       gameData.gameTime,
       'refueled',
-      `Auto-refueled at ${location.name} (${fullCost.toLocaleString()} credits)`,
+      `Auto-refueled ${ship.name} at ${location.name}: ${Math.round(fuelNeededKg).toLocaleString()} kg (${fullCost.toLocaleString()} cr)`,
       ship.name
     );
     return true;
@@ -65,7 +82,19 @@ function tryAutoRefuelForLeg(
       gameData.log,
       gameData.gameTime,
       'refueled',
-      `Partial auto-refuel at ${location.name}: ${affordableKg.toLocaleString()} kg (${partialCost.toLocaleString()} credits, low funds)`,
+      `Partial refuel ${ship.name} at ${location.name}: ${affordableKg.toLocaleString()} kg (${partialCost.toLocaleString()} cr, low funds)`,
+      ship.name
+    );
+  }
+
+  // If we couldn't refuel enough, pause and alert
+  if (ship.fuelKg < requiredFuelKg * 1.1) {
+    gameData.isPaused = true;
+    addLog(
+      gameData.log,
+      gameData.gameTime,
+      'refueled',
+      `${ship.name} cannot afford fuel at ${location.name} (need ${Math.round(requiredFuelKg).toLocaleString()} kg, have ${Math.round(ship.fuelKg).toLocaleString()} kg)`,
       ship.name
     );
   }

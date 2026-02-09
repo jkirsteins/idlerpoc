@@ -44,6 +44,18 @@ export function calculateFuelTankCapacity(
 }
 
 /**
+ * Calculate available cargo capacity after fuel allocation.
+ * This is the maximum cargo a ship can carry on a single trip.
+ *
+ * cargoCapacity is a shared pool: 70% fuel, 30% available for cargo.
+ * All cargo validation should use this function instead of raw cargoCapacity.
+ */
+export function calculateAvailableCargoCapacity(cargoCapacity: number): number {
+  const FUEL_FRACTION = 0.7;
+  return cargoCapacity * (1 - FUEL_FRACTION);
+}
+
+/**
  * Calculate current ship mass including fuel, cargo, and crew
  */
 export function getCurrentShipMass(ship: Ship): number {
