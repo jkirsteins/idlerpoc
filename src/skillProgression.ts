@@ -227,7 +227,7 @@ export function awardEventSkillGains(
 
     case 'encounter_fled': {
       // Bridge crew earn piloting (evasive maneuvers under fire)
-      const bridgeCrew = crewInJobTypes(['helm', 'comms']);
+      const bridgeCrew = crewInJobTypes(['helm', 'scanner', 'comms']);
       for (const crew of bridgeCrew) {
         grantSkill(crew, 'piloting', 1.5);
       }

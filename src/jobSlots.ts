@@ -7,7 +7,7 @@ import type {
   EquipmentId,
   CrewMember,
 } from './models';
-import { generateId } from './gameFactory';
+import { generateId } from './utils';
 
 /**
  * Job Slot System

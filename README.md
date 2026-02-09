@@ -103,6 +103,7 @@ npm run dev
   - Six outcomes: evasion, negotiation (ransom), fled (emergency escape), victory (bounty), harassment (minor damage), boarding (major losses)
   - Combat variance: randomized pirate attack strength (±30%) and defense effectiveness (±15%) ensure borderline fights are unpredictable
   - Defense score from point defense equipment (PD-40 Flak Turret, PD-10 Laser), deflector shields (Magnetic Debris Deflector, EM-1 Micro Deflector), armory crew weapons, and ship mass
+  - Defense readiness displayed in Ship Capabilities panel with equipment breakdown
   - Starting ship equipped with basic defense (micro deflector) and attack (PD laser) systems
   - Regional threat levels (Clear/Caution/Danger/Critical) based on distance from Terran Alliance and proximity to lawless zones
   - Threat badges on quest cards, navigation chart, and flight status
@@ -118,7 +119,7 @@ npm run dev
 - **Real-time Simulation**: Elapsed-time tick system that catches up based on real time passed — works across browser throttling, background tabs, and phone sleep. Catch-up report modal shown for long absences
 - **Game Data Catalogs**:
   - 9 engine types (chemical, nuclear fission, fusion, advanced fusion) with thrust and delta-v specifications
-  - 18 ship equipment types (life support, shielding, thermal, defense, navigation, structural, gravity systems)
+  - 18 ship equipment types with category labels (life support, shielding, thermal, defense, navigation, structural, gravity systems)
   - 9 room types (bridge, engine room, reactor room, point defense station, etc.)
   - 3 factions (Terran Alliance, Free Traders Guild, Kreth Collective)
   - 9 crew equipment items (weapons, tools, accessories, armor, gravity countermeasures)

@@ -289,6 +289,9 @@ export function createRefuelDialog(
 
   dialog.appendChild(costDisplay);
 
+  // Create confirmBtn early so updateCostDisplay can reference it
+  const confirmBtn = document.createElement('button');
+
   // Update cost display function
   function updateCostDisplay() {
     const fuelKg = Math.max(
@@ -341,7 +344,6 @@ export function createRefuelDialog(
   });
   buttonContainer.appendChild(cancelBtn);
 
-  const confirmBtn = document.createElement('button');
   confirmBtn.textContent = 'Purchase Fuel';
   confirmBtn.style.cssText = `
     flex: 2;

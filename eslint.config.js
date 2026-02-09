@@ -22,6 +22,17 @@ export default tseslint.config(
         'error',
         { argsIgnorePattern: '^_', varsIgnorePattern: '^_' },
       ],
+      // Prevent TDZ crashes on Safari/iOS: flag let/const used before declaration.
+      // Functions are allowed (hoisted), classes/variables/typedefs are not.
+      '@typescript-eslint/no-use-before-define': [
+        'error',
+        {
+          functions: false,
+          classes: true,
+          variables: true,
+          allowNamedExports: true,
+        },
+      ],
     },
   }
 );
