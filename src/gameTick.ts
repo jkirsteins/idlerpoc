@@ -18,6 +18,7 @@ import {
 import { calculateEncounterChance } from './encounterSystem';
 import { applyPassiveXP, logLevelUps } from './skillProgression';
 import { getCrewForJobType, isRoomStaffed, getCrewJobSlot } from './jobSlots';
+import { applyOxygenTick, getOxygenHealthDamage } from './lifeSupportSystem';
 
 /**
  * Encounter system hook.
@@ -146,23 +147,24 @@ function applyShipTick(gameData: GameData, ship: Ship): boolean {
     ship.metrics.totalIdleTicks++;
   }
 
+  // Engine warmup progress (independent of ship location)
+  if (ship.engine.state === 'warming_up') {
+    const warmupEngineDef = getEngineDefinition(ship.engine.definitionId);
+    ship.engine.warmupProgress = Math.min(
+      100,
+      ship.engine.warmupProgress + warmupEngineDef.warmupRate
+    );
+    if (ship.engine.warmupProgress >= 100) {
+      ship.engine.state = 'online';
+      ship.engine.warmupProgress = 100;
+    }
+    changed = true;
+  }
+
   if (ship.location.status === 'in_flight') {
     const engineDef = getEngineDefinition(ship.engine.definitionId);
 
-    // 1. Engine warmup progress
-    if (ship.engine.state === 'warming_up') {
-      ship.engine.warmupProgress = Math.min(
-        100,
-        ship.engine.warmupProgress + engineDef.warmupRate
-      );
-      if (ship.engine.warmupProgress >= 100) {
-        ship.engine.state = 'online';
-        ship.engine.warmupProgress = 100;
-      }
-      changed = true;
-    }
-
-    // 2. Flight physics (only advance when engine is online)
+    // Flight physics (only advance when engine is online)
     if (ship.activeFlightPlan && ship.engine.state === 'online') {
       const flightComplete = advanceFlight(ship.activeFlightPlan);
 
@@ -322,6 +324,44 @@ function applyShipTick(gameData: GameData, ship: Ship): boolean {
         equipment.degradation = Math.min(100, equipment.degradation + 0.005);
         changed = true;
       }
+    }
+  }
+
+  // Oxygen system (life support)
+  if (applyOxygenTick(ship)) {
+    changed = true;
+  }
+
+  // Oxygen health effects
+  const o2Damage = getOxygenHealthDamage(ship.oxygenLevel);
+  if (o2Damage > 0) {
+    for (const crew of ship.crew) {
+      crew.health = Math.max(0, crew.health - o2Damage);
+    }
+    changed = true;
+
+    // Log warnings at critical thresholds
+    if (ship.oxygenLevel < 10 && ship.oxygenLevel + 0.5 >= 10) {
+      gameData.log.push({
+        gameTime: gameData.gameTime,
+        type: 'gravity_warning',
+        message: `Critical: ${ship.name} oxygen levels critical! Crew health deteriorating rapidly.`,
+        shipName: ship.name,
+      });
+    } else if (ship.oxygenLevel < 25 && ship.oxygenLevel + 0.5 >= 25) {
+      gameData.log.push({
+        gameTime: gameData.gameTime,
+        type: 'gravity_warning',
+        message: `Warning: ${ship.name} oxygen levels dangerously low. Crew suffering hypoxia.`,
+        shipName: ship.name,
+      });
+    } else if (ship.oxygenLevel < 50 && ship.oxygenLevel + 0.5 >= 50) {
+      gameData.log.push({
+        gameTime: gameData.gameTime,
+        type: 'gravity_warning',
+        message: `${ship.name} oxygen levels declining. Life support struggling.`,
+        shipName: ship.name,
+      });
     }
   }
 

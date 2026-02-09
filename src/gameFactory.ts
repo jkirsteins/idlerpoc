@@ -234,6 +234,7 @@ function createStartingShip(
     jobSlots: [],
     fuelKg: maxFuelKg, // Start with full tank
     maxFuelKg,
+    oxygenLevel: 100, // Start with full atmosphere
     equipment,
     equipmentSlots,
     location: {
@@ -299,6 +300,7 @@ export function createAdditionalShip(
     jobSlots: [],
     fuelKg: maxFuelKg, // Start with full tank
     maxFuelKg,
+    oxygenLevel: 100, // Start with full atmosphere
     equipment,
     equipmentSlots,
     location: {

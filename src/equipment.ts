@@ -10,6 +10,7 @@ export interface EquipmentDefinition {
   requiredTags: EquipmentSlotTag[];
   radiationShielding?: number; // 0-100+ radiation blocked
   heatDissipation?: number; // kW-thermal dissipated
+  oxygenOutput?: number; // O2 units generated per tick when powered
 }
 
 export const EQUIPMENT_DEFINITIONS: EquipmentDefinition[] = [
@@ -22,15 +23,17 @@ export const EQUIPMENT_DEFINITIONS: EquipmentDefinition[] = [
     powerDraw: 12,
     hasDegradation: false,
     requiredTags: ['standard'],
+    oxygenOutput: 12,
   },
   {
     id: 'air_filters',
     name: 'Air Filtration Unit',
-    description: 'Particulate filters; degrade over time',
+    description: 'CO2 scrubbing and O2 recycling; degrades over time',
     icon: '🔬',
     powerDraw: 5,
     hasDegradation: true,
     requiredTags: ['standard'],
+    oxygenOutput: 6,
   },
   // Shielding
   {
