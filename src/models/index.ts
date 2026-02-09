@@ -44,7 +44,9 @@ export type EquipmentId =
   | 'accel_couches'
   | 'crash_couches'
   | 'centrifuge_pod'
-  | 'exercise_module';
+  | 'exercise_module'
+  | 'micro_deflector'
+  | 'point_defense_laser';
 
 export type FactionId =
   | 'terran_alliance'

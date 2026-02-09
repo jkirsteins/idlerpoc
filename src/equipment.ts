@@ -131,6 +131,27 @@ export const EQUIPMENT_DEFINITIONS: EquipmentDefinition[] = [
     hasDegradation: false,
     requiredTags: ['standard'],
   },
+  // Basic Defense & Attack (Class I tier)
+  {
+    id: 'micro_deflector',
+    name: 'EM-1 Micro Deflector',
+    description:
+      'Lightweight electromagnetic field generator. Deflects micro-debris and light projectiles.',
+    icon: '🧲',
+    powerDraw: 6,
+    hasDegradation: false,
+    requiredTags: ['standard'],
+  },
+  {
+    id: 'point_defense_laser',
+    name: 'PD-10 Point Defense Laser',
+    description:
+      'Compact automated laser turret. Low power but effective against small threats.',
+    icon: '🔫',
+    powerDraw: 10,
+    hasDegradation: true,
+    requiredTags: ['standard'],
+  },
   // Gravity Systems
   {
     id: 'centrifuge_pod',

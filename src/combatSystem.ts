@@ -45,6 +45,10 @@ export const COMBAT_CONSTANTS = {
   PD_SKILL_BONUS: 0.05,
   /** Passive defense from deflector shield */
   DEFLECTOR_BONUS: 10,
+  /** Passive defense from micro deflector */
+  MICRO_DEFLECTOR_BONUS: 5,
+  /** Base point defense laser combat score */
+  PD_LASER_BASE_SCORE: 8,
   /** kg divisor for ship mass → defense bonus */
   MASS_DIVISOR: 100_000,
   /** Threat level → pirate attack score multiplier */
@@ -244,7 +248,16 @@ export function calculateDefenseScore(ship: Ship): number {
     }
   }
 
-  // 3. Deflector Shield passive defense
+  // 3. Point Defense Laser (lightweight PD without station bonus)
+  const pdLaser = ship.equipment.find(
+    (eq) => eq.definitionId === 'point_defense_laser'
+  );
+  if (pdLaser) {
+    const laserEffectiveness = 1 - pdLaser.degradation / 200;
+    defenseScore += COMBAT_CONSTANTS.PD_LASER_BASE_SCORE * laserEffectiveness;
+  }
+
+  // 4. Deflector Shield passive defense
   const deflector = ship.equipment.find(
     (eq) => eq.definitionId === 'deflector_shield'
   );
@@ -252,7 +265,15 @@ export function calculateDefenseScore(ship: Ship): number {
     defenseScore += COMBAT_CONSTANTS.DEFLECTOR_BONUS;
   }
 
-  // 4. Ship mass bonus
+  // 5. Micro Deflector passive defense
+  const microDeflector = ship.equipment.find(
+    (eq) => eq.definitionId === 'micro_deflector'
+  );
+  if (microDeflector) {
+    defenseScore += COMBAT_CONSTANTS.MICRO_DEFLECTOR_BONUS;
+  }
+
+  // 6. Ship mass bonus
   const shipClass = getShipClass(ship.classId);
   if (shipClass) {
     defenseScore += shipClass.mass / COMBAT_CONSTANTS.MASS_DIVISOR;
@@ -324,16 +345,16 @@ export function applyEncounterOutcome(
 
     case 'victory':
       gameData.encounterStats.victories++;
-      // PD degradation
+      // PD degradation (both PD types)
       {
-        const pd = ship.equipment.find(
-          (eq) => eq.definitionId === 'point_defense'
-        );
-        if (pd) {
-          pd.degradation = Math.min(
-            100,
-            pd.degradation + COMBAT_CONSTANTS.VICTORY_PD_DEGRADATION
-          );
+        for (const pdId of ['point_defense', 'point_defense_laser'] as const) {
+          const pd = ship.equipment.find((eq) => eq.definitionId === pdId);
+          if (pd) {
+            pd.degradation = Math.min(
+              100,
+              pd.degradation + COMBAT_CONSTANTS.VICTORY_PD_DEGRADATION
+            );
+          }
         }
       }
       // Bounty
@@ -345,16 +366,16 @@ export function applyEncounterOutcome(
 
     case 'harassment':
       gameData.encounterStats.harassments++;
-      // PD degradation
+      // PD degradation (both PD types)
       {
-        const pd = ship.equipment.find(
-          (eq) => eq.definitionId === 'point_defense'
-        );
-        if (pd) {
-          pd.degradation = Math.min(
-            100,
-            pd.degradation + COMBAT_CONSTANTS.HARASSMENT_PD_DEGRADATION
-          );
+        for (const pdId of ['point_defense', 'point_defense_laser'] as const) {
+          const pd = ship.equipment.find((eq) => eq.definitionId === pdId);
+          if (pd) {
+            pd.degradation = Math.min(
+              100,
+              pd.degradation + COMBAT_CONSTANTS.HARASSMENT_PD_DEGRADATION
+            );
+          }
         }
       }
       // Crew health loss
