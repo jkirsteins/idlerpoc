@@ -1,5 +1,7 @@
 # Crew Skill Progression Design
 
+> **SUPERSEDED:** This design (XP → level → allocatable skill points, 1-10 scale) has been replaced by the direct skill training model in [`skill-training-design-research.md`](skill-training-design-research.md). The new design uses direct room-based skill training with diminishing returns on a 1-100 scale. This document is kept for historical reference.
+
 ## Design Philosophy
 
 **Skills emerge from what crew members do, not from abstract XP pools.** A navigator gets better at astrogation by navigating. A gunner gets better at combat by fighting. This follows the project's core principle: game state emerges from system behavior.
