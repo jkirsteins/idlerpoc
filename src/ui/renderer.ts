@@ -18,15 +18,9 @@ import { renderCatchUpReport } from './catchUpReport';
 import { renderToasts } from './toastSystem';
 import { createLeftSidebar, createRightSidebar } from './sidebars';
 import { calculateFuelPercentage, getFuelColorHex } from './fuelFormatting';
+import type { PlayingTab } from './types';
 
-export type PlayingTab =
-  | 'ship'
-  | 'crew'
-  | 'work'
-  | 'nav'
-  | 'fleet'
-  | 'log'
-  | 'settings';
+export type { PlayingTab } from './types';
 
 // Persists across re-renders
 let mobileDrawerOpen = false;

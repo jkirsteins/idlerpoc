@@ -1,9 +1,20 @@
 import type { GameData, Ship, Quest } from './models';
 import { canAcceptQuest } from './questGen';
-import { acceptQuest } from './contractExec';
 import { addLog } from './logSystem';
 import { generateId } from './utils';
 import { getFuelPricePerKg } from './ui/refuelDialog';
+
+type AcceptQuestFn = (gameData: GameData, ship: Ship, quest: Quest) => void;
+
+/**
+ * Late-bound reference to acceptQuest, set by contractExec at import time
+ * to break the contractExec ↔ routeAssignment circular dependency.
+ */
+let _acceptQuest: AcceptQuestFn | null = null;
+
+export function setAcceptQuestFn(fn: AcceptQuestFn): void {
+  _acceptQuest = fn;
+}
 
 /**
  * Route Assignment System
@@ -74,7 +85,7 @@ export function assignShipToRoute(
   };
 
   // Start first trip using existing acceptQuest flow
-  acceptQuest(gameData, ship, quest);
+  _acceptQuest!(gameData, ship, quest);
 
   const originLoc = gameData.world.locations.find((l) => l.id === quest.origin);
   const destLoc = gameData.world.locations.find(
@@ -250,7 +261,7 @@ export function autoRestartRouteTrip(
   };
 
   // Start next trip immediately (no user interaction)
-  acceptQuest(gameData, ship, nextQuest);
+  _acceptQuest!(gameData, ship, nextQuest);
 
   addLog(
     gameData.log,

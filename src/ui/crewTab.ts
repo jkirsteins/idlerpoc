@@ -1,6 +1,6 @@
 import type { GameData, CrewMember, CrewEquipmentId } from '../models';
 import { getActiveShip } from '../models';
-import type { TabbedViewCallbacks } from './tabbedView';
+import type { TabbedViewCallbacks } from './types';
 import {
   getCrewEquipmentDefinition,
   getAllCrewEquipmentDefinitions,
