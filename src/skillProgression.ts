@@ -14,9 +14,12 @@ import { getCrewJobSlot, getJobSlotDefinition } from './jobSlots';
  *
  * Crew members train skills directly by working job slots during flight.
  * No XP intermediary — job slot assignment determines which skill improves
- * and at what rate. Uses diminishing returns (asymptotic toward cap).
+ * and at what rate.
  *
- * Formula: gain/tick = trainRate × (SKILL_CAP - current) / SKILL_CAP × match_bonus
+ * Uses squared diminishing returns so early skills come fast (short-clock
+ * reward) while mastery is a long idle-game tail.
+ *
+ * Formula: gain/tick = trainRate × TRAIN_SPEED × ((SKILL_CAP - current) / SKILL_CAP)² × match_bonus
  */
 
 /** Maximum skill value */
@@ -27,6 +30,19 @@ const MASTERY_THRESHOLD = 99.5;
 
 /** Skill matching bonus multiplier (crew's role matches job's trained skill) */
 const SKILL_MATCH_MULTIPLIER = 1.5;
+
+/**
+ * Global speed multiplier applied to all passive training.
+ * Combined with the squared diminishing curve this gives:
+ *   - Short clock  (~8 min):  first skill point
+ *   - Medium clock  (~2 hr):  ~10 skill
+ *   - Long clock   (~14 hr):  ~50 skill
+ *   - Deep idle   (~months):  mastery (99-100)
+ */
+const TRAIN_SPEED = 50;
+
+/** Exponent for the diminishing-returns curve (higher = steeper taper) */
+const DIMINISH_EXPONENT = 2;
 
 /**
  * Calculate direct skill training for a crew member based on job slot assignment.
@@ -47,14 +63,15 @@ export function calculateTickTraining(
   const currentSkill = crew.skills[skill];
   if (currentSkill >= SKILL_CAP) return null;
 
-  // Diminishing returns: gain decreases as skill approaches cap
-  const diminishingFactor = (SKILL_CAP - currentSkill) / SKILL_CAP;
+  // Squared diminishing returns: fast early, long tail to mastery
+  const normalised = (SKILL_CAP - currentSkill) / SKILL_CAP;
+  const diminishingFactor = Math.pow(normalised, DIMINISH_EXPONENT);
 
   // Skill matching bonus: crew's role primary skill matches job's trained skill
   const primarySkill = getPrimarySkillForRole(crew.role);
   const matchBonus = primarySkill === skill ? SKILL_MATCH_MULTIPLIER : 1.0;
 
-  const gain = baseRate * diminishingFactor * matchBonus;
+  const gain = baseRate * TRAIN_SPEED * diminishingFactor * matchBonus;
 
   return { skill, gain };
 }
