@@ -194,19 +194,10 @@ function createStartingShip(
 
   const rooms: Room[] = shipClass.rooms.map((roomType) => createRoom(roomType));
 
-  // Create initial crew
+  // Create initial crew — just the captain; hire everyone else at port
   const crew: CrewMember[] = [];
   const captain = createCrewMember(captainName, 'captain', true);
   crew.push(captain);
-
-  const pilot = createCrewMember(generateCrewName(), 'pilot');
-  const engineer = createCrewMember(generateCrewName(), 'engineer');
-  crew.push(pilot, engineer);
-
-  const hasCantina = shipClass.rooms.includes('cantina');
-  if (hasCantina) {
-    crew.push(createCrewMember(generateCrewName(), 'cook'));
-  }
 
   const { equipmentSlots, equipment } = createShipEquipment(shipClassId);
   const engine = createEngineInstance(shipClassId);
