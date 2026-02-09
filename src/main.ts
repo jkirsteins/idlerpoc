@@ -63,9 +63,19 @@ let state: GameState;
 try {
   state = initializeState();
 } catch (e) {
-  console.error('Failed to initialize game state, clearing save:', e);
-  clearGame();
-  state = { phase: 'no_game' };
+  console.error('Failed to initialize game state:', e);
+  // Try to recover the save without fast-forward instead of destroying it.
+  // The save may be perfectly valid — it's the catch-up processing that threw.
+  const recovered = loadGame();
+  if (recovered) {
+    // Reset the timestamp so we don't re-attempt the failed fast-forward.
+    recovered.lastTickTimestamp = Date.now();
+    state = { phase: 'playing', gameData: recovered, activeTab: 'ship' };
+    console.log('Recovered save (skipped fast-forward).');
+  } else {
+    clearGame();
+    state = { phase: 'no_game' };
+  }
 }
 let tickInterval: number | null = null;
 
@@ -1534,8 +1544,24 @@ function onVisibilityChange(): void {
         realTimestamp: Date.now(),
       };
     }
+    // Ensure state is persisted when the tab is hidden — iOS Safari doesn't
+    // reliably fire beforeunload, but visibilitychange + pagehide cover it.
+    if (state.phase === 'playing') {
+      saveGame(state.gameData);
+    }
   } else if (document.visibilityState === 'visible') {
     processPendingTicks();
+  }
+}
+
+/**
+ * Last-chance save when the page is about to be unloaded.
+ * On iOS Safari, `pagehide` fires reliably on pull-to-refresh and tab close
+ * whereas `beforeunload` does not.
+ */
+function onPageHide(): void {
+  if (state.phase === 'playing') {
+    saveGame(state.gameData);
   }
 }
 
@@ -1543,6 +1569,7 @@ function startTickSystem(): void {
   if (tickInterval !== null) return;
 
   document.addEventListener('visibilitychange', onVisibilityChange);
+  window.addEventListener('pagehide', onPageHide);
   tickInterval = window.setInterval(processPendingTicks, 1000);
 }
 
@@ -1552,6 +1579,7 @@ function stopTickSystem(): void {
     tickInterval = null;
   }
   document.removeEventListener('visibilitychange', onVisibilityChange);
+  window.removeEventListener('pagehide', onPageHide);
 }
 
 function renderApp(): void {

@@ -2,12 +2,38 @@ import type { GameData } from './models';
 
 const STORAGE_KEY = 'spaceship_game_data';
 
-export function saveGame(gameData: GameData): void {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(gameData));
+/** Whether the last save attempt failed (used for UI warnings). */
+let _lastSaveFailed = false;
+
+export function lastSaveFailed(): boolean {
+  return _lastSaveFailed;
+}
+
+/**
+ * Persist game state to localStorage.
+ * Returns true on success, false if the write failed (e.g. quota exceeded,
+ * private-browsing restrictions, or storage disabled).
+ */
+export function saveGame(gameData: GameData): boolean {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(gameData));
+    _lastSaveFailed = false;
+    return true;
+  } catch (e) {
+    console.error('Failed to save game:', e);
+    _lastSaveFailed = true;
+    return false;
+  }
 }
 
 export function loadGame(): GameData | null {
-  const data = localStorage.getItem(STORAGE_KEY);
+  let data: string | null;
+  try {
+    data = localStorage.getItem(STORAGE_KEY);
+  } catch (e) {
+    console.error('Failed to read save from localStorage:', e);
+    return null;
+  }
   if (!data) return null;
   try {
     const loaded = JSON.parse(data) as Partial<GameData>;
