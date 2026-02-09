@@ -94,6 +94,10 @@ export function loadGame(): GameData | null {
         ) {
           ship.activeFlightPlan.burnFraction = 1.0;
         }
+        // Backfill oxygen level for old saves
+        if (ship.oxygenLevel === undefined) {
+          ship.oxygenLevel = 100;
+        }
       }
     }
 

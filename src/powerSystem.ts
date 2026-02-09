@@ -34,7 +34,7 @@ export function computePowerStatus(ship: Ship): PowerStatus {
     totalOutput = engineDef.powerOutput;
     powerSource = 'drives';
   } else if (ship.engine.state === 'warming_up') {
-    // Undocked + warming up
+    // Undocked + warming up: no power yet
     totalOutput = 0;
     powerSource = 'warming_up';
     warmupProgress = ship.engine.warmupProgress;

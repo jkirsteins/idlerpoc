@@ -248,6 +248,7 @@ export interface Ship {
   jobSlots: JobSlot[]; // Crew assignment via job slots
   fuelKg: number; // Current fuel mass in kilograms
   maxFuelKg: number; // Fuel tank capacity in kilograms
+  oxygenLevel: number; // 0-100% atmosphere oxygen level
   equipment: EquipmentInstance[];
   equipmentSlots: EquipmentSlotDef[];
   location: ShipLocation;

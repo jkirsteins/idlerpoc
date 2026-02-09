@@ -4,6 +4,7 @@ import { getShipClass } from '../shipClasses';
 import { getRoomDefinition } from '../rooms';
 import { getCrewRoleName } from '../crewRoles';
 import { computePowerStatus } from '../powerSystem';
+import { computeOxygenStatus } from '../lifeSupportSystem';
 import { getEquipmentDefinition } from '../equipment';
 import { getEngineDefinition } from '../engines';
 import { createNavigationView } from './navigationView';
@@ -12,7 +13,14 @@ import {
   calculateAvailableCargoCapacity,
   computeMaxRange,
 } from '../flightPhysics';
-import { formatDualTime, GAME_SECONDS_PER_TICK } from '../timeSystem';
+import {
+  formatDualTime,
+  GAME_SECONDS_PER_TICK,
+  TICKS_PER_DAY,
+} from '../timeSystem';
+
+/** Ticks per game hour (used to convert per-tick rates to per-hour for display) */
+const TICKS_PER_HOUR = TICKS_PER_DAY / 24;
 import { renderStatBar } from './components/statBar';
 import { attachTooltip, formatPowerTooltip } from './components/tooltip';
 import type { Component } from './component';
@@ -126,6 +134,9 @@ export function createShipTab(
 
     // Power progress bar
     container.appendChild(renderPowerBar(gameData));
+
+    // Oxygen progress bar
+    container.appendChild(renderOxygenBar(gameData));
 
     // Torch ship status bars (Class III+)
     const ship = getActiveShip(gameData);
@@ -277,6 +288,113 @@ function renderPowerBar(gameData: GameData): HTMLElement {
 
   attachTooltip(statBar, {
     content: tooltipContent,
+    followMouse: false,
+  });
+
+  return statBar;
+}
+
+function renderOxygenBar(gameData: GameData): HTMLElement {
+  const ship = getActiveShip(gameData);
+  const oxygenStatus = computeOxygenStatus(ship);
+
+  // Build label based on state
+  let label = 'OXYGEN';
+  if (!oxygenStatus.isPowered && ship.location.status !== 'docked') {
+    label = 'OXYGEN (NO POWER)';
+  } else if (oxygenStatus.isDepressurizing) {
+    label = 'OXYGEN (DEPRESSURIZING)';
+  }
+
+  // Value label shows level and net change rate
+  let valueLabel: string;
+  if (ship.location.status === 'docked') {
+    valueLabel = `${oxygenStatus.oxygenLevel.toFixed(0)}% (Station Supply)`;
+  } else {
+    const netPerHour = oxygenStatus.netChange * TICKS_PER_HOUR;
+    const sign = netPerHour >= 0 ? '+' : '';
+    valueLabel = `${oxygenStatus.oxygenLevel.toFixed(1)}% (${sign}${netPerHour.toFixed(1)} O2/hr)`;
+  }
+
+  // Color based on oxygen level
+  let colorClass = 'bar-good';
+  if (oxygenStatus.oxygenLevel < 10) {
+    colorClass = 'bar-danger';
+  } else if (oxygenStatus.oxygenLevel < 25) {
+    colorClass = 'bar-danger';
+  } else if (oxygenStatus.oxygenLevel < 50) {
+    colorClass = 'bar-warning';
+  }
+
+  // Build the bar showing oxygen level
+  const basePercentage = oxygenStatus.oxygenLevel;
+
+  // Overlay shows consumption as a proportion of generation (like power bar)
+  let overlay: { percentage: number; colorClass: string } | undefined;
+  if (
+    oxygenStatus.isPowered &&
+    oxygenStatus.totalGeneration > 0 &&
+    ship.location.status !== 'docked'
+  ) {
+    const drawPercentage =
+      (oxygenStatus.totalConsumption / oxygenStatus.totalGeneration) * 100;
+    overlay = {
+      percentage: Math.min(100, drawPercentage),
+      colorClass: oxygenStatus.isDepressurizing ? 'bar-danger' : 'bar-warning',
+    };
+  }
+
+  const statBar = renderStatBar({
+    label,
+    percentage: basePercentage,
+    valueLabel,
+    colorClass,
+    mode: 'full',
+    overlay,
+  });
+
+  // Build tooltip with generation/consumption breakdown
+  const tooltipParts: string[] = [];
+
+  tooltipParts.push(
+    `<div><span class="custom-tooltip-label">Oxygen Level:</span> <span class="custom-tooltip-value">${oxygenStatus.oxygenLevel.toFixed(1)}%</span></div>`
+  );
+
+  if (oxygenStatus.generationItems.length > 0) {
+    tooltipParts.push(
+      '<div class="custom-tooltip-section">O2 Generation:</div>'
+    );
+    for (const item of oxygenStatus.generationItems) {
+      const itemPerHour = item.output * TICKS_PER_HOUR;
+      tooltipParts.push(
+        `<div class="custom-tooltip-item">${item.name}: ${itemPerHour.toFixed(1)} O2/hr</div>`
+      );
+    }
+    const genPerHour = oxygenStatus.totalGeneration * TICKS_PER_HOUR;
+    tooltipParts.push(
+      `<div><span class="custom-tooltip-label">Total Generation:</span> <span class="custom-tooltip-value">${genPerHour.toFixed(1)} O2/hr</span></div>`
+    );
+  }
+
+  const consumePerHour = oxygenStatus.totalConsumption * TICKS_PER_HOUR;
+  tooltipParts.push(
+    `<div><span class="custom-tooltip-label">Crew Consumption:</span> <span class="custom-tooltip-value">${consumePerHour.toFixed(1)} O2/hr (${ship.crew.length} crew)</span></div>`
+  );
+
+  const tooltipNetPerHour = oxygenStatus.netChange * TICKS_PER_HOUR;
+  const sign = tooltipNetPerHour >= 0 ? '+' : '';
+  tooltipParts.push(
+    `<div><span class="custom-tooltip-label">Net Change:</span> <span class="custom-tooltip-value">${sign}${tooltipNetPerHour.toFixed(1)} O2/hr</span></div>`
+  );
+
+  if (!oxygenStatus.isPowered && ship.location.status !== 'docked') {
+    tooltipParts.push(
+      '<div class="custom-tooltip-item" style="color: #ff6b6b;">Life support unpowered!</div>'
+    );
+  }
+
+  attachTooltip(statBar, {
+    content: tooltipParts.join(''),
     followMouse: false,
   });
 

@@ -144,6 +144,7 @@ export function createTestShip(overrides: Partial<Ship> = {}): Ship {
     jobSlots: [],
     fuelKg: 22400, // 80% of 28,000 kg max fuel (Wayfarer)
     maxFuelKg: 28000, // 70% of 40,000 kg cargo capacity
+    oxygenLevel: 100,
     equipment: [
       createTestEquipment({ definitionId: 'life_support' }),
       createTestEquipment({ definitionId: 'air_filters' }),
