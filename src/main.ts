@@ -59,23 +59,28 @@ const app = document.getElementById('app')!;
 // Initialize the combat system encounter resolver
 initCombatSystem();
 
+/** Show a dismissable banner at the top of the page. */
+function showErrorBanner(message: string): void {
+  const banner = document.createElement('div');
+  banner.className = 'error-banner';
+  banner.style.cssText =
+    'background:#5c1a1a;color:#ff9b9b;padding:0.75rem 1rem;text-align:center;' +
+    'font-size:0.9rem;position:relative;cursor:pointer;';
+  banner.textContent = message + ' (tap to dismiss)';
+  banner.addEventListener('click', () => banner.remove());
+  document.body.prepend(banner);
+}
+
 let state: GameState;
 try {
   state = initializeState();
 } catch (e) {
-  console.error('Failed to initialize game state:', e);
-  // Try to recover the save without fast-forward instead of destroying it.
-  // The save may be perfectly valid — it's the catch-up processing that threw.
-  const recovered = loadGame();
-  if (recovered) {
-    // Reset the timestamp so we don't re-attempt the failed fast-forward.
-    recovered.lastTickTimestamp = Date.now();
-    state = { phase: 'playing', gameData: recovered, activeTab: 'ship' };
-    console.log('Recovered save (skipped fast-forward).');
-  } else {
-    clearGame();
-    state = { phase: 'no_game' };
-  }
+  console.error('Failed to initialize game state, clearing save:', e);
+  clearGame();
+  state = { phase: 'no_game' };
+  showErrorBanner(
+    'Your save was corrupted and had to be cleared. Sorry about that!'
+  );
 }
 let tickInterval: number | null = null;
 
