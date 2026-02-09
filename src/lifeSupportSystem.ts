@@ -35,8 +35,8 @@ export interface OxygenStatus {
  */
 export function computeOxygenStatus(ship: Ship): OxygenStatus {
   const powerStatus = computePowerStatus(ship);
-  // Life support generates O2 whenever there is any power output.
-  // During engine warmup, partial power scales with warmup progress.
+  // Life support generates O2 only when the ship has power output.
+  // No power during warmup or engine off = no O2 generation.
   const hasPower = powerStatus.totalOutput > 0;
 
   let totalGeneration = 0;
