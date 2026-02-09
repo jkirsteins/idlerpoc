@@ -19,13 +19,6 @@ export function computePowerStatus(ship: Ship): PowerStatus {
   const engineDef = getEngineDefinition(ship.engine.definitionId);
   const isDocked = ship.location.status === 'docked';
 
-  // Check if engine room is staffed and operational
-  const engineRoom = ship.rooms.find((r) => r.type === 'engine_room');
-  const engineRoomStaffed =
-    engineRoom &&
-    engineRoom.state === 'operational' &&
-    engineRoom.assignedCrewIds.length > 0;
-
   let totalOutput = 0;
   let powerSource: PowerSource = 'none';
   let warmupProgress = 0;
@@ -35,12 +28,8 @@ export function computePowerStatus(ship: Ship): PowerStatus {
     // Docked: get power from berth regardless of engine state
     totalOutput = engineDef.powerOutput;
     powerSource = 'berth';
-  } else if (
-    ship.engine.state === 'online' &&
-    engineRoomStaffed &&
-    ship.fuelKg > 0
-  ) {
-    // Undocked + engine online + staffed + has fuel
+  } else if (ship.engine.state === 'online' && ship.fuelKg > 0) {
+    // Undocked + engine online + has fuel
     totalOutput = engineDef.powerOutput;
     powerSource = 'drives';
   } else if (ship.engine.state === 'warming_up') {
@@ -49,7 +38,7 @@ export function computePowerStatus(ship: Ship): PowerStatus {
     powerSource = 'warming_up';
     warmupProgress = ship.engine.warmupProgress;
   } else {
-    // Undocked + engine off or unstaffed or no fuel
+    // Undocked + engine off or no fuel
     totalOutput = 0;
     powerSource = 'none';
   }
