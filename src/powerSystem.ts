@@ -34,8 +34,10 @@ export function computePowerStatus(ship: Ship): PowerStatus {
     totalOutput = engineDef.powerOutput;
     powerSource = 'drives';
   } else if (ship.engine.state === 'warming_up') {
-    // Undocked + warming up
-    totalOutput = 0;
+    // Undocked + warming up: engine produces partial power proportional to progress
+    totalOutput = Math.floor(
+      engineDef.powerOutput * (ship.engine.warmupProgress / 100)
+    );
     powerSource = 'warming_up';
     warmupProgress = ship.engine.warmupProgress;
   } else {

@@ -35,11 +35,9 @@ export interface OxygenStatus {
  */
 export function computeOxygenStatus(ship: Ship): OxygenStatus {
   const powerStatus = computePowerStatus(ship);
-  // Life support runs whenever there is ANY power source — including during
-  // engine warmup (battery backup keeps critical systems alive).  It only
-  // fails when the engine is truly off or out of fuel.
-  const hasPower =
-    powerStatus.totalOutput > 0 || powerStatus.powerSource === 'warming_up';
+  // Life support generates O2 whenever there is any power output.
+  // During engine warmup, partial power scales with warmup progress.
+  const hasPower = powerStatus.totalOutput > 0;
 
   let totalGeneration = 0;
   const generationItems: Array<{ name: string; output: number }> = [];
