@@ -35,6 +35,9 @@ export function createLogTab(gameData: GameData): Component {
     ];
     const filterButtons: Partial<Record<LogFilter, HTMLButtonElement>> = {};
 
+    const logList = document.createElement('div');
+    logList.className = 'log-list';
+
     const updateLogDisplay = () => {
       // Clear log list
       logList.innerHTML = '';
@@ -90,9 +93,6 @@ export function createLogTab(gameData: GameData): Component {
     }
 
     container.appendChild(filterBar);
-
-    const logList = document.createElement('div');
-    logList.className = 'log-list';
 
     updateLogDisplay();
 
