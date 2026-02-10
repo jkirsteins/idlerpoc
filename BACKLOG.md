@@ -66,18 +66,12 @@ This file tracks deferred features and known gaps that are not currently priorit
 
 - **EVA (Extra-Vehicular Activity)**: Crew EVA system for outside-the-ship operations. Would enable hand-mining of specific asteroid targets, ship hull inspection/repair, cargo transfer between ships, and salvage operations. Requires EVA suit crew equipment, airlock room type, and EVA skill or EVA-related piloting checks. Could tie into mining (artisanal hand-mining of rare samples) and repair (hull patch jobs) gameplay loops.
 
-## Duplicate Logic Consolidation
+## Duplicate Logic Consolidation (DONE)
 
-Full audit in `docs/duplicate-logic-audit.md`. Key refactoring items:
+All items from the original audit (`docs/duplicate-logic-audit.md`) have been resolved.
+Remaining follow-up:
 
-- **Extract `calculateDryMass(ship)`**: Consolidate 3 inconsistent dry-mass variants (hull-only, hull+crew, hull+crew+cargo) into one canonical function. Currently spread across `flightPhysics.ts`, `questGen.ts`, and `fleetAnalytics.ts`.
-- **Fix fuel price in `fleetAnalytics.ts`**: Uses hardcoded 0.5 cr/kg instead of the 2.0 cr/kg constant or location-aware `getFuelPricePerKg()`. Causes profit estimates to be 4x wrong.
-- **Replace `calculateFuelCost()` stub**: Linear approximation still used by `navigationView.ts` and `fleetTab.ts`. Should use proper Tsiolkovsky-based functions.
-- **Extract radiation/heat shielding helpers**: Identical effectiveness loop (`1 - degradation / 200`) duplicated in `gameTick.ts`, `sidebars.ts`, and `shipTab.ts`.
-- **Extract salary helper**: `calculateShipSalaryPerTick(ship)` pattern repeated in 6+ locations.
-- **Extract "best skill" helper**: `getBestSkill(crew[], skillId)` pattern repeated in 4 locations.
-- **Shared constants for magic numbers**: `CREW_MASS_KG = 80` (10+ locations), `CARGO_ITEM_MASS_KG = 10` (3 locations), `FUEL_FRACTION = 0.7` (2 locations in same file).
-- **Add guards to `estimateTripTime()`**: Missing zero-thrust, negative-coast, and NaN/Infinity guards that `initializeFlight()` has.
+- **Move `getFuelPricePerKg` out of `ui/refuelDialog.ts`**: This is pure game logic; it should live in a non-UI module so `fleetAnalytics.ts` can import it without cross-layer dependency.
 
 ## Other Known Gaps
 
