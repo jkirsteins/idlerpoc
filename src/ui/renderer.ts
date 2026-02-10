@@ -72,6 +72,7 @@ export interface RendererCallbacks {
     value: boolean
   ) => void;
   onDockAtNearestPort: () => void;
+  onCancelPause: () => void;
   onResumeContract: () => void;
   onAbandonContract: () => void;
   onBuyFuel: () => void;
@@ -316,6 +317,7 @@ function mountPlayingLayout(
       onUnassignRoute: callbacks.onUnassignRoute,
       onAdvanceDay: callbacks.onAdvanceDay,
       onDockAtNearestPort: callbacks.onDockAtNearestPort,
+      onCancelPause: callbacks.onCancelPause,
       onResumeContract: callbacks.onResumeContract,
       onAbandonContract: callbacks.onAbandonContract,
       onBuyFuel: callbacks.onBuyFuel,

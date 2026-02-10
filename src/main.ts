@@ -853,6 +853,16 @@ const callbacks: RendererCallbacks = {
     renderApp();
   },
 
+  onCancelPause: () => {
+    if (state.phase !== 'playing') return;
+    const ship = getActiveShip(state.gameData);
+    if (ship.activeContract?.paused) {
+      ship.activeContract.paused = false;
+    }
+    saveGame(state.gameData);
+    renderApp();
+  },
+
   onResumeContract: () => {
     if (state.phase !== 'playing') return;
     const ship = getActiveShip(state.gameData);
