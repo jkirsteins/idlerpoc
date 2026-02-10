@@ -12,6 +12,7 @@ import type {
   EquipmentSlotDef,
 } from './models';
 import { getShipClass } from './shipClasses';
+import { CURRENT_SAVE_VERSION } from './storage';
 import { generateCrewName } from './names';
 import { generateWorld } from './worldGen';
 import { getLevelForXP } from './levelSystem';
@@ -341,6 +342,7 @@ export function createNewGame(
   ]);
 
   return {
+    saveVersion: CURRENT_SAVE_VERSION,
     ships: [ship],
     activeShipId: ship.id,
     credits: 5000,
