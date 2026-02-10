@@ -1,4 +1,10 @@
-import type { GameData, Ship, ActiveContract, Quest } from './models';
+import type {
+  GameData,
+  Ship,
+  ActiveContract,
+  Quest,
+  WorldLocation,
+} from './models';
 import { startShipFlight } from './flightPhysics';
 import { addLog } from './logSystem';
 import { generateAllLocationQuests } from './questGen';
@@ -287,13 +293,108 @@ export function acceptQuest(
 }
 
 /**
- * Complete current leg of contract flight
+ * Dock ship at a location: clear flight plan, turn off engine.
+ * Single source of truth for the docked-at-location state transition.
+ */
+export function dockShipAtLocation(ship: Ship, locationId: string): void {
+  ship.location.status = 'docked';
+  ship.location.dockedAt = locationId;
+  delete ship.location.orbitingAt;
+  delete ship.activeFlightPlan;
+  ship.engine.state = 'off';
+  ship.engine.warmupProgress = 0;
+}
+
+/**
+ * Try to refuel and depart for the next contract leg.
+ *
+ * Gates checked in order: player pause → fuel → helm.
+ * On any failure the ship docks at departFrom and the contract pauses.
+ * On success the ship is in-flight toward departTo.
+ */
+function tryDepartNextLeg(
+  gameData: GameData,
+  ship: Ship,
+  departFrom: WorldLocation,
+  departTo: WorldLocation,
+  questTitle: string
+): void {
+  const activeContract = ship.activeContract!;
+  const { gameTime } = gameData;
+
+  // Player-initiated pause — dock here instead of continuing
+  if (activeContract.paused) {
+    dockShipAtLocation(ship, departFrom.id);
+    addLog(
+      gameData.log,
+      gameTime,
+      'arrival',
+      `Docked at ${departFrom.name}. Contract "${questTitle}" paused.`,
+      ship.name
+    );
+    checkFirstArrival(gameData, ship, departFrom.id);
+    removeUnpaidCrew(gameData, ship);
+    return;
+  }
+
+  // Auto-refuel before departure
+  const hasFuel = tryAutoRefuelForLeg(gameData, ship, departFrom.id);
+  if (!hasFuel) {
+    activeContract.paused = true;
+    gameData.isPaused = true;
+    dockShipAtLocation(ship, departFrom.id);
+    addLog(
+      gameData.log,
+      gameTime,
+      'arrival',
+      `Low fuel at ${departFrom.name}! Contract "${questTitle}" paused - refuel to continue.`,
+      ship.name
+    );
+    checkFirstArrival(gameData, ship, departFrom.id);
+    removeUnpaidCrew(gameData, ship);
+    return;
+  }
+
+  // Try to depart
+  const departed = startShipFlight(
+    ship,
+    departFrom,
+    departTo,
+    false,
+    ship.flightProfileBurnFraction
+  );
+  if (!departed) {
+    activeContract.paused = true;
+    dockShipAtLocation(ship, departFrom.id);
+    addLog(
+      gameData.log,
+      gameTime,
+      'arrival',
+      `Helm unmanned at ${departFrom.name}! Contract "${questTitle}" paused — assign crew to helm.`,
+      ship.name
+    );
+    checkFirstArrival(gameData, ship, departFrom.id);
+    removeUnpaidCrew(gameData, ship);
+    return;
+  }
+
+  addLog(
+    gameData.log,
+    gameTime,
+    'departure',
+    `Departed ${departFrom.name} en route to ${departTo.name} (${questTitle})`,
+    ship.name
+  );
+}
+
+/**
+ * Complete current leg of a flight (manual or contract).
  */
 export function completeLeg(gameData: GameData, ship: Ship): void {
   const { world, gameTime } = gameData;
   const activeContract = ship.activeContract;
 
-  // Handle manual trip completion (no contract)
+  // ── Manual trip (no contract) ──────────────────────────────────
   if (!activeContract && ship.activeFlightPlan) {
     const flight = ship.activeFlightPlan;
     const destination = world.locations.find(
@@ -301,17 +402,15 @@ export function completeLeg(gameData: GameData, ship: Ship): void {
     );
     if (destination) {
       if (flight.dockOnArrival) {
-        ship.location.status = 'docked';
-        ship.location.dockedAt = destination.id;
-        delete ship.location.orbitingAt;
+        dockShipAtLocation(ship, destination.id);
       } else {
         ship.location.status = 'orbiting';
         ship.location.orbitingAt = destination.id;
         delete ship.location.dockedAt;
+        delete ship.activeFlightPlan;
+        ship.engine.state = 'off';
+        ship.engine.warmupProgress = 0;
       }
-      delete ship.activeFlightPlan;
-      ship.engine.state = 'off';
-      ship.engine.warmupProgress = 0;
 
       addLog(
         gameData.log,
@@ -321,7 +420,6 @@ export function completeLeg(gameData: GameData, ship: Ship): void {
         ship.name
       );
 
-      // Award piloting mastery for manual flight
       awardPilotingRouteMastery(
         gameData,
         ship,
@@ -343,6 +441,7 @@ export function completeLeg(gameData: GameData, ship: Ship): void {
     return;
   }
 
+  // ── Contract flight ────────────────────────────────────────────
   const quest = activeContract.quest;
   const originLoc = world.locations.find((l) => l.id === quest.origin);
   const destLoc = world.locations.find((l) => l.id === quest.destination);
@@ -362,16 +461,26 @@ export function completeLeg(gameData: GameData, ship: Ship): void {
     ship.name
   );
 
-  // Award piloting route mastery on every contract flight arrival
   awardPilotingRouteMastery(gameData, ship, quest.origin, quest.destination);
 
+  // ── Deferred abandon — player chose "Abandon" while in-flight ──
+  if (activeContract.abandonRequested) {
+    dockShipAtLocation(ship, arrivalLocation.id);
+    abandonContract(gameData, ship);
+    checkFirstArrival(gameData, ship, arrivalLocation.id);
+    removeUnpaidCrew(gameData, ship);
+    regenerateQuestsIfNewDay(gameData, ship);
+    return;
+  }
+
+  // ── Outbound leg ───────────────────────────────────────────────
   if (activeContract.leg === 'outbound') {
     if (quest.type === 'delivery' || quest.type === 'passenger') {
+      // Single-leg contracts complete immediately
       activeContract.tripsCompleted = 1;
       activeContract.creditsEarned = quest.paymentOnCompletion;
       addCredits(gameData, quest.paymentOnCompletion);
 
-      // Track per-ship earnings
       ship.metrics.creditsEarned += quest.paymentOnCompletion;
       ship.metrics.contractsCompleted++;
       ship.metrics.lastActivityTime = gameTime;
@@ -384,7 +493,6 @@ export function completeLeg(gameData: GameData, ship: Ship): void {
         ship.name
       );
 
-      // Award contract completion XP
       const skillUps = awardEventSkillGains(ship, {
         type: 'contract_completed',
         tripsCompleted: 1,
@@ -393,7 +501,6 @@ export function completeLeg(gameData: GameData, ship: Ship): void {
         logSkillUps(gameData.log, gameTime, ship.name, skillUps);
       }
 
-      // Award commerce mastery for delivery/passenger completion
       awardCommerceRouteMastery(
         gameData,
         ship,
@@ -401,274 +508,127 @@ export function completeLeg(gameData: GameData, ship: Ship): void {
         quest.destination
       );
 
-      ship.location.status = 'docked';
-      ship.location.dockedAt = arrivalLocation.id;
-      delete ship.location.orbitingAt;
-      delete ship.activeFlightPlan;
-      ship.engine.state = 'off';
-      ship.engine.warmupProgress = 0;
+      dockShipAtLocation(ship, arrivalLocation.id);
       ship.activeContract = null;
 
       checkFirstArrival(gameData, ship, arrivalLocation.id);
       removeUnpaidCrew(gameData, ship);
       regenerateQuestsIfNewDay(gameData, ship);
     } else {
+      // Multi-leg: flip to inbound, try to continue
       activeContract.leg = 'inbound';
+      tryDepartNextLeg(gameData, ship, destLoc, originLoc, quest.title);
+    }
+    return;
+  }
 
-      const nextOrigin = destLoc;
-      const nextDestination = originLoc;
+  // ── Inbound leg ────────────────────────────────────────────────
+  activeContract.tripsCompleted++;
 
-      // Auto-refuel to 100% at destination before return trip
-      const hasFuel = tryAutoRefuelForLeg(gameData, ship, arrivalLocation.id);
+  if (quest.type === 'supply') {
+    activeContract.cargoDelivered += quest.cargoRequired;
+  }
 
-      if (!hasFuel) {
-        activeContract.paused = true;
-        gameData.isPaused = true;
-        ship.location.status = 'docked';
-        ship.location.dockedAt = arrivalLocation.id;
-        delete ship.location.orbitingAt;
-        delete ship.activeFlightPlan;
-        ship.engine.state = 'off';
-        ship.engine.warmupProgress = 0;
+  if (quest.paymentPerTrip > 0) {
+    activeContract.creditsEarned += quest.paymentPerTrip;
+    addCredits(gameData, quest.paymentPerTrip);
 
-        addLog(
-          gameData.log,
-          gameTime,
-          'arrival',
-          `Low fuel at ${arrivalLocation.name}! Contract "${quest.title}" paused - refuel to continue.`,
-          ship.name
-        );
+    ship.metrics.creditsEarned += quest.paymentPerTrip;
 
-        checkFirstArrival(gameData, ship, arrivalLocation.id);
-        removeUnpaidCrew(gameData, ship);
-        return;
+    if (ship.routeAssignment) {
+      ship.routeAssignment.totalTripsCompleted++;
+      ship.routeAssignment.creditsEarned += quest.paymentPerTrip;
+      ship.routeAssignment.lastTripCompletedAt = gameTime;
+    }
+
+    addLog(
+      gameData.log,
+      gameTime,
+      'payment',
+      `Trip ${activeContract.tripsCompleted} complete. Earned ${quest.paymentPerTrip.toLocaleString()} credits.`,
+      ship.name
+    );
+  } else {
+    let message = `Trip ${activeContract.tripsCompleted}/${quest.tripsRequired === -1 ? '\u221e' : quest.tripsRequired} complete`;
+    if (quest.paymentOnCompletion > 0) {
+      message += `. Payment of ${quest.paymentOnCompletion.toLocaleString()} credits on contract completion.`;
+    }
+    addLog(gameData.log, gameTime, 'trip_complete', message, ship.name);
+  }
+
+  awardCommerceRouteMastery(gameData, ship, quest.origin, quest.destination);
+
+  const isComplete =
+    (quest.tripsRequired > 0 &&
+      activeContract.tripsCompleted >= quest.tripsRequired) ||
+    (quest.type === 'supply' &&
+      activeContract.cargoDelivered >= quest.totalCargoRequired);
+
+  if (isComplete) {
+    if (quest.paymentOnCompletion > 0) {
+      activeContract.creditsEarned += quest.paymentOnCompletion;
+      addCredits(gameData, quest.paymentOnCompletion);
+
+      ship.metrics.creditsEarned += quest.paymentOnCompletion;
+    }
+
+    ship.metrics.contractsCompleted++;
+    ship.metrics.lastActivityTime = gameTime;
+
+    addLog(
+      gameData.log,
+      gameTime,
+      'contract_complete',
+      `Contract completed: ${quest.title}. Total earned: ${activeContract.creditsEarned.toLocaleString()} credits.`,
+      ship.name
+    );
+
+    const skillUps = awardEventSkillGains(ship, {
+      type: 'contract_completed',
+      tripsCompleted: activeContract.tripsCompleted,
+    });
+    if (skillUps.length > 0) {
+      logSkillUps(gameData.log, gameTime, ship.name, skillUps);
+    }
+
+    dockShipAtLocation(ship, arrivalLocation.id);
+
+    // Save quest data from completed contract BEFORE clearing, so
+    // autoRestartRouteTrip can reference payment/cargo values.
+    const hasRouteAssignment = ship.routeAssignment !== null;
+    const completedQuest = activeContract.quest;
+
+    ship.activeContract = null;
+
+    checkFirstArrival(gameData, ship, arrivalLocation.id);
+    removeUnpaidCrew(gameData, ship);
+    regenerateQuestsIfNewDay(gameData, ship);
+
+    if (hasRouteAssignment) {
+      checkAutoRefuel(gameData, ship, arrivalLocation.id);
+
+      if (ship.routeAssignment) {
+        autoRestartRouteTrip(gameData, ship, completedQuest);
       }
-
-      const departed = startShipFlight(
-        ship,
-        nextOrigin,
-        nextDestination,
-        false,
-        ship.flightProfileBurnFraction
-      );
-
-      if (!departed) {
-        // No helm crew — pause contract at current location
-        activeContract.paused = true;
-        ship.location.status = 'docked';
-        ship.location.dockedAt = arrivalLocation.id;
-        delete ship.location.orbitingAt;
-        delete ship.activeFlightPlan;
-        ship.engine.state = 'off';
-        ship.engine.warmupProgress = 0;
-
-        addLog(
-          gameData.log,
-          gameTime,
-          'arrival',
-          `Helm unmanned at ${arrivalLocation.name}! Contract "${quest.title}" paused — assign crew to helm.`,
-          ship.name
-        );
-
-        checkFirstArrival(gameData, ship, arrivalLocation.id);
-        removeUnpaidCrew(gameData, ship);
-        return;
-      }
-
-      addLog(
-        gameData.log,
-        gameTime,
-        'departure',
-        `Departed ${nextOrigin.name} en route to ${nextDestination.name} (${quest.title})`,
-        ship.name
-      );
     }
   } else {
-    activeContract.tripsCompleted++;
-
-    if (quest.type === 'supply') {
-      activeContract.cargoDelivered += quest.cargoRequired;
-    }
-
-    if (quest.paymentPerTrip > 0) {
-      activeContract.creditsEarned += quest.paymentPerTrip;
-      addCredits(gameData, quest.paymentPerTrip);
-
-      // Track per-ship earnings
-      ship.metrics.creditsEarned += quest.paymentPerTrip;
-
-      // Track route assignment earnings
-      if (ship.routeAssignment) {
-        ship.routeAssignment.totalTripsCompleted++;
-        ship.routeAssignment.creditsEarned += quest.paymentPerTrip;
-        ship.routeAssignment.lastTripCompletedAt = gameTime;
-      }
-
-      addLog(
-        gameData.log,
-        gameTime,
-        'payment',
-        `Trip ${activeContract.tripsCompleted} complete. Earned ${quest.paymentPerTrip.toLocaleString()} credits.`,
-        ship.name
-      );
-    } else {
-      let message = `Trip ${activeContract.tripsCompleted}/${quest.tripsRequired === -1 ? '\u221e' : quest.tripsRequired} complete`;
-      if (quest.paymentOnCompletion > 0) {
-        message += `. Payment of ${quest.paymentOnCompletion.toLocaleString()} credits on contract completion.`;
-      }
-      addLog(gameData.log, gameTime, 'trip_complete', message, ship.name);
-    }
-
-    // Award commerce mastery for completing a round trip
-    awardCommerceRouteMastery(gameData, ship, quest.origin, quest.destination);
-
-    const isComplete =
-      (quest.tripsRequired > 0 &&
-        activeContract.tripsCompleted >= quest.tripsRequired) ||
-      (quest.type === 'supply' &&
-        activeContract.cargoDelivered >= quest.totalCargoRequired);
-
-    if (isComplete) {
-      if (quest.paymentOnCompletion > 0) {
-        activeContract.creditsEarned += quest.paymentOnCompletion;
-        addCredits(gameData, quest.paymentOnCompletion);
-
-        // Track per-ship earnings
-        ship.metrics.creditsEarned += quest.paymentOnCompletion;
-      }
-
-      // Track contract completion
-      ship.metrics.contractsCompleted++;
-      ship.metrics.lastActivityTime = gameTime;
-
-      addLog(
-        gameData.log,
-        gameTime,
-        'contract_complete',
-        `Contract completed: ${quest.title}. Total earned: ${activeContract.creditsEarned.toLocaleString()} credits.`,
-        ship.name
-      );
-
-      // Award contract completion XP (scales with trips completed)
-      const skillUps = awardEventSkillGains(ship, {
-        type: 'contract_completed',
-        tripsCompleted: activeContract.tripsCompleted,
-      });
-      if (skillUps.length > 0) {
-        logSkillUps(gameData.log, gameTime, ship.name, skillUps);
-      }
-
-      ship.location.status = 'docked';
-      ship.location.dockedAt = arrivalLocation.id;
-      delete ship.location.orbitingAt;
-      delete ship.activeFlightPlan;
-      ship.engine.state = 'off';
-      ship.engine.warmupProgress = 0;
-
-      // Save quest data from completed contract BEFORE clearing, so
-      // autoRestartRouteTrip can reference payment/cargo values.
-      const hasRouteAssignment = ship.routeAssignment !== null;
-      const completedQuest = activeContract.quest;
-
-      ship.activeContract = null;
-
-      checkFirstArrival(gameData, ship, arrivalLocation.id);
-      removeUnpaidCrew(gameData, ship);
-      regenerateQuestsIfNewDay(gameData, ship);
-
-      // Auto-restart route if ship is assigned to automated route
-      if (hasRouteAssignment) {
-        // Check auto-refuel before starting next trip
-        checkAutoRefuel(gameData, ship, arrivalLocation.id);
-
-        // Auto-restart next trip (only if route still assigned - may be removed by failed refuel)
-        if (ship.routeAssignment) {
-          autoRestartRouteTrip(gameData, ship, completedQuest);
-        }
-      }
-    } else {
-      activeContract.leg = 'outbound';
-
-      const nextOrigin = originLoc;
-      const nextDestination = destLoc;
-
-      // Auto-refuel to 100% at origin before next outbound trip
-      const hasFuel = tryAutoRefuelForLeg(gameData, ship, arrivalLocation.id);
-
-      if (!hasFuel) {
-        activeContract.paused = true;
-        gameData.isPaused = true;
-        ship.location.status = 'docked';
-        ship.location.dockedAt = arrivalLocation.id;
-        delete ship.location.orbitingAt;
-        delete ship.activeFlightPlan;
-        ship.engine.state = 'off';
-        ship.engine.warmupProgress = 0;
-
-        addLog(
-          gameData.log,
-          gameTime,
-          'arrival',
-          `Low fuel at ${arrivalLocation.name}! Contract "${quest.title}" paused - refuel to continue.`,
-          ship.name
-        );
-
-        checkFirstArrival(gameData, ship, arrivalLocation.id);
-        removeUnpaidCrew(gameData, ship);
-        return;
-      }
-
-      const departed = startShipFlight(
-        ship,
-        nextOrigin,
-        nextDestination,
-        false,
-        ship.flightProfileBurnFraction
-      );
-
-      if (!departed) {
-        // No helm crew — pause contract at current location
-        activeContract.paused = true;
-        ship.location.status = 'docked';
-        ship.location.dockedAt = arrivalLocation.id;
-        delete ship.location.orbitingAt;
-        delete ship.activeFlightPlan;
-        ship.engine.state = 'off';
-        ship.engine.warmupProgress = 0;
-
-        addLog(
-          gameData.log,
-          gameTime,
-          'arrival',
-          `Helm unmanned at ${arrivalLocation.name}! Contract "${quest.title}" paused — assign crew to helm.`,
-          ship.name
-        );
-
-        checkFirstArrival(gameData, ship, arrivalLocation.id);
-        removeUnpaidCrew(gameData, ship);
-        return;
-      }
-
-      addLog(
-        gameData.log,
-        gameTime,
-        'departure',
-        `Departed ${nextOrigin.name} en route to ${nextDestination.name} (${quest.title})`,
-        ship.name
-      );
-    }
+    // More trips needed — flip to outbound, try to continue
+    activeContract.leg = 'outbound';
+    tryDepartNextLeg(gameData, ship, originLoc, destLoc, quest.title);
   }
 }
 
 /**
- * Pause contract at nearest port (dock on arrival)
+ * Pause contract — ship will dock when the current leg completes
+ * instead of continuing the route. `completeLeg` checks
+ * `activeContract.paused` at every leg transition, so this single
+ * flag is the only thing we need to set.
  */
 export function pauseContract(ship: Ship): void {
-  if (!ship.activeContract || !ship.activeFlightPlan) {
+  if (!ship.activeContract) {
     return;
   }
 
-  ship.activeFlightPlan.dockOnArrival = true;
   ship.activeContract.paused = true;
 }
 
