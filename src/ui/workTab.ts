@@ -36,11 +36,16 @@ export interface WorkTabCallbacks {
   onAssignRoute: (questId: string) => void;
   onUnassignRoute: () => void;
   onDockAtNearestPort: () => void;
+  onCancelPause: () => void;
+  onRequestAbandon: () => void;
   onResumeContract: () => void;
   onAbandonContract: () => void;
   onStartMiningRoute: (sellLocationId: string) => void;
   onCancelMiningRoute: () => void;
 }
+
+// Radio-group selection values
+type ActiveAction = 'continue' | 'pause' | 'abandon';
 
 export function createWorkTab(
   gameData: GameData,
@@ -49,40 +54,208 @@ export function createWorkTab(
   const container = document.createElement('div');
   container.className = 'work-tab';
 
-  // Persistent flight profile slider - created once, survives rebuilds
+  // Persistent flight profile slider — created once, survives rebuilds
   const profileControl = createFlightProfileControl(gameData);
 
+  // ── Content area — rebuilt each tick (non-interactive) ──────────
+  const contentArea = document.createElement('div');
+
+  // ── Persistent radio group — created once, updated in-place ────
+  type RadioCardRefs = {
+    card: HTMLLabelElement;
+    radio: HTMLInputElement;
+    labelEl: HTMLElement;
+    descEl: HTMLElement;
+    warnEl: HTMLElement;
+  };
+  let prevPhase: 'none' | 'active' | 'paused' = 'none';
+  // Two-step confirm state for the paused view's abandon button (docked context)
+  let pausedAbandonPending = false;
+  let pausedAbandonTimer: ReturnType<typeof setTimeout> | null = null;
+
+  const radioGroupEl = document.createElement('div');
+  radioGroupEl.className = 'action-radio-group';
+  radioGroupEl.style.display = 'none';
+  const radioCardRefs = new Map<ActiveAction, RadioCardRefs>();
+
+  for (const value of ['continue', 'pause', 'abandon'] as ActiveAction[]) {
+    const card = document.createElement('label');
+    card.className = 'action-radio-card action-radio-card--default';
+
+    const radio = document.createElement('input');
+    radio.type = 'radio';
+    radio.name = 'active-action';
+    radio.value = value;
+    radio.addEventListener('change', () => handleRadioSelect(value));
+    card.appendChild(radio);
+
+    const textWrap = document.createElement('div');
+    textWrap.className = 'action-radio-text';
+
+    const labelEl = document.createElement('div');
+    labelEl.className = 'action-radio-label';
+    textWrap.appendChild(labelEl);
+
+    const descEl = document.createElement('div');
+    descEl.className = 'action-radio-desc';
+    textWrap.appendChild(descEl);
+
+    const warnEl = document.createElement('div');
+    warnEl.className = 'action-radio-warn';
+    warnEl.style.display = 'none';
+    textWrap.appendChild(warnEl);
+
+    card.appendChild(textWrap);
+    radioGroupEl.appendChild(card);
+    radioCardRefs.set(value, { card, radio, labelEl, descEl, warnEl });
+  }
+
+  container.appendChild(contentArea);
+  container.appendChild(radioGroupEl);
+
+  function handleRadioSelect(action: ActiveAction) {
+    if (action === 'continue') {
+      callbacks.onCancelPause();
+    } else if (action === 'pause') {
+      callbacks.onDockAtNearestPort();
+    } else if (action === 'abandon') {
+      callbacks.onRequestAbandon();
+    }
+  }
+
+  function updateRadioGroup(ship: Ship) {
+    const activeContract = ship.activeContract;
+    if (!activeContract) return;
+
+    // Derive selection entirely from game state
+    const selectedAction: ActiveAction = activeContract.abandonRequested
+      ? 'abandon'
+      : activeContract.paused
+        ? 'pause'
+        : 'continue';
+
+    const hasRouteAssignment = !!ship.routeAssignment;
+
+    const optionData: Record<
+      ActiveAction,
+      { label: string; desc: string; warn?: string; style: string }
+    > = {
+      continue: {
+        label: 'Continue flying',
+        desc: 'Ship continues to destination. No changes.',
+        style: 'default',
+      },
+      pause: {
+        label: 'Pause & dock on arrival',
+        desc: 'Contract pauses when you arrive. You keep all earnings. Resume anytime.',
+        style: 'caution',
+      },
+      abandon: {
+        label: 'Abandon contract',
+        desc: `Ends contract on arrival. This trip will not be paid. You keep ${activeContract.creditsEarned.toLocaleString()} cr from completed trips.`,
+        warn: hasRouteAssignment
+          ? 'Your automated route assignment will also end.'
+          : undefined,
+        style: 'danger',
+      },
+    };
+
+    for (const [action, refs] of radioCardRefs) {
+      const data = optionData[action];
+      const isSelected = selectedAction === action;
+
+      refs.radio.checked = isSelected;
+
+      refs.card.className = `action-radio-card action-radio-card--${data.style}`;
+      if (isSelected) refs.card.classList.add('action-radio-card--selected');
+
+      refs.labelEl.textContent = data.label;
+      refs.descEl.textContent = data.desc;
+
+      if (data.warn) {
+        refs.warnEl.textContent = data.warn;
+        refs.warnEl.style.display = '';
+      } else {
+        refs.warnEl.style.display = 'none';
+      }
+    }
+  }
+
   function rebuild(gameData: GameData) {
-    container.replaceChildren();
     const ship = getActiveShip(gameData);
     const activeContract = ship.activeContract;
 
-    if (
-      (ship.location.status === 'docked' ||
-        ship.location.status === 'orbiting') &&
-      !activeContract
-    ) {
-      // Update slider to match current ship setting (e.g. after switching ships)
-      updateFlightProfileControl(profileControl, ship);
-      container.appendChild(profileControl.el);
+    // Phase: paused-while-in-flight stays 'active' so radio buttons
+    // remain visible and the user can toggle their choice freely.
+    const curPhase: 'none' | 'active' | 'paused' = !activeContract
+      ? 'none'
+      : activeContract.paused && ship.location.status !== 'in_flight'
+        ? 'paused'
+        : 'active';
 
-      // Mining status panel
-      const mineLocationId = ship.location.orbitingAt ?? ship.location.dockedAt;
-      const mineLocation = mineLocationId
-        ? gameData.world.locations.find((l) => l.id === mineLocationId)
-        : null;
-      if (mineLocation?.services.includes('mine')) {
-        container.appendChild(
-          renderMiningStatus(gameData, ship, mineLocation, callbacks)
-        );
+    if (curPhase !== prevPhase) {
+      pausedAbandonPending = false;
+      if (pausedAbandonTimer) {
+        clearTimeout(pausedAbandonTimer);
+        pausedAbandonTimer = null;
       }
+      prevPhase = curPhase;
+    }
 
-      const workContent = renderAvailableWork(gameData, callbacks);
-      container.appendChild(workContent);
-    } else if (activeContract && activeContract.paused) {
-      container.appendChild(renderPausedContract(gameData, callbacks));
-    } else if (activeContract) {
-      container.appendChild(renderActiveContract(gameData, callbacks));
+    // Content area: rebuild freely (non-interactive)
+    contentArea.replaceChildren();
+
+    if (curPhase === 'none') {
+      if (
+        (ship.location.status === 'docked' ||
+          ship.location.status === 'orbiting') &&
+        !activeContract
+      ) {
+        updateFlightProfileControl(profileControl, ship);
+        contentArea.appendChild(profileControl.el);
+
+        const mineLocationId =
+          ship.location.orbitingAt ?? ship.location.dockedAt;
+        const mineLocation = mineLocationId
+          ? gameData.world.locations.find((l) => l.id === mineLocationId)
+          : null;
+        if (mineLocation?.services.includes('mine')) {
+          contentArea.appendChild(
+            renderMiningStatus(gameData, ship, mineLocation, callbacks)
+          );
+        }
+
+        contentArea.appendChild(renderAvailableWork(gameData, callbacks));
+      }
+      radioGroupEl.style.display = 'none';
+    } else if (curPhase === 'active') {
+      contentArea.appendChild(renderActiveContractContent(gameData, callbacks));
+      radioGroupEl.style.display = '';
+      updateRadioGroup(ship);
+    } else if (curPhase === 'paused') {
+      contentArea.appendChild(
+        renderPausedContract(gameData, callbacks, pausedAbandonPending, {
+          onResume() {
+            pausedAbandonPending = false;
+            callbacks.onResumeContract();
+          },
+          onAbandon() {
+            if (!pausedAbandonPending) {
+              pausedAbandonPending = true;
+              if (pausedAbandonTimer) clearTimeout(pausedAbandonTimer);
+              pausedAbandonTimer = setTimeout(() => {
+                pausedAbandonPending = false;
+                rebuild(gameData);
+              }, 4000);
+              rebuild(gameData);
+            } else {
+              pausedAbandonPending = false;
+              callbacks.onAbandonContract();
+            }
+          },
+        })
+      );
+      radioGroupEl.style.display = 'none';
     }
   }
 
@@ -433,7 +606,8 @@ function renderQuestCard(
   return card;
 }
 
-function renderActiveContract(
+/** Renders the non-interactive content above the radio group for an active contract. */
+function renderActiveContractContent(
   gameData: GameData,
   callbacks: WorkTabCallbacks
 ): HTMLElement {
@@ -482,12 +656,42 @@ function renderActiveContract(
     activeContract.leg === 'outbound' ? 'Leg: Outbound' : 'Leg: Inbound';
   summary.appendChild(leg);
 
+  // Payment info for current trip
+  const paymentInfo = document.createElement('div');
+  paymentInfo.className = 'contract-payment-hint';
+  if (quest.paymentPerTrip > 0) {
+    paymentInfo.textContent =
+      activeContract.leg === 'outbound'
+        ? `Next payment: ${quest.paymentPerTrip.toLocaleString()} cr on inbound arrival`
+        : `Next payment: ${quest.paymentPerTrip.toLocaleString()} cr on arrival`;
+  } else if (quest.paymentOnCompletion > 0) {
+    paymentInfo.textContent = `Completion bonus: ${quest.paymentOnCompletion.toLocaleString()} cr`;
+  }
+  summary.appendChild(paymentInfo);
+
   const earned = document.createElement('div');
   earned.className = 'contract-earned';
   earned.textContent = `Earned so far: ${activeContract.creditsEarned.toLocaleString()} credits`;
   summary.appendChild(earned);
 
   container.appendChild(summary);
+
+  // Status hint when a deferred action is pending
+  if (ship.location.status === 'in_flight') {
+    if (activeContract.abandonRequested) {
+      const hint = document.createElement('div');
+      hint.className = 'contract-pause-hint';
+      hint.textContent =
+        'Contract will be abandoned on arrival. Change selection below to cancel.';
+      container.appendChild(hint);
+    } else if (activeContract.paused) {
+      const hint = document.createElement('div');
+      hint.className = 'contract-pause-hint';
+      hint.textContent =
+        'Ship will dock on arrival. Change selection below to cancel.';
+      container.appendChild(hint);
+    }
+  }
 
   // Flight status
   if (flight) {
@@ -512,30 +716,19 @@ function renderActiveContract(
 
   container.appendChild(fuelGauge);
 
-  // Actions
-  const actions = document.createElement('div');
-  actions.className = 'contract-actions';
-
-  const dockBtn = document.createElement('button');
-  dockBtn.className = 'dock-button';
-  dockBtn.textContent = 'Dock at nearest port';
-  dockBtn.addEventListener('click', () => callbacks.onDockAtNearestPort());
-  actions.appendChild(dockBtn);
-
-  const abandonBtn = document.createElement('button');
-  abandonBtn.className = 'abandon-button';
-  abandonBtn.textContent = 'Abandon contract';
-  abandonBtn.addEventListener('click', () => callbacks.onAbandonContract());
-  actions.appendChild(abandonBtn);
-
-  container.appendChild(actions);
-
   return container;
+}
+
+interface PausedActionCallbacks {
+  onResume(): void;
+  onAbandon(): void;
 }
 
 function renderPausedContract(
   gameData: GameData,
-  callbacks: WorkTabCallbacks
+  callbacks: WorkTabCallbacks,
+  abandonConfirmPending: boolean,
+  actionCbs: PausedActionCallbacks
 ): HTMLElement {
   const container = document.createElement('div');
   container.className = 'paused-contract';
@@ -545,6 +738,11 @@ function renderPausedContract(
 
   if (!activeContract) {
     return container;
+  }
+
+  // Show route assignment info if ship is on automated route
+  if (ship.routeAssignment) {
+    container.appendChild(renderRouteAssignmentInfo(gameData, callbacks));
   }
 
   const quest = activeContract.quest;
@@ -561,6 +759,16 @@ function renderPausedContract(
   pausedBadge.className = 'paused-badge';
   pausedBadge.textContent = 'PAUSED';
   summary.appendChild(pausedBadge);
+
+  // Context-aware reassurance message
+  const flight = ship.activeFlightPlan;
+  const stillInFlight = ship.location.status === 'in_flight' && flight;
+  const pauseHint = document.createElement('div');
+  pauseHint.className = 'contract-pause-hint';
+  pauseHint.textContent = stillInFlight
+    ? 'Ship will dock on arrival. Resume to continue earning.'
+    : 'Docked mid-route — resume to continue earning.';
+  summary.appendChild(pauseHint);
 
   const progress = document.createElement('div');
   progress.className = 'contract-progress';
@@ -582,21 +790,46 @@ function renderPausedContract(
 
   container.appendChild(summary);
 
-  // Actions
-  const actions = document.createElement('div');
-  actions.className = 'contract-actions';
+  // Flight status (visible when ship is still en route to dock)
+  if (stillInFlight) {
+    container.appendChild(renderFlightStatus(flight, gameData, ship));
+  }
 
+  // ─── Action Buttons ───────────────────────────────────────────
+  const actions = document.createElement('div');
+  actions.className = 'paused-action-buttons';
+
+  // Resume button (primary)
   const resumeBtn = document.createElement('button');
-  resumeBtn.className = 'resume-button';
+  resumeBtn.className = 'action-confirm-btn action-confirm-btn--primary';
   resumeBtn.textContent = 'Resume contract';
-  resumeBtn.addEventListener('click', () => callbacks.onResumeContract());
+  resumeBtn.addEventListener('click', () => actionCbs.onResume());
   actions.appendChild(resumeBtn);
 
+  // Abandon button (danger, two-step)
+  const hasRouteAssignment = !!ship.routeAssignment;
   const abandonBtn = document.createElement('button');
-  abandonBtn.className = 'abandon-button';
-  abandonBtn.textContent = 'Abandon contract';
-  abandonBtn.addEventListener('click', () => callbacks.onAbandonContract());
+  abandonBtn.className = 'action-confirm-btn';
+
+  if (abandonConfirmPending) {
+    abandonBtn.textContent = 'Are you sure? Click again to abandon';
+    abandonBtn.classList.add('action-confirm-btn--danger-hot');
+  } else {
+    abandonBtn.textContent = 'Abandon contract';
+    abandonBtn.classList.add('action-confirm-btn--danger');
+  }
+  abandonBtn.addEventListener('click', () => actionCbs.onAbandon());
   actions.appendChild(abandonBtn);
+
+  // Consequence text below buttons
+  const abandonHint = document.createElement('div');
+  abandonHint.className = 'action-button-hint';
+  let hintText = `Abandon ends contract permanently. You keep ${activeContract.creditsEarned.toLocaleString()} cr from completed trips.`;
+  if (hasRouteAssignment) {
+    hintText += ' Your automated route assignment will also end.';
+  }
+  abandonHint.textContent = hintText;
+  actions.appendChild(abandonHint);
 
   container.appendChild(actions);
 

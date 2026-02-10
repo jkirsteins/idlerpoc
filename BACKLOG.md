@@ -36,6 +36,44 @@ This file tracks deferred features and known gaps that are not currently priorit
 - **Hub Station Route Bonuses**: +10% payment for multi-leg routes using major stations as waypoints. Rewards emergent route planning.
 - **Standing Freight Distance Multiplier**: Increase standing freight pay multiplier for long routes (0.7x → 0.9x). See `docs/quest-economics-validation.md`.
 
+## Ship Equipment Variety (Build Differentiation)
+
+Current ship equipment (20 items) is dominated by mandatory survival systems. "Free choice" slots have limited options for specialization. Key gaps:
+
+### Offensive Ship Weapons
+
+- **Ship-to-ship weapons category**: Currently zero offensive weapons exist. PD turrets and deflectors are purely reactive. Need weapons like railguns, missile launchers, torpedo systems with tiers and tradeoffs (damage/speed, range, power draw, ammo).
+- **Weapon progression**: Light → Medium → Heavy tiers so combat builds can invest in firepower, not just passive defense score.
+- **Weapon type tradeoffs**: High damage/slow (railgun) vs low damage/fast (autocannon), long range (missiles) vs short range (point-blank lasers). Different weapons could be more effective against different encounter types.
+
+### Shield Tiers
+
+- **Energy shield equipment**: Active shields with meaningful power draw tradeoffs (light/medium/heavy). Current deflectors give flat +5/+10 bonuses with no progression path.
+- **Shield types**: Could differentiate kinetic vs energy vs radiation protection for build variety.
+
+### Trade/Cargo Equipment
+
+- **Cargo expanders**: Increase cargo capacity at the cost of equipment slots.
+- **Fuel efficiency modules**: Reduce fuel consumption (overlaps with "Fuel Efficiency Upgrades" in Fuel/Cargo section).
+- **Trade computers / route optimizers**: Boost commerce skill gains or improve trade route pay.
+- **Smuggling compartments**: Hidden cargo space that avoids pirate seizure during boarding.
+
+### Sensor/Scanner Progression
+
+- **Scanner tiers**: Short/medium/long range detection upgrades (currently only one nav scanner).
+- **Specialized scanners**: Mining survey scanner (boost ore detection), threat scanner (improve evasion), anomaly scanner (future exploration content).
+
+### Crew Weapons & Armor Depth
+
+- **Mid-tier weapons**: Gap between sidearm (3 atk) and rifle (7 atk). Could add shotgun, SMG, or energy pistol.
+- **Heavy weapons**: Crew-portable heavy weapons for high-skill combatants.
+- **Armor tiers**: Only 1 armor piece (ballistic vest). Need light/medium/heavy armor with weight/protection tradeoffs.
+- **Specialized combat gear**: Stun grenades, breaching charges, combat drugs — items that modify boarding outcomes.
+
+### Engine Variety (see also Engine Design below)
+
+- Engines are in decent shape (9 types across 4 drive classes) but could benefit from more lateral choices within tiers rather than just linear upgrades.
+
 ## Engine Design
 
 - **Slow-Start High-Efficiency Engine Type**: An engine class that trades very long warmup times (e.g., 2+ game days) for significantly better fuel efficiency once running. Creates a strategic choice: quick departure vs. fuel savings on long hauls. Would reward players who plan ahead and start warmup early. Could pair with a "pre-heat while docked" mechanic.

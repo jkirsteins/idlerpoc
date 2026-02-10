@@ -161,6 +161,8 @@ export function createTabbedView(
           onAssignRoute: callbacks.onAssignRoute,
           onUnassignRoute: callbacks.onUnassignRoute,
           onDockAtNearestPort: callbacks.onDockAtNearestPort,
+          onCancelPause: callbacks.onCancelPause,
+          onRequestAbandon: callbacks.onRequestAbandon,
           onResumeContract: callbacks.onResumeContract,
           onAbandonContract: callbacks.onAbandonContract,
           onStartMiningRoute: callbacks.onStartMiningRoute,

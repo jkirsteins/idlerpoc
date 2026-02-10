@@ -218,8 +218,8 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
       {
         heading: 'Contract Management',
         paragraphs: [
-          'You can only have one active contract per ship at a time. Contracts can be paused, resumed, or abandoned.',
-          'Abandoning a contract forfeits any earned payments and may affect future contract availability.',
+          'You can only have one active contract per ship at a time. While in flight you can choose to continue, pause and dock on arrival, or abandon the contract.',
+          'Pausing a contract preserves all progress — resume anytime from the docked state. Abandoning a contract ends it permanently, but you keep credits earned from completed trips. The current in-progress trip will not be paid.',
           'Quest cards show estimated fuel cost, trip time, [[crew-salaries|crew salary]] cost, and projected profit/loss based on your current [[flight-physics|flight profile]].',
         ],
       },

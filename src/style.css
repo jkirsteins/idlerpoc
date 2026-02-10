@@ -888,6 +888,10 @@ button.small-button:hover {
   background: #e94560;
 }
 
+.bar-inactive {
+  background: #333;
+}
+
 /* Custom Tooltip */
 .custom-tooltip {
   position: absolute;
@@ -2004,6 +2008,192 @@ button:disabled:hover {
   transition: width 0.3s;
 }
 
+/* ── Contract Action Radio Group ────────────────────────────── */
+
+.action-radio-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.action-radio-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid #333;
+  border-radius: 6px;
+  cursor: pointer;
+  transition:
+    border-color 0.15s,
+    background 0.15s;
+}
+
+.action-radio-card:hover {
+  border-color: #555;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.action-radio-card--selected.action-radio-card--default {
+  border-color: #4ecdc4;
+  background: rgba(78, 205, 196, 0.08);
+}
+
+.action-radio-card--selected.action-radio-card--caution {
+  border-color: #ffa500;
+  background: rgba(255, 165, 0, 0.08);
+}
+
+.action-radio-card--selected.action-radio-card--danger {
+  border-color: #ff6b6b;
+  background: rgba(255, 107, 107, 0.08);
+}
+
+.action-radio-card--danger-hot {
+  border-color: #cc0000;
+  background: rgba(204, 0, 0, 0.15);
+  animation: danger-pulse-border 0.6s ease-in-out infinite alternate;
+}
+
+@keyframes danger-pulse-border {
+  from {
+    border-color: #cc0000;
+  }
+  to {
+    border-color: #ff4444;
+  }
+}
+
+.action-radio-card input[type='radio'] {
+  margin-top: 3px;
+  accent-color: #4ecdc4;
+  flex-shrink: 0;
+}
+
+.action-radio-card--danger input[type='radio'] {
+  accent-color: #ff6b6b;
+}
+
+.action-radio-card--caution input[type='radio'] {
+  accent-color: #ffa500;
+}
+
+.action-radio-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.action-radio-label {
+  font-weight: bold;
+  font-size: 14px;
+  margin-bottom: 2px;
+}
+
+.action-radio-desc {
+  font-size: 12px;
+  color: #999;
+  line-height: 1.35;
+}
+
+.action-radio-warn {
+  font-size: 12px;
+  color: #ffa500;
+  margin-top: 4px;
+}
+
+/* Confirm button (appears below radio group) */
+
+.action-confirm-btn {
+  width: 100%;
+  padding: 10px;
+  font-size: 14px;
+  font-weight: bold;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    transform 0.1s;
+}
+
+.action-confirm-btn:active {
+  transform: scale(0.98);
+}
+
+.action-confirm-btn--primary {
+  background: #4ecdc4;
+  color: #1a1a2e;
+}
+
+.action-confirm-btn--primary:hover {
+  background: #3db3aa;
+}
+
+.action-confirm-btn--caution {
+  background: #ffa500;
+  color: #1a1a2e;
+}
+
+.action-confirm-btn--caution:hover {
+  background: #e69500;
+}
+
+.action-confirm-btn--danger {
+  background: #ff6b6b;
+  color: #fff;
+}
+
+.action-confirm-btn--danger:hover {
+  background: #e65555;
+}
+
+.action-confirm-btn--danger-hot {
+  background: #cc0000;
+  color: #fff;
+  animation: danger-pulse 0.6s ease-in-out infinite alternate;
+}
+
+@keyframes danger-pulse {
+  from {
+    background: #cc0000;
+  }
+  to {
+    background: #e63333;
+  }
+}
+
+/* Payment hint and pause hint */
+
+.contract-payment-hint {
+  margin-bottom: 8px;
+  color: #4ecdc4;
+  font-size: 13px;
+}
+
+.contract-pause-hint {
+  margin-top: 8px;
+  margin-bottom: 8px;
+  color: #4ecdc4;
+  font-size: 13px;
+  font-style: italic;
+}
+
+/* Paused contract button layout */
+.paused-action-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.action-button-hint {
+  font-size: 12px;
+  color: #888;
+  line-height: 1.35;
+  padding: 0 2px;
+}
+
+/* Legacy button styles (still used by route assignment End button) */
 .contract-actions {
   display: flex;
   gap: 12px;
