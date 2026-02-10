@@ -812,7 +812,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
           'Each ship has a flight profile slider (Economy to Max Speed) that controls the burn fraction of the delta-v budget.',
           'Economy: More coasting, less fuel, longer trip, more [[zero-g-exposure|zero-g exposure]].',
           'Max Speed: Maximum burns, more fuel, shorter trip, less zero-g but more fuel cost.',
-          'Quest cards show profile-aware estimates so you can make informed decisions.',
+          'The slider is available on the Work tab and the [[navigation|Navigation Chart]]. Adjusting it on either tab updates travel time and fuel estimates in real time.',
         ],
       },
       {
@@ -1041,6 +1041,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
           'Before departure, your [[crew-roles|pilot]] plots a course. Navigation quality depends on [[skill-system|piloting]] skill and [[ship-equipment|equipment]].',
           'Good navigation reduces debris [[encounters|encounters]], improves fuel efficiency, and gives better hazard warnings.',
           'Locations shown as unreachable are beyond your current fuel range at the selected [[flight-physics|flight profile]].',
+          'Use the [[flight-physics|flight profile]] slider on the Nav tab to choose between economy (less fuel, longer trip) and max speed (more fuel, shorter trip) before departing. Travel time and fuel estimates update as you adjust.',
         ],
       },
     ],

@@ -23,6 +23,10 @@ import {
 import { formatDualTime } from '../timeSystem';
 import type { Component } from './component';
 import { formatFuelMass } from './fuelFormatting';
+import {
+  createFlightProfileControl,
+  updateFlightProfileControl,
+} from './flightProfileControl';
 
 const NAV_SERVICE_LABELS: Record<string, { icon: string; label: string }> = {
   refuel: { icon: '⛽', label: 'Fuel' },
@@ -51,7 +55,19 @@ export function createNavigationView(
   const container = document.createElement('div');
   container.className = 'navigation-view';
 
+  // Persistent flight profile slider - created once, survives rebuilds
+  const profileControl = createFlightProfileControl(gameData);
+
+  // Track latest gameData so slider input can trigger immediate estimate refresh
+  let latestGameData = gameData;
+
+  // When slider changes, rebuild immediately so travel estimates update
+  profileControl.slider.addEventListener('input', () => {
+    rebuild(latestGameData);
+  });
+
   function rebuild(gameData: GameData) {
+    latestGameData = gameData;
     container.replaceChildren();
     const ship = getActiveShip(gameData);
 
@@ -151,6 +167,12 @@ export function createNavigationView(
     }
 
     container.appendChild(mapArea);
+
+    // Flight profile slider — shown when ship can depart
+    if (canStartTrips) {
+      updateFlightProfileControl(profileControl, ship);
+      container.appendChild(profileControl.el);
+    }
 
     // Legend
     const legend = document.createElement('div');
