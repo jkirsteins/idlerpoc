@@ -41,31 +41,37 @@ This file tracks deferred features and known gaps that are not currently priorit
 Current ship equipment (20 items) is dominated by mandatory survival systems. "Free choice" slots have limited options for specialization. Key gaps:
 
 ### Offensive Ship Weapons
+
 - **Ship-to-ship weapons category**: Currently zero offensive weapons exist. PD turrets and deflectors are purely reactive. Need weapons like railguns, missile launchers, torpedo systems with tiers and tradeoffs (damage/speed, range, power draw, ammo).
 - **Weapon progression**: Light → Medium → Heavy tiers so combat builds can invest in firepower, not just passive defense score.
 - **Weapon type tradeoffs**: High damage/slow (railgun) vs low damage/fast (autocannon), long range (missiles) vs short range (point-blank lasers). Different weapons could be more effective against different encounter types.
 
 ### Shield Tiers
+
 - **Energy shield equipment**: Active shields with meaningful power draw tradeoffs (light/medium/heavy). Current deflectors give flat +5/+10 bonuses with no progression path.
 - **Shield types**: Could differentiate kinetic vs energy vs radiation protection for build variety.
 
 ### Trade/Cargo Equipment
+
 - **Cargo expanders**: Increase cargo capacity at the cost of equipment slots.
 - **Fuel efficiency modules**: Reduce fuel consumption (overlaps with "Fuel Efficiency Upgrades" in Fuel/Cargo section).
 - **Trade computers / route optimizers**: Boost commerce skill gains or improve trade route pay.
 - **Smuggling compartments**: Hidden cargo space that avoids pirate seizure during boarding.
 
 ### Sensor/Scanner Progression
+
 - **Scanner tiers**: Short/medium/long range detection upgrades (currently only one nav scanner).
 - **Specialized scanners**: Mining survey scanner (boost ore detection), threat scanner (improve evasion), anomaly scanner (future exploration content).
 
 ### Crew Weapons & Armor Depth
+
 - **Mid-tier weapons**: Gap between sidearm (3 atk) and rifle (7 atk). Could add shotgun, SMG, or energy pistol.
 - **Heavy weapons**: Crew-portable heavy weapons for high-skill combatants.
 - **Armor tiers**: Only 1 armor piece (ballistic vest). Need light/medium/heavy armor with weight/protection tradeoffs.
 - **Specialized combat gear**: Stun grenades, breaching charges, combat drugs — items that modify boarding outcomes.
 
 ### Engine Variety (see also Engine Design below)
+
 - Engines are in decent shape (9 types across 4 drive classes) but could benefit from more lateral choices within tiers rather than just linear upgrades.
 
 ## Engine Design
@@ -97,6 +103,12 @@ Current ship equipment (20 items) is dominated by mandatory survival systems. "F
 ## EVA System
 
 - **EVA (Extra-Vehicular Activity)**: Crew EVA system for outside-the-ship operations. Would enable hand-mining of specific asteroid targets, ship hull inspection/repair, cargo transfer between ships, and salvage operations. Requires EVA suit crew equipment, airlock room type, and EVA skill or EVA-related piloting checks. Could tie into mining (artisanal hand-mining of rare samples) and repair (hull patch jobs) gameplay loops.
+
+## Deferred Spatial Model Features
+
+- **2D/3D Coordinate System**: Replace the current 1D distance-from-Earth model with proper 2D (or 3D) coordinates for world locations. Would enable meaningful off-corridor routes, orbital mechanics, and spatial awareness beyond a single line. Prerequisite for: patrol corridor system, off-route danger scaling, orbital position tracking.
+- **Patrol Corridor System**: Define patrolled routes between major locations. Ships traveling along established corridors get reduced encounter rates; deviating into unpatrolled space increases danger. Only meaningful with 2D+ coordinates where "off-corridor" is spatially distinct from "on-corridor."
+- **Orbital Position Drift**: Planets and stations move over time (orbital periods). Distance between locations changes dynamically, creating seasonal trade routes and variable travel times.
 
 ## Duplicate Logic Consolidation (DONE)
 

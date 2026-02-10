@@ -1068,12 +1068,59 @@ const callbacks: RendererCallbacks = {
   onStartTrip: (destinationId: string) => {
     if (state.phase !== 'playing') return;
     const ship = getActiveShip(state.gameData);
+    if (ship.activeContract) return;
+
+    const destination = state.gameData.world.locations.find(
+      (l) => l.id === destinationId
+    );
+    if (!destination) return;
+
+    // Mid-flight redirect
+    if (ship.location.status === 'in_flight') {
+      if (ship.miningRoute) return;
+
+      void Promise.all([
+        import('./flightPhysics'),
+        import('./encounterSystem'),
+      ]).then(([{ redirectShipFlight }, { getShipPositionKm }]) => {
+        if (state.phase !== 'playing') return;
+
+        const currentKm = getShipPositionKm(ship, state.gameData.world);
+        const prevDest = state.gameData.world.locations.find(
+          (l) => l.id === ship.activeFlightPlan?.destination
+        );
+
+        const redirected = redirectShipFlight(
+          ship,
+          currentKm,
+          destination,
+          true,
+          ship.flightProfileBurnFraction
+        );
+
+        if (!redirected) return;
+
+        addLog(
+          state.gameData.log,
+          state.gameData.gameTime,
+          'departure',
+          `Redirected from ${prevDest?.name ?? 'unknown'} course to ${destination.name}`,
+          ship.name
+        );
+
+        state.showNavigation = false;
+        saveGame(state.gameData);
+        renderApp();
+      });
+      return;
+    }
+
+    // Standard departure from station/orbit
     if (
       ship.location.status !== 'docked' &&
       ship.location.status !== 'orbiting'
     )
       return;
-    if (ship.activeContract) return;
 
     const currentLocationId =
       ship.location.dockedAt || ship.location.orbitingAt;
@@ -1082,11 +1129,7 @@ const callbacks: RendererCallbacks = {
     const origin = state.gameData.world.locations.find(
       (l) => l.id === currentLocationId
     );
-    const destination = state.gameData.world.locations.find(
-      (l) => l.id === destinationId
-    );
-
-    if (!origin || !destination) return;
+    if (!origin) return;
 
     void import('./flightPhysics').then(({ startShipFlight }) => {
       if (state.phase !== 'playing') return;

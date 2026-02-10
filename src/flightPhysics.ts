@@ -393,6 +393,7 @@ export function initializeFlight(
   return {
     origin: origin.id,
     destination: destination.id,
+    originKm: origin.distanceFromEarth,
     totalDistance: distanceMeters,
     distanceCovered: 0,
     currentVelocity: 0,
@@ -439,6 +440,50 @@ export function startShipFlight(
 
   ship.engine.state = 'warming_up';
   ship.engine.warmupProgress = 0;
+
+  return true;
+}
+
+/**
+ * Redirect a ship that is already in flight to a new destination.
+ * Replaces the current flight plan with a new one starting from the
+ * ship's current interpolated position. Engine stays online (no warmup).
+ *
+ * Returns false (and does nothing) when helm is unmanned.
+ */
+export function redirectShipFlight(
+  ship: Ship,
+  currentKm: number,
+  destination: WorldLocation,
+  dockOnArrival: boolean = false,
+  burnFraction: number = 1.0
+): boolean {
+  if (!isHelmManned(ship)) {
+    return false;
+  }
+
+  // Build a virtual origin at the ship's current position
+  const virtualOrigin = {
+    distanceFromEarth: currentKm,
+    id: ship.activeFlightPlan?.origin ?? '',
+  } as WorldLocation;
+
+  ship.activeFlightPlan = initializeFlight(
+    ship,
+    virtualOrigin,
+    destination,
+    dockOnArrival,
+    burnFraction
+  );
+
+  // Override originKm to the exact interpolated position
+  ship.activeFlightPlan.originKm = currentKm;
+
+  // Engine is already running — no warmup needed
+  if (ship.engine.state !== 'online') {
+    ship.engine.state = 'online';
+    ship.engine.warmupProgress = 100;
+  }
 
   return true;
 }
