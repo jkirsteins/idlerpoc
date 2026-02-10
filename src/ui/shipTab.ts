@@ -5,7 +5,13 @@ import { getRoomDefinition } from '../rooms';
 import { getCrewRoleName } from '../crewRoles';
 import { computePowerStatus } from '../powerSystem';
 import { computeOxygenStatus } from '../lifeSupportSystem';
-import { getEquipmentDefinition, getCategoryLabel } from '../equipment';
+import {
+  getEquipmentDefinition,
+  getCategoryLabel,
+  getEffectiveRadiationShielding,
+  getEffectiveHeatDissipation,
+} from '../equipment';
+import { calculateRepairPoints } from '../crewRoles';
 import { calculateDefenseScore } from '../combatSystem';
 import { getEngineDefinition } from '../engines';
 import { createNavigationView } from './navigationView';
@@ -429,15 +435,7 @@ function renderRadiationBar(gameData: GameData): HTMLElement {
   const engineDef = getEngineDefinition(ship.engine.definitionId);
   const engineRadiation = engineDef.radiationOutput || 0;
 
-  let totalShielding = 0;
-  for (const eq of ship.equipment) {
-    const eqDef = getEquipmentDefinition(eq.definitionId);
-    if (eqDef?.radiationShielding) {
-      const effectiveness = 1 - eq.degradation / 200;
-      totalShielding += eqDef.radiationShielding * effectiveness;
-    }
-  }
-
+  const totalShielding = getEffectiveRadiationShielding(ship);
   const netRadiation = Math.max(0, engineRadiation - totalShielding);
   const percentage =
     engineRadiation > 0 ? (netRadiation / engineRadiation) * 100 : 0;
@@ -468,15 +466,7 @@ function renderHeatBar(gameData: GameData): HTMLElement {
   const engineDef = getEngineDefinition(ship.engine.definitionId);
   const engineHeat = engineDef.wasteHeatOutput || 0;
 
-  let totalDissipation = 0;
-  for (const eq of ship.equipment) {
-    const eqDef = getEquipmentDefinition(eq.definitionId);
-    if (eqDef?.heatDissipation) {
-      const effectiveness = 1 - eq.degradation / 200;
-      totalDissipation += eqDef.heatDissipation * effectiveness;
-    }
-  }
-
+  const totalDissipation = getEffectiveHeatDissipation(ship);
   const excessHeat = Math.max(0, engineHeat - totalDissipation);
   const percentage = engineHeat > 0 ? (excessHeat / engineHeat) * 100 : 0;
 
@@ -1059,7 +1049,7 @@ function renderShipJobsCard(
     for (const slot of repairSlots) {
       const crew = ship.crew.find((c) => c.id === slot.assignedCrewId);
       if (crew) {
-        totalRepairPts += crew.skills.piloting * 0.05;
+        totalRepairPts += calculateRepairPoints(crew);
       }
     }
     const degradedCount = ship.equipment.filter(

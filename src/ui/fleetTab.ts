@@ -5,8 +5,8 @@ import { getEngineDefinition } from '../engines';
 import {
   calculateAvailableCargoCapacity,
   computeMaxRange,
-  calculateFuelCost,
 } from '../flightPhysics';
+import { calculateTripFuelKg } from '../questGen';
 import { getDistanceBetween } from '../worldGen';
 import { createFleetPanel } from './fleetPanel';
 import { formatDualTime } from '../timeSystem';
@@ -352,11 +352,9 @@ function renderFleetMap(
       } else if (currentLocation) {
         // Check if ship can reach this location
         const shipClass = getShipClass(ship.classId);
-        const engineDef = getEngineDefinition(ship.engine.definitionId);
         if (shipClass) {
-          const maxRangeKm = computeMaxRange(shipClass, engineDef);
           const distanceKm = getDistanceBetween(currentLocation, location);
-          const fuelCostKg = calculateFuelCost(distanceKm, maxRangeKm);
+          const fuelCostKg = calculateTripFuelKg(ship, distanceKm);
 
           if (fuelCostKg <= ship.fuelKg) {
             cell.textContent = '✓';

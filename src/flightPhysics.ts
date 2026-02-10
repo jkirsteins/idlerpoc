@@ -19,6 +19,33 @@ import { isHelmManned } from './jobSlots';
 const G0 = 9.81; // m/s²
 
 /**
+ * Shared mass constants used across flight physics, quest generation,
+ * and fleet analytics. Centralised here to avoid divergent copies.
+ */
+export const CREW_MASS_KG = 80; // ~80 kg per crew member
+export const CARGO_ITEM_MASS_KG = 10; // ~10 kg per cargo item (will be refined later)
+
+/**
+ * Fraction of shared cargo volume allocated to fuel tanks.
+ * Fuel and cargo compete for the same internal volume: 70% fuel, 30% cargo.
+ */
+export const FUEL_CARGO_SPLIT = 0.7;
+
+/**
+ * Calculate the dry mass of a ship — everything except fuel.
+ * Includes hull, crew, and cargo.
+ */
+export function calculateDryMass(ship: Ship): number {
+  const shipClass = getShipClass(ship.classId);
+  if (!shipClass) return 200000; // fallback for unknown class
+  return (
+    shipClass.mass +
+    ship.crew.length * CREW_MASS_KG +
+    ship.cargo.reduce((sum) => sum + CARGO_ITEM_MASS_KG, 0)
+  );
+}
+
+/**
  * Calculate fuel tank capacity based on ship class cargo capacity
  *
  * Design Decision (from fuel-cargo-tradeoff-design.md):
@@ -37,11 +64,7 @@ export function calculateFuelTankCapacity(
   cargoCapacity: number,
   _engineDef: EngineDefinition
 ): number {
-  // Fixed 70/30 fuel/cargo split for MVP
-  // Future: Could vary by ship class or be player-configurable
-  const FUEL_FRACTION = 0.7;
-
-  return cargoCapacity * FUEL_FRACTION;
+  return cargoCapacity * FUEL_CARGO_SPLIT;
 }
 
 /**
@@ -52,8 +75,7 @@ export function calculateFuelTankCapacity(
  * All cargo validation should use this function instead of raw cargoCapacity.
  */
 export function calculateAvailableCargoCapacity(cargoCapacity: number): number {
-  const FUEL_FRACTION = 0.7;
-  return cargoCapacity * (1 - FUEL_FRACTION);
+  return cargoCapacity * (1 - FUEL_CARGO_SPLIT);
 }
 
 /**
@@ -65,19 +87,7 @@ export function getCurrentShipMass(ship: Ship): number {
     throw new Error(`Unknown ship class: ${ship.classId}`);
   }
 
-  const dryMass = shipClass.mass;
-  const fuelMass = ship.fuelKg;
-
-  // Calculate cargo mass (crew equipment in cargo hold)
-  const cargoMass = ship.cargo.reduce((sum, _item) => {
-    // Approximate mass for crew equipment (will be refined later)
-    return sum + 10; // ~10kg per item average
-  }, 0);
-
-  // Calculate crew mass (~80kg per person)
-  const crewMass = ship.crew.length * 80;
-
-  return dryMass + fuelMass + cargoMass + crewMass;
+  return calculateDryMass(ship) + ship.fuelKg;
 }
 
 /**
@@ -255,13 +265,7 @@ export function calculateOneLegFuelKg(
   const thrust = engineDef.thrust;
   const specificImpulse = getSpecificImpulse(engineDef);
 
-  // Dry mass = everything except fuel
-  const dryMass =
-    shipClass.mass +
-    ship.crew.length * 80 +
-    ship.cargo.reduce((sum, _item) => sum + 10, 0);
-
-  // Current wet mass
+  const dryMass = calculateDryMass(ship);
   const currentMass = getCurrentShipMass(ship);
 
   // Acceleration (using current mass for consistency with initializeFlight)
@@ -286,24 +290,6 @@ export function calculateOneLegFuelKg(
   const legDeltaV = Math.min(brachistochroneDeltaV, allocatedDeltaV);
 
   return calculateFuelMassRequired(dryMass, legDeltaV, specificImpulse);
-}
-
-/**
- * TEMPORARY STUB: Calculate fuel cost for a trip
- * TODO: Replace with proper implementation using Tsiolkovsky equation
- * Returns fuel mass in kg required for the trip
- */
-export function calculateFuelCost(
-  distanceKm: number,
-  maxRangeKm: number
-): number {
-  // Simple linear approximation for now
-  // This should be replaced with proper Tsiolkovsky calculation
-  if (maxRangeKm === 0) return 0;
-  const fraction = distanceKm / maxRangeKm;
-  // With corrected fuel capacity (28,000 kg for Wayfarer),
-  // assume max range uses ~90% of fuel (25,200 kg)
-  return fraction * 25200; // Linear approximation of fuel usage
 }
 
 /**
@@ -340,7 +326,7 @@ export function initializeFlight(
   const specificImpulse = getSpecificImpulse(engineDef);
 
   // Calculate available delta-v with current fuel
-  const dryMass = shipClass.mass + ship.crew.length * 80; // dry mass + crew
+  const dryMass = calculateDryMass(ship);
   const wetMass = currentMass;
   const availableDeltaV = calculateDeltaV(wetMass, dryMass, specificImpulse);
 

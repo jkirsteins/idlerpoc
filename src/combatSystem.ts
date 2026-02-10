@@ -16,6 +16,7 @@ import {
   type SkillEvent,
 } from './skillProgression';
 import { getCrewForJobType } from './jobSlots';
+import { getBestCrewSkill } from './crewRoles';
 
 /**
  * Combat System
@@ -164,12 +165,7 @@ export function attemptEvasion(ship: Ship): {
   const scannerCrew = getCrewForJobType(ship, 'scanner');
   const helmCrew = getCrewForJobType(ship, 'helm');
   const bridgeCrew = [...scannerCrew, ...helmCrew];
-  let bestPiloting = 0;
-  for (const crew of bridgeCrew) {
-    if (crew.skills.piloting > bestPiloting) {
-      bestPiloting = crew.skills.piloting;
-    }
-  }
+  const bestPiloting = getBestCrewSkill(bridgeCrew, 'piloting');
   const pilotingBonus = bestPiloting * COMBAT_CONSTANTS.EVASION_SKILL_FACTOR;
 
   const chance = velocityFactor + scannerBonus + pilotingBonus;

@@ -1,5 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { initializeFlight, advanceFlight } from '../flightPhysics';
+import {
+  initializeFlight,
+  advanceFlight,
+  CREW_MASS_KG,
+} from '../flightPhysics';
 import { createTestShip } from './testHelpers';
 import { generateWorld } from '../worldGen';
 import { getShipClass } from '../shipClasses';
@@ -90,7 +94,8 @@ describe('flightPhysics', () => {
       const shipClass = getShipClass(ship.classId)!;
       const engineDef = getEngineDefinition(ship.engine.definitionId);
       // Use total mass (dry + fuel + cargo + crew) like initializeFlight does
-      const totalMass = shipClass.mass + ship.fuelKg + ship.crew.length * 80;
+      const totalMass =
+        shipClass.mass + ship.fuelKg + ship.crew.length * CREW_MASS_KG;
       const acceleration = engineDef.thrust / totalMass;
 
       // Create two very close locations
@@ -168,7 +173,7 @@ describe('flightPhysics', () => {
 
       // With realistic physics, delta-v comes from Tsiolkovsky equation
       // Calculate expected delta-v with current fuel
-      const dryMass = shipClass.mass + ship.crew.length * 80;
+      const dryMass = shipClass.mass + ship.crew.length * CREW_MASS_KG;
       const wetMass = dryMass + ship.fuelKg;
       const specificImpulse = 900; // NTR-200 from WORLDRULES.md
       const G0 = 9.81;

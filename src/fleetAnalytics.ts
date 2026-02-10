@@ -1,15 +1,16 @@
 import type { GameData, Ship, Quest } from './models';
 import { getShipClass } from './shipClasses';
-import { getEngineDefinition } from './engines';
 import {
   calculateAvailableCargoCapacity,
-  calculateFuelMassRequired,
-  getCurrentShipMass,
-  getSpecificImpulse,
+  calculateOneLegFuelKg,
 } from './flightPhysics';
-import { getCrewRoleDefinition } from './crewRoles';
+import { calculateShipSalaryPerTick } from './crewRoles';
 import { getDistanceBetween } from './worldGen';
 import { TICKS_PER_DAY } from './timeSystem';
+
+// Average fuel price for profit estimates (matches questGen.ts FUEL_PRICE_PER_KG).
+// Actual station prices vary by location (1.6–5.0 cr/kg via getFuelPricePerKg).
+const FUEL_PRICE_PER_KG = 2.0;
 
 /**
  * Fleet Analytics
@@ -203,11 +204,6 @@ export function getFuelContext(ship: Ship, gameData: GameData): string {
   const fuelPercent = (ship.fuelKg / ship.maxFuelKg) * 100;
   const fuelKg = Math.round(ship.fuelKg).toLocaleString();
 
-  const shipClass = getShipClass(ship.classId);
-  if (!shipClass) return `${Math.round(fuelPercent)}% (${fuelKg} kg)`;
-
-  const engineDef = getEngineDefinition(ship.engine.definitionId);
-
   // Find nearest location for reference
   let nearestDist = Infinity;
   let nearestName = '';
@@ -230,21 +226,8 @@ export function getFuelContext(ship: Ship, gameData: GameData): string {
   }
 
   if (nearestName && nearestDist < Infinity) {
-    // Calculate fuel needed for trip
-    const distanceMeters = nearestDist * 1000;
-    const currentMass = getCurrentShipMass(ship);
-    const thrust = engineDef.thrust;
-    const acceleration = thrust / currentMass;
-    const requiredDeltaV = 2 * Math.sqrt(distanceMeters * acceleration);
-    const dryMass = shipClass.mass + ship.crew.length * 80;
-    const specificImpulse = getSpecificImpulse(engineDef);
-    const fuelNeededKg = calculateFuelMassRequired(
-      dryMass,
-      requiredDeltaV,
-      specificImpulse
-    );
-
-    const trips = ship.fuelKg / fuelNeededKg;
+    const fuelNeededKg = calculateOneLegFuelKg(ship, nearestDist);
+    const trips = fuelNeededKg > 0 ? ship.fuelKg / fuelNeededKg : Infinity;
     return `${Math.round(fuelPercent)}% (${fuelKg} kg, ${trips.toFixed(1)} trips to ${nearestName})`;
   }
 
@@ -286,26 +269,12 @@ export function matchShipToContract(
   }
 
   // Check range sufficiency
-  const engineDef = getEngineDefinition(ship.engine.definitionId);
   const origin = gameData.world.locations.find((l) => l.id === quest.origin);
   const dest = gameData.world.locations.find((l) => l.id === quest.destination);
 
   if (origin && dest) {
     const dist = getDistanceBetween(origin, dest);
-
-    // Calculate fuel needed
-    const distanceMeters = dist * 1000;
-    const currentMass = getCurrentShipMass(ship);
-    const thrust = engineDef.thrust;
-    const acceleration = thrust / currentMass;
-    const requiredDeltaV = 2 * Math.sqrt(distanceMeters * acceleration);
-    const dryMass = shipClass.mass + ship.crew.length * 80;
-    const specificImpulse = getSpecificImpulse(engineDef);
-    const fuelNeededKg = calculateFuelMassRequired(
-      dryMass,
-      requiredDeltaV,
-      specificImpulse
-    );
+    const fuelNeededKg = calculateOneLegFuelKg(ship, dist);
 
     if (ship.fuelKg < fuelNeededKg * 1.2) {
       score -= 1;
@@ -367,34 +336,16 @@ export function matchShipToContract(
   // Subtract estimated fuel costs
   if (origin && dest) {
     const dist = getDistanceBetween(origin, dest);
+    const fuelPerLegKg = calculateOneLegFuelKg(ship, dist);
 
-    // Calculate fuel needed in kg
-    const distanceMeters = dist * 1000;
-    const currentMass = getCurrentShipMass(ship);
-    const thrust = engineDef.thrust;
-    const acceleration = thrust / currentMass;
-    const requiredDeltaV = 2 * Math.sqrt(distanceMeters * acceleration);
-    const dryMass = shipClass.mass + ship.crew.length * 80;
-    const specificImpulse = getSpecificImpulse(engineDef);
-    const fuelNeededKg = calculateFuelMassRequired(
-      dryMass,
-      requiredDeltaV,
-      specificImpulse
-    );
-
-    const fuelCreditCost = fuelNeededKg * 0.5; // 0.5 credits per kg
+    const fuelCreditCost = fuelPerLegKg * FUEL_PRICE_PER_KG;
     const trips = quest.tripsRequired === -1 ? 5 : quest.tripsRequired || 1;
     estimatedProfit -= fuelCreditCost * trips * 2; // Round trip
   }
 
   // Subtract estimated crew costs
-  let crewCostPerTrip = 0;
-  for (const crew of ship.crew) {
-    const roleDef = getCrewRoleDefinition(crew.role);
-    if (roleDef) {
-      crewCostPerTrip += roleDef.salary * (quest.estimatedTripTicks || 10) * 2; // Round trip
-    }
-  }
+  const salaryPerTick = calculateShipSalaryPerTick(ship);
+  const crewCostPerTrip = salaryPerTick * (quest.estimatedTripTicks || 10) * 2; // Round trip
   estimatedProfit -= crewCostPerTrip * (quest.tripsRequired || 1);
 
   // Clamp score to 1-5
