@@ -111,6 +111,7 @@ export type FlightPhase = 'accelerating' | 'coasting' | 'decelerating';
 export interface FlightState {
   origin: string;
   destination: string;
+  originKm?: number; // km from Earth at flight start (for position interpolation, especially mid-flight redirects)
   totalDistance: number; // meters
   distanceCovered: number; // meters
   currentVelocity: number; // m/s

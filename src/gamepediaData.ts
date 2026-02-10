@@ -1025,7 +1025,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
     sections: [
       {
         paragraphs: [
-          "The navigation chart shows all known locations, their distances, and your ship's current position. Access it via the Nav tab.",
+          "The navigation chart shows all known locations, their distances from your ship's current position, and available services. Access it via the Nav tab.",
           'Locations provide different services: refueling, hiring, trade, [[mining-system|mining]], and repair. Planning your route to hit needed services is key to efficient operations.',
         ],
       },
@@ -1043,6 +1043,15 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
           'Good navigation reduces debris [[encounters|encounters]], improves fuel efficiency, and gives better hazard warnings.',
           'Locations shown as unreachable are beyond your current fuel range at the selected [[flight-physics|flight profile]].',
           'Use the [[flight-physics|flight profile]] slider on the Nav tab to choose between economy (less fuel, longer trip) and max speed (more fuel, shorter trip) before departing. Travel time and fuel estimates update as you adjust.',
+        ],
+      },
+      {
+        heading: 'Mid-Flight Redirect',
+        paragraphs: [
+          'You can change your destination while in flight. Open the Nav tab during a manual flight to see distances calculated from your current position in space — these update live as you move.',
+          'Click "Redirect" on any reachable location to plot a new course. Your ship will begin a fresh burn-coast-burn trajectory from wherever it is.',
+          'Mid-flight redirects are not available during [[contracts|contract]] flights or active mining routes.',
+          'All [[encounters|threat levels]] and fuel estimates are recalculated based on your actual position, so redirecting into deep space may increase [[encounters|encounter]] risk.',
         ],
       },
     ],

@@ -66,6 +66,12 @@ This file tracks deferred features and known gaps that are not currently priorit
 
 - **EVA (Extra-Vehicular Activity)**: Crew EVA system for outside-the-ship operations. Would enable hand-mining of specific asteroid targets, ship hull inspection/repair, cargo transfer between ships, and salvage operations. Requires EVA suit crew equipment, airlock room type, and EVA skill or EVA-related piloting checks. Could tie into mining (artisanal hand-mining of rare samples) and repair (hull patch jobs) gameplay loops.
 
+## Deferred Spatial Model Features
+
+- **2D/3D Coordinate System**: Replace the current 1D distance-from-Earth model with proper 2D (or 3D) coordinates for world locations. Would enable meaningful off-corridor routes, orbital mechanics, and spatial awareness beyond a single line. Prerequisite for: patrol corridor system, off-route danger scaling, orbital position tracking.
+- **Patrol Corridor System**: Define patrolled routes between major locations. Ships traveling along established corridors get reduced encounter rates; deviating into unpatrolled space increases danger. Only meaningful with 2D+ coordinates where "off-corridor" is spatially distinct from "on-corridor."
+- **Orbital Position Drift**: Planets and stations move over time (orbital periods). Distance between locations changes dynamically, creating seasonal trade routes and variable travel times.
+
 ## Other Known Gaps
 
 - **Equipment Repair at Stations**: Degraded equipment cannot currently be repaired (in-flight repair now via job slots).

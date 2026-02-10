@@ -52,29 +52,42 @@ function clamp(value: number, min: number, max: number): number {
 }
 
 /**
- * Interpolate ship's 1D position in km-from-Earth along its route.
- * Returns the approximate distance from Earth at the ship's current position.
+ * Interpolate ship's 1D position in km-from-Earth.
+ * Works for all ship states: docked, orbiting, and in-flight.
+ * For in-flight ships, interpolates along the current route.
  */
 export function getShipPositionKm(ship: Ship, world: World): number {
   if (ship.location.status !== 'in_flight' || !ship.activeFlightPlan) {
+    // Docked or orbiting — return the location's km-from-Earth
+    const locId = ship.location.dockedAt || ship.location.orbitingAt;
+    if (locId) {
+      const loc = world.locations.find((l) => l.id === locId);
+      if (loc) return loc.distanceFromEarth;
+    }
     return 0;
   }
 
   const flight = ship.activeFlightPlan;
-  const origin = world.locations.find((l) => l.id === flight.origin);
-  const dest = world.locations.find((l) => l.id === flight.destination);
 
-  if (!origin || !dest) return 0;
+  // Use stored originKm when available (always set for new flights,
+  // backfill from origin location for legacy saves)
+  let startKm: number;
+  if (flight.originKm != null) {
+    startKm = flight.originKm;
+  } else {
+    const origin = world.locations.find((l) => l.id === flight.origin);
+    startKm = origin?.distanceFromEarth ?? 0;
+  }
+
+  const dest = world.locations.find((l) => l.id === flight.destination);
+  if (!dest) return startKm;
 
   const progress =
     flight.totalDistance > 0
       ? flight.distanceCovered / flight.totalDistance
       : 0;
 
-  return (
-    origin.distanceFromEarth +
-    (dest.distanceFromEarth - origin.distanceFromEarth) * progress
-  );
+  return startKm + (dest.distanceFromEarth - startKm) * progress;
 }
 
 /**

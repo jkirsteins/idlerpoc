@@ -8,6 +8,7 @@ import {
 } from '../worldGen';
 import { getGravityDegradationLevel } from '../gravitySystem';
 import {
+  getShipPositionKm,
   estimateRouteRisk,
   getThreatLevel,
   getThreatNarrative,
@@ -124,26 +125,39 @@ export function createNavigationView(
     // Current location is only where the ship physically is (docked or orbiting)
     const currentLocationId =
       ship.location.dockedAt || ship.location.orbitingAt || null;
-    // Reference location for distance calculations (includes flight destination as fallback)
-    const referenceLocationId =
-      currentLocationId || ship.activeFlightPlan?.destination || 'earth';
-    const currentLocation =
-      gameData.world.locations.find((loc) => loc.id === referenceLocationId) ||
-      gameData.world.locations[0];
-    // Track flight destination so we can label it specially
-    const flightDestinationId =
-      ship.location.status === 'in_flight'
-        ? (ship.activeFlightPlan?.destination ?? null)
-        : null;
-    const flightOriginId =
-      ship.location.status === 'in_flight'
-        ? (ship.activeFlightPlan?.origin ?? null)
-        : null;
 
+    // Ship's current km-from-Earth position (works for all states)
+    const currentKm = getShipPositionKm(ship, gameData.world);
+
+    // Virtual origin representing the ship's current position in space.
+    // Used for distance, reachability, and route risk calculations.
+    const virtualOrigin: WorldLocation = currentLocationId
+      ? gameData.world.locations.find((l) => l.id === currentLocationId)!
+      : ({
+          id: '__current_position__',
+          name: 'Current Position',
+          type: 'orbital' as const,
+          description: '',
+          distanceFromEarth: currentKm,
+          x: 0,
+          y: 0,
+          services: [] as WorldLocation['services'],
+          size: 0,
+          pilotingRequirement: 0,
+        } as WorldLocation);
+
+    // Track flight destination so we can label it specially
+    const isInFlight = ship.location.status === 'in_flight';
+    const flightDestinationId = isInFlight
+      ? (ship.activeFlightPlan?.destination ?? null)
+      : null;
+    // Allow trips from stations (existing) AND during manual flights (new)
     const canStartTrips =
+      !ship.activeContract &&
+      !ship.miningRoute &&
       (ship.location.status === 'docked' ||
-        ship.location.status === 'orbiting') &&
-      !ship.activeContract;
+        ship.location.status === 'orbiting' ||
+        ship.location.status === 'in_flight');
 
     for (const location of gameData.world.locations) {
       const marker = document.createElement('div');
@@ -151,7 +165,7 @@ export function createNavigationView(
       marker.style.left = `${location.x}%`;
       marker.style.top = `${location.y}%`;
 
-      const reachable = isLocationReachable(ship, location, currentLocation);
+      const reachable = isLocationReachable(ship, location, virtualOrigin);
 
       if (location.id === currentLocationId) {
         marker.classList.add('current');
@@ -163,11 +177,13 @@ export function createNavigationView(
         marker.classList.add('unreachable');
       }
 
-      // Make clickable if we can start trips and location is reachable
+      // Make clickable if we can start trips, location is reachable,
+      // and it's not where we already are or already heading
       if (
         canStartTrips &&
         reachable &&
         location.id !== currentLocationId &&
+        location.id !== flightDestinationId &&
         callbacks.onStartTrip
       ) {
         marker.classList.add('clickable');
@@ -176,7 +192,9 @@ export function createNavigationView(
             callbacks.onStartTrip(location.id);
           }
         });
-        marker.title = `Click to travel to ${location.name}`;
+        marker.title = isInFlight
+          ? `Click to redirect to ${location.name}`
+          : `Click to travel to ${location.name}`;
       }
 
       const template = getLocationTypeTemplate(location.type);
@@ -191,7 +209,7 @@ export function createNavigationView(
         location.id !== flightDestinationId
       ) {
         const routeRisk = estimateRouteRisk(
-          currentLocation,
+          virtualOrigin,
           location,
           ship,
           gameData.world
@@ -214,7 +232,7 @@ export function createNavigationView(
 
     container.appendChild(mapArea);
 
-    // Flight profile slider — shown when ship can depart
+    // Flight profile slider — shown when ship can depart or redirect
     if (canStartTrips) {
       updateFlightProfileControl(profileControl, ship);
       container.appendChild(profileControl.el);
@@ -229,7 +247,7 @@ export function createNavigationView(
     legend.appendChild(legendTitle);
 
     for (const location of gameData.world.locations) {
-      const reachable = isLocationReachable(ship, location, currentLocation);
+      const reachable = isLocationReachable(ship, location, virtualOrigin);
 
       const item = document.createElement('div');
       item.className = 'nav-legend-item';
@@ -259,33 +277,34 @@ export function createNavigationView(
       }
 
       const distanceFromCurrent = Math.abs(
-        location.distanceFromEarth - currentLocation.distanceFromEarth
+        location.distanceFromEarth - currentKm
       );
       const distance = document.createElement('div');
       distance.textContent = `Distance: ${formatDistance(distanceFromCurrent)}`;
       item.appendChild(distance);
 
-      // Add travel time and fuel cost estimates for reachable non-current locations
-      // Skip the flight destination (distance is 0 since we use it as reference)
-      if (
+      // Travel time and fuel cost estimates for reachable destinations
+      // Skip current location and current flight destination
+      const isOtherDestination =
         location.id !== currentLocationId &&
         location.id !== flightDestinationId &&
-        reachable
-      ) {
+        reachable;
+
+      if (isOtherDestination) {
         const shipClass = getShipClass(ship.classId);
         const engineDef = getEngineDefinition(ship.engine.definitionId);
         if (shipClass) {
           try {
             const flight = initializeFlight(
               ship,
-              currentLocation,
+              virtualOrigin,
               location,
               false,
               ship.flightProfileBurnFraction
             );
             const travelTime = formatDualTime(flight.totalTime);
 
-            const distanceKm = getDistanceBetween(currentLocation, location);
+            const distanceKm = getDistanceBetween(virtualOrigin, location);
             const maxRangeKm = computeMaxRange(shipClass, engineDef);
             const fuelCostKg = calculateFuelCost(distanceKm, maxRangeKm);
 
@@ -299,7 +318,7 @@ export function createNavigationView(
             // Store ref for in-place update on slider drag
             estimateRefs.push({
               el: travelInfo,
-              origin: currentLocation,
+              origin: virtualOrigin,
               destination: location,
             });
           } catch {
@@ -315,13 +334,9 @@ export function createNavigationView(
       item.appendChild(description);
 
       // Route risk threat badge for non-current locations
-      if (
-        location.id !== currentLocationId &&
-        location.id !== flightDestinationId &&
-        reachable
-      ) {
+      if (isOtherDestination) {
         const routeRisk = estimateRouteRisk(
-          currentLocation,
+          virtualOrigin,
           location,
           ship,
           gameData.world
@@ -340,12 +355,7 @@ export function createNavigationView(
         (c) => getGravityDegradationLevel(c.zeroGExposure) !== 'none'
       );
 
-      if (
-        degradedCrew.length > 0 &&
-        location.id !== currentLocationId &&
-        location.id !== flightDestinationId &&
-        reachable
-      ) {
+      if (degradedCrew.length > 0 && isOtherDestination) {
         const warning = document.createElement('div');
         warning.style.fontSize = '0.85em';
         warning.style.color = '#fbbf24';
@@ -354,7 +364,7 @@ export function createNavigationView(
         item.appendChild(warning);
       }
 
-      // Add travel button or status indicator
+      // Add travel/redirect button or status indicator
       if (location.id === currentLocationId) {
         // Current location badge
         const currentBadge = document.createElement('div');
@@ -367,31 +377,27 @@ export function createNavigationView(
         destBadge.className = 'nav-current-label';
         destBadge.textContent = 'Destination';
         item.appendChild(destBadge);
-      } else if (location.id === flightOriginId) {
-        // In-flight origin badge
-        const originBadge = document.createElement('div');
-        originBadge.className = 'nav-travel-disabled-reason';
-        originBadge.textContent = 'Origin';
-        item.appendChild(originBadge);
       } else if (!canStartTrips) {
-        // Active contract, route assignment, or in-flight - show status
+        // Active contract, route assignment, or mining route - show status
         const statusText = document.createElement('div');
         statusText.className = 'nav-travel-disabled-reason';
 
         if (ship.activeContract || ship.routeAssignment) {
           statusText.textContent = 'Contract in progress';
-        } else if (ship.location.status === 'in_flight') {
-          statusText.textContent = 'In flight';
+        } else if (ship.miningRoute) {
+          statusText.textContent = 'Mining route active';
         } else {
           statusText.textContent = 'Unavailable';
         }
 
         item.appendChild(statusText);
       } else if (reachable && callbacks.onStartTrip) {
-        // Reachable - show travel button
+        // Reachable - show travel/redirect button
         const travelButton = document.createElement('button');
         travelButton.className = 'nav-travel-button';
-        travelButton.textContent = `Travel to ${location.name}`;
+        travelButton.textContent = isInFlight
+          ? `Redirect to ${location.name}`
+          : `Travel to ${location.name}`;
         travelButton.addEventListener('click', () => {
           if (callbacks.onStartTrip) {
             callbacks.onStartTrip(location.id);
@@ -403,7 +409,7 @@ export function createNavigationView(
         const unreachableReason = getUnreachableReason(
           ship,
           location,
-          currentLocation
+          virtualOrigin
         );
         if (unreachableReason) {
           const reasonText = document.createElement('div');

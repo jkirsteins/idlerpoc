@@ -61,6 +61,8 @@ npm run dev
   - Visual navigation chart showing distances, piloting requirements, and reachable locations
   - Destinations gated by piloting skill level (10 for nearby, 75+ for outer system)
   - Dynamic reachability based on ship range, fuel, and piloting skill
+  - **Mid-flight redirect**: change destination while in flight — distances, threat levels, and fuel estimates update live from the ship's current position in space
+  - Redirect replots a fresh burn-coast-burn trajectory from the ship's interpolated position (not available during contracts or mining routes)
 - **Quest & Contract System**:
   - Accept delivery, passenger, freight, supply, and standing freight contracts
   - **Persistent trade routes** at every location with trade service — permanent work lines to all trading partners
