@@ -12,8 +12,13 @@ UI components follow a **mount-once / update-on-tick** pattern (see `src/ui/comp
 
 - **Factory functions** are named `createXxx(initialState, callbacks)` and return a `Component` with `{ el, update }`.
 - `el` is the stable container element — it is created once and stays in the DOM across ticks. **Never** replace it or clear a parent's `innerHTML`; doing so resets scroll position, focus, and mobile touch state.
-- `update(gameData)` snapshots the props the component renders into a plain object and **shallow-compares** each field against the previous snapshot. If nothing changed, the rebuild is skipped entirely — no DOM work. Only when props differ does the component call `el.replaceChildren()` and rebuild. This prevents unnecessary DOM destruction (e.g. open dropdowns, focused inputs).
-- **Prefer in-place DOM updates over element recreation.** Interactive elements the user touches (tab bars, scroll containers, inputs, toggles) must be created once and mutated in-place (toggle classes, update `textContent`, show/hide with `style.display`). `replaceChildren()` is acceptable for content-only regions that the user doesn't interact with mid-tick, but never for controls the user may be scrolling, dragging, or tapping.
+- `update(gameData)` snapshots the props the component renders into a plain object and **shallow-compares** each field against the previous snapshot. If nothing changed, the update is skipped entirely — no DOM work. Only when props differ does the component patch the DOM in-place. This prevents unnecessary DOM destruction (e.g. open dropdowns, focused inputs).
+- **Never use `replaceChildren()`.** It destroys and recreates the entire subtree, which breaks scroll position, focus, mobile touch state, and has caused iOS crashes. Instead, use idiomatic in-place update patterns:
+  - Update `textContent` / `innerText` on existing elements for text changes.
+  - Toggle classes (`classList.add/remove/toggle`) for visual state changes.
+  - Show/hide with `style.display` for conditional visibility.
+  - Keep stable references to child elements created in the factory and mutate them directly on each tick.
+  - For lists that change length, add/remove individual items at the end rather than clearing and rebuilding.
 - Parents hold references to child `Component` instances and call `update()` on each tick instead of recreating children.
 - `renderer.ts` is the top-level orchestrator. During the `playing` phase it mounts once and patches in-place on subsequent ticks. Full DOM rebuilds only happen on phase transitions (no_game ↔ creating ↔ playing) or structural changes (catch-up report modal).
 - Leaf helpers (statBar, tooltip, threatBadge) and transient UI (toasts, catch-up modal, wizard) may remain as plain `render*()` functions returning `HTMLElement` since they are not persisted across ticks.
