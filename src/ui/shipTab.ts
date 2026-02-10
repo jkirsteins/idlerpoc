@@ -168,17 +168,10 @@ export function createShipTab(
     // Oxygen progress bar
     contentArea.appendChild(renderOxygenBar(gameData));
 
-    // Torch ship status bars (Class III+)
-    const engineDef = getEngineDefinition(ship.engine.definitionId);
-    if (engineDef.radiationOutput > 0) {
-      contentArea.appendChild(renderRadiationBar(gameData));
-    }
-    if (engineDef.wasteHeatOutput > 0) {
-      contentArea.appendChild(renderHeatBar(gameData));
-    }
-    if (engineDef.containmentComplexity > 0) {
-      contentArea.appendChild(renderContainmentBar(gameData));
-    }
+    // Torch ship status bars (always shown for discoverability)
+    contentArea.appendChild(renderRadiationBar(gameData));
+    contentArea.appendChild(renderHeatBar(gameData));
+    contentArea.appendChild(renderContainmentBar(gameData));
 
     // Flight status strip (shown when in flight)
     if (ship.location.status === 'in_flight') {
@@ -435,6 +428,16 @@ function renderRadiationBar(gameData: GameData): HTMLElement {
   const engineDef = getEngineDefinition(ship.engine.definitionId);
   const engineRadiation = engineDef.radiationOutput || 0;
 
+  if (engineRadiation === 0) {
+    return renderStatBar({
+      label: 'RADIATION',
+      percentage: 0,
+      valueLabel: 'N/A',
+      colorClass: 'bar-inactive',
+      mode: 'full',
+    });
+  }
+
   const totalShielding = getEffectiveRadiationShielding(ship);
 
   // Collect per-item breakdown for tooltip
@@ -549,6 +552,16 @@ function renderHeatBar(gameData: GameData): HTMLElement {
   const engineDef = getEngineDefinition(ship.engine.definitionId);
   const engineHeat = engineDef.wasteHeatOutput || 0;
 
+  if (engineHeat === 0) {
+    return renderStatBar({
+      label: 'HEAT',
+      percentage: 0,
+      valueLabel: 'N/A',
+      colorClass: 'bar-inactive',
+      mode: 'full',
+    });
+  }
+
   const totalDissipation = getEffectiveHeatDissipation(ship);
   const excessHeat = Math.max(0, engineHeat - totalDissipation);
   const percentage = engineHeat > 0 ? (excessHeat / engineHeat) * 100 : 0;
@@ -576,6 +589,18 @@ function renderHeatBar(gameData: GameData): HTMLElement {
 
 function renderContainmentBar(gameData: GameData): HTMLElement {
   const ship = getActiveShip(gameData);
+  const engineDef = getEngineDefinition(ship.engine.definitionId);
+
+  if (engineDef.containmentComplexity === 0) {
+    return renderStatBar({
+      label: 'CONTAINMENT',
+      percentage: 0,
+      valueLabel: 'N/A',
+      colorClass: 'bar-inactive',
+      mode: 'full',
+    });
+  }
+
   const confinementEq = ship.equipment.find(
     (eq) => eq.definitionId === 'mag_confinement'
   );
