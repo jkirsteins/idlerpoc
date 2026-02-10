@@ -3,9 +3,13 @@ import { getActiveShip } from '../models';
 import type { PlayingTab } from './types';
 import { computePowerStatus } from '../powerSystem';
 import { getEngineDefinition } from '../engines';
-import { getEquipmentDefinition } from '../equipment';
+import {
+  getEquipmentDefinition,
+  getEffectiveRadiationShielding,
+  getEffectiveHeatDissipation,
+} from '../equipment';
 import { getShipClass } from '../shipClasses';
-import { getCrewRoleDefinition } from '../crewRoles';
+import { calculateShipSalaryPerTick } from '../crewRoles';
 import { formatGameDate, TICKS_PER_DAY } from '../timeSystem';
 import { getRoomDefinition } from '../rooms';
 import { renderStatBar } from './components/statBar';
@@ -400,15 +404,8 @@ export function createRightSidebar(gameData: GameData): Component {
     // Calculate fleet-wide crew cost per tick
     let totalCrewCostPerTick = 0;
     for (const s of gameData.ships) {
-      for (const crewMember of s.crew) {
-        const roleDef = getCrewRoleDefinition(crewMember.role);
-        if (roleDef) {
-          totalCrewCostPerTick += roleDef.salary;
-        }
-      }
+      totalCrewCostPerTick += calculateShipSalaryPerTick(s);
     }
-
-    // Convert to per-day cost
     const totalCrewCostPerDay = totalCrewCostPerTick * TICKS_PER_DAY;
 
     crewInfo.innerHTML = `
@@ -525,15 +522,7 @@ function getRadiationData(gameData: GameData): {
   const engineDef = getEngineDefinition(ship.engine.definitionId);
   const engineRadiation = engineDef.radiationOutput || 0;
 
-  let totalShielding = 0;
-  for (const eq of ship.equipment) {
-    const eqDef = getEquipmentDefinition(eq.definitionId);
-    if (eqDef?.radiationShielding) {
-      const effectiveness = 1 - eq.degradation / 200;
-      totalShielding += eqDef.radiationShielding * effectiveness;
-    }
-  }
-
+  const totalShielding = getEffectiveRadiationShielding(ship);
   const netRadiation = Math.max(0, engineRadiation - totalShielding);
   const percentage =
     engineRadiation > 0 ? (netRadiation / engineRadiation) * 100 : 0;
@@ -557,15 +546,7 @@ function getHeatData(gameData: GameData): {
   const engineDef = getEngineDefinition(ship.engine.definitionId);
   const engineHeat = engineDef.wasteHeatOutput || 0;
 
-  let totalDissipation = 0;
-  for (const eq of ship.equipment) {
-    const eqDef = getEquipmentDefinition(eq.definitionId);
-    if (eqDef?.heatDissipation) {
-      const effectiveness = 1 - eq.degradation / 200;
-      totalDissipation += eqDef.heatDissipation * effectiveness;
-    }
-  }
-
+  const totalDissipation = getEffectiveHeatDissipation(ship);
   const netHeat = Math.max(0, engineHeat - totalDissipation);
   const percentage = engineHeat > 0 ? (netHeat / engineHeat) * 100 : 0;
 

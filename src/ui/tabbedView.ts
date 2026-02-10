@@ -20,7 +20,7 @@ import {
   TICKS_PER_DAY,
   GAME_SECONDS_PER_DAY,
 } from '../timeSystem';
-import { getCrewRoleDefinition } from '../crewRoles';
+import { calculateShipSalaryPerTick } from '../crewRoles';
 import {
   getShipPositionKm,
   calculatePositionDanger,
@@ -400,12 +400,7 @@ function renderGlobalStatusBar(
   // Crew cost per tick (fleet-wide)
   let totalCrewCost = 0;
   for (const s of gameData.ships) {
-    for (const crew of s.crew) {
-      const roleDef = getCrewRoleDefinition(crew.role);
-      if (roleDef) {
-        totalCrewCost += roleDef.salary;
-      }
-    }
+    totalCrewCost += calculateShipSalaryPerTick(s);
   }
 
   if (totalCrewCost > 0) {

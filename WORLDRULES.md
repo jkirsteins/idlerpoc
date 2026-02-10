@@ -600,7 +600,7 @@ When docked at planetary or lunar locations, crew slowly recover from zero-g exp
 
 - **Recovery rate**: 0.5x accumulation rate (slower than degradation)
 - **Time to full recovery**: ~2x the exposure time
-- Recovery happens during manual day advancement when docked
+- Recovery happens continuously while docked
 - No recovery during flight or at zero-g stations
 
 **Strategic Implications:**

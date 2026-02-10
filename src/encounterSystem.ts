@@ -10,6 +10,7 @@ import { getEngineDefinition, type EngineDefinition } from './engines';
 import { getShipClass } from './shipClasses';
 import { GAME_SECONDS_PER_TICK } from './timeSystem';
 import { getCrewForJobType } from './jobSlots';
+import { getBestCrewSkill } from './crewRoles';
 
 /**
  * Encounter Detection System
@@ -171,13 +172,7 @@ export function calculateCrewSkillFactor(ship: Ship): number {
     return 1.0; // No pilot = no reduction
   }
 
-  let bestPiloting = 0;
-  for (const crew of relevantCrew) {
-    if (crew.skills.piloting > bestPiloting) {
-      bestPiloting = crew.skills.piloting;
-    }
-  }
-
+  const bestPiloting = getBestCrewSkill(relevantCrew, 'piloting');
   return 1 / (1 + bestPiloting * ENCOUNTER_CONSTANTS.PILOTING_FACTOR);
 }
 

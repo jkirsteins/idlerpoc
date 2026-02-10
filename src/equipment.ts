@@ -329,3 +329,50 @@ export function getMiningEquipmentDefinitions(): EquipmentDefinition[] {
     (a, b) => (a.value ?? 0) - (b.value ?? 0)
   );
 }
+
+/**
+ * Degradation divisor for radiation shielding and heat dissipation equipment.
+ * At 100% degradation the equipment is at 50% effectiveness (1 - 100/200).
+ *
+ * Oxygen equipment uses a separate divisor of 100 (full loss at max degradation)
+ * — that is intentional and handled in lifeSupportSystem.ts.
+ */
+const EQUIPMENT_EFFECTIVENESS_DIVISOR = 200;
+
+/**
+ * Calculate total effective radiation shielding on a ship,
+ * accounting for equipment degradation.
+ */
+export function getEffectiveRadiationShielding(
+  ship: import('./models').Ship
+): number {
+  let total = 0;
+  for (const eq of ship.equipment) {
+    const eqDef = getEquipmentDefinition(eq.definitionId);
+    if (eqDef?.radiationShielding) {
+      const effectiveness =
+        1 - eq.degradation / EQUIPMENT_EFFECTIVENESS_DIVISOR;
+      total += eqDef.radiationShielding * effectiveness;
+    }
+  }
+  return total;
+}
+
+/**
+ * Calculate total effective heat dissipation on a ship,
+ * accounting for equipment degradation.
+ */
+export function getEffectiveHeatDissipation(
+  ship: import('./models').Ship
+): number {
+  let total = 0;
+  for (const eq of ship.equipment) {
+    const eqDef = getEquipmentDefinition(eq.definitionId);
+    if (eqDef?.heatDissipation) {
+      const effectiveness =
+        1 - eq.degradation / EQUIPMENT_EFFECTIVENESS_DIVISOR;
+      total += eqDef.heatDissipation * effectiveness;
+    }
+  }
+  return total;
+}

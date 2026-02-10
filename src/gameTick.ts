@@ -9,11 +9,18 @@ import {
 import { completeLeg } from './contractExec';
 import { GAME_SECONDS_PER_TICK } from './timeSystem';
 import { getCrewRoleDefinition } from './crewRoles';
-import { getEquipmentDefinition } from './equipment';
+import {
+  getEquipmentDefinition,
+  getEffectiveRadiationShielding,
+  getEffectiveHeatDissipation,
+} from './equipment';
+import { calculateRepairPoints } from './crewRoles';
 import {
   applyGravityTick,
+  applyGravityRecovery,
   checkThresholdCrossing,
   getDegradationDescription,
+  getDegradationLevelName,
 } from './gravitySystem';
 import { calculateEncounterChance } from './encounterSystem';
 import { applyPassiveTraining, logSkillUps } from './skillProgression';
@@ -223,16 +230,7 @@ function applyShipTick(gameData: GameData, ship: Ship): boolean {
       if (ship.engine.state === 'online') {
         // === RADIATION EXPOSURE ===
         const engineRadiation = engineDef.radiationOutput || 0;
-
-        let totalShielding = 0;
-        for (const eq of ship.equipment) {
-          const eqDef = getEquipmentDefinition(eq.definitionId);
-          if (eqDef?.radiationShielding) {
-            const effectiveness = 1 - eq.degradation / 200;
-            totalShielding += eqDef.radiationShielding * effectiveness;
-          }
-        }
-
+        const totalShielding = getEffectiveRadiationShielding(ship);
         const netRadiation = Math.max(0, engineRadiation - totalShielding);
 
         if (netRadiation > 0) {
@@ -257,16 +255,7 @@ function applyShipTick(gameData: GameData, ship: Ship): boolean {
 
         // === WASTE HEAT MANAGEMENT ===
         const engineHeat = engineDef.wasteHeatOutput || 0;
-
-        let totalHeatDissipation = 0;
-        for (const eq of ship.equipment) {
-          const eqDef = getEquipmentDefinition(eq.definitionId);
-          if (eqDef?.heatDissipation) {
-            const effectiveness = 1 - eq.degradation / 200;
-            totalHeatDissipation += eqDef.heatDissipation * effectiveness;
-          }
-        }
-
+        const totalHeatDissipation = getEffectiveHeatDissipation(ship);
         const excessHeat = Math.max(0, engineHeat - totalHeatDissipation);
 
         if (excessHeat > 0) {
@@ -352,26 +341,29 @@ function applyShipTick(gameData: GameData, ship: Ship): boolean {
 
     // Log warnings at critical thresholds
     if (ship.oxygenLevel < 10 && ship.oxygenLevel + 0.5 >= 10) {
-      gameData.log.push({
-        gameTime: gameData.gameTime,
-        type: 'gravity_warning',
-        message: `Critical: ${ship.name} oxygen levels critical! Crew health deteriorating rapidly.`,
-        shipName: ship.name,
-      });
+      addLog(
+        gameData.log,
+        gameData.gameTime,
+        'gravity_warning',
+        `Critical: ${ship.name} oxygen levels critical! Crew health deteriorating rapidly.`,
+        ship.name
+      );
     } else if (ship.oxygenLevel < 25 && ship.oxygenLevel + 0.5 >= 25) {
-      gameData.log.push({
-        gameTime: gameData.gameTime,
-        type: 'gravity_warning',
-        message: `Warning: ${ship.name} oxygen levels dangerously low. Crew suffering hypoxia.`,
-        shipName: ship.name,
-      });
+      addLog(
+        gameData.log,
+        gameData.gameTime,
+        'gravity_warning',
+        `Warning: ${ship.name} oxygen levels dangerously low. Crew suffering hypoxia.`,
+        ship.name
+      );
     } else if (ship.oxygenLevel < 50 && ship.oxygenLevel + 0.5 >= 50) {
-      gameData.log.push({
-        gameTime: gameData.gameTime,
-        type: 'gravity_warning',
-        message: `${ship.name} oxygen levels declining. Life support struggling.`,
-        shipName: ship.name,
-      });
+      addLog(
+        gameData.log,
+        gameData.gameTime,
+        'gravity_warning',
+        `${ship.name} oxygen levels declining. Life support struggling.`,
+        ship.name
+      );
     }
   }
 
@@ -405,12 +397,13 @@ function applyShipTick(gameData: GameData, ship: Ship): boolean {
           message = `Critical: ${crew.name} in critical zero-g atrophy. ${description}.`;
         }
 
-        gameData.log.push({
-          gameTime: gameData.gameTime,
-          type: 'gravity_warning',
+        addLog(
+          gameData.log,
+          gameData.gameTime,
+          'gravity_warning',
           message,
-          shipName: ship.name,
-        });
+          ship.name
+        );
       }
     }
 
@@ -442,7 +435,7 @@ function applyShipTick(gameData: GameData, ship: Ship): boolean {
     if (repairCrew.length > 0) {
       let totalRepairPoints = 0;
       for (const eng of repairCrew) {
-        totalRepairPoints += eng.skills.piloting * 0.05;
+        totalRepairPoints += calculateRepairPoints(eng);
       }
 
       // Distribute repair points equally across degraded equipment
@@ -516,6 +509,41 @@ function applyShipTick(gameData: GameData, ship: Ship): boolean {
     }
 
     changed = true;
+  }
+
+  // Gravity recovery (while docked)
+  if (ship.location.status === 'docked') {
+    const previousExposures = new Map<string, number>();
+    for (const crew of ship.crew) {
+      previousExposures.set(crew.id, crew.zeroGExposure);
+    }
+
+    applyGravityRecovery(ship, GAME_SECONDS_PER_TICK);
+
+    for (const crew of ship.crew) {
+      const previousExposure = previousExposures.get(crew.id) || 0;
+      const newLevel = checkThresholdCrossing(crew, previousExposure);
+
+      if (newLevel !== null && previousExposure > crew.zeroGExposure) {
+        const message =
+          newLevel === 'none'
+            ? `${crew.name} has fully recovered from zero-g atrophy.`
+            : `${crew.name} has recovered to ${getDegradationLevelName(newLevel)} zero-g atrophy.`;
+
+        addLog(
+          gameData.log,
+          gameData.gameTime,
+          'gravity_warning',
+          message,
+          ship.name
+        );
+        changed = true;
+      }
+    }
+
+    if (ship.crew.some((c) => c.zeroGExposure > 0)) {
+      changed = true;
+    }
   }
 
   return changed;

@@ -32,6 +32,7 @@ import {
   advanceToNextDayStart,
   getDaysSinceEpoch,
   GAME_SECONDS_PER_DAY,
+  GAME_SECONDS_PER_TICK,
   TICKS_PER_DAY,
 } from './timeSystem';
 import { generateAllLocationQuests } from './questGen';
@@ -369,6 +370,22 @@ function buildCatchUpReport(
 }
 
 /**
+ * Revert in-memory game state to the last known good save from localStorage.
+ * Replaces properties in-place so existing object references remain valid.
+ * Returns false if no save could be loaded (game state is unrecoverable).
+ */
+function revertToLastSave(gameData: GameData): boolean {
+  const lastGood = loadGame();
+  if (!lastGood) return false;
+  const record = gameData as unknown as Record<string, unknown>;
+  for (const key of Object.keys(record)) {
+    delete record[key];
+  }
+  Object.assign(gameData, lastGood);
+  return true;
+}
+
+/**
  * Fast-forward game state based on elapsed real-world time (initial load).
  *
  * Small gaps (≤ CATCH_UP_BATCH_SIZE ticks): processed synchronously,
@@ -426,9 +443,13 @@ function fastForwardTicks(gameData: GameData): CatchUpReport | null {
 
     // Only persist if all ticks succeeded — a mid-tick exception leaves
     // the game state partially mutated and saving would cement corruption.
+    // On error, revert to the last saved state so corrupted data never persists.
     if (!tickError) {
       saveGame(gameData);
     } else {
+      revertToLastSave(gameData);
+      gameData.lastTickTimestamp = now;
+      saveGame(gameData);
       showErrorBanner(
         'A game error occurred during offline catch-up. Progress since last save may be lost on reload.'
       );
@@ -815,24 +836,32 @@ const callbacks: RendererCallbacks = {
       }
     }
 
+    // Compute how many ticks are needed to reach the next day boundary.
+    // Using the exact count (rather than a fixed TICKS_PER_DAY) prevents
+    // overshooting when game time isn't aligned to a day boundary.
+    const targetTime = advanceToNextDayStart(state.gameData.gameTime);
+    const ticksNeeded = Math.ceil(
+      (targetTime - state.gameData.gameTime) / GAME_SECONDS_PER_TICK
+    );
+
     // Check if any ship in the fleet is in-flight — if so, run the full
-    // tick loop once for 1 day. applyTick already processes ALL ships per
-    // call, so we must NOT call it inside a per-ship loop.
+    // tick loop. applyTick already processes ALL ships per call, so we
+    // must NOT call it inside a per-ship loop.
     const hasInFlightShip = state.gameData.ships.some(
       (s) => s.location.status === 'in_flight'
     );
 
     if (hasInFlightShip) {
-      for (let i = 0; i < TICKS_PER_DAY; i++) {
+      for (let i = 0; i < ticksNeeded; i++) {
         applyTick(state.gameData);
       }
     } else {
       // No ships in-flight: still deduct salaries for the day
-      deductFleetSalaries(state.gameData, TICKS_PER_DAY);
+      deductFleetSalaries(state.gameData, ticksNeeded);
     }
 
-    // Advance to the start of the next day
-    state.gameData.gameTime = advanceToNextDayStart(state.gameData.gameTime);
+    // Snap to exact day boundary (avoids rounding from integer tick count)
+    state.gameData.gameTime = targetTime;
 
     addLog(
       state.gameData.log,
@@ -879,6 +908,9 @@ const callbacks: RendererCallbacks = {
         }
       }
     }
+
+    // Update timestamp so catch-up on reload doesn't replay these ticks
+    state.gameData.lastTickTimestamp = Date.now();
 
     saveGame(state.gameData);
     renderApp();
@@ -1690,10 +1722,38 @@ function processCatchUpBatch(): void {
     } catch (e) {
       console.error('Tick failed during catch-up batch, finishing early:', e);
       tickError = true;
-      // Skip remaining ticks to avoid repeated failures
-      activeCatchUp.ticksProcessed = activeCatchUp.totalTicks;
       break;
     }
+  }
+  if (tickError) {
+    // Revert to last saved state so corrupted data never persists.
+    // Skip remaining ticks to avoid repeated failures on bad state.
+    revertToLastSave(state.gameData);
+    state.gameData.lastTickTimestamp = Date.now();
+    saveGame(state.gameData);
+
+    const report = buildCatchUpReport(
+      activeCatchUp.ticksProcessed + processed,
+      activeCatchUp.elapsedRealSeconds,
+      drainEncounterResults(),
+      state.gameData,
+      activeCatchUp.prevCredits,
+      activeCatchUp.prevGameTime
+    );
+    activeCatchUp = null;
+    catchUpBatchScheduled = false;
+    if (state.phase === 'playing') {
+      state = {
+        ...state,
+        catchUpReport: report,
+        catchUpProgress: undefined,
+      };
+    }
+    showErrorBanner(
+      'A game error occurred during offline catch-up. Progress since last save may be lost on reload.'
+    );
+    renderApp();
+    return;
   }
   activeCatchUp.ticksProcessed += processed;
 
@@ -1718,13 +1778,7 @@ function processCatchUpBatch(): void {
         catchUpProgress: undefined,
       };
     }
-    if (!tickError) {
-      saveGame(state.gameData);
-    } else {
-      showErrorBanner(
-        'A game error occurred during offline catch-up. Progress since last save may be lost on reload.'
-      );
-    }
+    saveGame(state.gameData);
     renderApp();
   } else {
     // More to go — update progress and yield to browser
@@ -1836,11 +1890,16 @@ function processPendingTicks(): void {
     }
   }
 
-  // Don't persist partially-mutated state from a mid-tick exception
+  // On tick error, revert to last saved state so corrupted data never
+  // persists. Advance the timestamp to avoid replaying the same failing ticks.
   if (tickError) {
+    revertToLastSave(state.gameData);
+    state.gameData.lastTickTimestamp = now;
+    saveGame(state.gameData);
     showErrorBanner(
       'A game error occurred. Progress since last save may be lost on reload.'
     );
+    renderApp();
     return;
   }
 

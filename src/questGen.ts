@@ -4,6 +4,7 @@ import { getDistanceBetween, canShipAccessLocation } from './worldGen';
 import {
   calculateAvailableCargoCapacity,
   calculateDeltaV,
+  calculateDryMass,
   calculateFuelMassRequired,
   calculateFuelTankCapacity,
   getCurrentShipMass,
@@ -11,7 +12,7 @@ import {
 } from './flightPhysics';
 import { gameSecondsToTicks, GAME_SECONDS_PER_TICK } from './timeSystem';
 import { getEngineDefinition } from './engines';
-import { getCrewRoleDefinition } from './crewRoles';
+import { calculateShipSalaryPerTick } from './crewRoles';
 import { calculatePositionDanger } from './encounterSystem';
 import { getCrewForJobType } from './jobSlots';
 import { getCommercePaymentBonus } from './skillRanks';
@@ -46,13 +47,7 @@ export function calculateTripFuelKg(
   const thrust = engineDef.thrust;
   const specificImpulse = getSpecificImpulse(engineDef);
 
-  // Dry mass = everything except fuel (hull + crew + cargo)
-  // Cargo stays on the ship, so it's part of dry mass for Tsiolkovsky
-  const dryMass = shipClass
-    ? shipClass.mass +
-      ship.crew.length * 80 +
-      ship.cargo.reduce((sum, _item) => sum + 10, 0)
-    : 200000;
+  const dryMass = calculateDryMass(ship);
 
   // Wet mass at full fuel tank
   const maxFuelKg = shipClass
@@ -132,27 +127,10 @@ function calculatePayment(
   const tripTimeSecs = estimateTripTime(ship, distanceKm);
   const roundTripTicks = (tripTimeSecs * 2) / GAME_SECONDS_PER_TICK;
 
-  const crewSalaryPerTick = ship.crew.reduce((sum, c) => {
-    const roleDef = getCrewRoleDefinition(c.role);
-    return sum + (roleDef?.salary ?? 0);
-  }, 0);
+  const crewSalaryPerTick = calculateShipSalaryPerTick(ship);
 
-  const shipClass = getShipClass(ship.classId);
-  const engineDef = getEngineDefinition(ship.engine.definitionId);
-
-  // Calculate fuel cost in credits
-  const distanceMeters = distanceKm * 1000;
-  const currentMass = getCurrentShipMass(ship);
-  const thrust = engineDef.thrust;
-  const acceleration = thrust / currentMass;
-  const requiredDeltaV = 2 * Math.sqrt(distanceMeters * acceleration);
-  const dryMass = shipClass ? shipClass.mass + ship.crew.length * 80 : 200000;
-  const specificImpulse = getSpecificImpulse(engineDef);
-  const fuelKgRequired = calculateFuelMassRequired(
-    dryMass,
-    requiredDeltaV,
-    specificImpulse
-  );
+  // Calculate fuel cost in credits using the canonical fuel calculator
+  const fuelKgRequired = calculateTripFuelKg(ship, distanceKm);
 
   const crewCost = crewSalaryPerTick * roundTripTicks;
   const fuelCost = fuelKgRequired * 2 * FUEL_PRICE_PER_KG; // Round trip
@@ -228,7 +206,10 @@ function getShipCommerceBonus(ship: Ship): number {
 }
 
 /**
- * Estimate trip time in game seconds using simplified burn-coast-burn physics
+ * Estimate trip time in game seconds using simplified burn-coast-burn physics.
+ *
+ * Uses the same mass basis and edge-case guards as initializeFlight() to
+ * ensure quest-card estimates match actual flight duration.
  *
  * @param burnFraction 0.1-1.0: fraction of delta-v budget to use (1.0 = max speed)
  */
@@ -243,14 +224,20 @@ export function estimateTripTime(
   const clampedBurnFraction = Math.max(0.1, Math.min(1.0, burnFraction));
   const engineDef = getEngineDefinition(ship.engine.definitionId);
   const distanceMeters = distanceKm * 1000;
-  const mass = shipClass.mass;
+  // Use current ship mass (including fuel, cargo, crew) — same as initializeFlight
+  const currentMass = getCurrentShipMass(ship);
   const thrust = engineDef.thrust;
-  const acceleration = thrust / mass;
+  const acceleration = thrust / currentMass;
 
   // Use fixed cruise velocity (same as computeMaxRange and initializeFlight)
   // 50% fuel budget for one-way trip, scaled by burn fraction
   const maxAllocatedDeltaV = 0.5 * engineDef.maxDeltaV;
   const allocatedDeltaV = maxAllocatedDeltaV * clampedBurnFraction;
+
+  // Edge case: zero thrust or zero fuel
+  if (acceleration <= 0 || allocatedDeltaV <= 0) {
+    return GAME_SECONDS_PER_TICK;
+  }
 
   // Check if mini-brachistochrone (short trip)
   const dv_brachistochrone = 2 * Math.sqrt(distanceMeters * acceleration);
@@ -264,9 +251,14 @@ export function estimateTripTime(
     const v_cruise = allocatedDeltaV / 2;
     const burnTime = v_cruise / acceleration;
     const burnDistance = 0.5 * acceleration * burnTime * burnTime;
-    const coastDistance = distanceMeters - 2 * burnDistance;
-    const coastTime = coastDistance / v_cruise;
+    const coastDistance = Math.max(0, distanceMeters - 2 * burnDistance);
+    const coastTime = v_cruise > 0 ? coastDistance / v_cruise : 0;
     totalTime = 2 * burnTime + coastTime;
+  }
+
+  // Final sanity check — match initializeFlight's guard
+  if (!Number.isFinite(totalTime) || totalTime <= 0) {
+    return GAME_SECONDS_PER_TICK;
   }
 
   return totalTime;
@@ -585,10 +577,7 @@ function calculateTradeRoutePayment(
   const tripTimeSecs = estimateTripTime(ship, distanceKm);
   const roundTripTicks = (tripTimeSecs * 2) / GAME_SECONDS_PER_TICK;
 
-  const crewSalaryPerTick = ship.crew.reduce((sum, c) => {
-    const roleDef = getCrewRoleDefinition(c.role);
-    return sum + (roleDef?.salary ?? 0);
-  }, 0);
+  const crewSalaryPerTick = calculateShipSalaryPerTick(ship);
 
   const fuelKgRequired = calculateTripFuelKg(ship, distanceKm);
 

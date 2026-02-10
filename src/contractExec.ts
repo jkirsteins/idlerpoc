@@ -307,6 +307,7 @@ export function completeLeg(gameData: GameData, ship: Ship): void {
       } else {
         ship.location.status = 'orbiting';
         ship.location.orbitingAt = destination.id;
+        delete ship.location.dockedAt;
       }
       delete ship.activeFlightPlan;
       ship.engine.state = 'off';

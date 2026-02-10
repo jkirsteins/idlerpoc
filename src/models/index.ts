@@ -519,5 +519,8 @@ export interface GameData {
  * Get the currently selected ship from fleet
  */
 export function getActiveShip(gameData: GameData): Ship {
-  return gameData.ships.find((s) => s.id === gameData.activeShipId)!;
+  return (
+    gameData.ships.find((s) => s.id === gameData.activeShipId) ??
+    gameData.ships[0]
+  );
 }

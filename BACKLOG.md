@@ -72,6 +72,13 @@ This file tracks deferred features and known gaps that are not currently priorit
 - **Patrol Corridor System**: Define patrolled routes between major locations. Ships traveling along established corridors get reduced encounter rates; deviating into unpatrolled space increases danger. Only meaningful with 2D+ coordinates where "off-corridor" is spatially distinct from "on-corridor."
 - **Orbital Position Drift**: Planets and stations move over time (orbital periods). Distance between locations changes dynamically, creating seasonal trade routes and variable travel times.
 
+## Duplicate Logic Consolidation (DONE)
+
+All items from the original audit (`docs/duplicate-logic-audit.md`) have been resolved.
+Remaining follow-up:
+
+- **Move `getFuelPricePerKg` out of `ui/refuelDialog.ts`**: This is pure game logic; it should live in a non-UI module so `fleetAnalytics.ts` can import it without cross-layer dependency.
+
 ## Other Known Gaps
 
 - **Equipment Repair at Stations**: Degraded equipment cannot currently be repaired (in-flight repair now via job slots).

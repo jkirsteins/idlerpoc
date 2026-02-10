@@ -1,4 +1,11 @@
-import type { CrewRole, RoomType, CrewSkills, SkillId } from './models';
+import type {
+  CrewRole,
+  CrewMember,
+  RoomType,
+  CrewSkills,
+  SkillId,
+  Ship,
+} from './models';
 
 export interface CrewRoleDefinition {
   role: CrewRole;
@@ -108,4 +115,42 @@ export function generateSkillsForRole(_targetRole: CrewRole): CrewSkills {
 export function getPrimarySkillForRole(role: CrewRole): SkillId | null {
   const entry = Object.entries(SKILL_TO_ROLE).find(([_, r]) => r === role);
   return entry ? (entry[0] as SkillId) : null;
+}
+
+/**
+ * Calculate total crew salary cost per tick for a ship.
+ * Centralised to avoid duplicating this loop in 6+ locations.
+ */
+export function calculateShipSalaryPerTick(ship: Ship): number {
+  let total = 0;
+  for (const crew of ship.crew) {
+    const roleDef = getCrewRoleDefinition(crew.role);
+    if (roleDef) {
+      total += roleDef.salary;
+    }
+  }
+  return total;
+}
+
+/**
+ * Find the highest value of a specific skill among a set of crew members.
+ * Centralised to avoid duplicating the "find best skill" loop.
+ */
+export function getBestCrewSkill(crew: CrewMember[], skillId: SkillId): number {
+  let best = 0;
+  for (const member of crew) {
+    if (member.skills[skillId] > best) {
+      best = member.skills[skillId];
+    }
+  }
+  return best;
+}
+
+/**
+ * Calculate repair points per tick for a single crew member.
+ * Used by both game logic (gameTick) and UI (shipTab).
+ */
+export const REPAIR_SKILL_FACTOR = 0.05;
+export function calculateRepairPoints(crew: CrewMember): number {
+  return crew.skills.piloting * REPAIR_SKILL_FACTOR;
 }
