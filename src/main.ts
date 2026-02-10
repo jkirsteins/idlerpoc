@@ -10,6 +10,7 @@ import type {
   EncounterResult,
   SkillId,
   LogEntry,
+  OreId,
 } from './models';
 import { getActiveShip } from './models';
 import {
@@ -54,6 +55,7 @@ import {
   unassignCrewFromAllSlots,
   autoAssignCrewToJobs,
 } from './jobSlots';
+import { sellOre, sellAllOre } from './miningSystem';
 
 const app = document.getElementById('app')!;
 
@@ -1279,6 +1281,36 @@ const callbacks: RendererCallbacks = {
     state.gameData.isPaused = false; // Auto-unpause when setting speed
     // Reset timestamp so speed change takes effect from now
     state.gameData.lastTickTimestamp = Date.now();
+    saveGame(state.gameData);
+    renderApp();
+  },
+
+  onSellOre: (oreId: OreId, quantity: number) => {
+    if (state.phase !== 'playing') return;
+    const ship = getActiveShip(state.gameData);
+    if (ship.location.status !== 'docked' || !ship.location.dockedAt) return;
+
+    const location = state.gameData.world.locations.find(
+      (l) => l.id === ship.location.dockedAt
+    );
+    if (!location || !location.services.includes('trade')) return;
+
+    sellOre(ship, oreId, quantity, location, state.gameData);
+    saveGame(state.gameData);
+    renderApp();
+  },
+
+  onSellAllOre: () => {
+    if (state.phase !== 'playing') return;
+    const ship = getActiveShip(state.gameData);
+    if (ship.location.status !== 'docked' || !ship.location.dockedAt) return;
+
+    const location = state.gameData.world.locations.find(
+      (l) => l.id === ship.location.dockedAt
+    );
+    if (!location || !location.services.includes('trade')) return;
+
+    sellAllOre(ship, location, state.gameData);
     saveGame(state.gameData);
     renderApp();
   },

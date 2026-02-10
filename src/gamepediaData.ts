@@ -1341,9 +1341,9 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
       {
         heading: 'How Mining Works',
         paragraphs: [
-          'Mining happens automatically while your ship is orbiting a location that provides a mine service. Crew assigned to the mining_ops [[job-slots|job slot]] perform the extraction work.',
-          'Crew in mining_ops train the [[skill-system|mining]] skill passively during operations. Higher mining skill unlocks rarer ores and improves extraction speed.',
-          "Extracted ore is stored in your ship's cargo hold. Sell ore at any station with a trade service to convert it into [[credits-economy|credits]].",
+          'Mining happens automatically while your ship is orbiting a location that provides a mine service. Crew assigned to the mining_ops [[job-slots|job slot]] perform the extraction work. Each miner must have mining equipment in their crew equipment slot — without it they will train the mining skill but not extract ore.',
+          'Extraction rate depends on equipment quality, [[skill-system|mining]] skill, and [[mastery-system|ore mastery]]. Miners automatically target the highest-value ore they can extract at the current location.',
+          "Extracted ore is stored in your ship's cargo hold. When cargo is full, mining pauses. Sell ore at any station with a trade service to convert it into [[credits-economy|credits]]. Sell prices vary by location type and improve with the [[skill-system|commerce]] skill.",
         ],
       },
       {
@@ -1354,12 +1354,12 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
         table: {
           headers: ['Equipment', 'Mining Level Req', 'Rate Multiplier'],
           rows: [
-            ['Basic Mining Laser', '0', '1.0x'],
-            ['Improved Mining Laser', '15', '1.5x'],
-            ['Heavy Drill', '30', '2.0x'],
-            ['Deep Core Extractor', '50', '2.5x'],
-            ['Fusion Cutter', '75', '3.5x'],
-            ['Quantum Excavator', '90', '5.0x'],
+            ['ML-1 Mining Laser', '0', '1.0x'],
+            ['ML-3 Improved Mining Laser', '15', '1.5x'],
+            ['HD-50 Heavy Mining Drill', '30', '2.0x'],
+            ['DCE-7 Deep Core Extractor', '50', '2.5x'],
+            ['FAD-12 Fusion-Assisted Drill', '75', '3.5x'],
+            ['QRD-X Quantum Resonance Drill', '90', '5.0x'],
           ],
         },
       },
@@ -1458,8 +1458,8 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
       {
         heading: 'Selling Ore',
         paragraphs: [
-          'Ore is sold at any station with a trade service. Prices are based on the ore base value, modified by local supply and demand.',
-          'Building [[mastery-system|trade route mastery]] in [[commerce-skill|commerce]] can improve the prices you receive when selling ore.',
+          'Ore is sold at any station with a trade service. Dock at the station and use the Sell Ore panel in the Work tab. You can sell individual ore types or all at once.',
+          'Sell price = base value × location multiplier × commerce bonus. Planets offer 1.1x prices, space stations 1.0x, and smaller outposts less. The [[skill-system|commerce]] skill of your best trader adds +0.5% per skill point (up to +50% at skill 100).',
         ],
       },
     ],

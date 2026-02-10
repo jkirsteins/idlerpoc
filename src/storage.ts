@@ -1,6 +1,7 @@
 import type { GameData } from './models';
 import { generateWorld } from './worldGen';
 import { generateJobSlotsForShip } from './jobSlots';
+import { generateId } from './utils';
 
 const STORAGE_KEY = 'spaceship_game_data';
 
@@ -309,9 +310,38 @@ export function loadGame(): GameData | null {
       return null;
     }
 
+    // Additive backfills (no version bump needed)
+    backfillMiningData(migrated);
+
     return migrated;
   } catch {
     return null;
+  }
+}
+
+/**
+ * Additive backfill for mining-related data on existing v2 saves.
+ * Adds miningAccumulator and mining_ops job slots if missing.
+ * No version bump needed — these are optional fields with safe defaults.
+ */
+function backfillMiningData(gameData: GameData): void {
+  for (const ship of gameData.ships) {
+    // Backfill miningAccumulator
+    if (!ship.miningAccumulator) {
+      ship.miningAccumulator = {};
+    }
+
+    // Backfill mining_ops job slots if missing
+    const hasMiningOps = ship.jobSlots.some((s) => s.type === 'mining_ops');
+    if (!hasMiningOps) {
+      for (let i = 0; i < 3; i++) {
+        ship.jobSlots.push({
+          id: generateId(),
+          type: 'mining_ops',
+          assignedCrewId: null,
+        });
+      }
+    }
   }
 }
 

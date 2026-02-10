@@ -54,10 +54,9 @@ This file tracks deferred features and known gaps that are not currently priorit
 - **Enforce Piloting-Gated Destinations**: Prevent navigation to locations where crew piloting skill doesn't meet `pilotingRequirement`. Currently defined but not enforced in flight initialization.
 - **Mastery Pool Spending UI**: Allow players to spend mastery pool XP to boost specific item mastery levels. Core mechanic designed in `docs/skill-revamp-design.md` but UI not built.
 - **Mastery Pool Checkpoint Bonuses (Active)**: The mastery pool checkpoint definitions exist in `masterySystem.ts` but actual gameplay effects (auto-refuel at 95%, preserve ore on fail at 50%, etc.) are not wired into game systems yet.
-- **Item Mastery Bonuses (Active)**: Per-item mastery bonuses (fuel savings per route, yield bonus per ore, payment bonus per trade route) are defined but not applied during gameplay calculations.
-- **Mining System Implementation**: Core ore types, equipment, and mastery data exist but the actual mining tick loop (extract ore while orbiting mine-enabled locations) is not implemented.
-- **Ore Selling / Commerce Integration**: No mechanism to sell mined ore at stations. Need sell UI, commerce skill bonus on sale price, and trade route mastery for regular sales.
-- **Mining Equipment Purchase UI**: Mining equipment definitions exist but no purchase/equip UI.
+- **Item Mastery Bonuses (Active)**: Per-item mastery bonuses for routes and trade routes are defined but not applied during gameplay calculations. Mining ore mastery yield bonuses are now active.
+- **Mining Ore Selection UI**: Miners auto-select the highest-value ore. A future UI could let players choose which ore to mine per-miner.
+- **Mining Equipment Purchase UI**: Mining equipment definitions exist in the equipment shop but no dedicated mining loadout UI.
 - **Mastery Traits**: Award a permanent crew trait when reaching skill 100 (Master rank).
 - **Prestige/Reset Loop**: Long-term engagement mechanic — "retire" experienced crew for permanent bonuses on future hires.
 - **Event Gain Scaling**: Scale flat event gains inversely to rank bracket to prevent high-level spikiness (combat +3.0 is huge at skill 95).

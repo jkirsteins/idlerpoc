@@ -305,6 +305,7 @@ export interface Ship {
   engine: EngineInstance;
   cargo: CrewEquipmentInstance[];
   oreCargo: OreCargoItem[]; // mined ore in cargo hold
+  miningAccumulator: Record<string, number>; // fractional ore per OreId
   activeContract: ActiveContract | null;
   routeAssignment: RouteAssignment | null; // Automated route for standing freight
   lastEncounterTime?: number; // gameTime of last encounter (for cooldown)
@@ -383,7 +384,11 @@ export type LogEntryType =
   | 'encounter_boarding'
   | 'encounter_fled'
   | 'crew_level_up'
-  | 'crew_role_change';
+  | 'crew_role_change'
+  | 'mining_started'
+  | 'ore_mined'
+  | 'ore_sold'
+  | 'cargo_full';
 
 export interface LogEntry {
   gameTime: number;

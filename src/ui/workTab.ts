@@ -1,4 +1,4 @@
-import type { GameData, Quest, Ship } from '../models';
+import type { GameData, Quest, Ship, OreId } from '../models';
 import { getActiveShip } from '../models';
 import {
   formatDuration,
@@ -22,6 +22,14 @@ import { formatFuelMass, calculateFuelPercentage } from './fuelFormatting';
 import { getDistanceBetween } from '../worldGen';
 import { getFuelPricePerKg } from './refuelDialog';
 import { renderFlightStatus } from './flightStatus';
+import { getOreDefinition, canMineOre } from '../oreTypes';
+import { getCrewForJobType } from '../jobSlots';
+import { getBestMiningEquipment } from '../crewEquipment';
+import {
+  getOreSellPrice,
+  getOreCargoWeight,
+  getRemainingOreCapacity,
+} from '../miningSystem';
 
 export interface WorkTabCallbacks {
   onAcceptQuest: (questId: string) => void;
@@ -30,6 +38,8 @@ export interface WorkTabCallbacks {
   onDockAtNearestPort: () => void;
   onResumeContract: () => void;
   onAbandonContract: () => void;
+  onSellOre: (oreId: OreId, quantity: number) => void;
+  onSellAllOre: () => void;
 }
 
 export function createWorkTab(
@@ -55,6 +65,36 @@ export function createWorkTab(
       // Update slider to match current ship setting (e.g. after switching ships)
       updateFlightProfileControl(profileControl, ship);
       container.appendChild(profileControl.el);
+
+      // Mining status panel (when orbiting a mine-enabled location)
+      const orbitLocation = ship.location.orbitingAt
+        ? gameData.world.locations.find(
+            (l) => l.id === ship.location.orbitingAt
+          )
+        : null;
+      if (
+        ship.location.status === 'orbiting' &&
+        orbitLocation?.services.includes('mine')
+      ) {
+        container.appendChild(
+          renderMiningStatus(gameData, ship, orbitLocation)
+        );
+      }
+
+      // Ore selling panel (when docked at a trade-enabled location with ore cargo)
+      const dockLocation = ship.location.dockedAt
+        ? gameData.world.locations.find((l) => l.id === ship.location.dockedAt)
+        : null;
+      if (
+        ship.location.status === 'docked' &&
+        dockLocation?.services.includes('trade') &&
+        ship.oreCargo.length > 0
+      ) {
+        container.appendChild(
+          renderOreSelling(gameData, ship, dockLocation, callbacks)
+        );
+      }
+
       const workContent = renderAvailableWork(gameData, callbacks);
       container.appendChild(workContent);
     } else if (activeContract && activeContract.paused) {
@@ -765,4 +805,243 @@ function renderRouteAssignmentInfo(
   container.appendChild(actions);
 
   return container;
+}
+
+// ─── Mining Status Panel ────────────────────────────────────────
+
+function renderMiningStatus(
+  _gameData: GameData,
+  ship: Ship,
+  location: import('../models').WorldLocation
+): HTMLElement {
+  const panel = document.createElement('div');
+  panel.className = 'mining-status-panel';
+  panel.style.cssText = `
+    margin-bottom: 1rem;
+    padding: 0.75rem;
+    background: rgba(255, 165, 0, 0.08);
+    border: 1px solid #b87333;
+    border-radius: 4px;
+  `;
+
+  // Header
+  const header = document.createElement('div');
+  header.style.cssText =
+    'display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;';
+  const title = document.createElement('span');
+  title.style.cssText = 'font-weight: bold; font-size: 1rem; color: #ffa500;';
+  title.textContent = `⛏️ Mining at ${location.name}`;
+  header.appendChild(title);
+  panel.appendChild(header);
+
+  // Available ores at this location
+  const oresSection = document.createElement('div');
+  oresSection.style.cssText = 'margin-bottom: 0.5rem;';
+  const oresLabel = document.createElement('div');
+  oresLabel.style.cssText =
+    'font-size: 0.85rem; color: #aaa; margin-bottom: 0.25rem;';
+  oresLabel.textContent = 'Available Ores:';
+  oresSection.appendChild(oresLabel);
+
+  const availableOres = location.availableOres ?? [];
+  const miners = getCrewForJobType(ship, 'mining_ops');
+  for (const oreId of availableOres) {
+    const ore = getOreDefinition(oreId);
+    const oreTag = document.createElement('span');
+    oreTag.style.cssText = `
+      display: inline-block; margin: 2px 4px 2px 0; padding: 2px 8px;
+      border-radius: 3px; font-size: 0.8rem;
+      background: rgba(255,165,0,0.15); border: 1px solid #665533;
+    `;
+    // Check if any miner can mine this ore
+    const someMinerCanMine = miners.some((m) =>
+      canMineOre(m.skills.mining, oreId)
+    );
+    if (!someMinerCanMine) {
+      oreTag.style.opacity = '0.5';
+      oreTag.title = `Requires Mining ${ore.miningLevelRequired}`;
+    }
+    oreTag.textContent = `${ore.icon} ${ore.name} (${ore.baseValue} cr)`;
+    if (!someMinerCanMine) {
+      oreTag.textContent += ` [Mining ${ore.miningLevelRequired}]`;
+    }
+    oresSection.appendChild(oreTag);
+  }
+  panel.appendChild(oresSection);
+
+  // Miners status
+  const minersSection = document.createElement('div');
+  minersSection.style.cssText = 'margin-bottom: 0.5rem; font-size: 0.85rem;';
+
+  if (miners.length === 0) {
+    const noMiners = document.createElement('div');
+    noMiners.style.color = '#e94560';
+    noMiners.textContent =
+      'No crew assigned to Mining Ops. Assign crew in the Crew tab.';
+    minersSection.appendChild(noMiners);
+  } else {
+    for (const miner of miners) {
+      const minerLine = document.createElement('div');
+      minerLine.style.cssText = 'margin-bottom: 2px; color: #ccc;';
+
+      const equippedIds = miner.equipment.map((e) => e.definitionId);
+      const miningEquip = getBestMiningEquipment(equippedIds);
+      const miningSkill = Math.floor(miner.skills.mining);
+
+      if (!miningEquip) {
+        minerLine.style.color = '#e94560';
+        minerLine.textContent = `${miner.name} (Mining ${miningSkill}) — No mining equipment!`;
+      } else {
+        // Find best ore they can mine here
+        const bestOre = availableOres
+          .map((id) => getOreDefinition(id))
+          .filter((o) => miningSkill >= o.miningLevelRequired)
+          .sort((a, b) => b.baseValue - a.baseValue)[0];
+
+        minerLine.textContent = `${miner.name} (Mining ${miningSkill}) — ${miningEquip.name} (${miningEquip.miningRate}x)`;
+        if (bestOre) {
+          minerLine.textContent += ` → ${bestOre.icon} ${bestOre.name}`;
+        }
+      }
+      minersSection.appendChild(minerLine);
+    }
+  }
+  panel.appendChild(minersSection);
+
+  // Cargo status
+  const cargoSection = document.createElement('div');
+  cargoSection.style.cssText = 'font-size: 0.85rem; color: #aaa;';
+
+  const oreWeight = getOreCargoWeight(ship);
+  const remaining = getRemainingOreCapacity(ship);
+  const totalOreUnits = ship.oreCargo.reduce(
+    (sum, item) => sum + item.quantity,
+    0
+  );
+
+  let cargoText = `Ore Cargo: ${totalOreUnits} units (${Math.round(oreWeight).toLocaleString()} kg)`;
+  if (remaining <= 0) {
+    cargoText += ' — FULL';
+    cargoSection.style.color = '#e94560';
+  } else {
+    cargoText += ` — ${Math.round(remaining).toLocaleString()} kg remaining`;
+  }
+  cargoSection.textContent = cargoText;
+  panel.appendChild(cargoSection);
+
+  // Ore cargo breakdown
+  if (ship.oreCargo.length > 0) {
+    const breakdown = document.createElement('div');
+    breakdown.style.cssText =
+      'margin-top: 0.35rem; font-size: 0.8rem; color: #888;';
+    for (const item of ship.oreCargo) {
+      const ore = getOreDefinition(item.oreId);
+      const line = document.createElement('div');
+      line.textContent = `  ${ore.icon} ${ore.name}: ${item.quantity} units`;
+      breakdown.appendChild(line);
+    }
+    panel.appendChild(breakdown);
+  }
+
+  return panel;
+}
+
+// ─── Ore Selling Panel ──────────────────────────────────────────
+
+function renderOreSelling(
+  _gameData: GameData,
+  ship: Ship,
+  location: import('../models').WorldLocation,
+  callbacks: WorkTabCallbacks
+): HTMLElement {
+  const panel = document.createElement('div');
+  panel.className = 'ore-selling-panel';
+  panel.style.cssText = `
+    margin-bottom: 1rem;
+    padding: 0.75rem;
+    background: rgba(76, 175, 80, 0.08);
+    border: 1px solid #4caf50;
+    border-radius: 4px;
+  `;
+
+  // Header with sell all button
+  const header = document.createElement('div');
+  header.style.cssText =
+    'display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;';
+
+  const title = document.createElement('span');
+  title.style.cssText = 'font-weight: bold; font-size: 1rem; color: #4caf50;';
+  title.textContent = '💰 Sell Ore';
+  header.appendChild(title);
+
+  // Sell All button
+  const totalValue = ship.oreCargo.reduce((sum, item) => {
+    const ore = getOreDefinition(item.oreId);
+    return sum + getOreSellPrice(ore, location, ship) * item.quantity;
+  }, 0);
+
+  const sellAllBtn = document.createElement('button');
+  sellAllBtn.style.cssText = `
+    padding: 4px 12px; font-size: 0.85rem; cursor: pointer;
+    background: #4caf50; color: white; border: none; border-radius: 3px;
+  `;
+  sellAllBtn.textContent = `Sell All (${totalValue.toLocaleString()} cr)`;
+  sellAllBtn.addEventListener('click', () => callbacks.onSellAllOre());
+  header.appendChild(sellAllBtn);
+
+  panel.appendChild(header);
+
+  // Location price info
+  const priceInfo = document.createElement('div');
+  priceInfo.style.cssText =
+    'font-size: 0.8rem; color: #888; margin-bottom: 0.5rem;';
+  priceInfo.textContent = `Selling at ${location.name}. Commerce skill improves prices.`;
+  panel.appendChild(priceInfo);
+
+  // Ore items
+  for (const item of ship.oreCargo) {
+    const ore = getOreDefinition(item.oreId);
+    const pricePerUnit = getOreSellPrice(ore, location, ship);
+    const itemTotal = pricePerUnit * item.quantity;
+
+    const row = document.createElement('div');
+    row.style.cssText = `
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 0.4rem 0; border-bottom: 1px solid #333;
+    `;
+
+    const info = document.createElement('div');
+    info.style.cssText = 'font-size: 0.85rem;';
+    info.innerHTML = `
+      <span style="color: #ccc;">${ore.icon} ${ore.name}</span>
+      <span style="color: #888;"> × ${item.quantity}</span>
+      <span style="color: #4caf50; margin-left: 8px;">${pricePerUnit} cr/unit</span>
+    `;
+    row.appendChild(info);
+
+    const rightSide = document.createElement('div');
+    rightSide.style.cssText = 'display: flex; align-items: center; gap: 8px;';
+
+    const valueLabel = document.createElement('span');
+    valueLabel.style.cssText =
+      'font-size: 0.85rem; color: #4caf50; font-weight: bold;';
+    valueLabel.textContent = `${itemTotal.toLocaleString()} cr`;
+    rightSide.appendChild(valueLabel);
+
+    const sellBtn = document.createElement('button');
+    sellBtn.style.cssText = `
+      padding: 2px 8px; font-size: 0.8rem; cursor: pointer;
+      background: #2e7d32; color: white; border: none; border-radius: 3px;
+    `;
+    sellBtn.textContent = 'Sell';
+    sellBtn.addEventListener('click', () =>
+      callbacks.onSellOre(item.oreId, item.quantity)
+    );
+    rightSide.appendChild(sellBtn);
+
+    row.appendChild(rightSide);
+    panel.appendChild(row);
+  }
+
+  return panel;
 }

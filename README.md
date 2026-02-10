@@ -44,11 +44,13 @@ npm run dev
   - Unpaid crew depart at next station
   - Hire new crew at stations with hiring services
 - **Mining System**:
-  - Mine ores at locations with `mine` service (asteroid belts, planets)
-  - 8 ore types from Iron (common) to Exotic Matter (rare) — mining level gates access
-  - 6 tiers of mining equipment (crew equipment slot) from Basic Mining Laser to Quantum Resonance Drill
-  - Per-ore mastery: mine more efficiently the more you mine a specific ore
-  - Sell ore at stations with trade service — prices vary by location
+  - Orbit locations with `mine` service to automatically extract ore (crew must be in mining_ops slot with mining equipment)
+  - 8 ore types from Iron (common, 5 cr) to Exotic Matter (rare, 200 cr) — mining skill level gates access
+  - 6 tiers of mining equipment (crew equipment slot) from ML-1 Mining Laser (1.0x) to QRD-X Quantum Resonance Drill (5.0x)
+  - Extraction rate scales with equipment tier, mining skill, and per-ore mastery bonuses
+  - Mastery pool bonuses at 10/25/50/95% full: XP boost, yield bonus, wear reduction, double-drop chance
+  - Sell ore at any station with trade service — prices vary by location type and commerce skill
+  - Cargo capacity limits: ore has weight, mining pauses when hold is full
   - Near-Earth mining destinations reachable by Station Keeper (Debris Field Alpha, Scrapyard Ring, NEA-2247)
 - **Navigation System**:
   - World map with 11 locations including 3 new near-Earth mining destinations

@@ -90,6 +90,8 @@ export interface RendererCallbacks {
     crewId: string,
     skillId: import('../models').SkillId
   ) => void;
+  onSellOre: (oreId: import('../models').OreId, quantity: number) => void;
+  onSellAllOre: () => void;
   onDismissCatchUp: () => void;
 }
 
@@ -321,6 +323,8 @@ function mountPlayingLayout(
       onSelectShip: callbacks.onSelectShip,
       onBuyShip: callbacks.onBuyShip,
       onTransferCrew: callbacks.onTransferCrew,
+      onSellOre: callbacks.onSellOre,
+      onSellAllOre: callbacks.onSellAllOre,
     },
     state.selectedCrewId
   );

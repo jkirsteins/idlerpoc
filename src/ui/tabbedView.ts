@@ -159,6 +159,8 @@ export function createTabbedView(
           onDockAtNearestPort: callbacks.onDockAtNearestPort,
           onResumeContract: callbacks.onResumeContract,
           onAbandonContract: callbacks.onAbandonContract,
+          onSellOre: callbacks.onSellOre,
+          onSellAllOre: callbacks.onSellAllOre,
         });
       case 'nav':
         return createNavigationView(gameData, {

@@ -1,4 +1,4 @@
-import type { CrewEquipmentId, SkillId } from '../models';
+import type { CrewEquipmentId, OreId, SkillId } from '../models';
 
 /**
  * Shared UI types extracted to break circular dependencies
@@ -50,4 +50,6 @@ export interface TabbedViewCallbacks {
     toShipId: string
   ) => void;
   onSpecializeCrew?: (crewId: string, skillId: SkillId) => void;
+  onSellOre: (oreId: OreId, quantity: number) => void;
+  onSellAllOre: () => void;
 }

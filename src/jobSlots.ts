@@ -255,6 +255,9 @@ const EQUIPMENT_JOB_MAP: Partial<
 /** How many repair slots to create (players can assign multiple engineers) */
 const REPAIR_SLOT_COUNT = 3;
 
+/** How many mining ops slots to create (players can assign multiple miners) */
+const MINING_OPS_SLOT_COUNT = 3;
+
 /**
  * Generate all job slots for a ship based on its rooms and equipment.
  * This is called during ship creation. Existing assignments are not preserved.
@@ -301,6 +304,15 @@ export function generateJobSlotsForShip(ship: Ship): JobSlot[] {
     slots.push({
       id: generateId(),
       type: 'repair',
+      assignedCrewId: null,
+    });
+  }
+
+  // Ship-wide mining ops slots
+  for (let i = 0; i < MINING_OPS_SLOT_COUNT; i++) {
+    slots.push({
+      id: generateId(),
+      type: 'mining_ops',
       assignedCrewId: null,
     });
   }

@@ -156,6 +156,7 @@ export function createTestShip(overrides: Partial<Ship> = {}): Ship {
     engine: createTestEngine({ definitionId: 'ntr_mk1' as EngineId }),
     cargo: [],
     oreCargo: [],
+    miningAccumulator: {},
     activeContract: null,
     routeAssignment: null,
     activeFlightPlan: createTestFlight(),
