@@ -214,9 +214,10 @@ export function applyMiningTick(
     let wholeUnits = Math.floor(newAccum);
     newAccum -= wholeUnits;
 
-    // Double drop chance (per whole unit)
+    // Double drop chance (per whole unit, iterate over the original count)
     if (doubleDropChance > 0 && wholeUnits > 0) {
-      for (let i = 0; i < wholeUnits; i++) {
+      const originalUnits = wholeUnits;
+      for (let i = 0; i < originalUnits; i++) {
         if (Math.random() < doubleDropChance) {
           wholeUnits++;
         }

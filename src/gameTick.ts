@@ -352,26 +352,29 @@ function applyShipTick(gameData: GameData, ship: Ship): boolean {
 
     // Log warnings at critical thresholds
     if (ship.oxygenLevel < 10 && ship.oxygenLevel + 0.5 >= 10) {
-      gameData.log.push({
-        gameTime: gameData.gameTime,
-        type: 'gravity_warning',
-        message: `Critical: ${ship.name} oxygen levels critical! Crew health deteriorating rapidly.`,
-        shipName: ship.name,
-      });
+      addLog(
+        gameData.log,
+        gameData.gameTime,
+        'gravity_warning',
+        `Critical: ${ship.name} oxygen levels critical! Crew health deteriorating rapidly.`,
+        ship.name
+      );
     } else if (ship.oxygenLevel < 25 && ship.oxygenLevel + 0.5 >= 25) {
-      gameData.log.push({
-        gameTime: gameData.gameTime,
-        type: 'gravity_warning',
-        message: `Warning: ${ship.name} oxygen levels dangerously low. Crew suffering hypoxia.`,
-        shipName: ship.name,
-      });
+      addLog(
+        gameData.log,
+        gameData.gameTime,
+        'gravity_warning',
+        `Warning: ${ship.name} oxygen levels dangerously low. Crew suffering hypoxia.`,
+        ship.name
+      );
     } else if (ship.oxygenLevel < 50 && ship.oxygenLevel + 0.5 >= 50) {
-      gameData.log.push({
-        gameTime: gameData.gameTime,
-        type: 'gravity_warning',
-        message: `${ship.name} oxygen levels declining. Life support struggling.`,
-        shipName: ship.name,
-      });
+      addLog(
+        gameData.log,
+        gameData.gameTime,
+        'gravity_warning',
+        `${ship.name} oxygen levels declining. Life support struggling.`,
+        ship.name
+      );
     }
   }
 
@@ -405,12 +408,13 @@ function applyShipTick(gameData: GameData, ship: Ship): boolean {
           message = `Critical: ${crew.name} in critical zero-g atrophy. ${description}.`;
         }
 
-        gameData.log.push({
-          gameTime: gameData.gameTime,
-          type: 'gravity_warning',
+        addLog(
+          gameData.log,
+          gameData.gameTime,
+          'gravity_warning',
           message,
-          shipName: ship.name,
-        });
+          ship.name
+        );
       }
     }
 
