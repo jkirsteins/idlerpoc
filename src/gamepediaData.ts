@@ -48,15 +48,15 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
       {
         paragraphs: [
           'The game runs on a tick-based simulation where each real-time second equals 3 game minutes (180 game seconds). A full game day takes about 8 real minutes to pass.',
-          'Time advances automatically during flight but is frozen when docked at a station or planet. While docked, you can manually advance to the next day to refresh available quests and trigger recovery mechanics.',
+          'Time advances automatically during flight but is frozen when docked at a station or planet. While docked, you can manually advance to the next day to refresh available [[contracts|quests]] and trigger [[zero-g-exposure|recovery]] mechanics.',
         ],
       },
       {
         heading: 'Idle Catch-Up',
         paragraphs: [
           'The game is idle-friendly: closing the browser or backgrounding the tab does not lose progress. When you return, the game computes all elapsed time and processes pending updates in batches.',
-          'If you were away for more than 5 real minutes, a catch-up report shows what happened while you were gone, including encounters, contract completions, and credit changes.',
-          'Catch-up processes up to 1 real day of elapsed time. During fast-forward, encounter severity is capped (boardings downgraded to harassment) to prevent unfair losses while away.',
+          'If you were away for more than 5 real minutes, a catch-up report shows what happened while you were gone, including [[encounters|encounters]], [[contracts|contract]] completions, and [[credits-economy|credit]] changes.',
+          'Catch-up processes up to 1 real day of elapsed time. During fast-forward, [[encounters|encounter]] severity is capped (boardings downgraded to harassment) to prevent unfair losses while away.',
         ],
       },
       {
@@ -91,31 +91,31 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
     sections: [
       {
         paragraphs: [
-          'Credits are the universal currency. You earn them by completing contracts and trade routes, and spend them on fuel, crew salaries, hiring, and equipment.',
-          'Economic pressure is constant: your crew costs money every day during flight, and fuel is expensive. Accepting profitable contracts and planning efficient routes is essential to stay solvent.',
+          'Credits are the universal currency. You earn them by completing [[contracts|contracts and trade routes]], and spend them on fuel, [[crew-salaries|crew salaries]], [[crew-hiring|hiring]], and [[ship-equipment|equipment]].',
+          'Economic pressure is constant: your crew costs money every day during flight, and fuel is expensive. Accepting profitable [[contracts|contracts]] and planning efficient routes is essential to stay solvent.',
         ],
       },
       {
         heading: 'Income Sources',
         paragraphs: [
-          'Contracts: Delivery, passenger, freight, and supply contracts pay upon completion or per trip for standing routes.',
+          '[[contracts|Contracts]]: Delivery, passenger, freight, and supply contracts pay upon completion or per trip for standing routes.',
           'Standing freight routes provide reliable recurring income between trading stations. Payment scales with distance, route danger, and location economic power.',
-          'Combat victories occasionally yield bounty payments.',
+          '[[encounters|Combat]] victories occasionally yield bounty payments.',
         ],
       },
       {
         heading: 'Expenses',
         paragraphs: [
-          'Crew salaries are deducted every day during flight. A typical 3-person crew costs about 120 credits per day.',
+          '[[crew-salaries|Crew salaries]] are deducted every day during flight. A typical 3-person crew costs about 120 credits per day.',
           'Fuel must be purchased at stations with refueling services. Fuel pricing varies by location.',
-          'Equipment can be bought at stations with trade services. Selling equipment returns 50% of the retail value.',
+          '[[ship-equipment|Equipment]] can be bought at stations with trade services. Selling equipment returns 50% of the retail value.',
           'If credits reach zero, crew become unpaid. Unpaid crew will leave the ship at the next port. The captain (you) never leaves.',
         ],
       },
       {
         heading: 'Commerce Skill Bonus',
         paragraphs: [
-          'As your captain develops the Commerce skill through completing trade routes, you earn quest payment bonuses (up to +20%) and fuel discounts (up to -20%). See the Commerce Skill article for details.',
+          'As your captain develops the [[commerce-skill|Commerce]] skill through completing trade routes, you earn quest payment bonuses (up to +20%) and fuel discounts (up to -20%).',
         ],
       },
     ],
@@ -136,7 +136,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
     sections: [
       {
         paragraphs: [
-          'Contracts are your primary source of income. Available contracts refresh each day and are generated based on your location, ship capabilities, and local conditions.',
+          'Contracts are your primary source of [[credits-economy|income]]. Available contracts refresh each day and are generated based on your [[navigation|location]], ship capabilities, and local conditions.',
         ],
       },
       {
@@ -152,7 +152,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
         heading: 'Standing Freight Routes',
         paragraphs: [
           'Every location with trade services offers permanent standing freight routes to all its trading partners. These never expire and provide reliable recurring income.',
-          'Standing freight payment scales with distance, route danger, and location economic power. Trade goods are determined by location type: planets export manufactured goods, stations export tech components.',
+          'Standing freight payment scales with distance, route danger, and location economic power. Trade goods are determined by [[navigation|location]] type: planets export manufactured goods, stations export tech components.',
         ],
       },
       {
@@ -160,7 +160,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
         paragraphs: [
           'You can only have one active contract per ship at a time. Contracts can be paused, resumed, or abandoned.',
           'Abandoning a contract forfeits any earned payments and may affect future contract availability.',
-          'Quest cards show estimated fuel cost, trip time, crew salary cost, and projected profit/loss based on your current flight profile.',
+          'Quest cards show estimated fuel cost, trip time, [[crew-salaries|crew salary]] cost, and projected profit/loss based on your current [[flight-physics|flight profile]].',
         ],
       },
     ],
@@ -184,38 +184,60 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
     sections: [
       {
         paragraphs: [
-          'Every crew member has 7 skills on a 1-100 scale. Six core skills train passively through job slot assignment during flight. The seventh skill, Commerce, is trained exclusively through completing trade routes.',
+          'Every crew member has 7 skills on a 1-100 scale. Six core skills train passively through [[job-slots|job slot]] assignment during flight. The seventh skill, [[commerce-skill|Commerce]], is trained exclusively through completing [[contracts|trade routes]].',
         ],
       },
       {
         heading: 'Core Skills',
-        paragraphs: [''],
+        paragraphs: [
+          'Each skill is linked to a [[crew-roles|crew role]] and determines what that crew member excels at.',
+        ],
         table: {
           headers: ['Skill', 'Role', 'Used For'],
           rows: [
             [
               'Piloting',
-              'Pilot',
-              'Ship handling, helm control, ship class access',
+              '[[crew-roles|Pilot]]',
+              'Ship handling, helm control, [[ship-classes|ship class]] access',
             ],
             [
               'Astrogation',
-              'Navigator',
-              'Route plotting, hazard analysis, encounter avoidance',
+              '[[crew-roles|Navigator]]',
+              'Route plotting, hazard analysis, [[encounters|encounter]] avoidance',
             ],
-            ['Engineering', 'Engineer', 'Reactor maintenance, systems repair'],
-            ['Strength', 'Gunner', 'Combat capability, boarding defense'],
-            ['Charisma', 'Quartermaster', 'Trade negotiations, crew morale'],
-            ['Loyalty', 'First Officer', 'Crew support, conflict mediation'],
-            ['Commerce', '(Captain only)', 'Trade bonuses, fuel discounts'],
+            [
+              'Engineering',
+              '[[crew-roles|Engineer]]',
+              'Reactor maintenance, systems repair',
+            ],
+            [
+              'Strength',
+              '[[crew-roles|Gunner]]',
+              '[[encounters|Combat]] capability, boarding defense',
+            ],
+            [
+              'Charisma',
+              '[[crew-roles|Quartermaster]]',
+              'Trade negotiations, crew morale',
+            ],
+            [
+              'Loyalty',
+              '[[crew-roles|First Officer]]',
+              'Crew support, conflict mediation',
+            ],
+            [
+              '[[commerce-skill|Commerce]]',
+              '(Captain only)',
+              'Trade bonuses, fuel discounts',
+            ],
           ],
         },
       },
       {
         heading: 'Training Mechanics',
         paragraphs: [
-          'Skills train passively when crew are assigned to job slots that use that skill. Training speed uses diminishing returns — fast progress early, slow progress at high levels.',
-          'When a crew member is assigned to a job that matches their primary role skill, they receive a 1.5x training bonus.',
+          'Skills train passively when crew are assigned to [[job-slots|job slots]] that use that skill. Training speed uses diminishing returns — fast progress early, slow progress at high levels.',
+          'When a crew member is assigned to a job that matches their primary [[crew-roles|role]] skill, they receive a 1.5x training bonus.',
           'Training only occurs during flight. Docked time does not advance skill training.',
         ],
       },
@@ -258,7 +280,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
     sections: [
       {
         paragraphs: [
-          'When any core skill (not Commerce) reaches level 50 (Able rank), you can choose to specialize that crew member in that skill.',
+          'When any core skill (not [[commerce-skill|Commerce]]) reaches level 50 (Able rank), you can choose to specialize that crew member in that skill.',
         ],
       },
       {
@@ -272,8 +294,8 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
       {
         heading: 'Strategy',
         paragraphs: [
-          'Specialize early (at 50) if you want faster progression to Expert and Master ranks in one skill.',
-          'Wait and keep training broadly if you want a versatile crew member who can fill multiple roles.',
+          'Specialize early (at 50) if you want faster progression to Expert and Master [[skill-system|ranks]] in one skill.',
+          'Wait and keep training broadly if you want a versatile crew member who can fill multiple [[crew-roles|roles]].',
           'Over time, specialization creates roster differentiation — your crew becomes uniquely yours.',
         ],
       },
@@ -290,8 +312,8 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
     sections: [
       {
         paragraphs: [
-          'Commerce is the 7th skill, unique in how it is trained. It is not gained through job slots — only through completing trade route contracts.',
-          'Only the captain and first officer (highest-loyalty non-captain crew) earn Commerce when a contract completes.',
+          'Commerce is the 7th [[skill-system|skill]], unique in how it is trained. It is not gained through [[job-slots|job slots]] — only through completing [[contracts|trade route contracts]].',
+          'Only the captain and first officer (highest-loyalty non-captain crew) earn Commerce when a [[contracts|contract]] completes.',
         ],
       },
       {
@@ -328,7 +350,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
     sections: [
       {
         paragraphs: [
-          "A crew member's role is determined by their highest skill, representing their primary expertise. Roles are not manually assigned — they shift dynamically if skill distribution changes.",
+          "A crew member's role is determined by their highest [[skill-system|skill]], representing their primary expertise. Roles are not manually assigned — they shift dynamically if skill distribution changes.",
           'The captain is always the player character regardless of skills.',
         ],
       },
@@ -338,12 +360,36 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
         table: {
           headers: ['Highest Skill', 'Role', 'Specialty'],
           rows: [
-            ['Piloting', 'Pilot', 'Ship handling and helm control'],
-            ['Astrogation', 'Navigator', 'Route plotting and scanning'],
-            ['Engineering', 'Engineer', 'Repair and maintenance'],
-            ['Strength', 'Gunner', 'Combat and security'],
-            ['Charisma', 'Quartermaster', 'Morale and negotiations'],
-            ['Loyalty', 'First Officer', 'Crew support and cohesion'],
+            [
+              '[[skill-system|Piloting]]',
+              'Pilot',
+              'Ship handling and helm control',
+            ],
+            [
+              '[[skill-system|Astrogation]]',
+              'Navigator',
+              '[[navigation|Route plotting]] and scanning',
+            ],
+            [
+              '[[skill-system|Engineering]]',
+              'Engineer',
+              'Repair and maintenance',
+            ],
+            [
+              '[[skill-system|Strength]]',
+              'Gunner',
+              '[[encounters|Combat]] and security',
+            ],
+            [
+              '[[skill-system|Charisma]]',
+              'Quartermaster',
+              'Morale and negotiations',
+            ],
+            [
+              '[[skill-system|Loyalty]]',
+              'First Officer',
+              'Crew support and cohesion',
+            ],
           ],
         },
       },
@@ -351,7 +397,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
         heading: 'Role Priority',
         paragraphs: [
           'When skills are tied, roles are assigned in priority order: Piloting > Astrogation > Engineering > Strength > Charisma > Loyalty.',
-          'Crew can transition roles over time as they develop different skills through job training, though this is uncommon.',
+          'Crew can transition roles over time as they develop different [[skill-system|skills]] through [[job-slots|job training]], though this is uncommon.',
         ],
       },
     ],
@@ -374,7 +420,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
         heading: 'Mechanics',
         paragraphs: [
           '2-3 randomly generated candidates are available per station visit. Candidates refresh when advancing the day.',
-          'Each candidate has randomized skills, level, and role.',
+          'Each candidate has randomized [[skill-system|skills]], level, and [[crew-roles|role]].',
         ],
       },
       {
@@ -392,7 +438,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
       {
         heading: 'Strategy',
         paragraphs: [
-          'Higher-level crew cost more but start with better skills. Larger crews increase salary costs but reduce dependency on any one person.',
+          'Higher-level crew cost more but start with better [[skill-system|skills]]. Larger crews increase [[crew-salaries|salary]] costs but reduce dependency on any one person.',
           'If crew leave due to unpaid wages, you may need emergency hiring at the next port.',
         ],
       },
@@ -408,7 +454,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
     sections: [
       {
         paragraphs: [
-          'Crew members require regular payment during flight operations. Salaries are deducted every game day during flight. When docked, time is frozen and no salaries are charged.',
+          'Crew members require regular payment during flight operations. Salaries are deducted every game day during flight. When docked, [[time-system|time]] is frozen and no salaries are charged.',
         ],
       },
       {
@@ -418,12 +464,20 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
           headers: ['Role', 'Per Day', 'Justification'],
           rows: [
             ['Captain', '0 cr', 'Owner-operator, earns from ship profits'],
-            ['Pilot', '48 cr', 'Essential bridge crew'],
-            ['Navigator', '48 cr', 'Route planning and hazard analysis'],
-            ['Engineer', '72 cr', 'Critical for ship systems'],
+            ['[[crew-roles|Pilot]]', '48 cr', 'Essential bridge crew'],
+            [
+              '[[crew-roles|Navigator]]',
+              '48 cr',
+              'Route planning and hazard analysis',
+            ],
+            ['[[crew-roles|Engineer]]', '72 cr', 'Critical for ship systems'],
             ['Cook', '24 cr', 'Morale specialist'],
             ['Medic', '36 cr', 'Medical care'],
-            ['Gunner', '36 cr', 'Combat capability'],
+            [
+              '[[crew-roles|Gunner]]',
+              '36 cr',
+              '[[encounters|Combat]] capability',
+            ],
             ['Mechanic', '48 cr', 'Repairs and maintenance'],
           ],
         },
@@ -459,14 +513,14 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
       {
         heading: 'How It Works',
         paragraphs: [
-          'The bridge generates Helm and Comms slots. The engine room generates Drive Ops. The medbay generates Patient slots. Ship equipment can generate additional slots (e.g. nav scanner creates Scan Ops, point defense creates Targeting).',
+          'The bridge generates Helm and Comms slots. The engine room generates Drive Ops. The medbay generates Patient slots. [[ship-equipment|Ship equipment]] can generate additional slots (e.g. nav scanner creates Scan Ops, point defense creates Targeting).',
           'Helm is the only required job — without a helm crew member, the ship coasts with no active control.',
         ],
       },
       {
         heading: 'Skill Training',
         paragraphs: [
-          'Each job slot trains specific skills. Assigning crew to jobs that match their role skill gives a 1.5x training speed bonus.',
+          'Each job slot trains specific [[skill-system|skills]]. Assigning crew to jobs that match their [[crew-roles|role]] skill gives a 1.5x training speed bonus.',
           'Passive slots (Patient, Rest) benefit crew without training skills, allowing health and morale recovery.',
         ],
       },
@@ -479,7 +533,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
       {
         heading: 'Repair Slots',
         paragraphs: [
-          'Ship-wide repair slots accept multiple engineers who generate repair points to fix degraded equipment. This is critical on fusion-class ships where equipment degrades continuously.',
+          'Ship-wide repair slots accept multiple engineers who generate repair points to fix degraded [[ship-equipment|equipment]]. This is critical on fusion-class [[ship-classes|ships]] where equipment degrades continuously.',
         ],
       },
     ],
@@ -499,15 +553,15 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
     sections: [
       {
         paragraphs: [
-          'Crew members earn XP from completing contracts, surviving encounters, and flight time. XP accumulates toward the next level (max level 20).',
+          'Crew members earn XP from completing [[contracts|contracts]], surviving [[encounters|encounters]], and flight time. XP accumulates toward the next level (max level 20).',
           'When enough XP is earned, a level-up notification appears. Leveling up improves overall crew effectiveness.',
         ],
       },
       {
         heading: 'XP Sources',
         paragraphs: [
-          'Contract completion grants XP to all crew. Encounters grant XP based on outcome: victories grant more than evasions.',
-          'Event-based skill gains (from encounters) bypass diminishing returns and provide flat skill amounts, making combat encounters valuable for training.',
+          '[[contracts|Contract]] completion grants XP to all crew. [[encounters|Encounters]] grant XP based on outcome: victories grant more than evasions.',
+          'Event-based [[skill-system|skill]] gains (from encounters) bypass diminishing returns and provide flat skill amounts, making combat encounters valuable for training.',
         ],
       },
     ],
@@ -540,22 +594,22 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
         heading: 'Class II: Inner System Vessels',
         paragraphs: [
           'Range: Earth-Moon, Earth-Mars, Asteroid Belt. Uses nuclear fission thermal rockets.',
-          'Can achieve escape velocity. Effective range ~3 AU. Travel time: days to weeks. Requires orbital mechanics planning.',
+          'Can achieve escape velocity. Effective range ~3 AU. Travel time: days to weeks. Requires [[navigation|orbital mechanics planning]].',
         ],
       },
       {
         heading: 'Class III: Interplanetary Vessels',
         paragraphs: [
-          'Range: Inner to outer solar system. Fusion drives providing sustained high acceleration.',
-          'Entire solar system accessible in weeks to months. Expensive fuel costs. Requires managing radiation, waste heat, and reactor containment.',
+          'Range: Inner to outer solar system. [[engines|Fusion drives]] providing sustained high acceleration.',
+          'Entire solar system accessible in weeks to months. Expensive fuel costs. Requires managing [[radiation|radiation]], [[waste-heat|waste heat]], and reactor containment.',
           'These are "torch ships" — powerful but demanding. Neglect kills on a torch ship.',
         ],
       },
       {
         heading: 'Ship Class Access',
         paragraphs: [
-          'Higher-class ships require higher piloting skill from the helm crew member. Class II requires Piloting 25 (Competent), Class III requires Piloting 50 (Able).',
-          'Ships are also unlocked by lifetime credits earned — a progression mechanic visible in Settings.',
+          'Higher-class ships require higher [[skill-system|piloting]] skill from the helm crew member. Class II requires Piloting 25 (Competent), Class III requires Piloting 50 (Able).',
+          'Ships are also unlocked by lifetime [[credits-economy|credits]] earned — a progression mechanic visible in Settings.',
         ],
       },
     ],
@@ -618,7 +672,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
         heading: 'Fuel Consumption',
         paragraphs: [
           'Fuel is consumed only during burn phases (acceleration and deceleration). During the coast phase, no fuel is used.',
-          'The flight profile slider controls how much of the delta-v budget is used for burns vs. coasting — economy profiles use less fuel but take longer.',
+          'The [[flight-physics|flight profile]] slider controls how much of the delta-v budget is used for burns vs. coasting — economy profiles use less fuel but take longer.',
         ],
       },
     ],
@@ -644,8 +698,8 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
       {
         heading: 'Flight Phases',
         paragraphs: [
-          'Accelerating: Engines firing, fuel being consumed, crew experience thrust gravity.',
-          'Coasting: No fuel consumed, zero-g conditions, ship at cruising velocity.',
+          'Accelerating: [[engines|Engines]] firing, fuel being consumed, crew experience thrust gravity.',
+          'Coasting: No fuel consumed, [[zero-g-exposure|zero-g]] conditions, ship at cruising velocity.',
           'Decelerating: Engines firing again to slow down for arrival.',
         ],
       },
@@ -653,7 +707,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
         heading: 'Flight Profile Slider',
         paragraphs: [
           'Each ship has a flight profile slider (Economy to Max Speed) that controls the burn fraction of the delta-v budget.',
-          'Economy: More coasting, less fuel, longer trip, more zero-g exposure.',
+          'Economy: More coasting, less fuel, longer trip, more [[zero-g-exposure|zero-g exposure]].',
           'Max Speed: Maximum burns, more fuel, shorter trip, less zero-g but more fuel cost.',
           'Quest cards show profile-aware estimates so you can make informed decisions.',
         ],
@@ -661,7 +715,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
       {
         heading: 'G-Force',
         paragraphs: [
-          'During burns, crew experience g-force proportional to engine thrust. This provides partial protection from zero-g exposure.',
+          'During burns, crew experience g-force proportional to [[engines|engine]] thrust. This provides partial protection from [[zero-g-exposure|zero-g exposure]].',
           'Real-time g-force is displayed on the Ship tab during flight.',
         ],
       },
@@ -678,7 +732,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
     sections: [
       {
         paragraphs: [
-          'Oxygen is tracked as an emergent resource: generated by equipment, consumed by crew. Managing the balance is critical for survival.',
+          'Oxygen is tracked as an emergent resource: generated by [[ship-equipment|equipment]], consumed by crew. Managing the balance is critical for survival.',
         ],
       },
       {
@@ -717,7 +771,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
     sections: [
       {
         paragraphs: [
-          'Ships carry equipment in slots that provide various capabilities. Equipment degrades during operation and must be maintained by engineer crew.',
+          'Ships carry equipment in slots that provide various capabilities. Equipment degrades during operation and must be maintained by [[crew-roles|engineer]] crew.',
         ],
       },
       {
@@ -727,19 +781,23 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
           headers: ['Category', 'Purpose', 'Examples'],
           rows: [
             [
-              'Life Support',
+              '[[life-support|Life Support]]',
               'Atmosphere and air quality',
               'Life Support System, Air Filtration Unit',
             ],
-            ['Shielding', 'Radiation protection', 'Radiation Shielding Panel'],
+            [
+              'Shielding',
+              '[[radiation|Radiation]] protection',
+              'Radiation Shielding Panel',
+            ],
             [
               'Thermal',
-              'Heat dissipation',
+              '[[waste-heat|Heat]] dissipation',
               'Radiator Array, Active Coolant System',
             ],
             [
               'Defense',
-              'Combat and debris protection',
+              '[[encounters|Combat]] and debris protection',
               'PD-10 Laser, PD-40 Flak Turret, Deflectors',
             ],
             [
@@ -754,7 +812,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
             ],
             [
               'Gravity',
-              'Zero-g countermeasures',
+              '[[zero-g-exposure|Zero-g]] countermeasures',
               'Exercise Module, Centrifuge Pod',
             ],
           ],
@@ -764,14 +822,14 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
         heading: 'Slot Types',
         paragraphs: [
           'Standard slots accept most equipment. Structural slots accept both standard equipment and large structural items like centrifuges.',
-          'Higher-class ships have more equipment slots and more structural slots, but they also NEED more equipment (shielding, thermal, containment) just to operate safely — an "equipment tax."',
+          'Higher-class [[ship-classes|ships]] have more equipment slots and more structural slots, but they also NEED more equipment ([[radiation|shielding]], [[waste-heat|thermal]], containment) just to operate safely — an "equipment tax."',
         ],
       },
       {
         heading: 'Degradation & Repair',
         paragraphs: [
           'Equipment degrades during use. Life support filters wear down, shielding absorbs radiation, thermal radiators work harder.',
-          'Engineers assigned to repair job slots generate repair points that restore equipment condition. Keeping engineers on repair duty is essential on long voyages.',
+          '[[crew-roles|Engineers]] assigned to repair [[job-slots|job slots]] generate repair points that restore equipment condition. Keeping engineers on repair duty is essential on long voyages.',
         ],
       },
     ],
@@ -804,12 +862,12 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
             [
               'Weapons',
               'Sidearm (800 cr), Assault Rifle (3,500 cr)',
-              'Improves combat attack score',
+              'Improves [[encounters|combat]] attack score',
             ],
             [
               'Tools',
               'Toolkit (1,200 cr), Medkit (1,500 cr), Scanner (2,000 cr)',
-              'Improves role effectiveness',
+              'Improves [[crew-roles|role]] effectiveness',
             ],
             [
               'Accessories',
@@ -819,12 +877,12 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
             [
               'Armor',
               'Ballistic Vest (2,200 cr)',
-              'Improves defense in combat',
+              'Improves defense in [[encounters|combat]]',
             ],
             [
               'Gravity',
               'G-Seat Harness (3,500 cr)',
-              '30% reduction in zero-g exposure',
+              '30% reduction in [[zero-g-exposure|zero-g exposure]]',
             ],
           ],
         },
@@ -870,9 +928,9 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
       {
         heading: 'Route Planning',
         paragraphs: [
-          'Before departure, your navigator plots a course. Navigation quality depends on navigator skill and equipment.',
-          'Good navigation reduces debris encounters, improves fuel efficiency, and gives better hazard warnings.',
-          'Locations shown as unreachable are beyond your current fuel range at the selected flight profile.',
+          'Before departure, your [[crew-roles|navigator]] plots a course. Navigation quality depends on navigator [[skill-system|skill]] and [[ship-equipment|equipment]].',
+          'Good navigation reduces debris [[encounters|encounters]], improves fuel efficiency, and gives better hazard warnings.',
+          'Locations shown as unreachable are beyond your current fuel range at the selected [[flight-physics|flight profile]].',
         ],
       },
     ],
@@ -888,27 +946,27 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
     sections: [
       {
         paragraphs: [
-          'During flight, your ship may encounter pirates. Encounter probability depends on your position, engine heat signature, and crew skills.',
+          'During flight, your ship may encounter pirates. Encounter probability depends on your position, [[engines|engine]] heat signature, and crew [[skill-system|skills]].',
         ],
       },
       {
         heading: 'Combat Pipeline',
         paragraphs: [
-          'Encounters are auto-resolved through a pipeline: Evade (navigator skill) > Negotiate (charisma) > Flee (if outmatched) > Combat > Outcome.',
+          'Encounters are auto-resolved through a pipeline: Evade ([[crew-roles|navigator]] [[skill-system|skill]]) > Negotiate ([[skill-system|charisma]]) > Flee (if outmatched) > Combat > Outcome.',
           'Possible outcomes: Evasion (clean escape), Negotiation (pay ransom), Fled (emergency escape with minor damage), Victory (bounty reward), Harassment (minor damage), Boarding (major losses).',
         ],
       },
       {
         heading: 'Defense Score',
         paragraphs: [
-          'Your defense score comes from: point defense equipment (PD lasers, flak turrets), deflector shields, crew weapons (armory strength), and ship mass.',
-          'Equipping your ship with defense equipment and arming your crew improves combat outcomes.',
+          'Your defense score comes from: point defense [[ship-equipment|equipment]] (PD lasers, flak turrets), deflector shields, [[crew-equipment|crew weapons]] (armory strength), and ship mass.',
+          'Equipping your ship with defense [[ship-equipment|equipment]] and arming your crew improves combat outcomes.',
         ],
       },
       {
         heading: 'Threat Levels',
         paragraphs: [
-          'Routes have threat levels based on distance from Terran Alliance space and proximity to lawless zones.',
+          'Routes have threat levels based on distance from [[factions|Terran Alliance]] space and proximity to lawless zones.',
         ],
         table: {
           headers: ['Level', 'Meaning'],
@@ -943,14 +1001,14 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
     sections: [
       {
         paragraphs: [
-          'Three major factions shape the game world. Their influence determines quest availability, regional security, and trading opportunities.',
+          'Three major factions shape the game world. Their influence determines [[contracts|quest]] availability, regional security, and trading opportunities.',
         ],
       },
       {
         heading: 'Terran Alliance',
         paragraphs: [
-          'The dominant political entity controlling Earth and nearby stations. Space near Terran Alliance territory is the safest, with the lowest encounter rates.',
-          'Provides structured contracts and reliable services at its stations.',
+          'The dominant political entity controlling Earth and nearby stations. Space near Terran Alliance territory is the safest, with the lowest [[encounters|encounter]] rates.',
+          'Provides structured [[contracts|contracts]] and reliable services at its stations.',
         ],
       },
       {
@@ -964,7 +1022,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
         heading: 'Kreth Collective',
         paragraphs: [
           'A loosely organized group operating in the outer reaches. Territory near the Kreth Collective tends to be the most dangerous.',
-          'Offers unique contracts and goods not available from other factions.',
+          'Offers unique [[contracts|contracts]] and goods not available from other factions.',
         ],
       },
     ],
@@ -996,7 +1054,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
       {
         heading: 'Degradation Tiers',
         paragraphs: [
-          'As exposure accumulates, crew suffer progressive strength reduction that impacts combat effectiveness.',
+          'As exposure accumulates, crew suffer progressive [[skill-system|strength]] reduction that impacts [[encounters|combat]] effectiveness.',
         ],
         table: {
           headers: ['Tier', 'Exposure', 'Strength Penalty'],
@@ -1012,7 +1070,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
       {
         heading: 'Mitigation',
         paragraphs: [
-          'Several equipment options reduce or eliminate zero-g exposure accumulation. All modifiers stack multiplicatively.',
+          'Several [[ship-equipment|ship equipment]] and [[crew-equipment|crew equipment]] options reduce or eliminate zero-g exposure accumulation. All modifiers stack multiplicatively.',
         ],
         table: {
           headers: ['Equipment', 'Type', 'Effect'],
@@ -1056,9 +1114,9 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
       {
         heading: 'Strategic Implications',
         paragraphs: [
-          'Long-haul fusion ships need gravity solutions (centrifuge pod or rotating habitat) or their crew will suffer serious combat penalties.',
+          'Long-haul fusion [[ship-classes|ships]] need gravity solutions (centrifuge pod or rotating habitat) or their crew will suffer serious [[encounters|combat]] penalties.',
           'Shorter trips can skip gravity equipment if recovery time is planned between voyages.',
-          'A mix of exercise modules and g-seat harnesses reduces the rate to 35% of normal — still accumulating but much slower.',
+          'A mix of [[ship-equipment|exercise modules]] and [[crew-equipment|g-seat harnesses]] reduces the rate to 35% of normal — still accumulating but much slower.',
           'Pre-departure warnings appear on the Nav tab when a trip will push crew past a threshold.',
         ],
       },
@@ -1080,7 +1138,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
     sections: [
       {
         paragraphs: [
-          'All drives above chemical emit radiation proportional to their power output. On Class III fusion vessels ("torch ships"), radiation management is a critical concern.',
+          'All drives above chemical emit radiation proportional to their power output. On [[ship-classes|Class III]] fusion vessels ("torch ships"), radiation management is a critical concern.',
         ],
       },
       {
@@ -1095,8 +1153,8 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
       {
         heading: 'Protection',
         paragraphs: [
-          'Radiation Shielding Panels reduce crew exposure. Shielding equipment consumes equipment slots and power — a direct tax on ship capability.',
-          'Keeping the reactor room staffed with engineers maintains containment integrity, preventing dangerous radiation spikes.',
+          '[[ship-equipment|Radiation Shielding Panels]] reduce crew exposure. Shielding equipment consumes equipment slots and power — a direct tax on ship capability.',
+          'Keeping the reactor room staffed with [[crew-roles|engineers]] maintains containment integrity, preventing dangerous radiation spikes.',
         ],
       },
       {
@@ -1123,7 +1181,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
     sections: [
       {
         paragraphs: [
-          'Fusion and advanced fusion drives produce enormous waste heat that must be radiated away. Insufficient thermal management causes accelerated degradation of all ship equipment.',
+          '[[engines|Fusion and advanced fusion drives]] produce enormous waste heat that must be radiated away. Insufficient thermal management causes accelerated degradation of all [[ship-equipment|ship equipment]].',
         ],
       },
       {
@@ -1136,7 +1194,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
       {
         heading: 'Management',
         paragraphs: [
-          'Monitor thermal status on the Ship tab. Assign engineers to repair duty to maintain thermal equipment condition.',
+          'Monitor thermal status on the Ship tab. Assign [[crew-roles|engineers]] to repair duty to maintain thermal [[ship-equipment|equipment]] condition.',
           'On long voyages, thermal management is a constant concern — not a set-and-forget system.',
         ],
       },

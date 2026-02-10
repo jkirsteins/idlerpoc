@@ -7,6 +7,9 @@ import {
   type GamepediaCategory,
 } from '../gamepediaData';
 
+/** Regex matching `[[article-id|display text]]` inline cross-reference links. */
+const LINK_RE = /\[\[([^|\]]+)\|([^\]]+)\]\]/g;
+
 /**
  * In-game encyclopedia inspired by Civilization's Civilopedia.
  *
@@ -175,6 +178,36 @@ export function createGamepediaTab(
     }
   }
 
+  /**
+   * Parse text containing `[[article-id|display text]]` links and append
+   * the resulting text nodes and link elements to a parent element.
+   */
+  function renderRichText(parent: HTMLElement, text: string): void {
+    let lastIndex = 0;
+    LINK_RE.lastIndex = 0; // reset global regex state
+    let match: RegExpExecArray | null;
+    while ((match = LINK_RE.exec(text)) !== null) {
+      // Append plain text before the link
+      if (match.index > lastIndex) {
+        parent.appendChild(
+          document.createTextNode(text.slice(lastIndex, match.index))
+        );
+      }
+      const articleId = match[1];
+      const displayText = match[2];
+      const link = document.createElement('button');
+      link.className = 'gamepedia-see-also-link';
+      link.textContent = displayText;
+      link.addEventListener('click', () => selectArticle(articleId));
+      parent.appendChild(link);
+      lastIndex = LINK_RE.lastIndex;
+    }
+    // Append remaining text after last link
+    if (lastIndex < text.length) {
+      parent.appendChild(document.createTextNode(text.slice(lastIndex)));
+    }
+  }
+
   function selectArticle(articleId: string): void {
     selectedArticleId = articleId;
     rebuildTopicList();
@@ -284,7 +317,7 @@ export function createGamepediaTab(
     // Summary
     const summaryEl = document.createElement('p');
     summaryEl.className = 'gamepedia-article-summary';
-    summaryEl.textContent = article.summary;
+    renderRichText(summaryEl, article.summary);
     mainArea.appendChild(summaryEl);
 
     // Sections
@@ -300,7 +333,7 @@ export function createGamepediaTab(
         if (para.trim() === '') continue;
         const p = document.createElement('p');
         p.className = 'gamepedia-paragraph';
-        p.textContent = para;
+        renderRichText(p, para);
         mainArea.appendChild(p);
       }
 
@@ -323,7 +356,7 @@ export function createGamepediaTab(
           const tr = document.createElement('tr');
           for (const cell of row) {
             const td = document.createElement('td');
-            td.textContent = cell;
+            renderRichText(td, cell);
             tr.appendChild(td);
           }
           tbody.appendChild(tr);
