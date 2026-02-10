@@ -225,6 +225,65 @@ export function getNextThreshold(zeroGExposure: number): {
 }
 
 /**
+ * Get the previous (lower) threshold to recover toward.
+ * Returns the threshold boundary below current exposure, or 0 if in the 'none' zone.
+ */
+export function getRecoveryTarget(zeroGExposure: number): {
+  threshold: number;
+  level: GravityDegradationLevel;
+} {
+  if (zeroGExposure >= SEVERE_THRESHOLD) {
+    return { threshold: SEVERE_THRESHOLD, level: 'severe' };
+  }
+  if (zeroGExposure >= MODERATE_THRESHOLD) {
+    return { threshold: MODERATE_THRESHOLD, level: 'moderate' };
+  }
+  if (zeroGExposure >= MINOR_THRESHOLD) {
+    return { threshold: MINOR_THRESHOLD, level: 'minor' };
+  }
+  if (zeroGExposure >= SAFE_THRESHOLD) {
+    return { threshold: SAFE_THRESHOLD, level: 'none' };
+  }
+  return { threshold: 0, level: 'none' };
+}
+
+/**
+ * Estimate docked recovery time in game-seconds to reach the next lower
+ * threshold and to reach zero. Pass the returned values directly to
+ * formatDualTime for accurate IRL estimates.
+ * Recovery rate is 0.5 game-seconds per game-second elapsed.
+ */
+export function estimateRecoveryTime(zeroGExposure: number): {
+  gameSecondsToNextLevel: number;
+  targetLevel: GravityDegradationLevel;
+  gameSecondsToFullRecovery: number;
+} {
+  const currentLevel = getGravityDegradationLevel(zeroGExposure);
+  const recoveryRate = 0.5;
+
+  const gameSecondsToFullRecovery = zeroGExposure / recoveryRate;
+
+  if (currentLevel === 'none') {
+    return {
+      gameSecondsToNextLevel: gameSecondsToFullRecovery,
+      targetLevel: 'none',
+      gameSecondsToFullRecovery,
+    };
+  }
+
+  // Find what we're recovering toward
+  const target = getRecoveryTarget(zeroGExposure);
+  const excessSeconds = zeroGExposure - target.threshold;
+  const gameSecondsToNextLevel = excessSeconds / recoveryRate;
+
+  return {
+    gameSecondsToNextLevel,
+    targetLevel: target.level,
+    gameSecondsToFullRecovery,
+  };
+}
+
+/**
  * Estimate gravity impact for a trip
  */
 export function estimateTripGravityImpact(

@@ -101,14 +101,26 @@ export function formatDuration(gameSeconds: number): string {
   if (gameSeconds < 60) {
     return `${Math.round(gameSeconds)}s`;
   } else if (gameSeconds < 3600) {
-    const minutes = Math.round(gameSeconds / 60);
-    return `${minutes}m`;
+    const minutes = Math.floor(gameSeconds / 60);
+    const seconds = Math.round(gameSeconds % 60);
+    if (seconds === 0) {
+      return `${minutes}m`;
+    }
+    return `${minutes}m ${seconds}s`;
   } else if (gameSeconds < 86400) {
-    const hours = Math.round((gameSeconds / 3600) * 10) / 10;
-    return `${hours}h`;
+    const hours = Math.floor(gameSeconds / 3600);
+    const minutes = Math.round((gameSeconds % 3600) / 60);
+    if (minutes === 0) {
+      return `${hours}h`;
+    }
+    return `${hours}h ${minutes}m`;
   } else {
-    const days = Math.round((gameSeconds / 86400) * 10) / 10;
-    return `${days}d`;
+    const days = Math.floor(gameSeconds / 86400);
+    const hours = Math.round((gameSeconds % 86400) / 3600);
+    if (hours === 0) {
+      return `${days}d`;
+    }
+    return `${days}d ${hours}h`;
   }
 }
 
