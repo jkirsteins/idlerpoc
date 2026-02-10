@@ -32,14 +32,14 @@ export function renderCatchUpReport(
   duration.textContent = `${gamePart} (irl ${realPart}) elapsed`;
   header.appendChild(duration);
 
-  // Show a note when offline progress was capped
-  const MAX_CATCH_UP_SECONDS = 86400; // mirrors the constant in main.ts
-  if (report.elapsedRealSeconds > MAX_CATCH_UP_SECONDS) {
+  // Show a note when diminishing returns kicked in
+  const FULL_RATE_SECONDS = 4 * 3600; // mirrors FULL_RATE_CATCH_UP_SECONDS in main.ts
+  if (report.elapsedRealSeconds > FULL_RATE_SECONDS) {
     const capNote = document.createElement('div');
     capNote.className = 'catchup-cap-note';
     capNote.textContent =
-      `Offline progress is limited to ${formatRealDuration(MAX_CATCH_UP_SECONDS)}. ` +
-      `You were away for ${formatRealDuration(report.elapsedRealSeconds)}.`;
+      `Away for ${formatRealDuration(report.elapsedRealSeconds)} — ` +
+      `progress beyond ${formatRealDuration(FULL_RATE_SECONDS)} accrues at a reduced rate.`;
     capNote.style.color = '#888';
     capNote.style.fontSize = '0.85rem';
     capNote.style.fontStyle = 'italic';

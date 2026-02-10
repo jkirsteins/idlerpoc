@@ -58,7 +58,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
         paragraphs: [
           'The game is idle-friendly: closing the browser or backgrounding the tab does not lose progress. When you return, the game computes all elapsed time and processes pending updates in batches.',
           'If you were away for more than 5 real minutes, a catch-up report shows what happened while you were gone, including [[encounters|encounters]], [[contracts|contract]] completions, and [[credits-economy|credit]] changes.',
-          'Offline progress is limited to 24 real-world hours. If you were away longer, the catch-up report notes the cap. During fast-forward, [[encounters|encounter]] severity is capped (boardings downgraded to harassment) to prevent unfair losses while away.',
+          'Offline progress is never hard-capped — you will always make progress no matter how long you are away. The first 4 real-world hours accrue at full rate. Beyond that, progress continues at a logarithmically diminishing rate, so active play remains more rewarding than very long absences. During fast-forward, [[encounters|encounter]] severity is capped (boardings downgraded to harassment) to prevent unfair losses while away.',
           'The event log keeps the most recent 200 entries. Older events are automatically pruned to keep save data compact.',
         ],
       },
