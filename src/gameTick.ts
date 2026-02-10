@@ -1,4 +1,4 @@
-import type { GameData, Ship, EncounterResult } from './models';
+import type { GameData, Ship, EncounterResult, Toast } from './models';
 import { getEngineDefinition } from './engines';
 import {
   advanceFlight,
@@ -48,6 +48,15 @@ let _encounterResults: EncounterResult[] = [];
 const _cargoFullLoggedShips: Record<string, boolean> = {};
 
 /**
+ * Tracks whether a radiation spike log has been emitted for a ship this tick batch.
+ * Prevents log spam — only logs once when containment first crosses 30%.
+ */
+const _radiationSpikeLoggedShips: Record<string, boolean> = {};
+
+/** Accumulated radiation spike toasts from the last tick batch. */
+let _radiationToasts: Toast[] = [];
+
+/**
  * Register the combat system's encounter resolver.
  * Called once at startup by the combat system module.
  */
@@ -63,6 +72,15 @@ export function drainEncounterResults(): EncounterResult[] {
   const results = _encounterResults;
   _encounterResults = [];
   return results;
+}
+
+/**
+ * Get and clear accumulated radiation toasts from the last tick batch.
+ */
+export function drainRadiationToasts(): Toast[] {
+  const toasts = _radiationToasts;
+  _radiationToasts = [];
+  return toasts;
 }
 
 /**
@@ -238,6 +256,19 @@ function applyShipTick(gameData: GameData, ship: Ship): boolean {
         const netRadiation = Math.max(0, engineRadiation - totalShielding);
 
         if (netRadiation > 0) {
+          // Log once when radiation first starts damaging crew
+          const radLogKey = `${ship.id}-rad-exposure`;
+          if (!_radiationSpikeLoggedShips[radLogKey]) {
+            _radiationSpikeLoggedShips[radLogKey] = true;
+            addLog(
+              gameData.log,
+              gameData.gameTime,
+              'radiation_warning',
+              `${ship.name}: Shielding insufficient — crew taking ${netRadiation.toFixed(0)} rad/cycle radiation exposure.`,
+              ship.name
+            );
+          }
+
           const radiationDamagePerTick = netRadiation / 100;
 
           for (const crew of ship.crew) {
@@ -255,6 +286,9 @@ function applyShipTick(gameData: GameData, ship: Ship): boolean {
             crew.health = Math.max(0, crew.health - damage);
             changed = true;
           }
+        } else {
+          // Clear exposure log flag when shielding catches up
+          delete _radiationSpikeLoggedShips[`${ship.id}-rad-exposure`];
         }
 
         // === WASTE HEAT MANAGEMENT ===
@@ -298,6 +332,7 @@ function applyShipTick(gameData: GameData, ship: Ship): boolean {
         );
 
         if (confinementEq && engineDef.containmentComplexity > 0) {
+          const prevDegradation = confinementEq.degradation;
           let confinementDegradationRate = 0.01;
 
           if (!reactorRoomStaffed) {
@@ -317,6 +352,60 @@ function applyShipTick(gameData: GameData, ship: Ship): boolean {
             for (const crew of ship.crew) {
               crew.health = Math.max(0, crew.health - spikeRadiation);
               changed = true;
+            }
+
+            // Log warnings at containment degradation thresholds
+            const thresholds = [30, 50, 70] as const;
+            for (const threshold of thresholds) {
+              if (
+                confinementEq.degradation > threshold &&
+                prevDegradation <= threshold
+              ) {
+                const spikeKey = `${ship.id}-${threshold}`;
+                if (!_radiationSpikeLoggedShips[spikeKey]) {
+                  _radiationSpikeLoggedShips[spikeKey] = true;
+
+                  const severity =
+                    threshold >= 70
+                      ? 'Critical'
+                      : threshold >= 50
+                        ? 'Warning'
+                        : 'Caution';
+                  const message =
+                    threshold >= 70
+                      ? `${severity}: ${ship.name} containment integrity critical (${(100 - confinementEq.degradation).toFixed(0)}%)! Severe radiation spikes damaging crew.`
+                      : threshold >= 50
+                        ? `${severity}: ${ship.name} containment degrading (${(100 - confinementEq.degradation).toFixed(0)}% integrity). Radiation spikes intensifying.`
+                        : `${severity}: ${ship.name} containment breach detected (${(100 - confinementEq.degradation).toFixed(0)}% integrity). Radiation spikes beginning.`;
+
+                  addLog(
+                    gameData.log,
+                    gameData.gameTime,
+                    'radiation_warning',
+                    message,
+                    ship.name
+                  );
+
+                  if (!_isCatchUp) {
+                    _radiationToasts.push({
+                      id: `rad-spike-${Date.now()}-${ship.id}-${threshold}`,
+                      type: 'radiation_spike',
+                      message:
+                        threshold >= 70
+                          ? `${ship.name}: Containment critical! Radiation spikes severe.`
+                          : threshold >= 50
+                            ? `${ship.name}: Containment failing. Radiation spikes increasing.`
+                            : `${ship.name}: Containment breach! Radiation spikes detected.`,
+                      expiresAt: Date.now() + 5000,
+                    });
+                  }
+                }
+              }
+            }
+          } else {
+            // Clear spike log flags when containment recovers below 30%
+            for (const threshold of [30, 50, 70]) {
+              delete _radiationSpikeLoggedShips[`${ship.id}-${threshold}`];
             }
           }
         }

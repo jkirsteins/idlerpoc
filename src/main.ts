@@ -25,6 +25,7 @@ import {
   applyTick,
   deductFleetSalaries,
   drainEncounterResults,
+  drainRadiationToasts,
 } from './gameTick';
 import { getLevelForXP } from './levelSystem';
 import { createRefuelDialog, getFuelPricePerKg } from './ui/refuelDialog';
@@ -1883,8 +1884,12 @@ function processPendingTicks(): void {
     const autoPaused = checkAutoPause(state.gameData, prevGameTime);
 
     const encounterResults = drainEncounterResults();
-    if (encounterResults.length > 0) {
-      const newToasts = createEncounterToasts(encounterResults);
+    const radiationToasts = drainRadiationToasts();
+    if (encounterResults.length > 0 || radiationToasts.length > 0) {
+      const newToasts = [
+        ...createEncounterToasts(encounterResults),
+        ...radiationToasts,
+      ];
       const existingToasts =
         state.phase === 'playing' ? state.toasts || [] : [];
 

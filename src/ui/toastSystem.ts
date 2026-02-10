@@ -64,6 +64,8 @@ function getToastIcon(type: string): string {
       return '💰';
     case 'credits_lost':
       return '💸';
+    case 'radiation_spike':
+      return '☢️';
     default:
       return 'ℹ️';
   }

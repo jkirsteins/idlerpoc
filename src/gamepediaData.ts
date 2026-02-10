@@ -1344,6 +1344,14 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
         ],
       },
       {
+        heading: 'Monitoring Radiation',
+        paragraphs: [
+          'The Ship tab displays a RADIATION status bar showing net exposure (engine output minus shielding). Hover over it for a detailed breakdown including per-crew health loss rate and containment status.',
+          "Each crew member's detail panel in the Crew tab shows their individual radiation exposure status, including effective damage rate and whether medbay treatment is reducing it.",
+          'When containment integrity drops below 70%, 50%, or 30%, the ship log records warnings and a toast notification alerts you. Keep the reactor room staffed to slow containment degradation.',
+        ],
+      },
+      {
         heading: 'Cascading Failures',
         paragraphs: [
           'On fusion-class vessels, systems are interdependent. Degraded containment leads to radiation spikes, which cause crew health drops, which lead to unstaffed stations, which cause further degradation.',

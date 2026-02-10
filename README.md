@@ -90,6 +90,9 @@ npm run dev
   - Estimated travel times from seconds to hours
 - **Torch Ship Mechanics (Class III Fusion Vessels)**:
   - Radiation exposure system with shielding equipment
+  - Radiation bar with detailed tooltip showing shielding breakdown, per-crew damage rate, and containment status
+  - Per-crew radiation exposure indicator on Crew tab showing health loss rate and medbay mitigation
+  - Containment breach log warnings and toast notifications at 30%/50%/70% degradation thresholds
   - Waste heat management with radiator arrays
   - Fusion containment stability requiring reactor room staffing
   - Cascading failure mechanics (heat → equipment degradation → radiation spikes)
