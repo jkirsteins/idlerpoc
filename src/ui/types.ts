@@ -36,6 +36,8 @@ export interface TabbedViewCallbacks {
   onUnassignRoute: () => void;
   onAdvanceDay: () => void;
   onDockAtNearestPort: () => void;
+  onCancelPause: () => void;
+  onRequestAbandon: () => void;
   onResumeContract: () => void;
   onAbandonContract: () => void;
   onBuyFuel: () => void;

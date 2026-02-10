@@ -42,6 +42,7 @@ import {
   pauseContract,
   resumeContract,
   abandonContract,
+  dockShipAtLocation,
   initContractExec,
 } from './contractExec';
 import { getSkillRank } from './skillRanks';
@@ -641,8 +642,6 @@ const callbacks: RendererCallbacks = {
         progress > 0.5
           ? ship.activeFlightPlan.destination
           : ship.activeFlightPlan.origin;
-
-      delete ship.activeFlightPlan;
     } else if (ship.location.dockedAt) {
       // Already docked - no-op
       dockLocation = ship.location.dockedAt;
@@ -654,11 +653,7 @@ const callbacks: RendererCallbacks = {
       return;
     }
 
-    ship.location.status = 'docked';
-    ship.location.dockedAt = dockLocation;
-    delete ship.location.orbitingAt;
-    ship.engine.state = 'off';
-    ship.engine.warmupProgress = 0;
+    dockShipAtLocation(ship, dockLocation);
 
     // Clear route assignment if manually docking
     if (ship.routeAssignment) {
@@ -921,18 +916,40 @@ const callbacks: RendererCallbacks = {
     if (state.phase !== 'playing') return;
     const ship = getActiveShip(state.gameData);
 
-    // If orbiting, dock directly at the orbited location (no need to pause contract)
+    if (ship.activeContract) {
+      ship.activeContract.abandonRequested = false;
+    }
+
     if (ship.location.status === 'orbiting' && ship.location.orbitingAt) {
-      ship.location.status = 'docked';
-      ship.location.dockedAt = ship.location.orbitingAt;
-      delete ship.location.orbitingAt;
-      ship.engine.state = 'off';
-      ship.engine.warmupProgress = 0;
+      // Orbiting — dock immediately at the orbited location
+      dockShipAtLocation(ship, ship.location.orbitingAt);
     } else {
-      // In flight - pause contract and dock on arrival
+      // In flight (warming up or moving) — pause contract, dock on arrival
       pauseContract(ship);
     }
 
+    saveGame(state.gameData);
+    renderApp();
+  },
+
+  onCancelPause: () => {
+    if (state.phase !== 'playing') return;
+    const ship = getActiveShip(state.gameData);
+    if (ship.activeContract) {
+      ship.activeContract.paused = false;
+      ship.activeContract.abandonRequested = false;
+    }
+    saveGame(state.gameData);
+    renderApp();
+  },
+
+  onRequestAbandon: () => {
+    if (state.phase !== 'playing') return;
+    const ship = getActiveShip(state.gameData);
+    if (ship.activeContract) {
+      ship.activeContract.abandonRequested = true;
+      ship.activeContract.paused = false;
+    }
     saveGame(state.gameData);
     renderApp();
   },
