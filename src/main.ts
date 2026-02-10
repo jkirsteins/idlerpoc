@@ -215,6 +215,16 @@ function buildCatchUpReport(
     }
   }
 
+  // Collect notable log entries for the catch-up summary
+  // (skill-ups, crew hires/departures, gravity warnings)
+  const highlightTypes: Set<string> = new Set([
+    'crew_level_up',
+    'crew_hired',
+    'crew_departed',
+    'gravity_warning',
+  ]);
+  const logHighlights = newLogs.filter((e) => highlightTypes.has(e.type));
+
   return {
     totalTicks,
     elapsedRealSeconds,
@@ -223,6 +233,7 @@ function buildCatchUpReport(
     contractsCompleted,
     arrivals,
     shipReports: Array.from(shipReportMap.values()),
+    logHighlights,
   };
 }
 

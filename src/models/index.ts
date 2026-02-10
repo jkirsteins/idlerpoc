@@ -430,6 +430,7 @@ export interface CatchUpReport {
   contractsCompleted: number; // total contract completions across fleet
   arrivals: { shipName: string; location: string }[]; // ships that arrived
   shipReports: CatchUpShipReport[]; // encounter details (may be empty)
+  logHighlights: LogEntry[]; // notable log entries (skill-ups, etc.) from the idle period
 }
 
 export interface GameData {
