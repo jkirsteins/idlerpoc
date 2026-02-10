@@ -565,14 +565,6 @@ function renderStatsSection(crew: CrewMember, ship: Ship): HTMLElement {
     fullLine.textContent = `Full recovery: ${fullDualTime}`;
     recoveryDiv.appendChild(fullLine);
 
-    const advanceHint = document.createElement('div');
-    advanceHint.style.color = '#888';
-    advanceHint.style.fontSize = '0.8em';
-    advanceHint.style.marginTop = '0.25rem';
-    advanceHint.style.fontStyle = 'italic';
-    advanceHint.textContent = 'Advance days to recover.';
-    recoveryDiv.appendChild(advanceHint);
-
     exposureSection.appendChild(recoveryDiv);
   }
 
