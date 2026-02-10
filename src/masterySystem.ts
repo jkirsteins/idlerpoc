@@ -17,7 +17,7 @@ import type { SkillId, MasteryPool, SkillMasteryState } from './models';
 // Same exponential curve as Melvor/RuneScape: level 92 ≈ half of 99.
 // Total XP for level 99 = 13,034,431.
 
-const XP_TABLE: number[] = (() => {
+function buildXpTable(): number[] {
   const table: number[] = [];
   let acc = 0;
   for (let lvl = 0; lvl < 100; lvl++) {
@@ -25,7 +25,9 @@ const XP_TABLE: number[] = (() => {
     acc += Math.floor(lvl + 300 * Math.pow(2, lvl / 7)) / 4;
   }
   return table;
-})();
+}
+
+const XP_TABLE = buildXpTable();
 
 /** XP required to reach a given mastery level (0-indexed). */
 export function xpForMasteryLevel(level: number): number {

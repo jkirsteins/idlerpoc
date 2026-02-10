@@ -167,9 +167,10 @@ function countRoutePairs(gameData: GameData): number {
 const PILOTING_MASTERY_XP_PER_FLIGHT = 100;
 const COMMERCE_MASTERY_XP_PER_TRIP = 100;
 
-// Register acceptQuest with routeAssignment to break circular dependency.
-// acceptQuest is a hoisted function declaration, so this is safe at top-level.
-setAcceptQuestFn(acceptQuest);
+/** Register acceptQuest with routeAssignment to break circular dependency. */
+export function initContractExec(): void {
+  setAcceptQuestFn(acceptQuest);
+}
 
 /**
  * Award piloting route mastery XP to helm crew on flight arrival.

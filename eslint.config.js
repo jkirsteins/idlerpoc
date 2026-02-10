@@ -1,6 +1,6 @@
 import eslint from '@eslint/js';
 import tseslint from 'typescript-eslint';
-import noSideEffectsBeforeDefinitions from './eslint-rules/no-side-effects-before-definitions.js';
+import top from '@ericcornelissen/eslint-plugin-top';
 
 export default tseslint.config(
   eslint.configs.recommended,
@@ -22,13 +22,7 @@ export default tseslint.config(
         tsconfigRootDir: import.meta.dirname,
       },
     },
-    plugins: {
-      local: {
-        rules: {
-          'no-side-effects-before-definitions': noSideEffectsBeforeDefinitions,
-        },
-      },
-    },
+    plugins: { top },
     rules: {
       '@typescript-eslint/no-unused-vars': [
         'error',
@@ -49,9 +43,26 @@ export default tseslint.config(
       eqeqeq: ['error', 'smart'],
       // Ensure switch statements over union types handle every member.
       '@typescript-eslint/switch-exhaustiveness-check': 'error',
-      // Prevent TDZ from hoisted functions: all const/let declarations must
-      // appear before any top-level side effects (calls, try blocks, etc.).
-      'local/no-side-effects-before-definitions': 'error',
+      // Ban top-level side effects to prevent TDZ bugs and enforce clean modules.
+      // allowedCalls: init (app entry), buildXpTable (pure data), test framework globals.
+      'top/no-top-level-side-effects': [
+        'error',
+        {
+          allowDerived: true,
+          allowedCalls: [
+            'Symbol',
+            'init',
+            'buildXpTable',
+            'describe',
+            'it',
+            'test',
+            'beforeEach',
+            'afterEach',
+            'beforeAll',
+            'afterAll',
+          ],
+        },
+      ],
     },
   }
 );

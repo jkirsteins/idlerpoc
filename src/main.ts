@@ -39,6 +39,7 @@ import {
   pauseContract,
   resumeContract,
   abandonContract,
+  initContractExec,
 } from './contractExec';
 import { getSkillRank } from './skillRanks';
 import { assignShipToRoute, unassignShipFromRoute } from './routeAssignment';
@@ -1274,72 +1275,79 @@ const callbacks: RendererCallbacks = {
   },
 };
 
-// ── Module initialisation (all side effects below all declarations) ──
+// ── Module initialisation ──
+// Wrapped in init() so there are zero bare top-level side effects.
+// The only top-level call is init() at the bottom of the file.
 
-// Initialize the combat system encounter resolver
-initCombatSystem();
+function init(): void {
+  // Register cross-module callbacks
+  initCombatSystem();
+  initContractExec();
 
-try {
-  state = initializeState();
-} catch (e) {
-  console.error('Failed to initialize game state, clearing save:', e);
-  clearGame();
-  state = { phase: 'no_game' };
-  const errorDetail = e instanceof Error ? e.message : String(e);
-  showErrorBanner(`Save corrupted and cleared: ${errorDetail}`);
-}
-
-window.addEventListener('wizard-next', ((
-  event: CustomEvent<{ step: WizardStep; draft: WizardDraft }>
-) => {
-  state = {
-    phase: 'creating',
-    step: event.detail.step,
-    draft: event.detail.draft,
-  };
-  renderApp();
-}) as EventListener);
-
-// Keyboard shortcuts for time controls
-window.addEventListener('keydown', (event: KeyboardEvent) => {
-  if (state.phase !== 'playing') return;
-
-  // Ignore if user is typing in an input field
-  if (
-    event.target instanceof HTMLInputElement ||
-    event.target instanceof HTMLTextAreaElement
-  ) {
-    return;
+  try {
+    state = initializeState();
+  } catch (e) {
+    console.error('Failed to initialize game state, clearing save:', e);
+    clearGame();
+    state = { phase: 'no_game' };
+    const errorDetail = e instanceof Error ? e.message : String(e);
+    showErrorBanner(`Save corrupted and cleared: ${errorDetail}`);
   }
 
-  switch (event.key) {
-    case ' ': // Space - toggle pause
-    case 'p': // P - toggle pause
-    case 'P':
-      event.preventDefault();
-      callbacks.onTogglePause?.();
-      break;
-    case '1': // 1 - set speed to 1x
-      event.preventDefault();
-      callbacks.onSetSpeed?.(1);
-      break;
-    case '2': // 2 - set speed to 2x
-      event.preventDefault();
-      callbacks.onSetSpeed?.(2);
-      break;
-    case '5': // 5 - set speed to 5x
-      event.preventDefault();
-      callbacks.onSetSpeed?.(5);
-      break;
-    case 'r': // R - resume from pause
-    case 'R':
-      if (state.phase === 'playing' && state.gameData.isPaused) {
+  window.addEventListener('wizard-next', ((
+    event: CustomEvent<{ step: WizardStep; draft: WizardDraft }>
+  ) => {
+    state = {
+      phase: 'creating',
+      step: event.detail.step,
+      draft: event.detail.draft,
+    };
+    renderApp();
+  }) as EventListener);
+
+  // Keyboard shortcuts for time controls
+  window.addEventListener('keydown', (event: KeyboardEvent) => {
+    if (state.phase !== 'playing') return;
+
+    // Ignore if user is typing in an input field
+    if (
+      event.target instanceof HTMLInputElement ||
+      event.target instanceof HTMLTextAreaElement
+    ) {
+      return;
+    }
+
+    switch (event.key) {
+      case ' ': // Space - toggle pause
+      case 'p': // P - toggle pause
+      case 'P':
         event.preventDefault();
         callbacks.onTogglePause?.();
-      }
-      break;
-  }
-});
+        break;
+      case '1': // 1 - set speed to 1x
+        event.preventDefault();
+        callbacks.onSetSpeed?.(1);
+        break;
+      case '2': // 2 - set speed to 2x
+        event.preventDefault();
+        callbacks.onSetSpeed?.(2);
+        break;
+      case '5': // 5 - set speed to 5x
+        event.preventDefault();
+        callbacks.onSetSpeed?.(5);
+        break;
+      case 'r': // R - resume from pause
+      case 'R':
+        if (state.phase === 'playing' && state.gameData.isPaused) {
+          event.preventDefault();
+          callbacks.onTogglePause?.();
+        }
+        break;
+    }
+  });
+
+  renderApp();
+}
 
 /**
  * Create toast notifications from encounter results.
@@ -1734,4 +1742,4 @@ function renderApp(): void {
   }
 }
 
-renderApp();
+init();
