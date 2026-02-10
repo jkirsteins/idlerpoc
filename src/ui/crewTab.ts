@@ -15,6 +15,7 @@ import type { TabbedViewCallbacks } from './types';
 import {
   getCrewEquipmentDefinition,
   getAllCrewEquipmentDefinitions,
+  type CrewEquipmentCategory,
 } from '../crewEquipment';
 import { getLevelForXP } from '../levelSystem';
 import { getCrewRoleDefinition } from '../crewRoles';
@@ -1512,6 +1513,25 @@ function renderEquipmentShop(
   return section;
 }
 
+const CATEGORY_LABELS: Record<
+  CrewEquipmentCategory,
+  { icon: string; label: string }
+> = {
+  mining: { icon: '⛏️', label: 'Mining Equipment' },
+  weapon: { icon: '🔫', label: 'Weapons' },
+  tool: { icon: '🔧', label: 'Tools' },
+  armor: { icon: '🛡️', label: 'Armor' },
+  accessory: { icon: '📟', label: 'Accessories' },
+};
+
+const CATEGORY_ORDER: CrewEquipmentCategory[] = [
+  'mining',
+  'weapon',
+  'armor',
+  'tool',
+  'accessory',
+];
+
 function renderBuyList(
   gameData: GameData,
   callbacks: TabbedViewCallbacks
@@ -1523,51 +1543,83 @@ function renderBuyList(
 
   const allEquipment = getAllCrewEquipmentDefinitions();
 
+  // Group by category
+  const grouped = new Map<CrewEquipmentCategory, typeof allEquipment>();
   for (const equipDef of allEquipment) {
-    const itemDiv = document.createElement('div');
-    itemDiv.style.display = 'flex';
-    itemDiv.style.justifyContent = 'space-between';
-    itemDiv.style.alignItems = 'center';
-    itemDiv.style.padding = '0.5rem';
-    itemDiv.style.border = '1px solid #333';
-    itemDiv.style.borderRadius = '4px';
+    const cat = equipDef.category;
+    if (!grouped.has(cat)) grouped.set(cat, []);
+    grouped.get(cat)!.push(equipDef);
+  }
 
-    const infoDiv = document.createElement('div');
+  for (const category of CATEGORY_ORDER) {
+    const items = grouped.get(category);
+    if (!items || items.length === 0) continue;
 
-    const nameDiv = document.createElement('div');
-    nameDiv.style.fontWeight = 'bold';
-    nameDiv.textContent = `${equipDef.icon} ${equipDef.name}`;
-    infoDiv.appendChild(nameDiv);
+    const catInfo = CATEGORY_LABELS[category];
 
-    const descDiv = document.createElement('div');
-    descDiv.style.fontSize = '0.85rem';
-    descDiv.style.color = '#888';
-    descDiv.textContent = equipDef.description;
-    infoDiv.appendChild(descDiv);
+    // Category header
+    const header = document.createElement('div');
+    header.style.cssText =
+      'font-weight: bold; font-size: 0.9rem; color: #aaa; border-bottom: 1px solid #333; padding-bottom: 0.25rem; margin-top: 0.5rem;';
+    header.textContent = `${catInfo.icon} ${catInfo.label}`;
+    list.appendChild(header);
 
-    itemDiv.appendChild(infoDiv);
+    for (const equipDef of items) {
+      const itemDiv = document.createElement('div');
+      itemDiv.style.display = 'flex';
+      itemDiv.style.justifyContent = 'space-between';
+      itemDiv.style.alignItems = 'center';
+      itemDiv.style.padding = '0.5rem';
+      itemDiv.style.border = '1px solid #333';
+      itemDiv.style.borderRadius = '4px';
 
-    const buyDiv = document.createElement('div');
-    buyDiv.style.display = 'flex';
-    buyDiv.style.flexDirection = 'column';
-    buyDiv.style.alignItems = 'flex-end';
-    buyDiv.style.gap = '0.5rem';
+      const infoDiv = document.createElement('div');
 
-    const priceLabel = document.createElement('div');
-    priceLabel.style.color = '#4a9eff';
-    priceLabel.textContent = `${equipDef.value} cr`;
-    buyDiv.appendChild(priceLabel);
+      const nameDiv = document.createElement('div');
+      nameDiv.style.fontWeight = 'bold';
+      nameDiv.textContent = `${equipDef.icon} ${equipDef.name}`;
+      infoDiv.appendChild(nameDiv);
 
-    const buyButton = document.createElement('button');
-    buyButton.textContent = 'Buy';
-    buyButton.disabled = gameData.credits < equipDef.value;
-    buyButton.addEventListener('click', () =>
-      callbacks.onBuyEquipment(equipDef.id)
-    );
-    buyDiv.appendChild(buyButton);
+      const descDiv = document.createElement('div');
+      descDiv.style.fontSize = '0.85rem';
+      descDiv.style.color = '#888';
+      descDiv.textContent = equipDef.description;
+      infoDiv.appendChild(descDiv);
 
-    itemDiv.appendChild(buyDiv);
-    list.appendChild(itemDiv);
+      // Show mining-specific stats
+      if (equipDef.category === 'mining' && equipDef.miningRate !== undefined) {
+        const statsDiv = document.createElement('div');
+        statsDiv.style.fontSize = '0.8rem';
+        statsDiv.style.color = '#6c6';
+        const levelReq = equipDef.miningLevelRequired ?? 0;
+        statsDiv.textContent = `Mining rate: ${equipDef.miningRate}x · Requires Mining ${levelReq}`;
+        infoDiv.appendChild(statsDiv);
+      }
+
+      itemDiv.appendChild(infoDiv);
+
+      const buyDiv = document.createElement('div');
+      buyDiv.style.display = 'flex';
+      buyDiv.style.flexDirection = 'column';
+      buyDiv.style.alignItems = 'flex-end';
+      buyDiv.style.gap = '0.5rem';
+
+      const priceLabel = document.createElement('div');
+      priceLabel.style.color = '#4a9eff';
+      priceLabel.textContent = `${equipDef.value} cr`;
+      buyDiv.appendChild(priceLabel);
+
+      const buyButton = document.createElement('button');
+      buyButton.textContent = 'Buy';
+      buyButton.disabled = gameData.credits < equipDef.value;
+      buyButton.addEventListener('click', () =>
+        callbacks.onBuyEquipment(equipDef.id)
+      );
+      buyDiv.appendChild(buyButton);
+
+      itemDiv.appendChild(buyDiv);
+      list.appendChild(itemDiv);
+    }
   }
 
   return list;

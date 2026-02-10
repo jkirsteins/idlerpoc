@@ -832,6 +832,28 @@ function renderMiningStatus(
   title.style.cssText = 'font-weight: bold; font-size: 1rem; color: #ffa500;';
   title.textContent = `⛏️ Mining at ${location.name}`;
   header.appendChild(title);
+
+  // Active/inactive status badge
+  const miners = getCrewForJobType(ship, 'mining_ops');
+  const hasActiveMiner = miners.some((m) => {
+    const equippedIds = m.equipment.map((e) => e.definitionId);
+    return getBestMiningEquipment(equippedIds) !== undefined;
+  });
+  const statusBadge = document.createElement('span');
+  if (hasActiveMiner && getRemainingOreCapacity(ship) > 0) {
+    statusBadge.style.cssText =
+      'font-size: 0.8rem; padding: 2px 8px; border-radius: 3px; background: rgba(76,175,80,0.2); color: #4caf50; border: 1px solid #4caf50;';
+    statusBadge.textContent = 'ACTIVE';
+  } else if (hasActiveMiner) {
+    statusBadge.style.cssText =
+      'font-size: 0.8rem; padding: 2px 8px; border-radius: 3px; background: rgba(233,69,96,0.2); color: #e94560; border: 1px solid #e94560;';
+    statusBadge.textContent = 'CARGO FULL';
+  } else {
+    statusBadge.style.cssText =
+      'font-size: 0.8rem; padding: 2px 8px; border-radius: 3px; background: rgba(255,165,0,0.15); color: #ffa500; border: 1px solid #b87333;';
+    statusBadge.textContent = 'IDLE';
+  }
+  header.appendChild(statusBadge);
   panel.appendChild(header);
 
   // Available ores at this location
@@ -844,7 +866,6 @@ function renderMiningStatus(
   oresSection.appendChild(oresLabel);
 
   const availableOres = location.availableOres ?? [];
-  const miners = getCrewForJobType(ship, 'mining_ops');
   for (const oreId of availableOres) {
     const ore = getOreDefinition(oreId);
     const oreTag = document.createElement('span');
@@ -877,7 +898,7 @@ function renderMiningStatus(
     const noMiners = document.createElement('div');
     noMiners.style.color = '#e94560';
     noMiners.textContent =
-      'No crew assigned to Mining Ops. Assign crew in the Crew tab.';
+      'No crew assigned to Mining Ops. Assign crew in the Ship tab.';
     minersSection.appendChild(noMiners);
   } else {
     for (const miner of miners) {
