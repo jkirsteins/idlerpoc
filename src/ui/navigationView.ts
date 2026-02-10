@@ -1,4 +1,4 @@
-import type { GameData } from '../models';
+import type { GameData, WorldLocation } from '../models';
 import { getActiveShip } from '../models';
 import { getLocationTypeTemplate } from '../spaceLocations';
 import {
@@ -58,16 +58,46 @@ export function createNavigationView(
   // Persistent flight profile slider - created once, survives rebuilds
   const profileControl = createFlightProfileControl(gameData);
 
-  // Track latest gameData so slider input can trigger immediate estimate refresh
+  // Track latest gameData for slider input handler
   let latestGameData = gameData;
 
-  // When slider changes, rebuild immediately so travel estimates update
+  // Refs to travel estimate elements — updated in-place on slider drag
+  // so we never call replaceChildren() during a touch gesture.
+  let estimateRefs: {
+    el: HTMLElement;
+    origin: WorldLocation;
+    destination: WorldLocation;
+  }[] = [];
+
+  // When slider changes, patch estimate text in-place (no DOM rebuild)
   profileControl.slider.addEventListener('input', () => {
-    rebuild(latestGameData);
+    const ship = getActiveShip(latestGameData);
+    const shipClass = getShipClass(ship.classId);
+    const engineDef = getEngineDefinition(ship.engine.definitionId);
+    if (!shipClass) return;
+    for (const ref of estimateRefs) {
+      try {
+        const flight = initializeFlight(
+          ship,
+          ref.origin,
+          ref.destination,
+          false,
+          ship.flightProfileBurnFraction
+        );
+        const travelTime = formatDualTime(flight.totalTime);
+        const distanceKm = getDistanceBetween(ref.origin, ref.destination);
+        const maxRangeKm = computeMaxRange(shipClass, engineDef);
+        const fuelCostKg = calculateFuelCost(distanceKm, maxRangeKm);
+        ref.el.textContent = `⏱ Travel Time: ${travelTime} | ⛽ Fuel Cost: ~${formatFuelMass(fuelCostKg)}`;
+      } catch {
+        // skip if estimate fails
+      }
+    }
   });
 
   function rebuild(gameData: GameData) {
     latestGameData = gameData;
+    estimateRefs = [];
     container.replaceChildren();
     const ship = getActiveShip(gameData);
 
@@ -242,8 +272,15 @@ export function createNavigationView(
             travelInfo.style.fontSize = '0.85em';
             travelInfo.style.color = '#4ade80';
             travelInfo.style.marginTop = '0.25rem';
-            travelInfo.innerHTML = `⏱ Travel Time: ${travelTime} | ⛽ Fuel Cost: ~${formatFuelMass(fuelCostKg)}`;
+            travelInfo.textContent = `⏱ Travel Time: ${travelTime} | ⛽ Fuel Cost: ~${formatFuelMass(fuelCostKg)}`;
             item.appendChild(travelInfo);
+
+            // Store ref for in-place update on slider drag
+            estimateRefs.push({
+              el: travelInfo,
+              origin: currentLocation,
+              destination: location,
+            });
           } catch {
             // Silently skip if travel estimate fails
           }
