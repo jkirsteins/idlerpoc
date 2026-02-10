@@ -16,9 +16,14 @@ import { getSpecializationMultiplier } from './skillRanks';
  *
  * Crew members train skills directly by working job slots during flight.
  * No XP intermediary — job slot assignment determines which skill improves
- * and at what rate. Uses diminishing returns (asymptotic toward cap).
+ * and at what rate.
  *
- * Formula: gain/tick = trainRate × (SKILL_CAP - current) / SKILL_CAP × match_bonus
+ * Uses exponential diminishing returns:
+ *   gain/tick = RATE_SCALE × trainRate × e^(-skill / CURVE_K) × match_bonus × spec_bonus
+ *
+ * Tuned so that a captain at the helm (trainRate 0.00004, no match bonus)
+ * reaches skill 5 in ~5 real minutes and skill 50 in ~5 real days.
+ * Early levels come fast; high levels require sustained play + event gains.
  */
 
 /** Maximum skill value */
@@ -29,6 +34,20 @@ const MASTERY_THRESHOLD = 99.5;
 
 /** Skill matching bonus multiplier (crew's role matches job's trained skill) */
 const SKILL_MATCH_MULTIPLIER = 1.5;
+
+/**
+ * Exponential curve shaping constant.
+ * Controls how aggressively diminishing returns kick in.
+ * Lower = steeper falloff.  K ≈ 6.8 gives the 5-min-to-5 / 5-days-to-50 ratio.
+ */
+const CURVE_K = 6.8;
+
+/**
+ * Rate multiplier that scales the old per-slot trainRate values into the
+ * exponential formula.  Derived from: RATE_SCALE × helm_trainRate × e^0 should
+ * yield skill 5 in 300 ticks (5 real minutes) for a captain with no match bonus.
+ */
+const RATE_SCALE = 615;
 
 /**
  * Calculate direct skill training for a crew member based on job slot assignment.
@@ -49,8 +68,8 @@ export function calculateTickTraining(
   const currentSkill = crew.skills[skill];
   if (currentSkill >= SKILL_CAP) return null;
 
-  // Diminishing returns: gain decreases as skill approaches cap
-  const diminishingFactor = (SKILL_CAP - currentSkill) / SKILL_CAP;
+  // Exponential diminishing returns: gain drops off steeply with skill level
+  const diminishingFactor = Math.exp(-currentSkill / CURVE_K);
 
   // Skill matching bonus: crew's role primary skill matches job's trained skill
   const primarySkill = getPrimarySkillForRole(crew.role);
@@ -62,7 +81,8 @@ export function calculateTickTraining(
     crew.specialization
   );
 
-  const gain = baseRate * diminishingFactor * matchBonus * specMultiplier;
+  const gain =
+    RATE_SCALE * baseRate * diminishingFactor * matchBonus * specMultiplier;
 
   return { skill, gain };
 }

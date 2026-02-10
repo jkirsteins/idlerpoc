@@ -11,7 +11,7 @@ npm run dev
 
 ## Game Features
 
-- **Captain as Playable Character**: You are a crew member! The captain is part of the crew with their own skills and level
+- **Captain as Playable Character**: You start solo — just a captain at the helm. Hire crew as you progress
 - **Ship Creation**: Choose your captain name, ship name, and starting ship class
 - **Ship Classes**: 7 ship classes from orbital tenders to fusion torch ships (Class I-III) (see `src/shipClasses.ts`)
 - **Tabbed Interface**: Switch between Ship, Crew, Work, Log, and Settings tabs
@@ -27,7 +27,9 @@ npm run dev
   - Rooms generate job slots (bridge → Helm + Comms, engine room → Drive Ops, etc.)
   - Ship equipment generates additional slots (nav scanner → Scan Ops, point defense → Targeting)
   - Ship-wide repair slots accept multiple engineers generating repair points
-  - Direct skill training: jobs train crew skills with diminishing returns (no XP intermediary)
+  - Direct skill training: jobs train crew skills with exponential diminishing returns (no XP intermediary)
+  - All crew start at zero skills — progression comes entirely from training and events
+  - Skill 5 in ~5 real minutes, skill 50 in ~5 real days (captain at helm baseline)
   - **10 named skill ranks** (Untrained → Master) with non-linear distribution for idle-game pacing
   - **Skill progress bars** showing advancement toward next rank
   - **Commerce skill** trained by captain/first officer completing trade routes — improves quest pay and fuel pricing
@@ -36,7 +38,7 @@ npm run dev
   - Passive slots (Patient, Rest) benefit crew without training skills
   - Helm is the only required job — no helm crew means the ship coasts
   - Auto-assign crew to best-fit slots based on skill affinity
-  - Crew skills (Piloting, Astrogation, Engineering, Strength, Charisma, Loyalty, Commerce) on 1-100 scale
+  - Crew skills (Piloting, Astrogation, Engineering, Strength, Charisma, Loyalty, Commerce) on 0-100 scale
   - 8 crew roles including Navigator (astrogation specialist)
   - Crew salaries paid per tick during flight (0.5-1.5 credits/tick depending on role)
   - Unpaid crew depart at next station
