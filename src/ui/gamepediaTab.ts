@@ -333,41 +333,34 @@ export function createGamepediaTab(
       }
     }
 
-    // Related articles
+    // Related articles — plain inline links
     if (article.relatedArticles.length > 0) {
       const relatedSection = document.createElement('div');
       relatedSection.className = 'gamepedia-related';
 
-      const relatedTitle = document.createElement('h4');
-      relatedTitle.textContent = 'See Also';
-      relatedSection.appendChild(relatedTitle);
+      const relatedLabel = document.createElement('span');
+      relatedLabel.className = 'gamepedia-related-label';
+      relatedLabel.textContent = 'See also: ';
+      relatedSection.appendChild(relatedLabel);
 
-      const relatedList = document.createElement('div');
-      relatedList.className = 'gamepedia-related-list';
-
+      let first = true;
       for (const relId of article.relatedArticles) {
         const relArticle = GAMEPEDIA_ARTICLES.find((a) => a.id === relId);
         if (!relArticle) continue;
 
+        if (!first) {
+          const sep = document.createTextNode(', ');
+          relatedSection.appendChild(sep);
+        }
+        first = false;
+
         const link = document.createElement('button');
-        link.className = 'gamepedia-related-link';
-
-        const linkTitle = document.createElement('span');
-        linkTitle.className = 'gamepedia-related-link-title';
-        linkTitle.textContent = relArticle.title;
-
-        const linkCat = document.createElement('span');
-        linkCat.className = 'gamepedia-related-link-cat';
-        linkCat.textContent = relArticle.category;
-
-        link.appendChild(linkTitle);
-        link.appendChild(linkCat);
+        link.className = 'gamepedia-see-also-link';
+        link.textContent = relArticle.title;
         link.addEventListener('click', () => selectArticle(relId));
-
-        relatedList.appendChild(link);
+        relatedSection.appendChild(link);
       }
 
-      relatedSection.appendChild(relatedList);
       mainArea.appendChild(relatedSection);
     }
   }

@@ -29,4 +29,5 @@ UI components follow a **mount-once / update-on-tick** pattern (see `src/ui/comp
 - "tick" is a implementation term, and should not appear in the game UI ever. Instead of "tick" convert it to terms like days, months, years, etc.
 - When providing time values in the game UI, always provide in-game value and real-life value. E.g. "2 days (irl 5 min)" formatting. Use shared components for displaying time so it can be changed later easily.
 - Maintain BACKLOG.md: add deferred ideas during design discussions, remove items when implemented.
+- **Gamepedia maintenance**: When implementing or changing a game mechanic, update the corresponding Gamepedia article(s) in `src/gamepediaData.ts` to reflect the change. If the mechanic is new, add a new article. Ensure `relatedArticles` links are set so players can discover connected topics. The Gamepedia is the player-facing explanation of how the game works — it must stay accurate.
 - Never suppress linter or type-checker errors (`eslint-disable`, `@ts-ignore`, `@ts-expect-error`, `@ts-nocheck`). Always cleanly resolve the underlying issue instead.

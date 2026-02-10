@@ -2938,54 +2938,35 @@ button:disabled:hover {
   background: rgba(255, 255, 255, 0.02);
 }
 
-/* Related articles */
+/* Related articles (plain inline links) */
 .gamepedia-related {
   margin-top: 32px;
   padding-top: 20px;
   border-top: 1px solid #0f3460;
-}
-
-.gamepedia-related h4 {
-  color: #888;
-  font-size: 12px;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  margin: 0 0 12px 0;
-}
-
-.gamepedia-related-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.gamepedia-related-link {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding: 8px 14px;
-  background: rgba(74, 158, 255, 0.08);
-  border: 1px solid rgba(74, 158, 255, 0.2);
-  border-radius: 6px;
-  cursor: pointer;
-  transition: all 0.15s;
-  color: inherit;
-}
-
-.gamepedia-related-link:hover {
-  background: rgba(74, 158, 255, 0.15);
-  border-color: #4a9eff;
-}
-
-.gamepedia-related-link-title {
   font-size: 13px;
-  font-weight: 600;
-  color: #4a9eff;
+  line-height: 1.8;
 }
 
-.gamepedia-related-link-cat {
-  font-size: 10px;
+.gamepedia-related-label {
   color: #888;
+}
+
+.gamepedia-see-also-link {
+  background: none;
+  border: none;
+  color: #4a9eff;
+  cursor: pointer;
+  font-size: 13px;
+  padding: 0;
+  text-decoration: underline;
+  text-decoration-color: rgba(74, 158, 255, 0.3);
+  text-underline-offset: 2px;
+}
+
+.gamepedia-see-also-link:hover {
+  color: #6db3ff;
+  text-decoration-color: #6db3ff;
+  background: none;
 }
 
 /* ==========================================
@@ -3651,10 +3632,6 @@ button:disabled:hover {
   .gamepedia-cat-btn {
     padding: 3px 6px;
     font-size: 10px;
-  }
-
-  .gamepedia-related-list {
-    flex-direction: column;
   }
 
   /* Ensure no horizontal scroll */
