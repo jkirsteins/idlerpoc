@@ -167,6 +167,15 @@ function applyShipTick(gameData: GameData, ship: Ship): boolean {
   if (ship.location.status === 'in_flight') {
     const engineDef = getEngineDefinition(ship.engine.definitionId);
 
+    // Invariant: paused contract in flight must dock on arrival
+    if (
+      ship.activeContract?.paused &&
+      ship.activeFlightPlan &&
+      !ship.activeFlightPlan.dockOnArrival
+    ) {
+      ship.activeFlightPlan.dockOnArrival = true;
+    }
+
     // Flight physics (only advance when engine is online)
     if (ship.activeFlightPlan && ship.engine.state === 'online') {
       const flightComplete = advanceFlight(ship.activeFlightPlan);
@@ -498,9 +507,7 @@ function applyShipTick(gameData: GameData, ship: Ship): boolean {
                 ship.name
               );
               if (!ship.miningAccumulator) ship.miningAccumulator = {};
-              (ship.miningAccumulator as Record<string, number>)[
-                '_cargoFullLogged'
-              ] = 1;
+              ship.miningAccumulator['_cargoFullLogged'] = 1;
             }
 
             // Mining route: auto-depart to sell station when cargo full
@@ -508,9 +515,7 @@ function applyShipTick(gameData: GameData, ship: Ship): boolean {
           } else {
             // Clear the flag when cargo has space again
             if (ship.miningAccumulator?._cargoFullLogged) {
-              delete (ship.miningAccumulator as Record<string, number>)[
-                '_cargoFullLogged'
-              ];
+              delete ship.miningAccumulator['_cargoFullLogged'];
             }
           }
         }

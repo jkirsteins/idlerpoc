@@ -658,15 +658,22 @@ export function completeLeg(gameData: GameData, ship: Ship): void {
 }
 
 /**
- * Pause contract at nearest port (dock on arrival)
+ * Pause contract at nearest port (dock on arrival).
+ *
+ * Always marks the contract paused. If a flight plan is active the
+ * ship will dock when it completes the current leg rather than
+ * continuing the route.
  */
 export function pauseContract(ship: Ship): void {
-  if (!ship.activeContract || !ship.activeFlightPlan) {
+  if (!ship.activeContract) {
     return;
   }
 
-  ship.activeFlightPlan.dockOnArrival = true;
   ship.activeContract.paused = true;
+
+  if (ship.activeFlightPlan) {
+    ship.activeFlightPlan.dockOnArrival = true;
+  }
 }
 
 /**
