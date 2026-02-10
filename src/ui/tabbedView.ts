@@ -168,7 +168,7 @@ export function createTabbedView(
         });
       case 'nav':
         return createNavigationView(gameData, {
-          onToggleNavigation: () => {},
+          onToggleNavigation: () => callbacks.onTabChange('ship'),
           onStartTrip: callbacks.onStartTrip,
         });
       case 'fleet':

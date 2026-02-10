@@ -130,6 +130,15 @@ export function createNavigationView(
     const currentLocation =
       gameData.world.locations.find((loc) => loc.id === referenceLocationId) ||
       gameData.world.locations[0];
+    // Track flight destination so we can label it specially
+    const flightDestinationId =
+      ship.location.status === 'in_flight'
+        ? (ship.activeFlightPlan?.destination ?? null)
+        : null;
+    const flightOriginId =
+      ship.location.status === 'in_flight'
+        ? (ship.activeFlightPlan?.origin ?? null)
+        : null;
 
     const canStartTrips =
       (ship.location.status === 'docked' ||
@@ -145,6 +154,9 @@ export function createNavigationView(
       const reachable = isLocationReachable(ship, location, currentLocation);
 
       if (location.id === currentLocationId) {
+        marker.classList.add('current');
+      }
+      if (location.id === flightDestinationId) {
         marker.classList.add('current');
       }
       if (!reachable) {
@@ -173,7 +185,11 @@ export function createNavigationView(
       dot.textContent = template.icon;
 
       // Threat-based marker coloring for reachable non-current locations
-      if (reachable && location.id !== currentLocationId) {
+      if (
+        reachable &&
+        location.id !== currentLocationId &&
+        location.id !== flightDestinationId
+      ) {
         const routeRisk = estimateRouteRisk(
           currentLocation,
           location,
@@ -250,7 +266,12 @@ export function createNavigationView(
       item.appendChild(distance);
 
       // Add travel time and fuel cost estimates for reachable non-current locations
-      if (location.id !== currentLocationId && reachable) {
+      // Skip the flight destination (distance is 0 since we use it as reference)
+      if (
+        location.id !== currentLocationId &&
+        location.id !== flightDestinationId &&
+        reachable
+      ) {
         const shipClass = getShipClass(ship.classId);
         const engineDef = getEngineDefinition(ship.engine.definitionId);
         if (shipClass) {
@@ -294,7 +315,11 @@ export function createNavigationView(
       item.appendChild(description);
 
       // Route risk threat badge for non-current locations
-      if (location.id !== currentLocationId && reachable) {
+      if (
+        location.id !== currentLocationId &&
+        location.id !== flightDestinationId &&
+        reachable
+      ) {
         const routeRisk = estimateRouteRisk(
           currentLocation,
           location,
@@ -318,6 +343,7 @@ export function createNavigationView(
       if (
         degradedCrew.length > 0 &&
         location.id !== currentLocationId &&
+        location.id !== flightDestinationId &&
         reachable
       ) {
         const warning = document.createElement('div');
@@ -335,6 +361,18 @@ export function createNavigationView(
         currentBadge.className = 'nav-current-label';
         currentBadge.textContent = 'Current Location';
         item.appendChild(currentBadge);
+      } else if (location.id === flightDestinationId) {
+        // In-flight destination badge
+        const destBadge = document.createElement('div');
+        destBadge.className = 'nav-current-label';
+        destBadge.textContent = 'Destination';
+        item.appendChild(destBadge);
+      } else if (location.id === flightOriginId) {
+        // In-flight origin badge
+        const originBadge = document.createElement('div');
+        originBadge.className = 'nav-travel-disabled-reason';
+        originBadge.textContent = 'Origin';
+        item.appendChild(originBadge);
       } else if (!canStartTrips) {
         // Active contract, route assignment, or in-flight - show status
         const statusText = document.createElement('div');
