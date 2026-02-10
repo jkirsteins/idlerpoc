@@ -9,7 +9,8 @@ export type RoomType =
   | 'cargo_hold'
   | 'armory'
   | 'quarters'
-  | 'point_defense_station';
+  | 'point_defense_station'
+  | 'mining_bay';
 
 export type ShipClassId =
   | 'station_keeper'
@@ -38,7 +39,11 @@ export type EquipmentId =
   | 'centrifuge_pod'
   | 'exercise_module'
   | 'micro_deflector'
-  | 'point_defense_laser';
+  | 'point_defense_laser'
+  | 'mining_laser'
+  | 'mining_rig'
+  | 'deep_core_mining'
+  | 'quantum_mining';
 
 export type FactionId =
   | 'terran_alliance'
@@ -64,13 +69,7 @@ export type CrewEquipmentId =
   | 'rebreather'
   | 'wrist_terminal'
   | 'armored_vest'
-  | 'g_seat'
-  | 'basic_mining_laser'
-  | 'improved_mining_laser'
-  | 'heavy_mining_drill'
-  | 'deep_core_extractor'
-  | 'fusion_assisted_drill'
-  | 'quantum_resonance_drill';
+  | 'g_seat';
 
 export type SkillId = 'piloting' | 'mining' | 'commerce';
 

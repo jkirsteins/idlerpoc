@@ -79,6 +79,7 @@ export interface RendererCallbacks {
   onHireCrew: (crewId: string) => void;
   onBuyEquipment: (equipmentId: CrewEquipmentId) => void;
   onSellEquipment: (itemId: string) => void;
+  onBuyShipEquipment: (equipmentId: import('../models').EquipmentId) => void;
   onSelectShip: (shipId: string) => void;
   onBuyShip: (classId: string, shipName: string) => void;
   onTransferCrew: (
@@ -322,6 +323,7 @@ function mountPlayingLayout(
       onHireCrew: callbacks.onHireCrew,
       onBuyEquipment: callbacks.onBuyEquipment,
       onSellEquipment: callbacks.onSellEquipment,
+      onBuyShipEquipment: callbacks.onBuyShipEquipment,
       onSelectShip: callbacks.onSelectShip,
       onBuyShip: callbacks.onBuyShip,
       onTransferCrew: callbacks.onTransferCrew,

@@ -205,13 +205,13 @@ export const JOB_SLOT_DEFINITIONS: JobSlotDefinition[] = [
   {
     type: 'mining_ops',
     name: 'Mining Ops',
-    description: 'Resource extraction from asteroids and planetary surfaces.',
+    description: 'Operate ship-mounted mining equipment from the mining bay.',
     icon: '⛏️',
     skill: 'mining',
     required: false,
     trainRate: 0.00004,
     bonusDescription: 'Ore yield, mining efficiency',
-    source: 'ship',
+    source: 'room',
   },
 ];
 
@@ -238,6 +238,7 @@ const ROOM_JOB_COUNTS: Partial<
   armory: [{ type: 'arms_maint', count: 2 }],
   point_defense_station: [{ type: 'fire_control', count: 1 }],
   quarters: [{ type: 'rest', count: 2 }],
+  mining_bay: [{ type: 'mining_ops', count: 2 }],
   // cargo_hold has no jobs (automated)
 };
 
@@ -254,9 +255,6 @@ const EQUIPMENT_JOB_MAP: Partial<
 
 /** How many repair slots to create (players can assign multiple engineers) */
 const REPAIR_SLOT_COUNT = 3;
-
-/** How many mining ops slots to create (players can assign multiple miners) */
-const MINING_OPS_SLOT_COUNT = 3;
 
 /**
  * Generate all job slots for a ship based on its rooms and equipment.
@@ -304,15 +302,6 @@ export function generateJobSlotsForShip(ship: Ship): JobSlot[] {
     slots.push({
       id: generateId(),
       type: 'repair',
-      assignedCrewId: null,
-    });
-  }
-
-  // Ship-wide mining ops slots
-  for (let i = 0; i < MINING_OPS_SLOT_COUNT; i++) {
-    slots.push({
-      id: generateId(),
-      type: 'mining_ops',
       assignedCrewId: null,
     });
   }

@@ -4,9 +4,10 @@
  * Handles ore extraction during orbiting at mine-enabled locations.
  * Mining requires:
  *   1. Ship orbiting a location with 'mine' service
- *   2. Crew assigned to mining_ops job slot
- *   3. Mining equipment equipped on the miner
- *   4. Available cargo space
+ *   2. Crew assigned to mining_ops job slot (from mining_bay room)
+ *   3. Ship-mounted mining equipment installed (e.g. mining_laser)
+ *   4. Crew mining skill sufficient to operate the equipment
+ *   5. Available cargo space
  *
  * Per-tick yield formula:
  *   orePerTick = BASE_RATE × equipmentRate × skillFactor × (1 + masteryYield) × (1 + poolYield)
@@ -17,7 +18,7 @@
 
 import type { Ship, GameData, OreId, WorldLocation } from './models';
 import { getOreDefinition, type OreDefinition } from './oreTypes';
-import { getBestMiningEquipment } from './crewEquipment';
+import { getEquipmentDefinition, type EquipmentDefinition } from './equipment';
 import { getCrewForJobType } from './jobSlots';
 import {
   awardMasteryXp,
@@ -157,19 +158,26 @@ export function applyMiningTick(
 
   const totalOreCount = getAllOreDefinitions().length;
 
-  for (const miner of miners) {
-    // Check for mining equipment
-    const equippedIds = miner.equipment.map((e) => e.definitionId);
-    const miningEquip = getBestMiningEquipment(equippedIds);
-    if (!miningEquip) continue; // No mining equipment = no extraction
+  // Get all mining equipment installed on the ship
+  const shipMiningGear = ship.equipment
+    .map((eq) => getEquipmentDefinition(eq.definitionId))
+    .filter(
+      (def): def is EquipmentDefinition =>
+        def !== undefined && def.category === 'mining'
+    );
 
-    // Check equipment level requirement
-    if (
-      miningEquip.miningLevelRequired !== undefined &&
-      Math.floor(miner.skills.mining) < miningEquip.miningLevelRequired
-    ) {
-      continue; // Skill too low for equipped tool
-    }
+  if (shipMiningGear.length === 0) return null; // No ship mining equipment
+
+  for (const miner of miners) {
+    // Find the best ship mining equipment this miner can operate
+    const usableGear = shipMiningGear.filter(
+      (def) => Math.floor(miner.skills.mining) >= (def.miningLevelRequired ?? 0)
+    );
+    if (usableGear.length === 0) continue; // Skill too low for all equipment
+
+    const miningEquip = usableGear.reduce((best, current) =>
+      (current.miningRate ?? 0) > (best.miningRate ?? 0) ? current : best
+    );
 
     // Select best ore for this miner
     const ore = selectOreToMine(location, miner.skills.mining);

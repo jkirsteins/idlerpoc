@@ -44,15 +44,17 @@ npm run dev
   - Unpaid crew depart at next station
   - Hire new crew at stations with hiring services
 - **Mining System**:
-  - Orbit locations with `mine` service to automatically extract ore (crew must be in mining_ops slot with mining equipment)
+  - Orbit locations with `mine` service to extract ore (crew in mining_ops slots operate ship-mounted mining equipment from the mining bay)
   - 8 ore types from Iron (common, 5 cr) to Exotic Matter (rare, 200 cr) — mining skill level gates access
-  - 6 tiers of mining equipment (crew equipment slot) from ML-1 Mining Laser (1.0x) to QRD-X Quantum Resonance Drill (5.0x)
+  - 4 tiers of ship-mounted mining equipment: Mining Laser Array (1.0x), Industrial Mining Rig (2.0x), Deep Core System (3.5x), Quantum Resonance Array (5.0x)
+  - Equipment purchased/upgraded at Station Store → Ship Equipment tab; trade-in old gear for 50% credit
   - Extraction rate scales with equipment tier, mining skill, and per-ore mastery bonuses
+  - Mining is a Class II+ activity — Station Keeper has no mining bay, requires upgrading to Wayfarer or better
   - Mastery pool bonuses at 10/25/50/95% full: XP boost, yield bonus, wear reduction, double-drop chance
   - Sell ore at any station with trade service — prices vary by location type and commerce skill
   - Cargo capacity limits: ore has weight, mining pauses when hold is full
   - **Auto-sell mining routes**: set up idle-friendly mine→sell→return loop from the mining panel; auto-sells ore, auto-refuels, returns to mine
-  - Near-Earth mining destinations reachable by Station Keeper (Debris Field Alpha, Scrapyard Ring, NEA-2247)
+  - Near-Earth mining destinations reachable by Class II ships (Debris Field Alpha, Scrapyard Ring, NEA-2247)
 - **Navigation System**:
   - World map with 11 locations including 3 new near-Earth mining destinations
   - Visual navigation chart showing distances, piloting requirements, and reachable locations

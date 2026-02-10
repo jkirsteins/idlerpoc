@@ -60,7 +60,7 @@ function createMinerCrew(miningSkill = 15) {
     name: 'Test Miner',
     role: 'miner',
     skills: { piloting: 5, mining: miningSkill, commerce: 0 },
-    equipment: [{ id: 'eq-laser', definitionId: 'basic_mining_laser' }],
+    equipment: [], // Mining equipment is now ship-mounted, not crew-carried
     mastery: createInitialMastery(),
   });
 }
@@ -87,25 +87,27 @@ describe('Mining System', () => {
       expect(result).toBeNull();
     });
 
-    it('does not extract ore when miner has no mining equipment', () => {
+    it('returns null when ship has no mining equipment installed', () => {
       const miner = createTestCrew({
-        name: 'Unequipped Miner',
+        name: 'Miner',
         role: 'miner',
         skills: { piloting: 5, mining: 15, commerce: 0 },
-        equipment: [], // No mining equipment
       });
       const ship = createTestShip({
         crew: [miner],
         location: { status: 'orbiting', orbitingAt: 'debris_field_alpha' },
+        // Override equipment to exclude mining equipment
+        equipment: [
+          { id: 'eq-ls', definitionId: 'life_support', degradation: 0 },
+          { id: 'eq-af', definitionId: 'air_filters', degradation: 0 },
+        ],
       });
       assignCrewToJob(ship, miner.id, 'mining_ops');
 
       const location = createMineLocation();
       const result = applyMiningTick(ship, location);
 
-      // Returns non-null (miners assigned) but no extraction
-      expect(result).not.toBeNull();
-      expect(Object.keys(result!.oreExtracted).length).toBe(0);
+      expect(result).toBeNull();
     });
 
     it('accumulates fractional ore across ticks', () => {

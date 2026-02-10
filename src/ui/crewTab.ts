@@ -17,6 +17,10 @@ import {
   getAllCrewEquipmentDefinitions,
   type CrewEquipmentCategory,
 } from '../crewEquipment';
+import {
+  getMiningEquipmentDefinitions,
+  getBestShipMiningEquipment,
+} from '../equipment';
 import { getLevelForXP } from '../levelSystem';
 import { getCrewRoleDefinition } from '../crewRoles';
 import {
@@ -1479,31 +1483,51 @@ function renderEquipmentShop(
 
   const tabs = document.createElement('div');
   tabs.style.display = 'flex';
-  tabs.style.gap = '1rem';
+  tabs.style.gap = '0.5rem';
   tabs.style.marginBottom = '1rem';
 
   const itemsDiv = document.createElement('div');
 
-  const sellTab = document.createElement('button');
-  sellTab.textContent = 'Sell Equipment';
-  sellTab.className = 'shop-tab';
+  const allTabs: HTMLButtonElement[] = [];
+  function setActiveTab(activeBtn: HTMLButtonElement, renderFn: () => void) {
+    for (const t of allTabs) t.classList.remove('active');
+    activeBtn.classList.add('active');
+    itemsDiv.innerHTML = '';
+    renderFn();
+  }
 
   const buyTab = document.createElement('button');
-  buyTab.textContent = 'Buy Equipment';
+  buyTab.textContent = 'Buy Crew Gear';
   buyTab.className = 'shop-tab active';
-  buyTab.addEventListener('click', () => {
-    buyTab.classList.add('active');
-    sellTab.classList.remove('active');
-    itemsDiv.innerHTML = '';
-    itemsDiv.appendChild(renderBuyList(gameData, callbacks));
-  });
-  sellTab.addEventListener('click', () => {
-    sellTab.classList.add('active');
-    buyTab.classList.remove('active');
-    itemsDiv.innerHTML = '';
-    itemsDiv.appendChild(renderSellList(gameData, callbacks));
-  });
+  buyTab.addEventListener('click', () =>
+    setActiveTab(buyTab, () =>
+      itemsDiv.appendChild(renderBuyList(gameData, callbacks))
+    )
+  );
+  allTabs.push(buyTab);
+  tabs.appendChild(buyTab);
+
+  const sellTab = document.createElement('button');
+  sellTab.textContent = 'Sell';
+  sellTab.className = 'shop-tab';
+  sellTab.addEventListener('click', () =>
+    setActiveTab(sellTab, () =>
+      itemsDiv.appendChild(renderSellList(gameData, callbacks))
+    )
+  );
+  allTabs.push(sellTab);
   tabs.appendChild(sellTab);
+
+  const shipTab = document.createElement('button');
+  shipTab.textContent = 'Ship Equipment';
+  shipTab.className = 'shop-tab';
+  shipTab.addEventListener('click', () =>
+    setActiveTab(shipTab, () =>
+      itemsDiv.appendChild(renderShipEquipmentList(gameData, callbacks))
+    )
+  );
+  allTabs.push(shipTab);
+  tabs.appendChild(shipTab);
 
   section.appendChild(tabs);
 
@@ -1517,7 +1541,6 @@ const CATEGORY_LABELS: Record<
   CrewEquipmentCategory,
   { icon: string; label: string }
 > = {
-  mining: { icon: '⛏️', label: 'Mining Equipment' },
   weapon: { icon: '🔫', label: 'Weapons' },
   tool: { icon: '🔧', label: 'Tools' },
   armor: { icon: '🛡️', label: 'Armor' },
@@ -1525,7 +1548,6 @@ const CATEGORY_LABELS: Record<
 };
 
 const CATEGORY_ORDER: CrewEquipmentCategory[] = [
-  'mining',
   'weapon',
   'armor',
   'tool',
@@ -1585,16 +1607,6 @@ function renderBuyList(
       descDiv.style.color = '#888';
       descDiv.textContent = equipDef.description;
       infoDiv.appendChild(descDiv);
-
-      // Show mining-specific stats
-      if (equipDef.category === 'mining' && equipDef.miningRate !== undefined) {
-        const statsDiv = document.createElement('div');
-        statsDiv.style.fontSize = '0.8rem';
-        statsDiv.style.color = '#6c6';
-        const levelReq = equipDef.miningLevelRequired ?? 0;
-        statsDiv.textContent = `Mining rate: ${equipDef.miningRate}x · Requires Mining ${levelReq}`;
-        infoDiv.appendChild(statsDiv);
-      }
 
       itemDiv.appendChild(infoDiv);
 
@@ -1716,6 +1728,146 @@ function renderSellList(
     sellDiv.appendChild(sellButton);
 
     itemDiv.appendChild(sellDiv);
+    list.appendChild(itemDiv);
+  }
+
+  return list;
+}
+
+function renderShipEquipmentList(
+  gameData: GameData,
+  callbacks: TabbedViewCallbacks
+): HTMLElement {
+  const ship = getActiveShip(gameData);
+  const list = document.createElement('div');
+  list.style.display = 'flex';
+  list.style.flexDirection = 'column';
+  list.style.gap = '0.75rem';
+
+  // Current ship mining equipment
+  const currentMiningEquip = getBestShipMiningEquipment(ship);
+  if (currentMiningEquip) {
+    const currentSection = document.createElement('div');
+    currentSection.style.cssText =
+      'padding: 0.75rem; background: rgba(76,175,80,0.1); border: 1px solid #4caf50; border-radius: 4px; margin-bottom: 0.5rem;';
+    const currentLabel = document.createElement('div');
+    currentLabel.style.cssText =
+      'font-size: 0.85rem; color: #4caf50; margin-bottom: 0.25rem;';
+    currentLabel.textContent = 'Currently Installed:';
+    currentSection.appendChild(currentLabel);
+    const currentName = document.createElement('div');
+    currentName.style.cssText = 'font-weight: bold;';
+    currentName.textContent = `${currentMiningEquip.icon} ${currentMiningEquip.name} (${currentMiningEquip.miningRate}x rate)`;
+    currentSection.appendChild(currentName);
+    list.appendChild(currentSection);
+  }
+
+  // Mining equipment header
+  const header = document.createElement('div');
+  header.style.cssText =
+    'font-weight: bold; font-size: 0.9rem; color: #aaa; border-bottom: 1px solid #333; padding-bottom: 0.25rem;';
+  header.textContent = '⛏️ Mining Equipment';
+  list.appendChild(header);
+
+  const hasMiningBay = ship.rooms.some((r) => r.type === 'mining_bay');
+  if (!hasMiningBay) {
+    const noRoom = document.createElement('div');
+    noRoom.style.cssText = 'color: #888; font-size: 0.85rem;';
+    noRoom.textContent =
+      'This ship has no mining bay. Mining equipment requires a mining bay room.';
+    list.appendChild(noRoom);
+    return list;
+  }
+
+  const miningEquipDefs = getMiningEquipmentDefinitions();
+  for (const equipDef of miningEquipDefs) {
+    const isCurrentlyInstalled = currentMiningEquip?.id === equipDef.id;
+    const isUpgrade =
+      !isCurrentlyInstalled &&
+      (currentMiningEquip
+        ? (equipDef.miningRate ?? 0) > (currentMiningEquip.miningRate ?? 0)
+        : true);
+    const isDowngrade =
+      !isCurrentlyInstalled &&
+      currentMiningEquip !== undefined &&
+      (equipDef.miningRate ?? 0) <= (currentMiningEquip.miningRate ?? 0);
+
+    const itemDiv = document.createElement('div');
+    itemDiv.style.cssText = `display: flex; justify-content: space-between; align-items: center;
+      padding: 0.5rem; border: 1px solid ${isCurrentlyInstalled ? '#4caf50' : '#333'}; border-radius: 4px;
+      ${isCurrentlyInstalled ? 'background: rgba(76,175,80,0.05);' : ''}`;
+
+    const infoDiv = document.createElement('div');
+
+    const nameDiv = document.createElement('div');
+    nameDiv.style.fontWeight = 'bold';
+    nameDiv.textContent = `${equipDef.icon} ${equipDef.name}`;
+    if (isCurrentlyInstalled) {
+      nameDiv.textContent += ' (installed)';
+      nameDiv.style.color = '#4caf50';
+    }
+    infoDiv.appendChild(nameDiv);
+
+    const descDiv = document.createElement('div');
+    descDiv.style.cssText = 'font-size: 0.85rem; color: #888;';
+    descDiv.textContent = equipDef.description;
+    infoDiv.appendChild(descDiv);
+
+    const statsDiv = document.createElement('div');
+    statsDiv.style.cssText = 'font-size: 0.8rem; color: #6c6;';
+    const levelReq = equipDef.miningLevelRequired ?? 0;
+    statsDiv.textContent = `Mining rate: ${equipDef.miningRate}x · Power: ${equipDef.powerDraw} kW`;
+    if (levelReq > 0) {
+      statsDiv.textContent += ` · Requires Mining ${levelReq}`;
+    }
+    infoDiv.appendChild(statsDiv);
+
+    itemDiv.appendChild(infoDiv);
+
+    if (!isCurrentlyInstalled) {
+      const buyDiv = document.createElement('div');
+      buyDiv.style.cssText =
+        'display: flex; flex-direction: column; align-items: flex-end; gap: 0.25rem;';
+
+      const price = equipDef.value ?? 0;
+      const tradeIn = currentMiningEquip
+        ? Math.floor((currentMiningEquip.value ?? 0) * 0.5)
+        : 0;
+      const netCost = price - tradeIn;
+
+      const priceLabel = document.createElement('div');
+      priceLabel.style.color = '#4a9eff';
+      priceLabel.textContent = `${price.toLocaleString()} cr`;
+      buyDiv.appendChild(priceLabel);
+
+      if (tradeIn > 0) {
+        const tradeInLabel = document.createElement('div');
+        tradeInLabel.style.cssText = 'font-size: 0.75rem; color: #6c6;';
+        tradeInLabel.textContent = `Trade-in: -${tradeIn.toLocaleString()} cr`;
+        buyDiv.appendChild(tradeInLabel);
+
+        const netLabel = document.createElement('div');
+        netLabel.style.cssText =
+          'font-size: 0.8rem; font-weight: bold; color: #4a9eff;';
+        netLabel.textContent = `Net: ${netCost.toLocaleString()} cr`;
+        buyDiv.appendChild(netLabel);
+      }
+
+      const buyButton = document.createElement('button');
+      buyButton.textContent = isUpgrade
+        ? 'Upgrade'
+        : isDowngrade
+          ? 'Downgrade'
+          : 'Buy';
+      buyButton.disabled = gameData.credits < netCost;
+      buyButton.addEventListener('click', () =>
+        callbacks.onBuyShipEquipment(equipDef.id)
+      );
+      buyDiv.appendChild(buyButton);
+
+      itemDiv.appendChild(buyDiv);
+    }
+
     list.appendChild(itemDiv);
   }
 

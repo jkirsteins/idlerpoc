@@ -56,11 +56,15 @@ This file tracks deferred features and known gaps that are not currently priorit
 - **Mastery Pool Checkpoint Bonuses (Active)**: The mastery pool checkpoint definitions exist in `masterySystem.ts` but actual gameplay effects (auto-refuel at 95%, preserve ore on fail at 50%, etc.) are not wired into game systems yet.
 - **Item Mastery Bonuses (Active)**: Per-item mastery bonuses for routes and trade routes are defined but not applied during gameplay calculations. Mining ore mastery yield bonuses are now active.
 - **Mining Ore Selection UI**: Miners auto-select the highest-value ore. A future UI could let players choose which ore to mine per-miner.
-- **Mining Equipment Purchase UI**: Mining equipment is now categorized in the station store with stats visible. A future UI could add a dedicated mining loadout screen with crew preview.
+- **Mining Equipment Slot Management**: Ship mining equipment can now be bought/upgraded at the Station Store (Ship Equipment tab). A future UI could allow selecting which equipment slot to install in, or allow uninstalling equipment to free slots.
 - **Mastery Traits**: Award a permanent crew trait when reaching skill 100 (Master rank).
 - **Prestige/Reset Loop**: Long-term engagement mechanic — "retire" experienced crew for permanent bonuses on future hires.
 - **Event Gain Scaling**: Scale flat event gains inversely to rank bracket to prevent high-level spikiness (combat +3.0 is huge at skill 95).
 - **Stronger Match Bonus**: Consider increasing SKILL_MATCH_MULTIPLIER from 1.5x to 3x to make crew assignment more impactful.
+
+## EVA System
+
+- **EVA (Extra-Vehicular Activity)**: Crew EVA system for outside-the-ship operations. Would enable hand-mining of specific asteroid targets, ship hull inspection/repair, cargo transfer between ships, and salvage operations. Requires EVA suit crew equipment, airlock room type, and EVA skill or EVA-related piloting checks. Could tie into mining (artisanal hand-mining of rare samples) and repair (hull patch jobs) gameplay loops.
 
 ## Other Known Gaps
 

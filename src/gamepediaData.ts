@@ -858,6 +858,11 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
               '[[zero-g-exposure|Zero-g]] countermeasures',
               'Exercise Module, Centrifuge Pod',
             ],
+            [
+              '[[mining-system|Mining]]',
+              'Ore extraction from asteroids',
+              'Mining Laser Array, Industrial Rig, Deep Core System, Quantum Array',
+            ],
           ],
         },
       },
@@ -881,6 +886,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
       'zero-g-exposure',
       'life-support',
       'radiation',
+      'mining-system',
     ],
   },
 
@@ -889,7 +895,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
     title: 'Crew Equipment',
     category: 'Ship Systems',
     summary:
-      'Personal equipment for crew: weapons, tools, armor, mining gear, and accessories.',
+      'Personal equipment for crew: weapons, tools, armor, and accessories.',
     sections: [
       {
         paragraphs: [
@@ -911,11 +917,6 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
               'Tools',
               'Toolkit (1,200 cr), Medkit (1,500 cr), Scanner (2,000 cr)',
               'Improves [[crew-roles|role]] effectiveness',
-            ],
-            [
-              'Mining',
-              'Basic Mining Laser, Improved Laser, Heavy Drill, Deep Core Extractor, Fusion Cutter, Quantum Excavator',
-              'Determines [[mining-system|mining]] capability and extraction rate',
             ],
             [
               'Accessories',
@@ -1341,25 +1342,30 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
       {
         heading: 'How Mining Works',
         paragraphs: [
-          'Mining happens automatically while your ship is orbiting a location that provides a mine service. Crew assigned to the mining_ops [[job-slots|job slot]] perform the extraction work. Each miner must have mining equipment in their crew equipment slot — without it they will train the mining skill but not extract ore.',
-          'Extraction rate depends on equipment quality, [[skill-system|mining]] skill, and [[mastery-system|ore mastery]]. Miners automatically target the highest-value ore they can extract at the current location.',
+          'Mining happens automatically while your ship is orbiting a location that provides a mine service. Crew assigned to the mining_ops [[job-slots|job slot]] in the mining bay operate the ship-mounted mining equipment. The ship must have mining equipment installed — without it, miners cannot extract ore.',
+          'Extraction rate depends on [[ship-equipment|ship mining equipment]] quality, [[skill-system|mining]] skill, and [[mastery-system|ore mastery]]. Miners automatically target the highest-value ore they can extract at the current location.',
           "Extracted ore is stored in your ship's cargo hold. When cargo is full, mining pauses. Sell ore at any station with a trade service to convert it into [[credits-economy|credits]]. Sell prices vary by location type and improve with the [[skill-system|commerce]] skill.",
         ],
       },
       {
         heading: 'Mining Equipment',
         paragraphs: [
-          'Mining equipment is equipped in the crew equipment slot and determines what [[ore-types|ores]] you can extract and your extraction rate. Better equipment requires higher [[skill-system|mining]] skill to operate.',
+          'Mining equipment is ship-mounted and installed in [[ship-equipment|equipment slots]]. It is operated by crew from the mining bay. Better equipment requires higher [[skill-system|mining]] skill to operate and draws more power.',
+          'Mining equipment is purchased and upgraded at stations with trade services via the Ship Equipment tab in the Station Store. Upgrading provides a trade-in credit of 50% of the old equipment value.',
         ],
         table: {
-          headers: ['Equipment', 'Mining Level Req', 'Rate Multiplier'],
+          headers: [
+            'Equipment',
+            'Mining Level Req',
+            'Rate Multiplier',
+            'Power Draw',
+            'Price',
+          ],
           rows: [
-            ['ML-1 Mining Laser', '0', '1.0x'],
-            ['ML-3 Improved Mining Laser', '15', '1.5x'],
-            ['HD-50 Heavy Mining Drill', '30', '2.0x'],
-            ['DCE-7 Deep Core Extractor', '50', '2.5x'],
-            ['FAD-12 Fusion-Assisted Drill', '75', '3.5x'],
-            ['QRD-X Quantum Resonance Drill', '90', '5.0x'],
+            ['Mining Laser Array', '0', '1.0x', '8 kW', '2,000 cr'],
+            ['Industrial Mining Rig', '20', '2.0x', '15 kW', '8,000 cr'],
+            ['Deep Core Extraction System', '50', '3.5x', '25 kW', '30,000 cr'],
+            ['Quantum Resonance Array', '80', '5.0x', '40 kW', '80,000 cr'],
           ],
         },
       },
@@ -1408,7 +1414,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
       'ore-types',
       'mastery-system',
       'mining-destinations',
-      'crew-equipment',
+      'ship-equipment',
       'skill-system',
       'commerce-skill',
     ],

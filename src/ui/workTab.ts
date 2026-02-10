@@ -24,7 +24,7 @@ import { getFuelPricePerKg } from './refuelDialog';
 import { renderFlightStatus } from './flightStatus';
 import { getOreDefinition, canMineOre } from '../oreTypes';
 import { getCrewForJobType } from '../jobSlots';
-import { getBestMiningEquipment } from '../crewEquipment';
+import { getBestShipMiningEquipment } from '../equipment';
 import {
   getOreSellPrice,
   getOreCargoWeight,
@@ -838,10 +838,8 @@ function renderMiningStatus(
 
   // Active/inactive status badge
   const miners = getCrewForJobType(ship, 'mining_ops');
-  const hasActiveMiner = miners.some((m) => {
-    const equippedIds = m.equipment.map((e) => e.definitionId);
-    return getBestMiningEquipment(equippedIds) !== undefined;
-  });
+  const shipMiningEquip = getBestShipMiningEquipment(ship);
+  const hasActiveMiner = shipMiningEquip !== undefined && miners.length > 0;
   const statusBadge = document.createElement('span');
   if (hasActiveMiner && getRemainingOreCapacity(ship) > 0) {
     statusBadge.style.cssText =
@@ -903,26 +901,41 @@ function renderMiningStatus(
     noMiners.textContent =
       'No crew assigned to Mining Ops. Assign crew in the Ship tab.';
     minersSection.appendChild(noMiners);
+  } else if (!shipMiningEquip) {
+    const noEquip = document.createElement('div');
+    noEquip.style.color = '#e94560';
+    noEquip.textContent =
+      'No mining equipment installed on ship. Purchase at a station store.';
+    minersSection.appendChild(noEquip);
   } else {
+    // Show ship equipment info
+    const equipInfo = document.createElement('div');
+    equipInfo.style.cssText =
+      'margin-bottom: 4px; color: #6c6; font-size: 0.8rem;';
+    equipInfo.textContent = `Ship Equipment: ${shipMiningEquip.name} (${shipMiningEquip.miningRate}x)`;
+    if (
+      shipMiningEquip.miningLevelRequired &&
+      shipMiningEquip.miningLevelRequired > 0
+    ) {
+      equipInfo.textContent += ` · Requires Mining ${shipMiningEquip.miningLevelRequired}`;
+    }
+    minersSection.appendChild(equipInfo);
+
     for (const miner of miners) {
       const minerLine = document.createElement('div');
       minerLine.style.cssText = 'margin-bottom: 2px; color: #ccc;';
-
-      const equippedIds = miner.equipment.map((e) => e.definitionId);
-      const miningEquip = getBestMiningEquipment(equippedIds);
       const miningSkill = Math.floor(miner.skills.mining);
 
-      if (!miningEquip) {
-        minerLine.style.color = '#e94560';
-        minerLine.textContent = `${miner.name} (Mining ${miningSkill}) — No mining equipment!`;
+      if (miningSkill < (shipMiningEquip.miningLevelRequired ?? 0)) {
+        minerLine.style.color = '#ffa500';
+        minerLine.textContent = `${miner.name} (Mining ${miningSkill}) — Skill too low to operate equipment`;
       } else {
-        // Find best ore they can mine here
         const bestOre = availableOres
           .map((id) => getOreDefinition(id))
           .filter((o) => miningSkill >= o.miningLevelRequired)
           .sort((a, b) => b.baseValue - a.baseValue)[0];
 
-        minerLine.textContent = `${miner.name} (Mining ${miningSkill}) — ${miningEquip.name} (${miningEquip.miningRate}x)`;
+        minerLine.textContent = `${miner.name} (Mining ${miningSkill})`;
         if (bestOre) {
           minerLine.textContent += ` → ${bestOre.icon} ${bestOre.name}`;
         }
