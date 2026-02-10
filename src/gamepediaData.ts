@@ -1292,6 +1292,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
           'Zero-g exposure slowly recovers while docked. Recovery happens during manual day advancement at a rate of 0.5x the accumulation rate — it takes roughly twice as long to recover as it did to accumulate.',
           'There is no instant reset. Long voyages build up a "debt" that must be paid off with extended docking time.',
           'Recovery does not occur during flight or while at zero-g stations.',
+          'While docked with active exposure, the Crew tab shows a recovery indicator with estimated time to reach the next lower tier and full recovery.',
         ],
       },
       {

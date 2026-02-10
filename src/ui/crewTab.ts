@@ -21,8 +21,13 @@ import {
   getDegradationLevelName,
   getDegradationDescription,
   getNextThreshold,
+  estimateRecoveryDays,
 } from '../gravitySystem';
-import { TICKS_PER_DAY } from '../timeSystem';
+import {
+  TICKS_PER_DAY,
+  GAME_SECONDS_PER_DAY,
+  formatDualTime,
+} from '../timeSystem';
 import { calculateTickTraining } from '../skillProgression';
 import { getCrewJobSlot, getJobSlotDefinition } from '../jobSlots';
 import {
@@ -301,7 +306,7 @@ function renderCrewDetail(
   }
 
   // Stats section
-  panel.appendChild(renderStatsSection(crew));
+  panel.appendChild(renderStatsSection(crew, ship));
 
   // Job training indicator (show what skill is being trained)
   if (ship.location.status === 'in_flight') {
@@ -345,7 +350,7 @@ function renderCrewDetail(
   return panel;
 }
 
-function renderStatsSection(crew: CrewMember): HTMLElement {
+function renderStatsSection(crew: CrewMember, ship: Ship): HTMLElement {
   const section = document.createElement('div');
   section.className = 'crew-detail-section';
 
@@ -508,8 +513,8 @@ function renderStatsSection(crew: CrewMember): HTMLElement {
 
   exposureSection.appendChild(statusText);
 
-  // Next threshold warning
-  if (nextThreshold) {
+  // Next threshold warning (only when not docked/recovering)
+  if (nextThreshold && ship.location.status !== 'docked') {
     const nextDays = formatExposureDays(nextThreshold.threshold);
     const nextText = document.createElement('div');
     nextText.style.fontSize = '0.85em';
@@ -519,6 +524,56 @@ function renderStatsSection(crew: CrewMember): HTMLElement {
     const description = getDegradationDescription(nextThreshold.level);
     nextText.textContent = `Next: ${levelName} at ${nextDays} days — ${description}`;
     exposureSection.appendChild(nextText);
+  }
+
+  // Recovery indicator when docked with non-zero exposure
+  if (ship.location.status === 'docked' && crew.zeroGExposure > 0) {
+    const recovery = estimateRecoveryDays(crew.zeroGExposure);
+    const recoveryDiv = document.createElement('div');
+    recoveryDiv.style.marginTop = '0.5rem';
+    recoveryDiv.style.padding = '0.5rem 0.75rem';
+    recoveryDiv.style.background = 'rgba(74, 222, 128, 0.1)';
+    recoveryDiv.style.border = '1px solid rgba(74, 222, 128, 0.3)';
+    recoveryDiv.style.borderRadius = '4px';
+    recoveryDiv.style.fontSize = '0.85em';
+
+    const recoveryTitle = document.createElement('div');
+    recoveryTitle.style.color = '#4ade80';
+    recoveryTitle.style.fontWeight = 'bold';
+    recoveryTitle.style.marginBottom = '0.25rem';
+    recoveryTitle.textContent = 'Recovering — Docked';
+    recoveryDiv.appendChild(recoveryTitle);
+
+    if (exposureLevel !== 'none') {
+      // Show time to reach next lower level
+      const nextLevelName = getDegradationLevelName(recovery.targetLevel);
+      const daysToNext = recovery.daysToNextLevel;
+      const nextLine = document.createElement('div');
+      nextLine.style.color = '#ccc';
+      const dualTime = formatDualTime(daysToNext * GAME_SECONDS_PER_DAY);
+      nextLine.textContent = `${nextLevelName}: ${dualTime}`;
+      recoveryDiv.appendChild(nextLine);
+    }
+
+    // Show time to full recovery
+    const fullLine = document.createElement('div');
+    fullLine.style.color = '#aaa';
+    fullLine.style.marginTop = '0.15rem';
+    const fullDualTime = formatDualTime(
+      recovery.daysToFullRecovery * GAME_SECONDS_PER_DAY
+    );
+    fullLine.textContent = `Full recovery: ${fullDualTime}`;
+    recoveryDiv.appendChild(fullLine);
+
+    const advanceHint = document.createElement('div');
+    advanceHint.style.color = '#888';
+    advanceHint.style.fontSize = '0.8em';
+    advanceHint.style.marginTop = '0.25rem';
+    advanceHint.style.fontStyle = 'italic';
+    advanceHint.textContent = 'Advance days to recover.';
+    recoveryDiv.appendChild(advanceHint);
+
+    exposureSection.appendChild(recoveryDiv);
   }
 
   section.appendChild(exposureSection);
