@@ -160,20 +160,19 @@ export function attemptEvasion(ship: Ship): {
   );
   const scannerBonus = navScanner ? COMBAT_CONSTANTS.EVASION_SCANNER_BONUS : 0;
 
-  // Best astrogation skill from scanner/helm crew
+  // Best piloting skill from scanner/helm crew
   const scannerCrew = getCrewForJobType(ship, 'scanner');
   const helmCrew = getCrewForJobType(ship, 'helm');
   const bridgeCrew = [...scannerCrew, ...helmCrew];
-  let bestAstrogation = 0;
+  let bestPiloting = 0;
   for (const crew of bridgeCrew) {
-    if (crew.skills.astrogation > bestAstrogation) {
-      bestAstrogation = crew.skills.astrogation;
+    if (crew.skills.piloting > bestPiloting) {
+      bestPiloting = crew.skills.piloting;
     }
   }
-  const astrogationBonus =
-    bestAstrogation * COMBAT_CONSTANTS.EVASION_SKILL_FACTOR;
+  const pilotingBonus = bestPiloting * COMBAT_CONSTANTS.EVASION_SKILL_FACTOR;
 
-  const chance = velocityFactor + scannerBonus + astrogationBonus;
+  const chance = velocityFactor + scannerBonus + pilotingBonus;
   const success = Math.random() < chance;
 
   return { success, chance };
@@ -189,19 +188,19 @@ export function attemptNegotiation(ship: Ship): {
   negotiatorName: string;
   negotiatorId: string;
 } {
-  let bestCharisma = 0;
+  let bestPiloting = 0;
   let negotiatorName = '';
   let negotiatorId = '';
 
   for (const crew of ship.crew) {
-    if (crew.skills.charisma > bestCharisma) {
-      bestCharisma = crew.skills.charisma;
+    if (crew.skills.piloting > bestPiloting) {
+      bestPiloting = crew.skills.piloting;
       negotiatorName = crew.name;
       negotiatorId = crew.id;
     }
   }
 
-  const chance = bestCharisma / COMBAT_CONSTANTS.NEGOTIATION_DIVISOR;
+  const chance = bestPiloting / COMBAT_CONSTANTS.NEGOTIATION_DIVISOR;
   const success = Math.random() < chance;
 
   return { success, chance, negotiatorName, negotiatorId };
@@ -230,7 +229,7 @@ export function calculateDefenseScore(ship: Ship): number {
     if (pdCrew.length > 0) {
       const bestGunnerSkill = Math.max(
         0,
-        ...pdCrew.map((c) => c.skills.strength)
+        ...pdCrew.map((c) => c.skills.piloting)
       );
       const staffingBonus =
         COMBAT_CONSTANTS.PD_STAFFING_BASE_BONUS +
@@ -244,7 +243,7 @@ export function calculateDefenseScore(ship: Ship): number {
   // 2. Crew in arms_maint job slots with weapons
   const armoryCrew = getCrewForJobType(ship, 'arms_maint');
   for (const crew of armoryCrew) {
-    let crewCombat = crew.skills.strength / 10;
+    let crewCombat = crew.skills.piloting / 10;
 
     // Weapon attack scores
     for (const eq of crew.equipment) {

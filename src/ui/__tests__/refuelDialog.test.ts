@@ -17,6 +17,7 @@ describe('refuelDialog', () => {
         y: 0,
         services: ['refuel'],
         size: 1,
+        pilotingRequirement: 0,
       };
     }
 

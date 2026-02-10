@@ -79,10 +79,7 @@ function snapshotShipProps(gameData: GameData, showNav: boolean) {
     // Crew roster identity + stats that affect the rendered UI
     crew: ship.crew.map((c) => c.id + c.name + c.level + c.isCaptain).join(),
     crewSkills: ship.crew
-      .map(
-        (c) =>
-          `${c.skills.piloting}${c.skills.astrogation}${c.skills.engineering}${c.skills.strength}`
-      )
+      .map((c) => `${c.skills.piloting}${c.skills.mining}${c.skills.commerce}`)
       .join(),
     // Job slot assignments drive the assign/remove buttons
     slots: ship.jobSlots.map((s) => s.id + ':' + s.assignedCrewId).join(),
@@ -1039,7 +1036,7 @@ function renderShipJobsCard(
     for (const slot of repairSlots) {
       const crew = ship.crew.find((c) => c.id === slot.assignedCrewId);
       if (crew) {
-        totalRepairPts += crew.skills.engineering * 0.05;
+        totalRepairPts += crew.skills.piloting * 0.05;
       }
     }
     const degradedCount = ship.equipment.filter(

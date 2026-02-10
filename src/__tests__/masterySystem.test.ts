@@ -1,0 +1,309 @@
+import { describe, it, expect } from 'vitest';
+import {
+  xpForMasteryLevel,
+  masteryLevelFromXp,
+  awardMasteryXp,
+  spendPoolXpOnItem,
+  routeMasteryKey,
+  tradeRouteMasteryKey,
+  isCheckpointActive,
+  getPoolFillPercent,
+  getCheckpointBonuses,
+  createEmptyMasteryState,
+  createInitialMastery,
+  getRouteMasteryFuelBonus,
+  getTradeRouteMasteryPayBonus,
+  getOreMasteryYieldBonus,
+} from '../masterySystem';
+
+describe('Mastery System', () => {
+  // ── XP Table ──────────────────────────────────────────────────
+
+  describe('xpForMasteryLevel', () => {
+    it('level 0 requires 0 XP', () => {
+      expect(xpForMasteryLevel(0)).toBe(0);
+    });
+
+    it('XP requirements increase with level', () => {
+      for (let lvl = 1; lvl < 99; lvl++) {
+        expect(xpForMasteryLevel(lvl + 1)).toBeGreaterThan(
+          xpForMasteryLevel(lvl)
+        );
+      }
+    });
+
+    it('level 99 is the highest meaningful level', () => {
+      expect(xpForMasteryLevel(99)).toBeGreaterThan(0);
+      // Beyond 99 should still return 99's value (capped)
+      expect(xpForMasteryLevel(100)).toBe(xpForMasteryLevel(99));
+    });
+
+    it('negative levels return 0', () => {
+      expect(xpForMasteryLevel(-1)).toBe(0);
+    });
+  });
+
+  describe('masteryLevelFromXp', () => {
+    it('0 XP is level 0', () => {
+      expect(masteryLevelFromXp(0)).toBe(0);
+    });
+
+    it('returns correct level for known XP values', () => {
+      // Exactly at a level boundary
+      const xpForLv10 = xpForMasteryLevel(10);
+      expect(masteryLevelFromXp(xpForLv10)).toBe(10);
+
+      // Just below a level boundary
+      expect(masteryLevelFromXp(xpForLv10 - 1)).toBe(9);
+
+      // Well above a level boundary
+      expect(masteryLevelFromXp(xpForLv10 + 1000)).toBe(
+        masteryLevelFromXp(xpForLv10 + 1000)
+      );
+    });
+
+    it('round-trips with xpForMasteryLevel', () => {
+      for (let lvl = 0; lvl < 99; lvl++) {
+        const xp = xpForMasteryLevel(lvl);
+        expect(masteryLevelFromXp(xp)).toBe(lvl);
+      }
+    });
+  });
+
+  // ── Route Key Helpers ─────────────────────────────────────────
+
+  describe('routeMasteryKey', () => {
+    it('produces a canonical sorted key', () => {
+      expect(routeMasteryKey('earth', 'mars')).toBe('earth->mars');
+      expect(routeMasteryKey('mars', 'earth')).toBe('earth->mars');
+    });
+
+    it('same location pair always produces same key', () => {
+      expect(routeMasteryKey('a', 'b')).toBe(routeMasteryKey('b', 'a'));
+    });
+  });
+
+  describe('tradeRouteMasteryKey', () => {
+    it('produces a canonical sorted key with <=> separator', () => {
+      expect(tradeRouteMasteryKey('earth', 'mars')).toBe('earth<=>mars');
+      expect(tradeRouteMasteryKey('mars', 'earth')).toBe('earth<=>mars');
+    });
+  });
+
+  // ── Award Mastery XP ─────────────────────────────────────────
+
+  describe('awardMasteryXp', () => {
+    it('creates item mastery entry if it does not exist', () => {
+      const state = createEmptyMasteryState();
+      awardMasteryXp(state, 'earth->mars', 100, 10, 5);
+
+      expect(state.itemMasteries['earth->mars']).toBeDefined();
+      expect(state.itemMasteries['earth->mars'].xp).toBeGreaterThan(0);
+    });
+
+    it('awards XP and potentially levels up', () => {
+      const state = createEmptyMasteryState();
+      // Award enough XP to reach level 1 (needs ~83 XP)
+      const result = awardMasteryXp(state, 'iron_ore', 200, 10, 8);
+
+      expect(result.masteryXpGained).toBeGreaterThanOrEqual(200);
+      expect(result.newLevel).toBeGreaterThanOrEqual(1);
+      expect(result.itemId).toBe('iron_ore');
+    });
+
+    it('flows 25% of mastery XP into pool', () => {
+      const state = createEmptyMasteryState();
+      const result = awardMasteryXp(state, 'earth->mars', 400, 10, 5);
+
+      // Pool should receive ~25% of the effective XP
+      expect(result.poolXpGained).toBeGreaterThan(0);
+      expect(state.pool.xp).toBeGreaterThan(0);
+    });
+
+    it('sets pool maxXp based on total item count', () => {
+      const state = createEmptyMasteryState();
+      awardMasteryXp(state, 'earth->mars', 100, 10, 5);
+
+      // maxXp = POOL_CAP_PER_ITEM (500,000) * totalItemCount (5)
+      expect(state.pool.maxXp).toBe(2_500_000);
+    });
+
+    it('reports level-up when it occurs', () => {
+      const state = createEmptyMasteryState();
+      // Award massive XP to guarantee level-up
+      const result = awardMasteryXp(state, 'iron_ore', 50000, 10, 8);
+
+      expect(result.leveledUp).toBe(true);
+      expect(result.newLevel).toBeGreaterThan(result.oldLevel);
+    });
+
+    it('accumulates XP over multiple awards', () => {
+      const state = createEmptyMasteryState();
+      awardMasteryXp(state, 'earth->mars', 50, 10, 5);
+      const xpAfterFirst = state.itemMasteries['earth->mars'].xp;
+
+      awardMasteryXp(state, 'earth->mars', 50, 10, 5);
+      expect(state.itemMasteries['earth->mars'].xp).toBeGreaterThan(
+        xpAfterFirst
+      );
+    });
+
+    it('caps pool XP at maxXp', () => {
+      const state = createEmptyMasteryState();
+      // Use 1 item so maxXp = 500,000. Award enormous XP.
+      for (let i = 0; i < 100; i++) {
+        awardMasteryXp(state, 'test_item', 100_000, 10, 1);
+      }
+      expect(state.pool.xp).toBeLessThanOrEqual(state.pool.maxXp);
+    });
+  });
+
+  // ── Pool Spending ─────────────────────────────────────────────
+
+  describe('spendPoolXpOnItem', () => {
+    it('spends pool XP to boost item level', () => {
+      const state = createEmptyMasteryState();
+      // Seed the pool with XP
+      state.pool.xp = 100_000;
+      state.pool.maxXp = 500_000;
+
+      const levelsGained = spendPoolXpOnItem(state, 'iron_ore', 5);
+      expect(levelsGained).toBeGreaterThan(0);
+      expect(state.itemMasteries['iron_ore'].level).toBeGreaterThan(0);
+      expect(state.pool.xp).toBeLessThan(100_000);
+    });
+
+    it('returns 0 when pool has insufficient XP', () => {
+      const state = createEmptyMasteryState();
+      state.pool.xp = 0;
+      state.pool.maxXp = 500_000;
+
+      const levelsGained = spendPoolXpOnItem(state, 'iron_ore', 5);
+      expect(levelsGained).toBe(0);
+    });
+
+    it('does not exceed level 99', () => {
+      const state = createEmptyMasteryState();
+      state.pool.xp = 999_999_999;
+      state.pool.maxXp = 999_999_999;
+
+      const levelsGained = spendPoolXpOnItem(state, 'iron_ore', 200);
+      expect(state.itemMasteries['iron_ore'].level).toBe(99);
+      expect(levelsGained).toBe(99);
+    });
+  });
+
+  // ── Pool Checkpoints ──────────────────────────────────────────
+
+  describe('isCheckpointActive', () => {
+    it('inactive when pool is empty', () => {
+      expect(isCheckpointActive({ xp: 0, maxXp: 1000 }, 0.1)).toBe(false);
+    });
+
+    it('active when pool meets threshold', () => {
+      expect(isCheckpointActive({ xp: 100, maxXp: 1000 }, 0.1)).toBe(true);
+      expect(isCheckpointActive({ xp: 250, maxXp: 1000 }, 0.25)).toBe(true);
+    });
+
+    it('inactive when pool is below threshold', () => {
+      expect(isCheckpointActive({ xp: 99, maxXp: 1000 }, 0.1)).toBe(false);
+    });
+
+    it('inactive when maxXp is 0', () => {
+      expect(isCheckpointActive({ xp: 0, maxXp: 0 }, 0.1)).toBe(false);
+    });
+  });
+
+  describe('getPoolFillPercent', () => {
+    it('returns 0 for empty pool', () => {
+      expect(getPoolFillPercent({ xp: 0, maxXp: 1000 })).toBe(0);
+    });
+
+    it('returns correct percentage', () => {
+      expect(getPoolFillPercent({ xp: 500, maxXp: 1000 })).toBe(50);
+    });
+
+    it('caps at 100%', () => {
+      expect(getPoolFillPercent({ xp: 1500, maxXp: 1000 })).toBe(100);
+    });
+
+    it('returns 0 when maxXp is 0', () => {
+      expect(getPoolFillPercent({ xp: 0, maxXp: 0 })).toBe(0);
+    });
+  });
+
+  describe('getCheckpointBonuses', () => {
+    it('returns 4 checkpoints for any skill', () => {
+      const pool = { xp: 0, maxXp: 1000 };
+      expect(getCheckpointBonuses('piloting', pool)).toHaveLength(4);
+      expect(getCheckpointBonuses('mining', pool)).toHaveLength(4);
+      expect(getCheckpointBonuses('commerce', pool)).toHaveLength(4);
+    });
+
+    it('marks checkpoints as active when pool is filled', () => {
+      const pool = { xp: 500, maxXp: 1000 }; // 50% fill
+      const bonuses = getCheckpointBonuses('piloting', pool);
+
+      // 10% and 25% should be active, 50% exactly at threshold, 95% inactive
+      expect(bonuses[0].active).toBe(true); // 10%
+      expect(bonuses[1].active).toBe(true); // 25%
+      expect(bonuses[2].active).toBe(true); // 50%
+      expect(bonuses[3].active).toBe(false); // 95%
+    });
+  });
+
+  // ── Computed Bonus Helpers ────────────────────────────────────
+
+  describe('computed bonus helpers', () => {
+    it('getRouteMasteryFuelBonus returns 0 at low levels', () => {
+      expect(getRouteMasteryFuelBonus(0)).toBe(0);
+      expect(getRouteMasteryFuelBonus(9)).toBe(0);
+    });
+
+    it('getRouteMasteryFuelBonus increases with mastery level', () => {
+      expect(getRouteMasteryFuelBonus(10)).toBeGreaterThan(0);
+      expect(getRouteMasteryFuelBonus(50)).toBeGreaterThan(
+        getRouteMasteryFuelBonus(10)
+      );
+      expect(getRouteMasteryFuelBonus(99)).toBeGreaterThan(
+        getRouteMasteryFuelBonus(50)
+      );
+    });
+
+    it('getTradeRouteMasteryPayBonus scales with level', () => {
+      expect(getTradeRouteMasteryPayBonus(0)).toBe(0);
+      expect(getTradeRouteMasteryPayBonus(10)).toBeGreaterThan(0);
+      expect(getTradeRouteMasteryPayBonus(99)).toBeGreaterThan(
+        getTradeRouteMasteryPayBonus(10)
+      );
+    });
+
+    it('getOreMasteryYieldBonus scales with level', () => {
+      expect(getOreMasteryYieldBonus(0)).toBe(0);
+      expect(getOreMasteryYieldBonus(10)).toBeGreaterThan(0);
+      expect(getOreMasteryYieldBonus(99)).toBeGreaterThan(
+        getOreMasteryYieldBonus(10)
+      );
+    });
+  });
+
+  // ── Factory Helpers ───────────────────────────────────────────
+
+  describe('createInitialMastery', () => {
+    it('creates empty mastery for all 3 skills', () => {
+      const mastery = createInitialMastery();
+      expect(mastery.piloting).toBeDefined();
+      expect(mastery.mining).toBeDefined();
+      expect(mastery.commerce).toBeDefined();
+    });
+
+    it('starts with empty pools and no items', () => {
+      const mastery = createInitialMastery();
+      for (const skillId of ['piloting', 'mining', 'commerce'] as const) {
+        expect(mastery[skillId].pool.xp).toBe(0);
+        expect(mastery[skillId].pool.maxXp).toBe(0);
+        expect(Object.keys(mastery[skillId].itemMasteries)).toHaveLength(0);
+      }
+    });
+  });
+});

@@ -427,12 +427,12 @@ function applyShipTick(gameData: GameData, ship: Ship): boolean {
       }
     }
 
-    // Repair: engineering skill generates repair points distributed to degraded equipment
-    const repairEngineers = getCrewForJobType(ship, 'repair');
-    if (repairEngineers.length > 0) {
+    // Repair: crew in repair slots generates repair points distributed to degraded equipment
+    const repairCrew = getCrewForJobType(ship, 'repair');
+    if (repairCrew.length > 0) {
       let totalRepairPoints = 0;
-      for (const eng of repairEngineers) {
-        totalRepairPoints += eng.skills.engineering * 0.05;
+      for (const eng of repairCrew) {
+        totalRepairPoints += eng.skills.piloting * 0.05;
       }
 
       // Distribute repair points equally across degraded equipment

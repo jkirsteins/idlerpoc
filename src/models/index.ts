@@ -1,12 +1,4 @@
-export type CrewRole =
-  | 'captain'
-  | 'pilot'
-  | 'navigator'
-  | 'engineer'
-  | 'cook'
-  | 'medic'
-  | 'gunner'
-  | 'mechanic';
+export type CrewRole = 'captain' | 'pilot' | 'miner' | 'trader';
 
 export type RoomType =
   | 'bridge'
@@ -72,16 +64,15 @@ export type CrewEquipmentId =
   | 'rebreather'
   | 'wrist_terminal'
   | 'armored_vest'
-  | 'g_seat';
+  | 'g_seat'
+  | 'basic_mining_laser'
+  | 'improved_mining_laser'
+  | 'heavy_mining_drill'
+  | 'deep_core_extractor'
+  | 'fusion_assisted_drill'
+  | 'quantum_resonance_drill';
 
-export type SkillId =
-  | 'piloting'
-  | 'astrogation'
-  | 'engineering'
-  | 'strength'
-  | 'charisma'
-  | 'loyalty'
-  | 'commerce';
+export type SkillId = 'piloting' | 'mining' | 'commerce';
 
 export type ShipClassTier = 'I' | 'II' | 'III' | 'IV' | 'V';
 
@@ -142,13 +133,56 @@ export interface ShipLocation {
 }
 
 export interface CrewSkills {
-  piloting: number; // 1-100
-  astrogation: number; // 1-100
-  engineering: number; // 1-100
-  strength: number; // 1-100
-  charisma: number; // 1-100
-  loyalty: number; // 1-100
+  piloting: number; // 0-100
+  mining: number; // 0-100
   commerce: number; // 0-100, trained by captain/first officer completing trade routes
+}
+
+// ─── Ore & Mining Types ──────────────────────────────────────────
+
+export type OreId =
+  | 'iron_ore'
+  | 'silicate'
+  | 'copper_ore'
+  | 'rare_earth'
+  | 'titanium_ore'
+  | 'platinum_ore'
+  | 'helium3'
+  | 'exotic_matter';
+
+export type MiningEquipmentId =
+  | 'basic_mining_laser'
+  | 'improved_mining_laser'
+  | 'heavy_mining_drill'
+  | 'deep_core_extractor'
+  | 'fusion_assisted_drill'
+  | 'quantum_resonance_drill';
+
+// ─── Mastery System Types ────────────────────────────────────────
+
+/** Mastery for a specific item (route, ore, trade route) within a skill */
+export interface ItemMastery {
+  itemId: string; // e.g. "earth->gateway_station" or "iron_ore"
+  xp: number; // current mastery XP for this item
+  level: number; // derived from xp, 0-99
+}
+
+/** Mastery pool for a skill */
+export interface MasteryPool {
+  xp: number; // current pool XP
+  maxXp: number; // pool cap (500_000 × number of items)
+}
+
+/** Per-crew mastery state for one skill */
+export interface SkillMasteryState {
+  itemMasteries: Record<string, ItemMastery>; // key = itemId
+  pool: MasteryPool;
+}
+
+/** Cargo item representing mined ore */
+export interface OreCargoItem {
+  oreId: OreId;
+  quantity: number; // units
 }
 
 export interface SkillSpecialization {
@@ -173,6 +207,8 @@ export interface WorldLocation {
   y: number; // % position for nav map
   services: LocationService[];
   size: number; // quest count per day
+  pilotingRequirement: number; // minimum piloting skill to travel here
+  availableOres?: OreId[]; // ores mineable at this location
 }
 
 export interface World {
@@ -201,6 +237,7 @@ export interface CrewMember {
   hireCost: number; // Cost to hire this crew member (reference)
   zeroGExposure: number; // cumulative game-seconds in zero-g
   specialization?: SkillSpecialization; // locked-in skill specialization
+  mastery: Record<SkillId, SkillMasteryState>; // per-skill mastery state
 }
 
 export interface Room {
@@ -227,7 +264,8 @@ export type JobSlotType =
   | 'fire_control'
   | 'targeting'
   | 'rest'
-  | 'repair';
+  | 'repair'
+  | 'mining_ops';
 
 /**
  * A job slot instance on a ship. Crew are assigned to job slots, not rooms.
@@ -266,6 +304,7 @@ export interface Ship {
   location: ShipLocation;
   engine: EngineInstance;
   cargo: CrewEquipmentInstance[];
+  oreCargo: OreCargoItem[]; // mined ore in cargo hold
   activeContract: ActiveContract | null;
   routeAssignment: RouteAssignment | null; // Automated route for standing freight
   lastEncounterTime?: number; // gameTime of last encounter (for cooldown)

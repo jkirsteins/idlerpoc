@@ -14,6 +14,7 @@ import type {
 } from '../models';
 import { generateWorld } from '../worldGen';
 import { generateJobSlotsForShip } from '../jobSlots';
+import { createInitialMastery } from '../masterySystem';
 
 /**
  * Test helper factory functions.
@@ -36,11 +37,7 @@ export function createTestCrew(
     health: 100,
     skills: {
       piloting: 30,
-      astrogation: 30,
-      engineering: 15,
-      strength: 15,
-      charisma: 15,
-      loyalty: 15,
+      mining: 15,
       commerce: 0,
     },
     xp: 0,
@@ -50,6 +47,7 @@ export function createTestCrew(
     unpaidTicks: 0,
     hireCost: 500,
     zeroGExposure: 0,
+    mastery: createInitialMastery(),
     ...overrides,
   };
 }
@@ -109,15 +107,11 @@ export function createTestFlight(
 
 export function createTestShip(overrides: Partial<Ship> = {}): Ship {
   const bridgeCrew = createTestCrew({
-    name: 'Navigator',
-    role: 'navigator',
+    name: 'Pilot',
+    role: 'pilot',
     skills: {
-      piloting: 15,
-      astrogation: 30,
-      engineering: 10,
-      strength: 10,
-      charisma: 10,
-      loyalty: 10,
+      piloting: 30,
+      mining: 10,
       commerce: 0,
     },
   });
@@ -161,6 +155,7 @@ export function createTestShip(overrides: Partial<Ship> = {}): Ship {
     },
     engine: createTestEngine({ definitionId: 'ntr_mk1' as EngineId }),
     cargo: [],
+    oreCargo: [],
     activeContract: null,
     routeAssignment: null,
     activeFlightPlan: createTestFlight(),

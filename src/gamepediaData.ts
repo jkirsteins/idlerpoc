@@ -25,7 +25,8 @@ export type GamepediaCategory =
   | 'Crew'
   | 'Ship Systems'
   | 'Space'
-  | 'Health & Environment';
+  | 'Health & Environment'
+  | 'Mining & Resources';
 
 export const GAMEPEDIA_CATEGORIES: GamepediaCategory[] = [
   'Core Systems',
@@ -33,6 +34,7 @@ export const GAMEPEDIA_CATEGORIES: GamepediaCategory[] = [
   'Ship Systems',
   'Space',
   'Health & Environment',
+  'Mining & Resources',
 ];
 
 export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
@@ -91,8 +93,8 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
     sections: [
       {
         paragraphs: [
-          'Credits are the universal currency. You earn them by completing [[contracts|contracts and trade routes]], and spend them on fuel, [[crew-salaries|crew salaries]], [[crew-hiring|hiring]], and [[ship-equipment|equipment]].',
-          'Economic pressure is constant: your crew costs money every day during flight, and fuel is expensive. Accepting profitable [[contracts|contracts]] and planning efficient routes is essential to stay solvent.',
+          'Credits are the universal currency. You earn them by completing [[contracts|contracts and trade routes]], selling [[ore-types|mined ore]], and spend them on fuel, [[crew-salaries|crew salaries]], [[crew-hiring|hiring]], and [[ship-equipment|equipment]].',
+          'Economic pressure is constant: your crew costs money every day during flight, and fuel is expensive. Accepting profitable [[contracts|contracts]], [[mining-system|mining]] valuable ores, and planning efficient routes is essential to stay solvent.',
         ],
       },
       {
@@ -100,6 +102,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
         paragraphs: [
           '[[contracts|Contracts]]: Delivery, passenger, freight, and supply contracts pay upon completion or per trip for standing routes.',
           'Standing freight routes provide reliable recurring income between trading stations. Payment scales with distance, route danger, and location economic power.',
+          '[[mining-system|Mining]]: Extract ore at mining locations and sell at stations with trade services.',
           '[[encounters|Combat]] victories occasionally yield bounty payments.',
         ],
       },
@@ -115,7 +118,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
       {
         heading: 'Commerce Skill Bonus',
         paragraphs: [
-          'As your captain develops the [[commerce-skill|Commerce]] skill through completing trade routes, you earn quest payment bonuses (up to +20%) and fuel discounts (up to -20%).',
+          'As your captain develops the [[commerce-skill|Commerce]] skill through trade operations, you earn quest payment bonuses (up to +20%) and fuel discounts (up to -20%).',
         ],
       },
     ],
@@ -124,6 +127,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
       'crew-salaries',
       'commerce-skill',
       'crew-hiring',
+      'mining-system',
     ],
   },
 
@@ -172,6 +176,79 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
     ],
   },
 
+  {
+    id: 'mastery-system',
+    title: 'Mastery System',
+    category: 'Core Systems',
+    summary:
+      'Three-layer skill progression: skill level, item mastery, and mastery pool.',
+    sections: [
+      {
+        paragraphs: [
+          'Every [[skill-system|skill]] uses a three-layer progression system that rewards both breadth and depth. Understanding these layers is key to efficient crew development.',
+        ],
+      },
+      {
+        heading: 'Layer 1: Skill Level (0-99)',
+        paragraphs: [
+          'The base skill level determines what you can do. Higher levels unlock new capabilities: better [[ship-classes|ship classes]] for piloting, rarer [[ore-types|ores]] for mining, and larger trade bonuses for [[commerce-skill|commerce]].',
+          'Skill level trains passively through [[job-slots|job slot]] assignment during flight. Training uses diminishing returns — fast progress early, slow progress at high levels.',
+        ],
+      },
+      {
+        heading: 'Layer 2: Item Mastery (0-99 per item)',
+        paragraphs: [
+          'Each skill has specific items that can be mastered individually. Mastery builds through repeated use and provides familiarity bonuses. Piloting route mastery XP is awarded to the helm crew on every flight arrival. Commerce trade route mastery XP is awarded to the captain on every completed trip.',
+        ],
+        table: {
+          headers: ['Skill', 'Mastery Type', 'Effect'],
+          rows: [
+            [
+              '[[skill-system|Piloting]]',
+              'Route mastery',
+              'Faster travel and better fuel efficiency on familiar routes',
+            ],
+            [
+              '[[skill-system|Mining]]',
+              'Ore mastery',
+              'Faster extraction and better yields for mastered ore types',
+            ],
+            [
+              '[[skill-system|Commerce]]',
+              'Trade route mastery',
+              'Better prices and payment bonuses on familiar trade routes',
+            ],
+          ],
+        },
+      },
+      {
+        heading: 'Layer 3: Mastery Pool (0-100%)',
+        paragraphs: [
+          'As you earn item mastery XP, 25% of that XP flows into a per-skill mastery pool. The pool percentage represents your overall mastery of the skill domain.',
+          'The mastery pool provides skill-wide bonuses at key checkpoints.',
+        ],
+        table: {
+          headers: ['Checkpoint', 'Bonus'],
+          rows: [
+            ['10%', 'Minor skill-wide efficiency bonus'],
+            ['25%', 'Moderate skill-wide efficiency bonus'],
+            ['50%', 'Major skill-wide bonus + unlock advanced techniques'],
+            ['95%', 'Pinnacle bonus — near-complete mastery of the domain'],
+          ],
+        },
+      },
+      {
+        heading: 'Spending Pool XP',
+        paragraphs: [
+          'You can spend accumulated pool XP to boost lagging item masteries — for example, spending pool XP to quickly level up mastery of a new ore type you just unlocked.',
+          'However, spending pool XP reduces your pool percentage, which may drop you below a checkpoint and lose its bonus. This creates a strategic tension: do you maintain your pool percentage for the passive bonuses, or spend it to accelerate mastery of new items?',
+          'Rebuilding pool percentage after spending requires earning more item mastery XP across all items in that skill domain.',
+        ],
+      },
+    ],
+    relatedArticles: ['skill-system', 'mining-system', 'commerce-skill'],
+  },
+
   // ═══════════════════════════════════════════════════════════
   // CREW
   // ═══════════════════════════════════════════════════════════
@@ -180,11 +257,11 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
     title: 'Skill System',
     category: 'Crew',
     summary:
-      'Seven skills, passive training via job slots, and diminishing returns.',
+      'Three core skills with mastery layers, trained passively via job slot assignment.',
     sections: [
       {
         paragraphs: [
-          'Every crew member has 7 skills on a 1-100 scale. Six core skills train passively through [[job-slots|job slot]] assignment during flight. The seventh skill, [[commerce-skill|Commerce]], is trained exclusively through completing [[contracts|trade routes]].',
+          'Every crew member has 3 skills on a 0-99 scale. Skills train passively through [[job-slots|job slot]] assignment during flight. Each skill feeds into the [[mastery-system|three-layer mastery system]] for deeper progression.',
         ],
       },
       {
@@ -198,37 +275,17 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
             [
               'Piloting',
               '[[crew-roles|Pilot]]',
-              'Ship handling, helm control, [[ship-classes|ship class]] access',
+              'Ship handling, navigation, [[encounters|combat]] defense, [[ship-classes|ship class]] access',
             ],
             [
-              'Astrogation',
-              '[[crew-roles|Navigator]]',
-              'Route plotting, hazard analysis, [[encounters|encounter]] avoidance',
-            ],
-            [
-              'Engineering',
-              '[[crew-roles|Engineer]]',
-              'Reactor maintenance, systems repair',
-            ],
-            [
-              'Strength',
-              '[[crew-roles|Gunner]]',
-              '[[encounters|Combat]] capability, boarding defense',
-            ],
-            [
-              'Charisma',
-              '[[crew-roles|Quartermaster]]',
-              'Trade negotiations, crew morale',
-            ],
-            [
-              'Loyalty',
-              '[[crew-roles|First Officer]]',
-              'Crew support, conflict mediation',
+              'Mining',
+              '[[crew-roles|Miner]]',
+              '[[mining-system|Resource extraction]], [[ore-types|ore]] processing, equipment operation',
             ],
             [
               '[[commerce-skill|Commerce]]',
-              '(Captain only)',
-              'Trade bonuses, fuel discounts',
+              '[[crew-roles|Trader]]',
+              'Trade negotiations, route optimization, economic bonuses',
             ],
           ],
         },
@@ -239,6 +296,12 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
           'Skills train passively when crew are assigned to [[job-slots|job slots]] that use that skill. Training speed uses diminishing returns — fast progress early, slow progress at high levels.',
           'When a crew member is assigned to a job that matches their primary [[crew-roles|role]] skill, they receive a 1.5x training bonus.',
           'Training only occurs during flight. Docked time does not advance skill training.',
+        ],
+      },
+      {
+        heading: 'Mastery Layers',
+        paragraphs: [
+          'Beyond the base skill level, each skill has [[mastery-system|item mastery]] and a mastery pool that provide additional bonuses. Route mastery for piloting, ore mastery for mining, and trade route mastery for commerce all reward repeated engagement with specific content.',
         ],
       },
       {
@@ -264,7 +327,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
       },
     ],
     relatedArticles: [
-      'specialization',
+      'mastery-system',
       'commerce-skill',
       'crew-roles',
       'job-slots',
@@ -280,7 +343,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
     sections: [
       {
         paragraphs: [
-          'When any core skill (not [[commerce-skill|Commerce]]) reaches level 50 (Able rank), you can choose to specialize that crew member in that skill.',
+          'When any [[skill-system|skill]] reaches level 50 (Able rank), you can choose to specialize that crew member in that skill.',
         ],
       },
       {
@@ -308,20 +371,21 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
     title: 'Commerce Skill',
     category: 'Crew',
     summary:
-      'A unique skill trained by completing trade routes, providing financial bonuses.',
+      'A core skill focused on trade mastery, providing financial bonuses through experience.',
     sections: [
       {
         paragraphs: [
-          'Commerce is the 7th [[skill-system|skill]], unique in how it is trained. It is not gained through [[job-slots|job slots]] — only through completing [[contracts|trade route contracts]].',
-          'Only the captain and first officer (highest-loyalty non-captain crew) earn Commerce when a [[contracts|contract]] completes.',
+          'Commerce is one of the three core [[skill-system|skills]], focused on trade and economic mastery. Crew assigned to trader [[job-slots|job slots]] train commerce passively during flight.',
+          'The captain and first officer (senior non-captain crew member) earn additional commerce XP when [[contracts|contracts]] complete, creating a feedback loop where trade experience improves future profitability.',
         ],
       },
       {
         heading: 'Training',
         paragraphs: [
+          'Commerce trains through trader job slot assignment like other skills. Additionally, completing [[contracts|trade route contracts]] provides bonus commerce XP.',
           'Captain earns: 1.0 + 0.5 per trip completed in the contract.',
           "First officer earns half the captain's amount.",
-          'Commerce creates a feedback loop: completing routes improves Commerce, which improves pay and reduces fuel costs, making future routes more profitable.',
+          'Trade route [[mastery-system|mastery]] develops separately through repeated runs on the same routes, providing familiarity bonuses.',
         ],
       },
       {
@@ -334,12 +398,17 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
             ['25-49', '+5%', '-5%'],
             ['50-74', '+10%', '-10%'],
             ['75-94', '+15%', '-15%'],
-            ['95-100', '+20%', '-20%'],
+            ['95-99', '+20%', '-20%'],
           ],
         },
       },
     ],
-    relatedArticles: ['skill-system', 'contracts', 'credits-economy'],
+    relatedArticles: [
+      'skill-system',
+      'contracts',
+      'credits-economy',
+      'mastery-system',
+    ],
   },
 
   {
@@ -363,32 +432,17 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
             [
               '[[skill-system|Piloting]]',
               'Pilot',
-              'Ship handling and helm control',
+              'Ship handling, navigation, and [[encounters|combat]] defense',
             ],
             [
-              '[[skill-system|Astrogation]]',
-              'Navigator',
-              '[[navigation|Route plotting]] and scanning',
+              '[[skill-system|Mining]]',
+              'Miner',
+              '[[mining-system|Resource extraction]] and [[ore-types|ore]] processing',
             ],
             [
-              '[[skill-system|Engineering]]',
-              'Engineer',
-              'Repair and maintenance',
-            ],
-            [
-              '[[skill-system|Strength]]',
-              'Gunner',
-              '[[encounters|Combat]] and security',
-            ],
-            [
-              '[[skill-system|Charisma]]',
-              'Quartermaster',
-              'Morale and negotiations',
-            ],
-            [
-              '[[skill-system|Loyalty]]',
-              'First Officer',
-              'Crew support and cohesion',
+              '[[skill-system|Commerce]]',
+              'Trader',
+              'Trade negotiations and route optimization',
             ],
           ],
         },
@@ -396,7 +450,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
       {
         heading: 'Role Priority',
         paragraphs: [
-          'When skills are tied, roles are assigned in priority order: Piloting > Astrogation > Engineering > Strength > Charisma > Loyalty.',
+          'When skills are tied, roles are assigned in priority order: Piloting > Mining > Commerce.',
           'Crew can transition roles over time as they develop different [[skill-system|skills]] through [[job-slots|job training]], though this is uncommon.',
         ],
       },
@@ -465,20 +519,8 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
           rows: [
             ['Captain', '0 cr', 'Owner-operator, earns from ship profits'],
             ['[[crew-roles|Pilot]]', '48 cr', 'Essential bridge crew'],
-            [
-              '[[crew-roles|Navigator]]',
-              '48 cr',
-              'Route planning and hazard analysis',
-            ],
-            ['[[crew-roles|Engineer]]', '72 cr', 'Critical for ship systems'],
-            ['Cook', '24 cr', 'Morale specialist'],
-            ['Medic', '36 cr', 'Medical care'],
-            [
-              '[[crew-roles|Gunner]]',
-              '36 cr',
-              '[[encounters|Combat]] capability',
-            ],
-            ['Mechanic', '48 cr', 'Repairs and maintenance'],
+            ['[[crew-roles|Miner]]', '36 cr', 'Resource extraction specialist'],
+            ['[[crew-roles|Trader]]', '36 cr', 'Trade and commerce specialist'],
           ],
         },
       },
@@ -507,13 +549,13 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
     sections: [
       {
         paragraphs: [
-          'Ships have rooms (bridge, engine room, medbay, etc.) that generate specific job slots. Crew are assigned to job slots, not to rooms directly.',
+          'Ships have rooms (bridge, engine room, mining bay, etc.) that generate specific job slots. Crew are assigned to job slots, not to rooms directly.',
         ],
       },
       {
         heading: 'How It Works',
         paragraphs: [
-          'The bridge generates Helm and Comms slots. The engine room generates Drive Ops. The medbay generates Patient slots. [[ship-equipment|Ship equipment]] can generate additional slots (e.g. nav scanner creates Scan Ops, point defense creates Targeting).',
+          'The bridge generates Helm and Comms slots. The engine room generates Drive Ops. The mining bay generates Mining Ops. [[ship-equipment|Ship equipment]] can generate additional slots (e.g. nav scanner creates Scan Ops, point defense creates Targeting).',
           'Helm is the only required job — without a helm crew member, the ship coasts with no active control.',
         ],
       },
@@ -533,7 +575,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
       {
         heading: 'Repair Slots',
         paragraphs: [
-          'Ship-wide repair slots accept multiple engineers who generate repair points to fix degraded [[ship-equipment|equipment]]. This is critical on fusion-class [[ship-classes|ships]] where equipment degrades continuously.',
+          'Ship-wide repair slots accept multiple crew members who generate repair points to fix degraded [[ship-equipment|equipment]]. This is critical on fusion-class [[ship-classes|ships]] where equipment degrades continuously.',
         ],
       },
     ],
@@ -542,6 +584,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
       'crew-roles',
       'ship-equipment',
       'ship-classes',
+      'mining-system',
     ],
   },
 
@@ -771,7 +814,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
     sections: [
       {
         paragraphs: [
-          'Ships carry equipment in slots that provide various capabilities. Equipment degrades during operation and must be maintained by [[crew-roles|engineer]] crew.',
+          'Ships carry equipment in slots that provide various capabilities. Equipment degrades during operation and must be maintained by crew assigned to repair duties.',
         ],
       },
       {
@@ -829,7 +872,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
         heading: 'Degradation & Repair',
         paragraphs: [
           'Equipment degrades during use. Life support filters wear down, shielding absorbs radiation, thermal radiators work harder.',
-          '[[crew-roles|Engineers]] assigned to repair [[job-slots|job slots]] generate repair points that restore equipment condition. Keeping engineers on repair duty is essential on long voyages.',
+          'Crew assigned to repair [[job-slots|job slots]] generate repair points that restore equipment condition. Keeping crew on repair duty is essential on long voyages.',
         ],
       },
     ],
@@ -846,7 +889,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
     title: 'Crew Equipment',
     category: 'Ship Systems',
     summary:
-      'Personal equipment for crew: weapons, tools, armor, and accessories.',
+      'Personal equipment for crew: weapons, tools, armor, mining gear, and accessories.',
     sections: [
       {
         paragraphs: [
@@ -868,6 +911,11 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
               'Tools',
               'Toolkit (1,200 cr), Medkit (1,500 cr), Scanner (2,000 cr)',
               'Improves [[crew-roles|role]] effectiveness',
+            ],
+            [
+              'Mining',
+              'Basic Mining Laser, Improved Laser, Heavy Drill, Deep Core Extractor, Fusion Cutter, Quantum Excavator',
+              'Determines [[mining-system|mining]] capability and extraction rate',
             ],
             [
               'Accessories',
@@ -900,6 +948,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
       'encounters',
       'zero-g-exposure',
       'ship-equipment',
+      'mining-system',
     ],
   },
 
@@ -915,7 +964,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
       {
         paragraphs: [
           "The navigation chart shows all known locations, their distances, and your ship's current position. Access it via the Nav tab.",
-          'Locations provide different services: refueling, hiring, trade, and repair. Planning your route to hit needed services is key to efficient operations.',
+          'Locations provide different services: refueling, hiring, trade, [[mining-system|mining]], and repair. Planning your route to hit needed services is key to efficient operations.',
         ],
       },
       {
@@ -928,13 +977,19 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
       {
         heading: 'Route Planning',
         paragraphs: [
-          'Before departure, your [[crew-roles|navigator]] plots a course. Navigation quality depends on navigator [[skill-system|skill]] and [[ship-equipment|equipment]].',
+          'Before departure, your [[crew-roles|pilot]] plots a course. Navigation quality depends on [[skill-system|piloting]] skill and [[ship-equipment|equipment]].',
           'Good navigation reduces debris [[encounters|encounters]], improves fuel efficiency, and gives better hazard warnings.',
           'Locations shown as unreachable are beyond your current fuel range at the selected [[flight-physics|flight profile]].',
         ],
       },
     ],
-    relatedArticles: ['flight-physics', 'encounters', 'factions', 'contracts'],
+    relatedArticles: [
+      'flight-physics',
+      'encounters',
+      'factions',
+      'contracts',
+      'mining-destinations',
+    ],
   },
 
   {
@@ -952,7 +1007,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
       {
         heading: 'Combat Pipeline',
         paragraphs: [
-          'Encounters are auto-resolved through a pipeline: Evade ([[crew-roles|navigator]] [[skill-system|skill]]) > Negotiate ([[skill-system|charisma]]) > Flee (if outmatched) > Combat > Outcome.',
+          'Encounters are auto-resolved through a pipeline: Evade ([[crew-roles|pilot]] [[skill-system|piloting]]) > Negotiate ([[skill-system|commerce]]) > Flee (if outmatched) > Combat > Outcome.',
           'Possible outcomes: Evasion (clean escape), Negotiation (pay ransom), Fled (emergency escape with minor damage), Victory (bounty reward), Harassment (minor damage), Boarding (major losses).',
         ],
       },
@@ -981,7 +1036,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
       {
         heading: 'Combat Variance',
         paragraphs: [
-          'Pirate attack strength varies by ±30% and defense effectiveness by ±15%, ensuring borderline fights are unpredictable. Even well-defended ships can have bad luck.',
+          'Pirate attack strength varies by +-30% and defense effectiveness by +-15%, ensuring borderline fights are unpredictable. Even well-defended ships can have bad luck.',
         ],
       },
     ],
@@ -1029,6 +1084,73 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
     relatedArticles: ['navigation', 'encounters', 'contracts'],
   },
 
+  {
+    id: 'mining-destinations',
+    title: 'Mining Destinations',
+    category: 'Space',
+    summary: 'Near-Earth mining locations accessible by Station Keeper ships.',
+    sections: [
+      {
+        paragraphs: [
+          'Several locations near Earth offer [[mining-system|mining]] services, accessible even by early-game ships. As your [[skill-system|piloting]] skill and ship class improve, more distant and lucrative mining sites become reachable.',
+        ],
+      },
+      {
+        heading: 'Near-Earth Mining Locations',
+        paragraphs: [
+          'These sites are within range of Station Keeper class ships and provide a solid introduction to mining operations.',
+        ],
+        table: {
+          headers: [
+            'Location',
+            'Distance',
+            'Piloting Req',
+            'Available Ores',
+            'Services',
+          ],
+          rows: [
+            [
+              'Debris Field Alpha',
+              '300 km',
+              '10',
+              '[[ore-types|Iron]], [[ore-types|Silicate]]',
+              'Mine',
+            ],
+            [
+              'Scrapyard Ring',
+              '800 km',
+              '10',
+              '[[ore-types|Iron]], [[ore-types|Copper]]',
+              'Mine',
+            ],
+            [
+              'NEA-2247',
+              '1,500 km',
+              '25',
+              '[[ore-types|Iron]], [[ore-types|Rare Earth]], [[ore-types|Titanium]]',
+              'Mine',
+            ],
+          ],
+        },
+      },
+      {
+        heading: 'Advanced Mining Locations',
+        paragraphs: [
+          'More distant locations offer rarer and more valuable [[ore-types|ores]] but require better ships and higher [[skill-system|piloting]] skill to reach.',
+          'The Scatter: A dense asteroid cluster beyond the Moon, rich in Titanium and Platinum deposits. Requires Class II ship capability.',
+          'Mars: Surface mining operations yield Rare Earth and Helium-3. Requires long-range flight capability.',
+          'Jupiter Station: Orbital mining platforms harvest Helium-3 and Exotic Matter from the gas giant. The most lucrative mining in the solar system, but requires Class III vessels.',
+        ],
+      },
+    ],
+    relatedArticles: [
+      'navigation',
+      'mining-system',
+      'ore-types',
+      'ship-classes',
+    ],
+  },
+
   // ═══════════════════════════════════════════════════════════
   // HEALTH & ENVIRONMENT
   // ═══════════════════════════════════════════════════════════
@@ -1054,10 +1176,10 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
       {
         heading: 'Degradation Tiers',
         paragraphs: [
-          'As exposure accumulates, crew suffer progressive [[skill-system|strength]] reduction that impacts [[encounters|combat]] effectiveness.',
+          'As exposure accumulates, crew suffer progressive [[skill-system|piloting]] reduction that impacts [[encounters|combat]] and flight effectiveness.',
         ],
         table: {
-          headers: ['Tier', 'Exposure', 'Strength Penalty'],
+          headers: ['Tier', 'Exposure', 'Piloting Penalty'],
           rows: [
             ['Safe', '< 14 days', 'None'],
             ['Minor Atrophy', '14-60 days', '-7.5%'],
@@ -1114,7 +1236,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
       {
         heading: 'Strategic Implications',
         paragraphs: [
-          'Long-haul fusion [[ship-classes|ships]] need gravity solutions (centrifuge pod or rotating habitat) or their crew will suffer serious [[encounters|combat]] penalties.',
+          'Long-haul fusion [[ship-classes|ships]] need gravity solutions (centrifuge pod or rotating habitat) or their crew will suffer serious piloting penalties.',
           'Shorter trips can skip gravity equipment if recovery time is planned between voyages.',
           'A mix of [[ship-equipment|exercise modules]] and [[crew-equipment|g-seat harnesses]] reduces the rate to 35% of normal — still accumulating but much slower.',
           'Pre-departure warnings appear on the Nav tab when a trip will push crew past a threshold.',
@@ -1154,7 +1276,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
         heading: 'Protection',
         paragraphs: [
           '[[ship-equipment|Radiation Shielding Panels]] reduce crew exposure. Shielding equipment consumes equipment slots and power — a direct tax on ship capability.',
-          'Keeping the reactor room staffed with [[crew-roles|engineers]] maintains containment integrity, preventing dangerous radiation spikes.',
+          'Keeping the reactor room staffed with crew maintains containment integrity, preventing dangerous radiation spikes.',
         ],
       },
       {
@@ -1194,11 +1316,157 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
       {
         heading: 'Management',
         paragraphs: [
-          'Monitor thermal status on the Ship tab. Assign [[crew-roles|engineers]] to repair duty to maintain thermal [[ship-equipment|equipment]] condition.',
+          'Monitor thermal status on the Ship tab. Assign crew to repair duty to maintain thermal [[ship-equipment|equipment]] condition.',
           'On long voyages, thermal management is a constant concern — not a set-and-forget system.',
         ],
       },
     ],
     relatedArticles: ['radiation', 'ship-equipment', 'engines', 'ship-classes'],
+  },
+
+  // ═══════════════════════════════════════════════════════════
+  // MINING & RESOURCES
+  // ═══════════════════════════════════════════════════════════
+  {
+    id: 'mining-system',
+    title: 'Mining System',
+    category: 'Mining & Resources',
+    summary: 'How mining works, equipment, skill progression, and ore mastery.',
+    sections: [
+      {
+        paragraphs: [
+          'Mining is a core income activity alongside [[contracts|trade contracts]]. Ships orbiting locations with mine services can extract [[ore-types|ore]] and sell it at stations with trade services.',
+        ],
+      },
+      {
+        heading: 'How Mining Works',
+        paragraphs: [
+          'Mining happens automatically while your ship is orbiting a location that provides a mine service. Crew assigned to the mining_ops [[job-slots|job slot]] perform the extraction work.',
+          'Crew in mining_ops train the [[skill-system|mining]] skill passively during operations. Higher mining skill unlocks rarer ores and improves extraction speed.',
+          "Extracted ore is stored in your ship's cargo hold. Sell ore at any station with a trade service to convert it into [[credits-economy|credits]].",
+        ],
+      },
+      {
+        heading: 'Mining Equipment',
+        paragraphs: [
+          'Mining equipment is equipped in the crew equipment slot and determines what [[ore-types|ores]] you can extract and your extraction rate. Better equipment requires higher [[skill-system|mining]] skill to operate.',
+        ],
+        table: {
+          headers: ['Equipment', 'Mining Level Req', 'Rate Multiplier'],
+          rows: [
+            ['Basic Mining Laser', '0', '1.0x'],
+            ['Improved Mining Laser', '15', '1.5x'],
+            ['Heavy Drill', '30', '2.0x'],
+            ['Deep Core Extractor', '50', '2.5x'],
+            ['Fusion Cutter', '75', '3.5x'],
+            ['Quantum Excavator', '90', '5.0x'],
+          ],
+        },
+      },
+      {
+        heading: 'Mining Skill Unlocks',
+        paragraphs: [
+          'Your mining skill level determines which [[ore-types|ore types]] you can extract. Higher-level ores are more valuable but require significant skill investment.',
+        ],
+        table: {
+          headers: ['Mining Level', 'Unlocked Ores'],
+          rows: [
+            ['0', '[[ore-types|Iron]], [[ore-types|Silicate]]'],
+            ['10', '[[ore-types|Copper]], [[ore-types|Rare Earth]]'],
+            ['25', '[[ore-types|Titanium]]'],
+            ['40', '[[ore-types|Platinum]]'],
+            ['60', '[[ore-types|Helium-3]]'],
+            ['90', '[[ore-types|Exotic Matter]]'],
+          ],
+        },
+      },
+      {
+        heading: 'Ore Mastery',
+        paragraphs: [
+          'Through the [[mastery-system|mastery system]], repeated mining of the same ore type builds ore mastery (0-99 per ore). Higher ore mastery improves yield and extraction speed for that specific ore.',
+          '25% of ore mastery XP flows into the mining mastery pool, which provides skill-wide bonuses at key checkpoints.',
+        ],
+      },
+    ],
+    relatedArticles: [
+      'ore-types',
+      'mastery-system',
+      'mining-destinations',
+      'crew-equipment',
+      'skill-system',
+    ],
+  },
+
+  {
+    id: 'ore-types',
+    title: 'Ore Types',
+    category: 'Mining & Resources',
+    summary: 'Available ore types, locations, and values.',
+    sections: [
+      {
+        paragraphs: [
+          'Eight ore types can be extracted from [[mining-destinations|mining locations]] across the solar system. Each ore has a base value, a [[skill-system|mining]] skill requirement to extract, and a cargo weight.',
+        ],
+      },
+      {
+        heading: 'Ore Catalog',
+        paragraphs: [''],
+        table: {
+          headers: ['Ore', 'Base Value', 'Mining Level', 'Locations', 'Weight'],
+          rows: [
+            [
+              'Iron',
+              '5 cr',
+              '0',
+              '[[mining-destinations|Debris Field Alpha]], Scrapyard Ring, NEA-2247',
+              'Heavy',
+            ],
+            [
+              'Silicate',
+              '3 cr',
+              '0',
+              '[[mining-destinations|Debris Field Alpha]]',
+              'Light',
+            ],
+            [
+              'Copper',
+              '8 cr',
+              '10',
+              '[[mining-destinations|Scrapyard Ring]]',
+              'Medium',
+            ],
+            [
+              'Rare Earth',
+              '15 cr',
+              '10',
+              '[[mining-destinations|NEA-2247]], Mars',
+              'Medium',
+            ],
+            [
+              'Titanium',
+              '25 cr',
+              '25',
+              '[[mining-destinations|NEA-2247]], The Scatter',
+              'Heavy',
+            ],
+            ['Platinum', '50 cr', '40', 'The Scatter, Mars', 'Heavy'],
+            ['Helium-3', '80 cr', '60', 'Mars, Jupiter Station', 'Light'],
+            ['Exotic Matter', '200 cr', '90', 'Jupiter Station', 'Light'],
+          ],
+        },
+      },
+      {
+        heading: 'Selling Ore',
+        paragraphs: [
+          'Ore is sold at any station with a trade service. Prices are based on the ore base value, modified by local supply and demand.',
+          'Building [[mastery-system|trade route mastery]] in [[commerce-skill|commerce]] can improve the prices you receive when selling ore.',
+        ],
+      },
+    ],
+    relatedArticles: [
+      'mining-system',
+      'mining-destinations',
+      'credits-economy',
+    ],
   },
 ];

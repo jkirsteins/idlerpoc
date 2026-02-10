@@ -1,6 +1,6 @@
 import type { Quest, Ship, WorldLocation, World } from './models';
 import { getShipClass } from './shipClasses';
-import { getDistanceBetween } from './worldGen';
+import { getDistanceBetween, canShipAccessLocation } from './worldGen';
 import {
   calculateAvailableCargoCapacity,
   calculateDeltaV,
@@ -187,36 +187,30 @@ function calculatePayment(
 }
 
 /**
- * Calculate payment bonus from skilled crew members in appropriate rooms.
+ * Calculate payment bonus from skilled crew members in appropriate roles.
  *
- * - Navigator on bridge: +2% per astrogation point above 5
- * - Engineer in engine room: +1% per engineering point above 5
- * - Cook in cantina: +3% per charisma point above 5
+ * - Scanner/helm crew: piloting bonus (evasion reputation)
+ * - Drive ops crew: piloting bonus (efficiency)
+ * - Mining crew with ore in cargo: mining bonus
  */
 function calculateCrewSkillBonus(ship: Ship): number {
   let bonus = 0;
 
-  // Scanner crew: astrogation bonus (navigator equivalent)
+  // Scanner crew: piloting bonus
   for (const crew of getCrewForJobType(ship, 'scanner')) {
-    const pointsAbove50 = Math.max(0, crew.skills.astrogation - 50);
+    const pointsAbove50 = Math.max(0, crew.skills.piloting - 50);
     bonus += pointsAbove50 * 0.002;
   }
 
-  // Drive ops crew: engineering bonus
+  // Drive ops crew: piloting bonus
   for (const crew of getCrewForJobType(ship, 'drive_ops')) {
-    const pointsAbove50 = Math.max(0, crew.skills.engineering - 50);
+    const pointsAbove50 = Math.max(0, crew.skills.piloting - 50);
     bonus += pointsAbove50 * 0.001;
   }
 
-  // Galley crew: charisma bonus (cook equivalent)
-  for (const crew of getCrewForJobType(ship, 'galley')) {
-    const pointsAbove50 = Math.max(0, crew.skills.charisma - 50);
-    bonus += pointsAbove50 * 0.003;
-  }
-
-  // Comms crew: charisma bonus for negotiation
-  for (const crew of getCrewForJobType(ship, 'comms')) {
-    const pointsAbove50 = Math.max(0, crew.skills.charisma - 50);
+  // Helm crew: piloting bonus
+  for (const crew of getCrewForJobType(ship, 'helm')) {
+    const pointsAbove50 = Math.max(0, crew.skills.piloting - 50);
     bonus += pointsAbove50 * 0.002;
   }
 
@@ -279,13 +273,19 @@ export function estimateTripTime(
 }
 
 /**
- * Check if destination is reachable from origin with current ship
+ * Check if destination is reachable from origin with current ship.
+ * Checks both fuel range AND crew piloting skill vs destination requirement.
  */
 function isDestinationReachable(
   ship: Ship,
   origin: WorldLocation,
   destination: WorldLocation
 ): boolean {
+  // Crew must meet destination's piloting requirement
+  if (!canShipAccessLocation(ship, destination)) {
+    return false;
+  }
+
   const distanceKm = getDistanceBetween(origin, destination);
 
   // Calculate fuel required for round trip
@@ -656,9 +656,12 @@ export function generatePersistentTradeRoutes(
 
   const routes: Quest[] = [];
 
-  // Trade route to every other location with trade service
+  // Trade route to every other accessible location with trade service
   const tradePartners = world.locations.filter(
-    (l) => l.id !== location.id && l.services.includes('trade')
+    (l) =>
+      l.id !== location.id &&
+      l.services.includes('trade') &&
+      canShipAccessLocation(ship, l)
   );
 
   for (const partner of tradePartners) {

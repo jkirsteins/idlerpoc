@@ -17,6 +17,7 @@ import { generateCrewName } from './names';
 import { generateWorld } from './worldGen';
 import { getLevelForXP } from './levelSystem';
 import { generateSkillsForRole } from './crewRoles';
+import { createInitialMastery } from './masterySystem';
 import { generateAllLocationQuests } from './questGen';
 import { getEquipmentDefinition, canEquipInSlot } from './equipment';
 import { calculateFuelTankCapacity } from './flightPhysics';
@@ -67,6 +68,7 @@ function createCrewMember(
     unpaidTicks: 0,
     hireCost,
     zeroGExposure: 0,
+    mastery: createInitialMastery(),
   };
 }
 
@@ -99,15 +101,7 @@ export function generateHireableCrew(): CrewMember[] {
   const count = 2 + Math.floor(Math.random() * 2); // 2-3 candidates
   const candidates: CrewMember[] = [];
 
-  const availableRoles: CrewRole[] = [
-    'pilot',
-    'navigator',
-    'engineer',
-    'cook',
-    'medic',
-    'gunner',
-    'mechanic',
-  ];
+  const availableRoles: CrewRole[] = ['pilot', 'miner', 'trader'];
 
   for (let i = 0; i < count; i++) {
     const role =
@@ -233,6 +227,7 @@ function createStartingShip(
     },
     engine,
     cargo,
+    oreCargo: [],
     activeContract: null,
     routeAssignment: null,
     activeFlightPlan: undefined,
@@ -299,6 +294,7 @@ export function createAdditionalShip(
     },
     engine,
     cargo: [],
+    oreCargo: [],
     activeContract: null,
     routeAssignment: null,
     activeFlightPlan: undefined,

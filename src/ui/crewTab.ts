@@ -1,5 +1,16 @@
-import type { GameData, CrewMember, CrewEquipmentId } from '../models';
+import type {
+  GameData,
+  CrewMember,
+  CrewEquipmentId,
+  SkillId,
+  SkillMasteryState,
+  ItemMastery,
+  Ship,
+  World,
+  WorldLocation,
+} from '../models';
 import { getActiveShip } from '../models';
+import { canShipAccessLocation } from '../worldGen';
 import type { TabbedViewCallbacks } from './types';
 import {
   getCrewEquipmentDefinition,
@@ -24,7 +35,18 @@ import {
   getRankProgress,
   SPECIALIZATION_THRESHOLD,
 } from '../skillRanks';
-import type { SkillId } from '../models';
+import {
+  getPoolFillPercent,
+  getCheckpointBonuses,
+  xpForMasteryLevel,
+  ROUTE_MASTERY_BONUSES,
+  ORE_MASTERY_BONUSES,
+  TRADE_MASTERY_BONUSES,
+  routeMasteryKey,
+  tradeRouteMasteryKey,
+} from '../masterySystem';
+import type { MasteryBonus } from '../masterySystem';
+import { getAllOreDefinitions } from '../oreTypes';
 import type { Component } from './component';
 
 /** Snapshot the props the crew tab renders so we can shallow-compare. */
@@ -51,9 +73,21 @@ function snapshotCrewProps(
     crewSkills: ship.crew
       .map(
         (c) =>
-          `${c.skills.piloting}${c.skills.astrogation}${c.skills.engineering}${c.skills.strength}${c.skills.charisma}${c.skills.loyalty}${c.skills.commerce}${c.specialization?.skillId ?? ''}`
+          `${c.skills.piloting}${c.skills.mining}${c.skills.commerce}${c.specialization?.skillId ?? ''}`
       )
       .join(),
+    crewMastery: ship.crew
+      .map((c) => {
+        const m = c.mastery;
+        const poolSummary = (['piloting', 'mining', 'commerce'] as const)
+          .map((s) => `${s}:${m[s].pool.xp}/${m[s].pool.maxXp}`)
+          .join(',');
+        const itemCount = (['piloting', 'mining', 'commerce'] as const)
+          .map((s) => Object.keys(m[s].itemMasteries).length)
+          .join(',');
+        return `${c.id}:${poolSummary}|${itemCount}`;
+      })
+      .join(';'),
     crewEquip: ship.crew
       .flatMap((c) => c.equipment.map((eq) => eq.id + eq.definitionId))
       .join(),
@@ -227,10 +261,10 @@ function renderNoCrewSelected(): HTMLElement {
 }
 
 function calculateAttackScore(crew: CrewMember): number {
-  // Base attack from strength skill
+  // Base attack from piloting skill
   const level = getGravityDegradationLevel(crew.zeroGExposure);
   const multiplier = getStrengthMultiplier(level);
-  let attack = Math.floor(crew.skills.strength * multiplier);
+  let attack = Math.floor(crew.skills.piloting * multiplier);
 
   // Add weapon bonus
   const weaponSlot = crew.equipment.find((item) => {
@@ -320,7 +354,7 @@ function renderCrewDetail(
   }
 
   // Skills section
-  panel.appendChild(renderSkillsSection(crew, callbacks));
+  panel.appendChild(renderSkillsSection(gameData, crew, callbacks));
 
   // Equipment section
   panel.appendChild(renderEquipmentSection(crew, callbacks));
@@ -569,18 +603,7 @@ function renderSkillRow(crew: CrewMember, skillId: SkillId): HTMLElement {
   const skillValue = document.createElement('span');
   skillValue.className = 'skill-value';
 
-  if (skillId === 'strength') {
-    const level = getGravityDegradationLevel(crew.zeroGExposure);
-    const multiplier = getStrengthMultiplier(level);
-    const effectiveStrength = Math.floor(rawValue * multiplier);
-    if (level !== 'none') {
-      skillValue.innerHTML = `${intValue} <span style="opacity: 0.6">(eff: ${effectiveStrength})</span>`;
-    } else {
-      skillValue.textContent = `${intValue}`;
-    }
-  } else {
-    skillValue.textContent = `${intValue}`;
-  }
+  skillValue.textContent = `${intValue}`;
 
   rightSpan.appendChild(skillValue);
   topRow.appendChild(rightSpan);
@@ -612,6 +635,7 @@ function renderSkillRow(crew: CrewMember, skillId: SkillId): HTMLElement {
 }
 
 function renderSkillsSection(
+  gameData: GameData,
   crew: CrewMember,
   callbacks: TabbedViewCallbacks
 ): HTMLElement {
@@ -624,7 +648,7 @@ function renderSkillsSection(
   header.style.alignItems = 'center';
 
   const title = document.createElement('h3');
-  title.textContent = 'Skills';
+  title.textContent = 'Skills & Mastery';
   header.appendChild(title);
 
   // Specialization indicator
@@ -645,23 +669,14 @@ function renderSkillsSection(
   const skills = document.createElement('div');
   skills.className = 'crew-skills';
 
-  // Core combat/utility skills
-  const coreSkillIds: SkillId[] = [
-    'piloting',
-    'astrogation',
-    'engineering',
-    'strength',
-    'charisma',
-    'loyalty',
-  ];
+  const coreSkillIds: SkillId[] = ['piloting', 'mining', 'commerce'];
 
   for (const skillId of coreSkillIds) {
     skills.appendChild(renderSkillRow(crew, skillId));
-  }
-
-  // Commerce (only shown for captain or if > 0)
-  if (crew.isCaptain || crew.skills.commerce > 0) {
-    skills.appendChild(renderSkillRow(crew, 'commerce'));
+    // Mastery section expanded by default under each skill
+    skills.appendChild(
+      renderSkillMastery(skillId, crew.mastery[skillId], crew, gameData)
+    );
   }
 
   // Show "Ranged Combat" attribute if weapon equipped
@@ -734,6 +749,479 @@ function renderSkillsSection(
   }
 
   return section;
+}
+
+// ─── Mastery UI Helpers ─────────────────────────────────────────
+
+/** Get the item label mapping for a skill's mastery items. */
+function getMasteryItemLabel(
+  skillId: SkillId,
+  itemId: string,
+  world: World
+): string {
+  if (skillId === 'mining') {
+    const ore = getAllOreDefinitions().find((o) => o.id === itemId);
+    return ore ? `${ore.icon} ${ore.name}` : itemId;
+  }
+  // Routes: "earth->mars" or "earth<=>mars" → "Earth → Mars"
+  const separator = skillId === 'piloting' ? '->' : '<=>';
+  const parts = itemId.split(separator);
+  if (parts.length === 2) {
+    const locA = world.locations.find((l) => l.id === parts[0]);
+    const locB = world.locations.find((l) => l.id === parts[1]);
+    const nameA = locA?.name ?? parts[0];
+    const nameB = locB?.name ?? parts[1];
+    return `${nameA} → ${nameB}`;
+  }
+  return itemId;
+}
+
+/** Get the bonus table for a skill. */
+function getBonusTable(skillId: SkillId): MasteryBonus[] {
+  if (skillId === 'piloting') return ROUTE_MASTERY_BONUSES;
+  if (skillId === 'mining') return ORE_MASTERY_BONUSES;
+  return TRADE_MASTERY_BONUSES;
+}
+
+/** Get the current active bonus label for a mastery level. */
+function getCurrentBonusLabel(skillId: SkillId, level: number): string | null {
+  const table = getBonusTable(skillId);
+  let best: MasteryBonus | null = null;
+  for (const bonus of table) {
+    if (level >= bonus.level) best = bonus;
+  }
+  return best ? best.label : null;
+}
+
+/** Get the next upcoming bonus for a mastery level. */
+function getNextBonusLabel(
+  skillId: SkillId,
+  level: number
+): { level: number; label: string } | null {
+  const table = getBonusTable(skillId);
+  for (const bonus of table) {
+    if (level < bonus.level) return bonus;
+  }
+  return null;
+}
+
+/** Skill-specific item type label. */
+function getMasteryItemTypeName(skillId: SkillId): string {
+  if (skillId === 'piloting') return 'Routes';
+  if (skillId === 'mining') return 'Ores';
+  return 'Trade Routes';
+}
+
+/** Render the full mastery panel for one skill, expanded by default. */
+function renderSkillMastery(
+  skillId: SkillId,
+  state: SkillMasteryState,
+  crew: CrewMember,
+  gameData: GameData
+): HTMLElement {
+  const container = document.createElement('div');
+  container.className = 'mastery-section';
+  container.style.marginLeft = '0.5rem';
+  container.style.marginBottom = '1rem';
+  container.style.padding = '0.5rem 0.75rem';
+  container.style.background = 'rgba(255,255,255,0.03)';
+  container.style.borderLeft = '2px solid rgba(255,255,255,0.1)';
+  container.style.fontSize = '0.85rem';
+
+  // ── Mastery Pool Bar ──────────────────────────────────────────
+  container.appendChild(renderMasteryPool(skillId, state));
+
+  // ── Item Mastery List ─────────────────────────────────────────
+  container.appendChild(renderMasteryItems(skillId, state, crew, gameData));
+
+  return container;
+}
+
+/** Render the mastery pool bar with checkpoint markers. */
+function renderMasteryPool(
+  skillId: SkillId,
+  state: SkillMasteryState
+): HTMLElement {
+  const poolSection = document.createElement('div');
+  poolSection.style.marginBottom = '0.5rem';
+
+  // Pool header
+  const poolHeader = document.createElement('div');
+  poolHeader.style.display = 'flex';
+  poolHeader.style.justifyContent = 'space-between';
+  poolHeader.style.alignItems = 'center';
+  poolHeader.style.marginBottom = '3px';
+
+  const poolLabel = document.createElement('span');
+  poolLabel.style.color = '#aaa';
+  poolLabel.textContent = 'Mastery Pool';
+  poolHeader.appendChild(poolLabel);
+
+  const fillPct = getPoolFillPercent(state.pool);
+  const poolValue = document.createElement('span');
+  poolValue.style.color = fillPct >= 95 ? '#fbbf24' : '#ccc';
+  poolValue.style.fontWeight = fillPct >= 95 ? 'bold' : 'normal';
+  poolValue.textContent =
+    state.pool.maxXp > 0 ? `${fillPct.toFixed(1)}%` : 'No items discovered';
+  poolHeader.appendChild(poolValue);
+
+  poolSection.appendChild(poolHeader);
+
+  if (state.pool.maxXp === 0) return poolSection;
+
+  // Pool progress bar with checkpoint markers
+  const barOuter = document.createElement('div');
+  barOuter.style.position = 'relative';
+  barOuter.style.width = '100%';
+  barOuter.style.height = '14px';
+  barOuter.style.backgroundColor = 'rgba(0,0,0,0.4)';
+  barOuter.style.borderRadius = '3px';
+  barOuter.style.overflow = 'visible';
+
+  const barFill = document.createElement('div');
+  barFill.style.width = `${Math.min(fillPct, 100)}%`;
+  barFill.style.height = '100%';
+  barFill.style.borderRadius = '3px';
+  barFill.style.transition = 'width 0.3s ease';
+  // Color gradient based on fill
+  if (fillPct >= 95) {
+    barFill.style.backgroundColor = '#fbbf24'; // gold
+  } else if (fillPct >= 50) {
+    barFill.style.backgroundColor = '#4ade80'; // green
+  } else if (fillPct >= 25) {
+    barFill.style.backgroundColor = '#60a5fa'; // blue
+  } else {
+    barFill.style.backgroundColor = '#6b7280'; // gray
+  }
+  barOuter.appendChild(barFill);
+
+  // Checkpoint markers on the bar
+  const checkpoints = getCheckpointBonuses(skillId, state.pool);
+  for (const cp of checkpoints) {
+    const pct = cp.threshold * 100;
+
+    // Vertical line marker
+    const marker = document.createElement('div');
+    marker.style.position = 'absolute';
+    marker.style.left = `${pct}%`;
+    marker.style.top = '0';
+    marker.style.bottom = '0';
+    marker.style.width = '2px';
+    marker.style.backgroundColor = cp.active
+      ? 'rgba(251, 191, 36, 0.8)'
+      : 'rgba(255,255,255,0.3)';
+    marker.style.zIndex = '1';
+    barOuter.appendChild(marker);
+
+    // Percentage label below bar
+    const label = document.createElement('div');
+    label.style.position = 'absolute';
+    label.style.left = `${pct}%`;
+    label.style.top = '16px';
+    label.style.transform = 'translateX(-50%)';
+    label.style.fontSize = '0.65rem';
+    label.style.color = cp.active ? '#fbbf24' : 'rgba(255,255,255,0.4)';
+    label.style.whiteSpace = 'nowrap';
+    label.textContent = `${Math.round(pct)}%`;
+    barOuter.appendChild(label);
+  }
+
+  poolSection.appendChild(barOuter);
+
+  // Checkpoint bonus list
+  const bonusList = document.createElement('div');
+  bonusList.style.marginTop = '1.2rem';
+  bonusList.style.display = 'flex';
+  bonusList.style.flexDirection = 'column';
+  bonusList.style.gap = '2px';
+
+  for (const cp of checkpoints) {
+    const row = document.createElement('div');
+    row.style.display = 'flex';
+    row.style.alignItems = 'center';
+    row.style.gap = '0.4rem';
+    row.style.fontSize = '0.8rem';
+
+    const indicator = document.createElement('span');
+    if (cp.active) {
+      indicator.textContent = '●';
+      indicator.style.color = '#fbbf24';
+    } else {
+      indicator.textContent = '○';
+      indicator.style.color = '#555';
+    }
+    row.appendChild(indicator);
+
+    const threshLabel = document.createElement('span');
+    threshLabel.style.color = '#888';
+    threshLabel.style.minWidth = '2.5rem';
+    threshLabel.textContent = `${Math.round(cp.threshold * 100)}%`;
+    row.appendChild(threshLabel);
+
+    const bonusLabel = document.createElement('span');
+    bonusLabel.style.color = cp.active ? '#ddd' : '#666';
+    bonusLabel.textContent = cp.label;
+    row.appendChild(bonusLabel);
+
+    bonusList.appendChild(row);
+  }
+
+  poolSection.appendChild(bonusList);
+  return poolSection;
+}
+
+/**
+ * Generate routes from the ship's current location to all other destinations.
+ * Uses the central canShipAccessLocation gate for lock status.
+ */
+function generateRoutesFromCurrentLocation(
+  ship: Ship,
+  currentLocation: WorldLocation,
+  world: World,
+  skillId: 'piloting' | 'commerce'
+): Array<{ key: string; locked: boolean; lockReason: string }> {
+  const keyFn = skillId === 'piloting' ? routeMasteryKey : tradeRouteMasteryKey;
+  const routes: Array<{ key: string; locked: boolean; lockReason: string }> =
+    [];
+
+  for (const dest of world.locations) {
+    if (dest.id === currentLocation.id) continue;
+    const key = keyFn(currentLocation.id, dest.id);
+    const locked = !canShipAccessLocation(ship, dest);
+
+    routes.push({
+      key,
+      locked,
+      lockReason: locked ? `Piloting ${dest.pilotingRequirement}` : '',
+    });
+  }
+  return routes;
+}
+
+/** Render the per-item mastery list for a skill. */
+function renderMasteryItems(
+  skillId: SkillId,
+  state: SkillMasteryState,
+  crew: CrewMember,
+  gameData: GameData
+): HTMLElement {
+  const world = gameData.world;
+  const container = document.createElement('div');
+  container.style.marginTop = '0.5rem';
+
+  const itemHeader = document.createElement('div');
+  itemHeader.style.color = '#aaa';
+  itemHeader.style.marginBottom = '4px';
+  itemHeader.textContent = getMasteryItemTypeName(skillId);
+  container.appendChild(itemHeader);
+
+  // Build the full item catalog for this skill
+  type MasteryItemEntry = {
+    id: string;
+    label: string;
+    mastery: ItemMastery | null;
+    locked: boolean;
+    lockReason: string;
+  };
+
+  const entries: MasteryItemEntry[] = [];
+
+  if (skillId === 'mining') {
+    // Mining: show all 8 ore types — locked ones grayed by level requirement
+    const skillLevel = Math.floor(crew.skills.mining);
+    for (const ore of getAllOreDefinitions()) {
+      const mastery = state.itemMasteries[ore.id] ?? null;
+      const locked = skillLevel < ore.miningLevelRequired;
+      entries.push({
+        id: ore.id,
+        label: `${ore.icon} ${ore.name}`,
+        mastery,
+        locked,
+        lockReason: locked ? `Mining ${ore.miningLevelRequired}` : '',
+      });
+    }
+  } else {
+    // Piloting routes / Commerce trade routes: show routes from current location
+    const ship = getActiveShip(gameData);
+    const currentLocId =
+      ship.location.dockedAt ?? ship.location.orbitingAt ?? null;
+    const currentLoc = currentLocId
+      ? world.locations.find((l) => l.id === currentLocId)
+      : null;
+
+    if (currentLoc) {
+      const routes = generateRoutesFromCurrentLocation(
+        ship,
+        currentLoc,
+        world,
+        skillId as 'piloting' | 'commerce'
+      );
+
+      for (const route of routes) {
+        const mastery = state.itemMasteries[route.key] ?? null;
+        entries.push({
+          id: route.key,
+          label: getMasteryItemLabel(skillId, route.key, world),
+          mastery,
+          locked: route.locked,
+          lockReason: route.lockReason,
+        });
+      }
+    }
+
+    // Also show any previously mastered routes not from current location
+    for (const [itemId, itemMastery] of Object.entries(state.itemMasteries)) {
+      if (entries.some((e) => e.id === itemId)) continue; // Already listed
+      entries.push({
+        id: itemId,
+        label: getMasteryItemLabel(skillId, itemId, world),
+        mastery: itemMastery,
+        locked: false,
+        lockReason: '',
+      });
+    }
+  }
+
+  // Render each item
+  const itemList = document.createElement('div');
+  itemList.style.display = 'flex';
+  itemList.style.flexDirection = 'column';
+  itemList.style.gap = '4px';
+
+  for (const entry of entries) {
+    itemList.appendChild(renderMasteryItemRow(skillId, entry));
+  }
+
+  container.appendChild(itemList);
+  return container;
+}
+
+/** Render a single mastery item row with level, progress bar, and bonus hint. */
+function renderMasteryItemRow(
+  skillId: SkillId,
+  entry: {
+    id: string;
+    label: string;
+    mastery: ItemMastery | null;
+    locked: boolean;
+    lockReason: string;
+  }
+): HTMLElement {
+  const row = document.createElement('div');
+  row.style.padding = '3px 6px';
+  row.style.borderRadius = '3px';
+  row.style.background = entry.locked
+    ? 'rgba(0,0,0,0.2)'
+    : 'rgba(255,255,255,0.02)';
+
+  // Top line: name + level
+  const topLine = document.createElement('div');
+  topLine.style.display = 'flex';
+  topLine.style.justifyContent = 'space-between';
+  topLine.style.alignItems = 'center';
+
+  const nameSpan = document.createElement('span');
+  nameSpan.style.color = entry.locked ? '#555' : '#ccc';
+  nameSpan.textContent = entry.label;
+  topLine.appendChild(nameSpan);
+
+  const rightSpan = document.createElement('span');
+  rightSpan.style.display = 'flex';
+  rightSpan.style.alignItems = 'center';
+  rightSpan.style.gap = '0.4rem';
+
+  if (entry.locked) {
+    const lockSpan = document.createElement('span');
+    lockSpan.style.color = '#665522';
+    lockSpan.style.fontSize = '0.75rem';
+    lockSpan.textContent = `🔒 ${entry.lockReason}`;
+    rightSpan.appendChild(lockSpan);
+  } else if (entry.mastery) {
+    const levelSpan = document.createElement('span');
+    levelSpan.style.color =
+      entry.mastery.level >= 99
+        ? '#fbbf24'
+        : entry.mastery.level >= 50
+          ? '#4ade80'
+          : '#aaa';
+    levelSpan.style.fontWeight = entry.mastery.level >= 99 ? 'bold' : 'normal';
+    levelSpan.textContent = `Lv ${entry.mastery.level}`;
+    rightSpan.appendChild(levelSpan);
+  } else {
+    const undiscovered = document.createElement('span');
+    undiscovered.style.color = '#555';
+    undiscovered.style.fontSize = '0.75rem';
+    undiscovered.textContent = 'Lv 0';
+    rightSpan.appendChild(undiscovered);
+  }
+
+  topLine.appendChild(rightSpan);
+  row.appendChild(topLine);
+
+  // Progress bar (only for unlocked items)
+  if (!entry.locked) {
+    const level = entry.mastery?.level ?? 0;
+    const xp = entry.mastery?.xp ?? 0;
+
+    if (level < 99) {
+      const currentLevelXp = xpForMasteryLevel(level);
+      const nextLevelXp = xpForMasteryLevel(level + 1);
+      const progress =
+        nextLevelXp > currentLevelXp
+          ? ((xp - currentLevelXp) / (nextLevelXp - currentLevelXp)) * 100
+          : 0;
+
+      const barOuter = document.createElement('div');
+      barOuter.style.width = '100%';
+      barOuter.style.height = '3px';
+      barOuter.style.backgroundColor = 'rgba(255,255,255,0.08)';
+      barOuter.style.borderRadius = '2px';
+      barOuter.style.overflow = 'hidden';
+      barOuter.style.marginTop = '2px';
+
+      const barFill = document.createElement('div');
+      barFill.style.width = `${Math.min(progress, 100)}%`;
+      barFill.style.height = '100%';
+      barFill.style.backgroundColor = level >= 50 ? '#4ade80' : '#4a90e2';
+      barFill.style.borderRadius = '2px';
+      barOuter.appendChild(barFill);
+
+      row.appendChild(barOuter);
+    }
+
+    // Bonus hint line
+    const currentBonus = getCurrentBonusLabel(skillId, level);
+    const nextBonus = getNextBonusLabel(skillId, level);
+
+    if (currentBonus || nextBonus) {
+      const hintLine = document.createElement('div');
+      hintLine.style.fontSize = '0.7rem';
+      hintLine.style.marginTop = '2px';
+      hintLine.style.lineHeight = '1.3';
+
+      if (currentBonus) {
+        const activeSpan = document.createElement('span');
+        activeSpan.style.color = '#4ade80';
+        activeSpan.textContent = currentBonus;
+        hintLine.appendChild(activeSpan);
+      }
+
+      if (nextBonus) {
+        if (currentBonus) {
+          const sep = document.createTextNode(' · ');
+          hintLine.appendChild(sep);
+        }
+        const nextSpan = document.createElement('span');
+        nextSpan.style.color = '#666';
+        nextSpan.textContent = `Next Lv ${nextBonus.level}: ${nextBonus.label}`;
+        hintLine.appendChild(nextSpan);
+      }
+
+      row.appendChild(hintLine);
+    }
+  }
+
+  return row;
 }
 
 function renderEquipmentSection(
@@ -940,7 +1428,7 @@ function renderHiringSection(
     const skills = document.createElement('div');
     skills.style.fontSize = '0.85rem';
     skills.style.color = '#888';
-    skills.textContent = `Skills: Pilot ${Math.floor(candidate.skills.piloting)} | Nav ${Math.floor(candidate.skills.astrogation)} | Eng ${Math.floor(candidate.skills.engineering)} | Str ${Math.floor(candidate.skills.strength)}`;
+    skills.textContent = `Skills: Pilot ${Math.floor(candidate.skills.piloting)} | Mining ${Math.floor(candidate.skills.mining)} | Commerce ${Math.floor(candidate.skills.commerce)}`;
     infoDiv.appendChild(skills);
 
     candidateDiv.appendChild(infoDiv);
