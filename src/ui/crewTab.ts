@@ -21,13 +21,9 @@ import {
   getDegradationLevelName,
   getDegradationDescription,
   getNextThreshold,
-  estimateRecoveryDays,
+  estimateRecoveryTime,
 } from '../gravitySystem';
-import {
-  TICKS_PER_DAY,
-  GAME_SECONDS_PER_DAY,
-  formatDualTime,
-} from '../timeSystem';
+import { TICKS_PER_DAY, formatDualTime } from '../timeSystem';
 import { calculateTickTraining } from '../skillProgression';
 import { getCrewJobSlot, getJobSlotDefinition } from '../jobSlots';
 import {
@@ -528,7 +524,7 @@ function renderStatsSection(crew: CrewMember, ship: Ship): HTMLElement {
 
   // Recovery indicator when docked with non-zero exposure
   if (ship.location.status === 'docked' && crew.zeroGExposure > 0) {
-    const recovery = estimateRecoveryDays(crew.zeroGExposure);
+    const recovery = estimateRecoveryTime(crew.zeroGExposure);
     const recoveryDiv = document.createElement('div');
     recoveryDiv.style.marginTop = '0.5rem';
     recoveryDiv.style.padding = '0.5rem 0.75rem';
@@ -547,11 +543,9 @@ function renderStatsSection(crew: CrewMember, ship: Ship): HTMLElement {
     if (exposureLevel !== 'none') {
       // Show time to reach next lower level
       const nextLevelName = getDegradationLevelName(recovery.targetLevel);
-      const daysToNext = recovery.daysToNextLevel;
       const nextLine = document.createElement('div');
       nextLine.style.color = '#ccc';
-      const dualTime = formatDualTime(daysToNext * GAME_SECONDS_PER_DAY);
-      nextLine.textContent = `${nextLevelName}: ${dualTime}`;
+      nextLine.textContent = `${nextLevelName}: ${formatDualTime(recovery.gameSecondsToNextLevel)}`;
       recoveryDiv.appendChild(nextLine);
     }
 
@@ -559,10 +553,7 @@ function renderStatsSection(crew: CrewMember, ship: Ship): HTMLElement {
     const fullLine = document.createElement('div');
     fullLine.style.color = '#aaa';
     fullLine.style.marginTop = '0.15rem';
-    const fullDualTime = formatDualTime(
-      recovery.daysToFullRecovery * GAME_SECONDS_PER_DAY
-    );
-    fullLine.textContent = `Full recovery: ${fullDualTime}`;
+    fullLine.textContent = `Full recovery: ${formatDualTime(recovery.gameSecondsToFullRecovery)}`;
     recoveryDiv.appendChild(fullLine);
 
     exposureSection.appendChild(recoveryDiv);

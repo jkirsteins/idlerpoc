@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   getGravityDegradationLevel,
   getRecoveryTarget,
-  estimateRecoveryDays,
+  estimateRecoveryTime,
   applyGravityRecovery,
   formatExposureDays,
 } from '../gravitySystem';
@@ -42,49 +42,58 @@ describe('getRecoveryTarget', () => {
   });
 });
 
-describe('estimateRecoveryDays', () => {
-  it('returns 0 days for zero exposure', () => {
-    const result = estimateRecoveryDays(0);
-    expect(result.daysToFullRecovery).toBe(0);
-    expect(result.daysToNextLevel).toBe(0);
+describe('estimateRecoveryTime', () => {
+  it('returns 0 for zero exposure', () => {
+    const result = estimateRecoveryTime(0);
+    expect(result.gameSecondsToFullRecovery).toBe(0);
+    expect(result.gameSecondsToNextLevel).toBe(0);
     expect(result.targetLevel).toBe('none');
   });
 
   it('estimates correct full recovery time for minor atrophy', () => {
-    // 30 days exposure, recovery rate 0.5x, so ~60 days to full recovery
+    // 30 days exposure, recovery rate 0.5x, so 60 days of game-time to recover
     const exposure = 30 * SECONDS_PER_DAY;
-    const result = estimateRecoveryDays(exposure);
-    expect(result.daysToFullRecovery).toBe(60);
+    const result = estimateRecoveryTime(exposure);
+    expect(result.gameSecondsToFullRecovery).toBe(60 * SECONDS_PER_DAY);
   });
 
-  it('estimates days to reach next lower level from minor to none', () => {
+  it('estimates time to reach next lower level from minor to none', () => {
     // At 30 days exposure, need to recover below 14 days threshold
     // Excess: 30 - 14 = 16 days of exposure above threshold
-    // At 0.5x rate: 16 / 0.5 = 32 days + 1 to cross
+    // At 0.5x rate: 16 / 0.5 = 32 days of game-time
     const exposure = 30 * SECONDS_PER_DAY;
-    const result = estimateRecoveryDays(exposure);
+    const result = estimateRecoveryTime(exposure);
     expect(result.targetLevel).toBe('none');
-    expect(result.daysToNextLevel).toBe(33);
+    expect(result.gameSecondsToNextLevel).toBe(32 * SECONDS_PER_DAY);
   });
 
-  it('estimates days from moderate to minor', () => {
+  it('estimates time from moderate to minor', () => {
     // At 100 days exposure, need to recover below 60 days threshold
     // Excess: 100 - 60 = 40 days
-    // At 0.5x rate: 40 / 0.5 = 80 days + 1
+    // At 0.5x rate: 40 / 0.5 = 80 days of game-time
     const exposure = 100 * SECONDS_PER_DAY;
-    const result = estimateRecoveryDays(exposure);
+    const result = estimateRecoveryTime(exposure);
     expect(result.targetLevel).toBe('minor');
-    expect(result.daysToNextLevel).toBe(81);
+    expect(result.gameSecondsToNextLevel).toBe(80 * SECONDS_PER_DAY);
   });
 
   it('returns full recovery time when already at none level', () => {
     // 5 days exposure, still in 'none' zone
     const exposure = 5 * SECONDS_PER_DAY;
-    const result = estimateRecoveryDays(exposure);
+    const result = estimateRecoveryTime(exposure);
     expect(result.targetLevel).toBe('none');
-    // Full recovery: 5 / 0.5 = 10 days
-    expect(result.daysToFullRecovery).toBe(10);
-    expect(result.daysToNextLevel).toBe(10);
+    // Full recovery: 5 / 0.5 = 10 days of game-time
+    expect(result.gameSecondsToFullRecovery).toBe(10 * SECONDS_PER_DAY);
+    expect(result.gameSecondsToNextLevel).toBe(10 * SECONDS_PER_DAY);
+  });
+
+  it('shows correct IRL time for short flights', () => {
+    // 45 real seconds of flight = 45 * 180 = 8100 game-seconds exposure
+    const exposure = 8100;
+    const result = estimateRecoveryTime(exposure);
+    // Full recovery: 8100 / 0.5 = 16200 game-seconds
+    // IRL: 16200 / 180 = 90 real seconds (1.5 min, ~2x the 45s flight)
+    expect(result.gameSecondsToFullRecovery).toBe(16200);
   });
 });
 

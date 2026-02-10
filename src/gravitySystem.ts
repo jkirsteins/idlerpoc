@@ -248,43 +248,38 @@ export function getRecoveryTarget(zeroGExposure: number): {
 }
 
 /**
- * Estimate days of docked recovery needed to reach the next lower threshold.
+ * Estimate docked recovery time in game-seconds to reach the next lower
+ * threshold and to reach zero. Pass the returned values directly to
+ * formatDualTime for accurate IRL estimates.
  * Recovery rate is 0.5 game-seconds per game-second elapsed.
  */
-export function estimateRecoveryDays(zeroGExposure: number): {
-  daysToNextLevel: number;
+export function estimateRecoveryTime(zeroGExposure: number): {
+  gameSecondsToNextLevel: number;
   targetLevel: GravityDegradationLevel;
-  daysToFullRecovery: number;
+  gameSecondsToFullRecovery: number;
 } {
   const currentLevel = getGravityDegradationLevel(zeroGExposure);
   const recoveryRate = 0.5;
-  const secondsPerDay = 24 * 60 * 60;
 
-  // Days to full recovery
-  const daysToFullRecovery = Math.ceil(
-    zeroGExposure / (recoveryRate * secondsPerDay)
-  );
+  const gameSecondsToFullRecovery = zeroGExposure / recoveryRate;
 
   if (currentLevel === 'none') {
     return {
-      daysToNextLevel: daysToFullRecovery,
+      gameSecondsToNextLevel: gameSecondsToFullRecovery,
       targetLevel: 'none',
-      daysToFullRecovery,
+      gameSecondsToFullRecovery,
     };
   }
 
   // Find what we're recovering toward
   const target = getRecoveryTarget(zeroGExposure);
-  // We need to drop below target.threshold to reach the lower level
   const excessSeconds = zeroGExposure - target.threshold;
-  // +1 to ensure we cross the threshold
-  const daysToNextLevel =
-    Math.ceil(excessSeconds / (recoveryRate * secondsPerDay)) + 1;
+  const gameSecondsToNextLevel = excessSeconds / recoveryRate;
 
   return {
-    daysToNextLevel,
+    gameSecondsToNextLevel,
     targetLevel: target.level,
-    daysToFullRecovery,
+    gameSecondsToFullRecovery,
   };
 }
 
