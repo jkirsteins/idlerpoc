@@ -888,6 +888,10 @@ button.small-button:hover {
   background: #e94560;
 }
 
+.bar-inactive {
+  background: #333;
+}
+
 /* Custom Tooltip */
 .custom-tooltip {
   position: absolute;

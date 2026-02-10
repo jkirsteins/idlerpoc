@@ -434,55 +434,53 @@ export function createRightSidebar(gameData: GameData): Component {
 
     sidebar.appendChild(engineSection);
 
-    // Torch systems section (if applicable)
-    if (engineDef.radiationOutput || engineDef.wasteHeatOutput) {
-      const torchSection = document.createElement('div');
-      torchSection.className = 'sidebar-section';
+    // Torch systems section (always shown for discoverability)
+    const torchSection = document.createElement('div');
+    torchSection.className = 'sidebar-section';
 
-      const torchLabel = document.createElement('h3');
-      torchLabel.textContent = 'Torch Systems';
-      torchSection.appendChild(torchLabel);
+    const torchLabel = document.createElement('h3');
+    torchLabel.textContent = 'Torch Systems';
+    torchSection.appendChild(torchLabel);
 
-      if (engineDef.radiationOutput) {
-        const radiationDiv = document.createElement('div');
-        radiationDiv.className = 'sidebar-item';
-        radiationDiv.innerHTML =
-          '<div style="font-size: 11px; margin-bottom: 4px;">Radiation</div>';
+    {
+      const radiationDiv = document.createElement('div');
+      radiationDiv.className = 'sidebar-item';
+      radiationDiv.innerHTML =
+        '<div style="font-size: 11px; margin-bottom: 4px;">Radiation</div>';
 
-        const radiationData = getRadiationData(gameData);
-        radiationDiv.appendChild(
-          renderStatBar({
-            label: radiationData.label,
-            percentage: radiationData.percentage,
-            colorClass: radiationData.colorClass,
-            mode: 'compact',
-          })
-        );
+      const radiationData = getRadiationData(gameData);
+      radiationDiv.appendChild(
+        renderStatBar({
+          label: radiationData.label,
+          percentage: radiationData.percentage,
+          colorClass: radiationData.colorClass,
+          mode: 'compact',
+        })
+      );
 
-        torchSection.appendChild(radiationDiv);
-      }
-
-      if (engineDef.wasteHeatOutput) {
-        const heatDiv = document.createElement('div');
-        heatDiv.className = 'sidebar-item';
-        heatDiv.innerHTML =
-          '<div style="font-size: 11px; margin-bottom: 4px;">Heat</div>';
-
-        const heatData = getHeatData(gameData);
-        heatDiv.appendChild(
-          renderStatBar({
-            label: heatData.label,
-            percentage: heatData.percentage,
-            colorClass: heatData.colorClass,
-            mode: 'compact',
-          })
-        );
-
-        torchSection.appendChild(heatDiv);
-      }
-
-      sidebar.appendChild(torchSection);
+      torchSection.appendChild(radiationDiv);
     }
+
+    {
+      const heatDiv = document.createElement('div');
+      heatDiv.className = 'sidebar-item';
+      heatDiv.innerHTML =
+        '<div style="font-size: 11px; margin-bottom: 4px;">Heat</div>';
+
+      const heatData = getHeatData(gameData);
+      heatDiv.appendChild(
+        renderStatBar({
+          label: heatData.label,
+          percentage: heatData.percentage,
+          colorClass: heatData.colorClass,
+          mode: 'compact',
+        })
+      );
+
+      torchSection.appendChild(heatDiv);
+    }
+
+    sidebar.appendChild(torchSection);
 
     // Active quest section
     if (ship.activeContract) {
@@ -525,6 +523,10 @@ function getRadiationData(gameData: GameData): {
   const engineDef = getEngineDefinition(ship.engine.definitionId);
   const engineRadiation = engineDef.radiationOutput || 0;
 
+  if (engineRadiation === 0) {
+    return { percentage: 0, label: 'N/A', colorClass: 'bar-inactive' };
+  }
+
   let totalShielding = 0;
   for (const eq of ship.equipment) {
     const eqDef = getEquipmentDefinition(eq.definitionId);
@@ -556,6 +558,10 @@ function getHeatData(gameData: GameData): {
   const ship = getActiveShip(gameData);
   const engineDef = getEngineDefinition(ship.engine.definitionId);
   const engineHeat = engineDef.wasteHeatOutput || 0;
+
+  if (engineHeat === 0) {
+    return { percentage: 0, label: 'N/A', colorClass: 'bar-inactive' };
+  }
 
   let totalDissipation = 0;
   for (const eq of ship.equipment) {
