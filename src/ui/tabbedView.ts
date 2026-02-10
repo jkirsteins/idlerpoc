@@ -12,6 +12,7 @@ import { createFleetTab } from './fleetTab';
 import { createLogTab } from './logTab';
 import { createSettingsTab } from './settingsTab';
 import { createGamepediaTab } from './gamepediaTab';
+import { createStationTab } from './stationTab';
 import { createFleetPanel } from './fleetPanel';
 import { createNavigationView } from './navigationView';
 import {
@@ -74,6 +75,7 @@ export function createTabbedView(
 
   const tabDefs: Array<{ label: string; tab: PlayingTab }> = [
     { label: 'Ship', tab: 'ship' },
+    { label: 'Station', tab: 'station' },
     { label: 'Crew', tab: 'crew' },
     { label: 'Work', tab: 'work' },
     { label: 'Nav', tab: 'nav' },
@@ -149,6 +151,8 @@ export function createTabbedView(
           onStartTrip: callbacks.onStartTrip,
           onBuyShip: callbacks.onBuyShip,
         });
+      case 'station':
+        return createStationTab(gameData, callbacks);
       case 'crew':
         return createCrewTab(gameData, currentSelectedCrewId, callbacks);
       case 'work':
@@ -159,8 +163,6 @@ export function createTabbedView(
           onDockAtNearestPort: callbacks.onDockAtNearestPort,
           onResumeContract: callbacks.onResumeContract,
           onAbandonContract: callbacks.onAbandonContract,
-          onSellOre: callbacks.onSellOre,
-          onSellAllOre: callbacks.onSellAllOre,
           onStartMiningRoute: callbacks.onStartMiningRoute,
           onCancelMiningRoute: callbacks.onCancelMiningRoute,
         });

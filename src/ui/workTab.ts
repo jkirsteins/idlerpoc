@@ -1,4 +1,4 @@
-import type { GameData, Quest, Ship, OreId } from '../models';
+import type { GameData, Quest, Ship } from '../models';
 import { getActiveShip } from '../models';
 import {
   formatDuration,
@@ -25,11 +25,7 @@ import { renderFlightStatus } from './flightStatus';
 import { getOreDefinition, canMineOre } from '../oreTypes';
 import { getCrewForJobType } from '../jobSlots';
 import { getBestShipMiningEquipment } from '../equipment';
-import {
-  getOreSellPrice,
-  getOreCargoWeight,
-  getRemainingOreCapacity,
-} from '../miningSystem';
+import { getOreCargoWeight, getRemainingOreCapacity } from '../miningSystem';
 
 export interface WorkTabCallbacks {
   onAcceptQuest: (questId: string) => void;
@@ -38,8 +34,6 @@ export interface WorkTabCallbacks {
   onDockAtNearestPort: () => void;
   onResumeContract: () => void;
   onAbandonContract: () => void;
-  onSellOre: (oreId: OreId, quantity: number) => void;
-  onSellAllOre: () => void;
   onStartMiningRoute: (sellLocationId: string) => void;
   onCancelMiningRoute: () => void;
 }
@@ -80,20 +74,6 @@ export function createWorkTab(
       ) {
         container.appendChild(
           renderMiningStatus(gameData, ship, orbitLocation, callbacks)
-        );
-      }
-
-      // Ore selling panel (when docked at a trade-enabled location with ore cargo)
-      const dockLocation = ship.location.dockedAt
-        ? gameData.world.locations.find((l) => l.id === ship.location.dockedAt)
-        : null;
-      if (
-        ship.location.status === 'docked' &&
-        dockLocation?.services.includes('trade') &&
-        ship.oreCargo.length > 0
-      ) {
-        container.appendChild(
-          renderOreSelling(gameData, ship, dockLocation, callbacks)
         );
       }
 
@@ -1094,106 +1074,6 @@ function renderMiningStatus(
     }
   }
   panel.appendChild(routeSection);
-
-  return panel;
-}
-
-// ─── Ore Selling Panel ──────────────────────────────────────────
-
-function renderOreSelling(
-  _gameData: GameData,
-  ship: Ship,
-  location: import('../models').WorldLocation,
-  callbacks: WorkTabCallbacks
-): HTMLElement {
-  const panel = document.createElement('div');
-  panel.className = 'ore-selling-panel';
-  panel.style.cssText = `
-    margin-bottom: 1rem;
-    padding: 0.75rem;
-    background: rgba(76, 175, 80, 0.08);
-    border: 1px solid #4caf50;
-    border-radius: 4px;
-  `;
-
-  // Header with sell all button
-  const header = document.createElement('div');
-  header.style.cssText =
-    'display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;';
-
-  const title = document.createElement('span');
-  title.style.cssText = 'font-weight: bold; font-size: 1rem; color: #4caf50;';
-  title.textContent = '💰 Sell Ore';
-  header.appendChild(title);
-
-  // Sell All button
-  const totalValue = ship.oreCargo.reduce((sum, item) => {
-    const ore = getOreDefinition(item.oreId);
-    return sum + getOreSellPrice(ore, location, ship) * item.quantity;
-  }, 0);
-
-  const sellAllBtn = document.createElement('button');
-  sellAllBtn.style.cssText = `
-    padding: 4px 12px; font-size: 0.85rem; cursor: pointer;
-    background: #4caf50; color: white; border: none; border-radius: 3px;
-  `;
-  sellAllBtn.textContent = `Sell All (${totalValue.toLocaleString()} cr)`;
-  sellAllBtn.addEventListener('click', () => callbacks.onSellAllOre());
-  header.appendChild(sellAllBtn);
-
-  panel.appendChild(header);
-
-  // Location price info
-  const priceInfo = document.createElement('div');
-  priceInfo.style.cssText =
-    'font-size: 0.8rem; color: #888; margin-bottom: 0.5rem;';
-  priceInfo.textContent = `Selling at ${location.name}. Commerce skill improves prices.`;
-  panel.appendChild(priceInfo);
-
-  // Ore items
-  for (const item of ship.oreCargo) {
-    const ore = getOreDefinition(item.oreId);
-    const pricePerUnit = getOreSellPrice(ore, location, ship);
-    const itemTotal = pricePerUnit * item.quantity;
-
-    const row = document.createElement('div');
-    row.style.cssText = `
-      display: flex; justify-content: space-between; align-items: center;
-      padding: 0.4rem 0; border-bottom: 1px solid #333;
-    `;
-
-    const info = document.createElement('div');
-    info.style.cssText = 'font-size: 0.85rem;';
-    info.innerHTML = `
-      <span style="color: #ccc;">${ore.icon} ${ore.name}</span>
-      <span style="color: #888;"> × ${item.quantity}</span>
-      <span style="color: #4caf50; margin-left: 8px;">${pricePerUnit} cr/unit</span>
-    `;
-    row.appendChild(info);
-
-    const rightSide = document.createElement('div');
-    rightSide.style.cssText = 'display: flex; align-items: center; gap: 8px;';
-
-    const valueLabel = document.createElement('span');
-    valueLabel.style.cssText =
-      'font-size: 0.85rem; color: #4caf50; font-weight: bold;';
-    valueLabel.textContent = `${itemTotal.toLocaleString()} cr`;
-    rightSide.appendChild(valueLabel);
-
-    const sellBtn = document.createElement('button');
-    sellBtn.style.cssText = `
-      padding: 2px 8px; font-size: 0.8rem; cursor: pointer;
-      background: #2e7d32; color: white; border: none; border-radius: 3px;
-    `;
-    sellBtn.textContent = 'Sell';
-    sellBtn.addEventListener('click', () =>
-      callbacks.onSellOre(item.oreId, item.quantity)
-    );
-    rightSide.appendChild(sellBtn);
-
-    row.appendChild(rightSide);
-    panel.appendChild(row);
-  }
 
   return panel;
 }

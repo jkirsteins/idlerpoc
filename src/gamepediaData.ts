@@ -128,6 +128,61 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
       'commerce-skill',
       'crew-hiring',
       'mining-system',
+      'station-services',
+    ],
+  },
+
+  {
+    id: 'station-services',
+    title: 'Station Services',
+    category: 'Core Systems',
+    summary:
+      'What you can do when docked — fuel, trade, hiring, and equipment.',
+    sections: [
+      {
+        paragraphs: [
+          'When your ship is docked at a location, the Station tab provides access to all services available at that port. Which sections appear depends on the services the location offers.',
+        ],
+      },
+      {
+        heading: 'Fuel Depot',
+        paragraphs: [
+          'Locations with the refuel service let you purchase fuel. Price per kilogram varies by location. See [[credits-economy|Credits & Economy]] for how the [[commerce-skill|Commerce]] skill reduces fuel costs.',
+        ],
+      },
+      {
+        heading: 'Ore Exchange',
+        paragraphs: [
+          'At locations with trade services, you can sell [[ore-types|mined ore]] from your cargo hold. Prices depend on ore rarity, location type, and your [[commerce-skill|Commerce]] skill. Sell individual ore types or use Sell All for a quick offload.',
+        ],
+      },
+      {
+        heading: 'Station Store',
+        paragraphs: [
+          'The store has three sub-tabs: Buy Crew Gear (personal [[crew-equipment|crew equipment]]), Sell (offload items at 50% value), and Ship Equipment ([[ship-equipment|ship-mounted gear]] like mining rigs). Upgrading ship equipment gives trade-in credit for the old item.',
+        ],
+      },
+      {
+        heading: 'Hiring Office',
+        paragraphs: [
+          'Locations with hiring services present a roster of [[crew-hiring|available crew candidates]]. Each candidate shows their role, skill levels, hire cost, and ongoing salary.',
+        ],
+      },
+      {
+        heading: 'Flavor Text',
+        paragraphs: [
+          'Each time you dock, the Station tab shows an atmospheric description of the port — the sights, sounds, and smells of each location type. The text rotates daily so repeat visits feel varied.',
+        ],
+      },
+    ],
+    relatedArticles: [
+      'credits-economy',
+      'crew-hiring',
+      'crew-equipment',
+      'ship-equipment',
+      'mining-system',
+      'ore-types',
+      'commerce-skill',
     ],
   },
 
@@ -497,7 +552,12 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
         ],
       },
     ],
-    relatedArticles: ['crew-roles', 'crew-salaries', 'credits-economy'],
+    relatedArticles: [
+      'crew-roles',
+      'crew-salaries',
+      'credits-economy',
+      'station-services',
+    ],
   },
 
   {

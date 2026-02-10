@@ -7,6 +7,7 @@ import type { CrewEquipmentId, EquipmentId, OreId, SkillId } from '../models';
 
 export type PlayingTab =
   | 'ship'
+  | 'station'
   | 'crew'
   | 'work'
   | 'nav'
