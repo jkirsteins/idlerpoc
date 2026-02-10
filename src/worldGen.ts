@@ -3,6 +3,7 @@ import { getShipClass } from './shipClasses';
 import { computeMaxRange } from './flightPhysics';
 import { getEngineDefinition } from './engines';
 import { getDistanceBetween } from './utils';
+import { getBestCrewSkill } from './crewRoles';
 
 export { getDistanceBetween } from './utils';
 
@@ -120,12 +121,7 @@ export function canShipAccessLocation(
   ship: Ship,
   location: WorldLocation
 ): boolean {
-  let bestPiloting = 0;
-  for (const crew of ship.crew) {
-    if (crew.skills.piloting > bestPiloting) {
-      bestPiloting = crew.skills.piloting;
-    }
-  }
+  const bestPiloting = getBestCrewSkill(ship.crew, 'piloting');
   return meetsPilotingRequirement(bestPiloting, location);
 }
 

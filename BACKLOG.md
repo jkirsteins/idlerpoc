@@ -66,6 +66,13 @@ This file tracks deferred features and known gaps that are not currently priorit
 
 - **EVA (Extra-Vehicular Activity)**: Crew EVA system for outside-the-ship operations. Would enable hand-mining of specific asteroid targets, ship hull inspection/repair, cargo transfer between ships, and salvage operations. Requires EVA suit crew equipment, airlock room type, and EVA skill or EVA-related piloting checks. Could tie into mining (artisanal hand-mining of rare samples) and repair (hull patch jobs) gameplay loops.
 
+## Duplicate Logic Consolidation (DONE)
+
+All items from the original audit (`docs/duplicate-logic-audit.md`) have been resolved.
+Remaining follow-up:
+
+- **Move `getFuelPricePerKg` out of `ui/refuelDialog.ts`**: This is pure game logic; it should live in a non-UI module so `fleetAnalytics.ts` can import it without cross-layer dependency.
+
 ## Other Known Gaps
 
 - **Equipment Repair at Stations**: Degraded equipment cannot currently be repaired (in-flight repair now via job slots).

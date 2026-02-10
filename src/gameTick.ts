@@ -9,7 +9,12 @@ import {
 import { completeLeg } from './contractExec';
 import { GAME_SECONDS_PER_TICK } from './timeSystem';
 import { getCrewRoleDefinition } from './crewRoles';
-import { getEquipmentDefinition } from './equipment';
+import {
+  getEquipmentDefinition,
+  getEffectiveRadiationShielding,
+  getEffectiveHeatDissipation,
+} from './equipment';
+import { calculateRepairPoints } from './crewRoles';
 import {
   applyGravityTick,
   applyGravityRecovery,
@@ -243,16 +248,7 @@ function applyShipTick(gameData: GameData, ship: Ship): boolean {
       if (ship.engine.state === 'online') {
         // === RADIATION EXPOSURE ===
         const engineRadiation = engineDef.radiationOutput || 0;
-
-        let totalShielding = 0;
-        for (const eq of ship.equipment) {
-          const eqDef = getEquipmentDefinition(eq.definitionId);
-          if (eqDef?.radiationShielding) {
-            const effectiveness = 1 - eq.degradation / 200;
-            totalShielding += eqDef.radiationShielding * effectiveness;
-          }
-        }
-
+        const totalShielding = getEffectiveRadiationShielding(ship);
         const netRadiation = Math.max(0, engineRadiation - totalShielding);
 
         if (netRadiation > 0) {
@@ -293,16 +289,7 @@ function applyShipTick(gameData: GameData, ship: Ship): boolean {
 
         // === WASTE HEAT MANAGEMENT ===
         const engineHeat = engineDef.wasteHeatOutput || 0;
-
-        let totalHeatDissipation = 0;
-        for (const eq of ship.equipment) {
-          const eqDef = getEquipmentDefinition(eq.definitionId);
-          if (eqDef?.heatDissipation) {
-            const effectiveness = 1 - eq.degradation / 200;
-            totalHeatDissipation += eqDef.heatDissipation * effectiveness;
-          }
-        }
-
+        const totalHeatDissipation = getEffectiveHeatDissipation(ship);
         const excessHeat = Math.max(0, engineHeat - totalHeatDissipation);
 
         if (excessHeat > 0) {
@@ -537,7 +524,7 @@ function applyShipTick(gameData: GameData, ship: Ship): boolean {
     if (repairCrew.length > 0) {
       let totalRepairPoints = 0;
       for (const eng of repairCrew) {
-        totalRepairPoints += eng.skills.piloting * 0.05;
+        totalRepairPoints += calculateRepairPoints(eng);
       }
 
       // Distribute repair points equally across degraded equipment
