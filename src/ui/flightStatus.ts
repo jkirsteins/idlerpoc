@@ -41,14 +41,12 @@ export function renderFlightStatus(
   route.textContent = `${origin?.name} \u2192 ${destination?.name}`;
   status.appendChild(route);
 
-  // Flight profile indicator
-  if (flight.burnFraction < 1.0) {
-    const profileDiv = document.createElement('div');
-    profileDiv.style.cssText =
-      'font-size: 0.85rem; color: #4a9eff; margin-bottom: 2px;';
-    profileDiv.textContent = `Profile: ${Math.round(flight.burnFraction * 100)}% \u2014 ${getProfileLabel(flight.burnFraction)}`;
-    status.appendChild(profileDiv);
-  }
+  // Flight profile indicator (always visible per UI discoverability rule)
+  const profileDiv = document.createElement('div');
+  profileDiv.style.cssText =
+    'font-size: 0.85rem; color: #4a9eff; margin-bottom: 2px;';
+  profileDiv.textContent = `Profile: ${Math.round(flight.burnFraction * 100)}% \u2014 ${getProfileLabel(flight.burnFraction)}`;
+  status.appendChild(profileDiv);
 
   // Regional threat status
   const currentKm = getShipPositionKm(ship, gameData.world);

@@ -813,7 +813,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
           'Each ship has a flight profile slider (Economy to Max Speed) that controls the burn fraction of the delta-v budget.',
           'Economy: More coasting, less fuel, longer trip, more [[zero-g-exposure|zero-g exposure]].',
           'Max Speed: Maximum burns, more fuel, shorter trip, less zero-g but more fuel cost.',
-          'The slider is available on the Work tab and the [[navigation|Navigation Chart]], including during active flight. Adjusting it updates travel time and fuel estimates in real time. Changes made mid-flight take effect on the next leg.',
+          'The slider is available on the Work tab and the [[navigation|Navigation Chart]], including during active flight. Adjusting it recalculates the current trajectory immediately — the ship replans its burn-coast-burn profile from its present position.',
         ],
       },
       {

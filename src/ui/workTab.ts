@@ -40,6 +40,7 @@ export interface WorkTabCallbacks {
   onRequestAbandon: () => void;
   onResumeContract: () => void;
   onAbandonContract: () => void;
+  onFlightProfileChange: () => void;
   onStartMiningRoute: (sellLocationId: string) => void;
   onCancelMiningRoute: () => void;
 }
@@ -55,7 +56,9 @@ export function createWorkTab(
   container.className = 'work-tab';
 
   // Persistent flight profile slider — created once, survives rebuilds
-  const profileControl = createFlightProfileControl(gameData);
+  const profileControl = createFlightProfileControl(gameData, () => {
+    callbacks.onFlightProfileChange();
+  });
 
   // ── Content area — rebuilt each tick (non-interactive) ──────────
   const contentArea = document.createElement('div');
@@ -109,12 +112,6 @@ export function createWorkTab(
     radioGroupEl.appendChild(card);
     radioCardRefs.set(value, { card, radio, labelEl, descEl, warnEl });
   }
-
-  // Persistent hint shown below the slider when adjusting during flight
-  const profileHintEl = document.createElement('div');
-  profileHintEl.style.cssText =
-    'font-size: 0.75rem; color: #888; padding: 0 0.75rem 0.5rem;';
-  profileHintEl.textContent = 'Changes take effect on the next leg.';
 
   container.appendChild(contentArea);
   container.appendChild(radioGroupEl);
@@ -210,8 +207,6 @@ export function createWorkTab(
 
     // Content area: rebuild freely (non-interactive)
     contentArea.replaceChildren();
-    // Clean up hint — re-added only when needed
-    if (profileHintEl.parentNode) profileHintEl.remove();
 
     if (curPhase === 'none') {
       if (
@@ -249,11 +244,6 @@ export function createWorkTab(
       // Flight profile slider below radio options
       updateFlightProfileControl(profileControl, ship);
       radioGroupEl.after(profileControl.el);
-
-      // Hint when in-flight: changes won't affect current leg
-      if (ship.location.status === 'in_flight') {
-        profileControl.el.after(profileHintEl);
-      }
     } else if (curPhase === 'paused') {
       contentArea.appendChild(
         renderPausedContract(gameData, callbacks, pausedAbandonPending, {
