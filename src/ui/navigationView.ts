@@ -24,6 +24,14 @@ import { formatDualTime } from '../timeSystem';
 import type { Component } from './component';
 import { formatFuelMass } from './fuelFormatting';
 
+const NAV_SERVICE_LABELS: Record<string, { icon: string; label: string }> = {
+  refuel: { icon: '⛽', label: 'Fuel' },
+  trade: { icon: '🛒', label: 'Trade' },
+  repair: { icon: '🔧', label: 'Repair' },
+  hire: { icon: '👤', label: 'Hire' },
+  mine: { icon: '⛏️', label: 'Mine' },
+};
+
 export interface NavigationViewCallbacks {
   onToggleNavigation: () => void;
   onStartTrip?: (destinationId: string) => void;
@@ -164,6 +172,23 @@ export function createNavigationView(
       const name = document.createElement('strong');
       name.textContent = location.name;
       item.appendChild(name);
+
+      // Service badges
+      if (location.services.length > 0) {
+        const badges = document.createElement('div');
+        badges.style.cssText =
+          'display: flex; gap: 4px; flex-wrap: wrap; margin: 3px 0;';
+        for (const svc of location.services) {
+          const info = NAV_SERVICE_LABELS[svc];
+          if (!info) continue;
+          const badge = document.createElement('span');
+          badge.style.cssText =
+            'font-size: 0.7rem; padding: 1px 6px; border-radius: 3px; background: rgba(255,255,255,0.06); color: #aaa; border: 1px solid #444;';
+          badge.textContent = `${info.icon} ${info.label}`;
+          badges.appendChild(badge);
+        }
+        item.appendChild(badges);
+      }
 
       const distanceFromCurrent = Math.abs(
         location.distanceFromEarth - currentLocation.distanceFromEarth

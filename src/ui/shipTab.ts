@@ -39,6 +39,10 @@ import {
   isRoomStaffed,
   isHelmManned,
 } from '../jobSlots';
+import {
+  createFlightProfileControl,
+  updateFlightProfileControl,
+} from './flightProfileControl';
 
 export interface ShipTabCallbacks {
   onJobAssign: (crewId: string, jobSlotId: string) => void;
@@ -73,6 +77,7 @@ function snapshotShipProps(gameData: GameData, showNav: boolean) {
     flightDest: ship.activeFlightPlan?.destination,
     flightVelocity: ship.activeFlightPlan?.currentVelocity,
     flightPhase: ship.activeFlightPlan?.phase,
+    burnFraction: ship.flightProfileBurnFraction,
     crewCount: ship.crew.length,
     cargoCount: ship.cargo.length,
     equipCount: ship.equipment.length,
@@ -112,15 +117,34 @@ export function createShipTab(
   let currentShowNav = showNavigation;
   let lastSnapshot: ShipSnapshot | null = null;
 
+  // Persistent flight profile slider — survives rebuilds (interactive element)
+  const profileControl = createFlightProfileControl(gameData);
+
+  // Content area: everything below the slider gets rebuilt via replaceChildren()
+  const contentArea = document.createElement('div');
+  container.append(profileControl.el, contentArea);
+
   function rebuild(gameData: GameData) {
     const snap = snapshotShipProps(gameData, currentShowNav);
     if (!shipPropsChanged(lastSnapshot, snap)) return;
     lastSnapshot = snap;
 
-    container.replaceChildren();
+    const ship = getActiveShip(gameData);
+
+    // Show flight profile slider when docked or orbiting (not in flight)
+    const showSlider =
+      !currentShowNav &&
+      (ship.location.status === 'docked' ||
+        ship.location.status === 'orbiting');
+    profileControl.el.style.display = showSlider ? '' : 'none';
+    if (showSlider) {
+      updateFlightProfileControl(profileControl, ship);
+    }
+
+    contentArea.replaceChildren();
 
     if (currentShowNav) {
-      container.appendChild(
+      contentArea.appendChild(
         createNavigationView(gameData, {
           onToggleNavigation: callbacks.onToggleNavigation,
           onStartTrip: callbacks.onStartTrip,
@@ -130,47 +154,46 @@ export function createShipTab(
     }
 
     // Fuel progress bar
-    container.appendChild(renderFuelBar(gameData));
+    contentArea.appendChild(renderFuelBar(gameData));
 
     // Power progress bar
-    container.appendChild(renderPowerBar(gameData));
+    contentArea.appendChild(renderPowerBar(gameData));
 
     // Oxygen progress bar
-    container.appendChild(renderOxygenBar(gameData));
+    contentArea.appendChild(renderOxygenBar(gameData));
 
     // Torch ship status bars (Class III+)
-    const ship = getActiveShip(gameData);
     const engineDef = getEngineDefinition(ship.engine.definitionId);
     if (engineDef.radiationOutput > 0) {
-      container.appendChild(renderRadiationBar(gameData));
+      contentArea.appendChild(renderRadiationBar(gameData));
     }
     if (engineDef.wasteHeatOutput > 0) {
-      container.appendChild(renderHeatBar(gameData));
+      contentArea.appendChild(renderHeatBar(gameData));
     }
     if (engineDef.containmentComplexity > 0) {
-      container.appendChild(renderContainmentBar(gameData));
+      contentArea.appendChild(renderContainmentBar(gameData));
     }
 
     // Flight status strip (shown when in flight)
     if (ship.location.status === 'in_flight') {
       const strip = renderFlightStrip(gameData);
-      if (strip) container.appendChild(strip);
+      if (strip) contentArea.appendChild(strip);
     }
 
     // Ship stats panel
-    container.appendChild(renderShipStatsPanel(gameData));
+    contentArea.appendChild(renderShipStatsPanel(gameData));
 
     // Job slots grid (organized by room + ship-wide)
-    container.appendChild(renderJobSlotsGrid(gameData, callbacks));
+    contentArea.appendChild(renderJobSlotsGrid(gameData, callbacks));
 
     // Gravity status panel
-    container.appendChild(renderGravityStatus(gameData));
+    contentArea.appendChild(renderGravityStatus(gameData));
 
     // Equipment section
-    container.appendChild(renderEquipmentSection(gameData));
+    contentArea.appendChild(renderEquipmentSection(gameData));
 
     // Unassigned crew
-    container.appendChild(renderUnassignedCrew(gameData, callbacks));
+    contentArea.appendChild(renderUnassignedCrew(gameData, callbacks));
   }
 
   rebuild(gameData);

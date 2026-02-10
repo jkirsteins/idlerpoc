@@ -26,6 +26,10 @@ import { getOreDefinition, canMineOre } from '../oreTypes';
 import { getCrewForJobType } from '../jobSlots';
 import { getBestShipMiningEquipment } from '../equipment';
 import { getOreCargoWeight, getRemainingOreCapacity } from '../miningSystem';
+import {
+  createFlightProfileControl,
+  updateFlightProfileControl,
+} from './flightProfileControl';
 
 export interface WorkTabCallbacks {
   onAcceptQuest: (questId: string) => void;
@@ -62,18 +66,14 @@ export function createWorkTab(
       updateFlightProfileControl(profileControl, ship);
       container.appendChild(profileControl.el);
 
-      // Mining status panel (when orbiting a mine-enabled location)
-      const orbitLocation = ship.location.orbitingAt
-        ? gameData.world.locations.find(
-            (l) => l.id === ship.location.orbitingAt
-          )
+      // Mining status panel
+      const mineLocationId = ship.location.orbitingAt ?? ship.location.dockedAt;
+      const mineLocation = mineLocationId
+        ? gameData.world.locations.find((l) => l.id === mineLocationId)
         : null;
-      if (
-        ship.location.status === 'orbiting' &&
-        orbitLocation?.services.includes('mine')
-      ) {
+      if (mineLocation?.services.includes('mine')) {
         container.appendChild(
-          renderMiningStatus(gameData, ship, orbitLocation, callbacks)
+          renderMiningStatus(gameData, ship, mineLocation, callbacks)
         );
       }
 
@@ -88,126 +88,6 @@ export function createWorkTab(
 
   rebuild(gameData);
   return { el: container, update: rebuild };
-}
-
-/**
- * Flight profile presets for display labels
- */
-function getProfileLabel(burnFraction: number): string {
-  if (burnFraction >= 0.95) return 'Max Speed';
-  if (burnFraction >= 0.75) return 'Fast';
-  if (burnFraction >= 0.5) return 'Balanced';
-  if (burnFraction >= 0.3) return 'Economical';
-  return 'Max Economy';
-}
-
-interface FlightProfileControl {
-  el: HTMLElement;
-  slider: HTMLInputElement;
-  label: HTMLElement;
-  /** Update the mutable ship reference so the slider mutates the correct ship. */
-  updateShipRef: (ship: Ship) => void;
-}
-
-function createFlightProfileControl(gameData: GameData): FlightProfileControl {
-  // Mutable reference — updated by updateFlightProfileControl each tick
-  // so the slider always mutates the *current* active ship even after
-  // the player switches ships (keep-alive tabs survive across switches).
-  let currentShip = getActiveShip(gameData);
-
-  const el = document.createElement('div');
-  el.className = 'flight-profile-control';
-  el.style.cssText = `
-    margin-bottom: 0.75rem;
-    padding: 0.75rem;
-    background: rgba(74, 158, 255, 0.05);
-    border: 1px solid #333;
-    border-radius: 4px;
-  `;
-
-  const header = document.createElement('div');
-  header.style.cssText =
-    'display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;';
-
-  const title = document.createElement('span');
-  title.style.cssText = 'font-weight: bold; font-size: 0.9rem; color: #ccc;';
-  title.textContent = 'Flight Profile';
-  header.appendChild(title);
-
-  const label = document.createElement('span');
-  label.style.cssText =
-    'font-size: 0.85rem; color: #4a9eff; font-weight: bold;';
-  label.textContent = `${Math.round(currentShip.flightProfileBurnFraction * 100)}% — ${getProfileLabel(currentShip.flightProfileBurnFraction)}`;
-  header.appendChild(label);
-
-  el.appendChild(header);
-
-  // Slider row with labels
-  const sliderRow = document.createElement('div');
-  sliderRow.style.cssText = 'display: flex; align-items: center; gap: 8px;';
-
-  const leftLabel = document.createElement('span');
-  leftLabel.style.cssText =
-    'font-size: 0.75rem; color: #888; white-space: nowrap;';
-  leftLabel.textContent = 'Economy';
-  sliderRow.appendChild(leftLabel);
-
-  const slider = document.createElement('input');
-  slider.type = 'range';
-  slider.min = '10';
-  slider.max = '100';
-  slider.step = '10';
-  slider.value = String(
-    Math.round(currentShip.flightProfileBurnFraction * 100)
-  );
-  slider.style.cssText = 'flex: 1; cursor: pointer;';
-  slider.addEventListener('input', () => {
-    const fraction = parseInt(slider.value) / 100;
-    currentShip.flightProfileBurnFraction = fraction;
-    label.textContent = `${slider.value}% — ${getProfileLabel(fraction)}`;
-  });
-  sliderRow.appendChild(slider);
-
-  const rightLabel = document.createElement('span');
-  rightLabel.style.cssText =
-    'font-size: 0.75rem; color: #888; white-space: nowrap;';
-  rightLabel.textContent = 'Max Speed';
-  sliderRow.appendChild(rightLabel);
-
-  el.appendChild(sliderRow);
-
-  // Description
-  const desc = document.createElement('div');
-  desc.style.cssText = 'font-size: 0.75rem; color: #666; margin-top: 0.4rem;';
-  desc.textContent =
-    'Lower = longer coast phase, less fuel. Higher = shorter trip, more fuel.';
-  el.appendChild(desc);
-
-  return {
-    el,
-    slider,
-    label,
-    updateShipRef: (ship: Ship) => {
-      currentShip = ship;
-    },
-  };
-}
-
-function updateFlightProfileControl(
-  control: FlightProfileControl,
-  ship: Ship
-): void {
-  // Always refresh the mutable ref so the slider mutates the right ship
-  control.updateShipRef(ship);
-
-  const currentSliderVal = parseInt(control.slider.value);
-  const shipVal = Math.round(ship.flightProfileBurnFraction * 100);
-  // Only update if the ship value changed externally (e.g. switched ships)
-  // Don't overwrite while user is dragging
-  if (currentSliderVal !== shipVal) {
-    control.slider.value = String(shipVal);
-    control.label.textContent = `${shipVal}% — ${getProfileLabel(ship.flightProfileBurnFraction)}`;
-  }
 }
 
 function renderAvailableWork(
@@ -817,11 +697,16 @@ function renderMiningStatus(
   header.appendChild(title);
 
   // Active/inactive status badge
+  const isDocked = ship.location.status === 'docked';
   const miners = getCrewForJobType(ship, 'mining_ops');
   const shipMiningEquip = getBestShipMiningEquipment(ship);
   const hasActiveMiner = shipMiningEquip !== undefined && miners.length > 0;
   const statusBadge = document.createElement('span');
-  if (hasActiveMiner && getRemainingOreCapacity(ship) > 0) {
+  if (isDocked) {
+    statusBadge.style.cssText =
+      'font-size: 0.8rem; padding: 2px 8px; border-radius: 3px; background: rgba(74,158,255,0.15); color: #4a9eff; border: 1px solid #4a9eff;';
+    statusBadge.textContent = 'DOCKED';
+  } else if (hasActiveMiner && getRemainingOreCapacity(ship) > 0) {
     statusBadge.style.cssText =
       'font-size: 0.8rem; padding: 2px 8px; border-radius: 3px; background: rgba(76,175,80,0.2); color: #4caf50; border: 1px solid #4caf50;';
     statusBadge.textContent = 'ACTIVE';
@@ -836,6 +721,16 @@ function renderMiningStatus(
   }
   header.appendChild(statusBadge);
   panel.appendChild(header);
+
+  // Undock prompt when docked at a mining location
+  if (isDocked) {
+    const undockPrompt = document.createElement('div');
+    undockPrompt.style.cssText =
+      'padding: 0.5rem; margin-bottom: 0.5rem; background: rgba(74,158,255,0.1); border: 1px solid #4a9eff; border-radius: 4px; font-size: 0.85rem; color: #4a9eff;';
+    undockPrompt.textContent =
+      'Undock to enter orbit and begin mining operations. Mining equipment operates while orbiting.';
+    panel.appendChild(undockPrompt);
+  }
 
   // Available ores at this location
   const oresSection = document.createElement('div');
