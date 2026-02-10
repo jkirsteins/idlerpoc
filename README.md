@@ -126,7 +126,7 @@ npm run dev
   - Fast-forward severity cap (boarding → harassment during catch-up)
   - Catch-up report modal summarizing encounters that occurred while away
   - Encounter cooldown prevents rapid consecutive encounters per ship
-- **Event Log**: Comprehensive log of all events (departures, arrivals, payments, contract completions, encounters)
+- **Event Log**: Rolling log of the most recent 200 events (departures, arrivals, payments, contract completions, encounters); older entries pruned automatically
 - **Resource Tracking**: Monitor credits, fuel, oxygen, crew count, crew costs per tick, and power consumption
 - **Equipment Trading**: Buy and sell crew equipment at stations with trade services (50% sell value)
 - **In-Game Encyclopedia (Gamepedia)**: Searchable guide explaining all game mechanics — skills, zero-g exposure, flight physics, encounters, and more. Inspired by Civilization's Civilopedia with category filtering, cross-linked articles, and a "See Also" section for discovery

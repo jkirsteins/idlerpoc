@@ -4,6 +4,7 @@ import { generateJobSlotsForShip } from './jobSlots';
 import { generateId } from './utils';
 
 const STORAGE_KEY = 'spaceship_game_data';
+const BACKUP_KEY = 'spaceship_game_data_backup';
 
 /**
  * Current save format version. Bump this whenever a change to the persisted
@@ -303,6 +304,17 @@ export function loadGame(): GameData | null {
       return null;
     }
 
+    // Stash a backup of the raw save BEFORE running migrations.
+    // If a migration bug corrupts data, the player can recover by
+    // manually copying BACKUP_KEY → STORAGE_KEY in dev tools.
+    if (version < CURRENT_SAVE_VERSION) {
+      try {
+        localStorage.setItem(BACKUP_KEY, data);
+      } catch {
+        // Quota exceeded — non-critical, proceed without backup.
+      }
+    }
+
     const migrated = runMigrations(raw);
     if (!migrated) {
       console.error('Save migration failed. Clearing save.');
@@ -341,6 +353,10 @@ function backfillMiningData(gameData: GameData): void {
     if (!ship.miningAccumulator) {
       ship.miningAccumulator = {};
     }
+    // Remove stale sentinel key that was incorrectly persisted in earlier versions
+    delete (ship.miningAccumulator as Record<string, unknown>)[
+      '_cargoFullLogged'
+    ];
 
     // Backfill miningRoute
     if (ship.miningRoute === undefined) {
@@ -417,4 +433,5 @@ function backfillMiningData(gameData: GameData): void {
 
 export function clearGame(): void {
   localStorage.removeItem(STORAGE_KEY);
+  localStorage.removeItem(BACKUP_KEY);
 }

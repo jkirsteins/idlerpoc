@@ -1,5 +1,6 @@
 import type { GameData, LogEntry, LogEntryType } from '../models';
 import { formatGameDateTime } from '../timeSystem';
+import { MAX_LOG_ENTRIES } from '../logSystem';
 import type { Component } from './component';
 
 type LogFilter = 'all' | 'combat' | 'financial' | 'navigation' | 'crew';
@@ -98,6 +99,19 @@ export function createLogTab(gameData: GameData): Component {
 
     for (const entry of filtered) {
       logList.appendChild(renderLogEntry(entry));
+    }
+
+    // If the log is at capacity, show a note that older entries were pruned
+    if (gd.log.length >= MAX_LOG_ENTRIES) {
+      const note = document.createElement('p');
+      note.className = 'log-cap-note';
+      note.textContent = `Only the last ${MAX_LOG_ENTRIES} events are kept. Older entries are no longer available.`;
+      note.style.color = '#888';
+      note.style.fontSize = '0.8rem';
+      note.style.fontStyle = 'italic';
+      note.style.textAlign = 'center';
+      note.style.marginTop = '0.5rem';
+      logList.appendChild(note);
     }
   }
 
