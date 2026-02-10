@@ -332,7 +332,7 @@ export function initializeFlight(
 
   // Calculate distance in meters
   const distanceKm = getDistanceBetween(origin, destination);
-  const distanceMeters = distanceKm * 1000;
+  let distanceMeters = distanceKm * 1000;
 
   // Get current ship mass (including fuel, cargo, crew)
   const currentMass = getCurrentShipMass(ship);
@@ -356,7 +356,7 @@ export function initializeFlight(
   const v_cruise = allocatedDeltaV / 2;
 
   // Initial acceleration (will change as fuel burns, but use for planning)
-  const initialAcceleration = thrust / currentMass;
+  let initialAcceleration = thrust / currentMass;
 
   // Check if this is a short trip (mini-brachistochrone)
   const dv_brachistochrone =
@@ -386,13 +386,22 @@ export function initializeFlight(
     totalTime = 2 * burnTime + coastTime;
   }
 
-  // Final sanity: ensure all timing values are finite positive numbers.
-  // NaN or Infinity would persist through JSON round-trips as null,
-  // permanently corrupting the flight plan.
-  if (!Number.isFinite(totalTime) || totalTime <= 0) {
+  // Final sanity: ensure all numeric fields are finite. NaN or Infinity
+  // would persist through JSON round-trips as null, permanently corrupting
+  // the flight plan (null + number = NaN, which cascades through all physics).
+  if (
+    !Number.isFinite(totalTime) ||
+    totalTime <= 0 ||
+    !Number.isFinite(burnTime) ||
+    !Number.isFinite(coastTime) ||
+    !Number.isFinite(initialAcceleration) ||
+    !Number.isFinite(distanceMeters)
+  ) {
     totalTime = GAME_SECONDS_PER_TICK;
     burnTime = 0;
     coastTime = 0;
+    initialAcceleration = 0;
+    distanceMeters = 0;
   }
 
   return {
@@ -512,6 +521,20 @@ export function calculateBurnSecondsInTick(
  * Future enhancement: dynamically recalculate as fuel burns within flight.
  */
 export function advanceFlight(flight: FlightState): boolean {
+  // Guard against corrupted flight state (e.g. NaN from bad JSON round-trip).
+  // Force-complete the flight so the ship doesn't get permanently stuck.
+  if (
+    !Number.isFinite(flight.totalTime) ||
+    !Number.isFinite(flight.acceleration) ||
+    !Number.isFinite(flight.elapsedTime) ||
+    !Number.isFinite(flight.distanceCovered)
+  ) {
+    flight.distanceCovered = flight.totalDistance || 0;
+    flight.currentVelocity = 0;
+    flight.phase = 'decelerating';
+    return true;
+  }
+
   const dt = GAME_SECONDS_PER_TICK;
   flight.elapsedTime += dt;
 
