@@ -39,6 +39,7 @@ import {
   pauseContract,
   resumeContract,
   abandonContract,
+  initContractExec,
 } from './contractExec';
 import { getSkillRank } from './skillRanks';
 import { assignShipToRoute, unassignShipFromRoute } from './routeAssignment';
@@ -57,9 +58,6 @@ import {
 
 const app = document.getElementById('app')!;
 
-// Initialize the combat system encounter resolver
-initCombatSystem();
-
 /** Show a dismissable banner at the top of the page. */
 function showErrorBanner(message: string): void {
   const banner = document.createElement('div');
@@ -72,9 +70,11 @@ function showErrorBanner(message: string): void {
   document.body.prepend(banner);
 }
 
-// All module-level `let` variables MUST be declared before initializeState()
-// is called, otherwise Safari hits a Temporal Dead Zone error (the `let`
-// bindings are hoisted but not initialized until the declaration is reached).
+// All module-level `let` and `const` declarations MUST appear before any
+// top-level side effects (function calls, try blocks, etc.) to prevent
+// Temporal Dead Zone errors. Hoisted functions called during initialisation
+// may reference these bindings, which must already be initialised.
+// Enforced by: local/no-side-effects-before-definitions
 let tickInterval: number | null = null;
 
 /** State for ongoing batched catch-up processing */
@@ -99,16 +99,31 @@ let hiddenSnapshot: {
   realTimestamp: number;
 } | null = null;
 
+/**
+ * Maximum real-world seconds to catch up (1 day).
+ * The tick count is derived as cappedSeconds × speed.
+ */
+const MAX_CATCH_UP_SECONDS = 86400;
+
+/**
+ * Maximum ticks to process in a single synchronous batch before yielding
+ * to the browser. Keeps the UI responsive during long catch-ups.
+ */
+const CATCH_UP_BATCH_SIZE = 2000;
+
+/**
+ * Real-time threshold (seconds) beyond which we treat the gap as a
+ * significant absence and show the catch-up report modal.
+ */
+const CATCH_UP_REPORT_THRESHOLD_SECONDS = 30;
+
+/**
+ * Real-time threshold (seconds) beyond which encounter severity is
+ * capped (isCatchUp=true) to prevent unfair boarding events.
+ */
+const CATCH_UP_SEVERITY_THRESHOLD_SECONDS = 5;
+
 let state: GameState;
-try {
-  state = initializeState();
-} catch (e) {
-  console.error('Failed to initialize game state, clearing save:', e);
-  clearGame();
-  state = { phase: 'no_game' };
-  const errorDetail = e instanceof Error ? e.message : String(e);
-  showErrorBanner(`Save corrupted and cleared: ${errorDetail}`);
-}
 
 /**
  * Build a CatchUpReport summarising what happened during an absence.
@@ -321,30 +336,6 @@ function buildCatchUpReport(
     logHighlights,
   };
 }
-
-/**
- * Maximum real-world seconds to catch up (1 day).
- * The tick count is derived as cappedSeconds × speed.
- */
-const MAX_CATCH_UP_SECONDS = 86400;
-
-/**
- * Maximum ticks to process in a single synchronous batch before yielding
- * to the browser. Keeps the UI responsive during long catch-ups.
- */
-const CATCH_UP_BATCH_SIZE = 2000;
-
-/**
- * Real-time threshold (seconds) beyond which we treat the gap as a
- * significant absence and show the catch-up report modal.
- */
-const CATCH_UP_REPORT_THRESHOLD_SECONDS = 30;
-
-/**
- * Real-time threshold (seconds) beyond which encounter severity is
- * capped (isCatchUp=true) to prevent unfair boarding events.
- */
-const CATCH_UP_SEVERITY_THRESHOLD_SECONDS = 5;
 
 /**
  * Fast-forward game state based on elapsed real-world time (initial load).
@@ -1002,7 +993,7 @@ const callbacks: RendererCallbacks = {
 
     if (!origin || !destination) return;
 
-    import('./flightPhysics').then(({ startShipFlight }) => {
+    void import('./flightPhysics').then(({ startShipFlight }) => {
       if (state.phase !== 'playing') return;
 
       const departed = startShipFlight(
@@ -1284,57 +1275,79 @@ const callbacks: RendererCallbacks = {
   },
 };
 
-window.addEventListener('wizard-next', ((
-  event: CustomEvent<{ step: WizardStep; draft: WizardDraft }>
-) => {
-  state = {
-    phase: 'creating',
-    step: event.detail.step,
-    draft: event.detail.draft,
-  };
-  renderApp();
-}) as EventListener);
+// ── Module initialisation ──
+// Wrapped in init() so there are zero bare top-level side effects.
+// The only top-level call is init() at the bottom of the file.
 
-// Keyboard shortcuts for time controls
-window.addEventListener('keydown', (event: KeyboardEvent) => {
-  if (state.phase !== 'playing') return;
+function init(): void {
+  // Register cross-module callbacks
+  initCombatSystem();
+  initContractExec();
 
-  // Ignore if user is typing in an input field
-  if (
-    event.target instanceof HTMLInputElement ||
-    event.target instanceof HTMLTextAreaElement
-  ) {
-    return;
+  try {
+    state = initializeState();
+  } catch (e) {
+    console.error('Failed to initialize game state, clearing save:', e);
+    clearGame();
+    state = { phase: 'no_game' };
+    const errorDetail = e instanceof Error ? e.message : String(e);
+    showErrorBanner(`Save corrupted and cleared: ${errorDetail}`);
   }
 
-  switch (event.key) {
-    case ' ': // Space - toggle pause
-    case 'p': // P - toggle pause
-    case 'P':
-      event.preventDefault();
-      callbacks.onTogglePause?.();
-      break;
-    case '1': // 1 - set speed to 1x
-      event.preventDefault();
-      callbacks.onSetSpeed?.(1);
-      break;
-    case '2': // 2 - set speed to 2x
-      event.preventDefault();
-      callbacks.onSetSpeed?.(2);
-      break;
-    case '5': // 5 - set speed to 5x
-      event.preventDefault();
-      callbacks.onSetSpeed?.(5);
-      break;
-    case 'r': // R - resume from pause
-    case 'R':
-      if (state.phase === 'playing' && state.gameData.isPaused) {
+  window.addEventListener('wizard-next', ((
+    event: CustomEvent<{ step: WizardStep; draft: WizardDraft }>
+  ) => {
+    state = {
+      phase: 'creating',
+      step: event.detail.step,
+      draft: event.detail.draft,
+    };
+    renderApp();
+  }) as EventListener);
+
+  // Keyboard shortcuts for time controls
+  window.addEventListener('keydown', (event: KeyboardEvent) => {
+    if (state.phase !== 'playing') return;
+
+    // Ignore if user is typing in an input field
+    if (
+      event.target instanceof HTMLInputElement ||
+      event.target instanceof HTMLTextAreaElement
+    ) {
+      return;
+    }
+
+    switch (event.key) {
+      case ' ': // Space - toggle pause
+      case 'p': // P - toggle pause
+      case 'P':
         event.preventDefault();
         callbacks.onTogglePause?.();
-      }
-      break;
-  }
-});
+        break;
+      case '1': // 1 - set speed to 1x
+        event.preventDefault();
+        callbacks.onSetSpeed?.(1);
+        break;
+      case '2': // 2 - set speed to 2x
+        event.preventDefault();
+        callbacks.onSetSpeed?.(2);
+        break;
+      case '5': // 5 - set speed to 5x
+        event.preventDefault();
+        callbacks.onSetSpeed?.(5);
+        break;
+      case 'r': // R - resume from pause
+      case 'R':
+        if (state.phase === 'playing' && state.gameData.isPaused) {
+          event.preventDefault();
+          callbacks.onTogglePause?.();
+        }
+        break;
+    }
+  });
+
+  renderApp();
+}
 
 /**
  * Create toast notifications from encounter results.
@@ -1729,4 +1742,4 @@ function renderApp(): void {
   }
 }
 
-renderApp();
+init();

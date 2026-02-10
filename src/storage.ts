@@ -310,7 +310,8 @@ export function loadGame(): GameData | null {
     }
 
     return migrated;
-  } catch {
+  } catch (e) {
+    console.error('Failed to parse or migrate save data:', e);
     return null;
   }
 }

@@ -1,11 +1,12 @@
 import eslint from '@eslint/js';
 import tseslint from 'typescript-eslint';
+import top from '@ericcornelissen/eslint-plugin-top';
 
 export default tseslint.config(
   eslint.configs.recommended,
-  ...tseslint.configs.recommended,
+  ...tseslint.configs.recommendedTypeChecked,
   {
-    ignores: ['dist/**'],
+    ignores: ['dist/**', 'eslint-rules/**', 'docs/**', 'vite.config.ts', 'eslint.config.js'],
   },
   {
     languageOptions: {
@@ -16,7 +17,12 @@ export default tseslint.config(
         window: 'readonly',
         console: 'readonly',
       },
+      parserOptions: {
+        projectService: true,
+        tsconfigRootDir: import.meta.dirname,
+      },
     },
+    plugins: { top },
     rules: {
       '@typescript-eslint/no-unused-vars': [
         'error',
@@ -31,6 +37,30 @@ export default tseslint.config(
           classes: true,
           variables: true,
           allowNamedExports: true,
+        },
+      ],
+      // Enforce strict equality, except for idiomatic == null / != null checks.
+      eqeqeq: ['error', 'smart'],
+      // Ensure switch statements over union types handle every member.
+      '@typescript-eslint/switch-exhaustiveness-check': 'error',
+      // Ban top-level side effects to prevent TDZ bugs and enforce clean modules.
+      // allowedCalls: init (app entry), buildXpTable (pure data), test framework globals.
+      'top/no-top-level-side-effects': [
+        'error',
+        {
+          allowDerived: true,
+          allowedCalls: [
+            'Symbol',
+            'init',
+            'buildXpTable',
+            'describe',
+            'it',
+            'test',
+            'beforeEach',
+            'afterEach',
+            'beforeAll',
+            'afterAll',
+          ],
         },
       ],
     },

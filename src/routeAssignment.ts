@@ -190,7 +190,7 @@ export function checkAutoRefuel(
         gameData.log,
         gameData.gameTime,
         'contract_abandoned',
-        `Route assignment ended at ${location.name}: insufficient credits for refuel (needed ${fuelCost}, have ${gameData.credits}). Route ${originLoc?.name} ↔ ${destLoc?.name} completed ${ship.routeAssignment!.totalTripsCompleted} trips.`,
+        `Route assignment ended at ${location.name}: insufficient credits for refuel (needed ${fuelCost}, have ${gameData.credits}). Route ${originLoc?.name} ↔ ${destLoc?.name} completed ${ship.routeAssignment.totalTripsCompleted} trips.`,
         ship.name
       );
 

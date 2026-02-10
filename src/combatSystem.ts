@@ -736,6 +736,12 @@ export function resolveEncounter(
 
   // Calculate outcome-specific effects
   switch (outcome) {
+    case 'evaded':
+    case 'negotiated':
+    case 'fled':
+      // No additional effects — already handled upstream
+      break;
+
     case 'victory':
       result.creditsGained =
         threatLevel * COMBAT_CONSTANTS.VICTORY_BOUNTY_PER_THREAT;
