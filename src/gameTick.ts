@@ -167,15 +167,6 @@ function applyShipTick(gameData: GameData, ship: Ship): boolean {
   if (ship.location.status === 'in_flight') {
     const engineDef = getEngineDefinition(ship.engine.definitionId);
 
-    // Invariant: paused contract in flight must dock on arrival
-    if (
-      ship.activeContract?.paused &&
-      ship.activeFlightPlan &&
-      !ship.activeFlightPlan.dockOnArrival
-    ) {
-      ship.activeFlightPlan.dockOnArrival = true;
-    }
-
     // Flight physics (only advance when engine is online)
     if (ship.activeFlightPlan && ship.engine.state === 'online') {
       const flightComplete = advanceFlight(ship.activeFlightPlan);

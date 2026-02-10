@@ -417,6 +417,28 @@ export function completeLeg(gameData: GameData, ship: Ship): void {
       const nextOrigin = destLoc;
       const nextDestination = originLoc;
 
+      // Player-initiated pause — dock here instead of continuing
+      if (activeContract.paused) {
+        ship.location.status = 'docked';
+        ship.location.dockedAt = arrivalLocation.id;
+        delete ship.location.orbitingAt;
+        delete ship.activeFlightPlan;
+        ship.engine.state = 'off';
+        ship.engine.warmupProgress = 0;
+
+        addLog(
+          gameData.log,
+          gameTime,
+          'arrival',
+          `Docked at ${arrivalLocation.name}. Contract "${quest.title}" paused.`,
+          ship.name
+        );
+
+        checkFirstArrival(gameData, ship, arrivalLocation.id);
+        removeUnpaidCrew(gameData, ship);
+        return;
+      }
+
       // Auto-refuel to 100% at destination before return trip
       const hasFuel = tryAutoRefuelForLeg(gameData, ship, arrivalLocation.id);
 
@@ -589,6 +611,28 @@ export function completeLeg(gameData: GameData, ship: Ship): void {
       const nextOrigin = originLoc;
       const nextDestination = destLoc;
 
+      // Player-initiated pause — dock here instead of continuing
+      if (activeContract.paused) {
+        ship.location.status = 'docked';
+        ship.location.dockedAt = arrivalLocation.id;
+        delete ship.location.orbitingAt;
+        delete ship.activeFlightPlan;
+        ship.engine.state = 'off';
+        ship.engine.warmupProgress = 0;
+
+        addLog(
+          gameData.log,
+          gameTime,
+          'arrival',
+          `Docked at ${arrivalLocation.name}. Contract "${quest.title}" paused.`,
+          ship.name
+        );
+
+        checkFirstArrival(gameData, ship, arrivalLocation.id);
+        removeUnpaidCrew(gameData, ship);
+        return;
+      }
+
       // Auto-refuel to 100% at origin before next outbound trip
       const hasFuel = tryAutoRefuelForLeg(gameData, ship, arrivalLocation.id);
 
@@ -658,11 +702,10 @@ export function completeLeg(gameData: GameData, ship: Ship): void {
 }
 
 /**
- * Pause contract at nearest port (dock on arrival).
- *
- * Always marks the contract paused. If a flight plan is active the
- * ship will dock when it completes the current leg rather than
- * continuing the route.
+ * Pause contract — ship will dock when the current leg completes
+ * instead of continuing the route. `completeLeg` checks
+ * `activeContract.paused` at every leg transition, so this single
+ * flag is the only thing we need to set.
  */
 export function pauseContract(ship: Ship): void {
   if (!ship.activeContract) {
@@ -670,10 +713,6 @@ export function pauseContract(ship: Ship): void {
   }
 
   ship.activeContract.paused = true;
-
-  if (ship.activeFlightPlan) {
-    ship.activeFlightPlan.dockOnArrival = true;
-  }
 }
 
 /**
