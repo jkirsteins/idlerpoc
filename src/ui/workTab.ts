@@ -44,7 +44,6 @@ export interface WorkTabCallbacks {
 
 // Persistent radio-group selection state (survives per-tick rebuilds)
 type ActiveAction = 'continue' | 'pause' | 'abandon';
-type PausedAction = 'resume' | 'abandon';
 
 export function createWorkTab(
   gameData: GameData,
@@ -58,14 +57,12 @@ export function createWorkTab(
 
   // Radio selection state persists across ticks; resets on phase transitions
   let activeAction: ActiveAction = 'continue';
-  let pausedAction: PausedAction = 'resume';
   let abandonConfirmPending = false;
   let abandonConfirmTimer: ReturnType<typeof setTimeout> | null = null;
   let prevPhase: 'none' | 'active' | 'paused' = 'none';
 
   function resetSelectionState() {
     activeAction = 'continue';
-    pausedAction = 'resume';
     abandonConfirmPending = false;
     if (abandonConfirmTimer) {
       clearTimeout(abandonConfirmTimer);
@@ -113,41 +110,25 @@ export function createWorkTab(
       container.appendChild(workContent);
     } else if (activeContract && activeContract.paused) {
       container.appendChild(
-        renderPausedContract(
-          gameData,
-          callbacks,
-          pausedAction,
-          abandonConfirmPending,
-          {
-            onSelect(action: PausedAction) {
-              pausedAction = action;
-              abandonConfirmPending = false;
-              if (abandonConfirmTimer) {
-                clearTimeout(abandonConfirmTimer);
-                abandonConfirmTimer = null;
-              }
+        renderPausedContract(gameData, callbacks, abandonConfirmPending, {
+          onResume() {
+            resetSelectionState();
+            callbacks.onResumeContract();
+          },
+          onAbandon() {
+            if (!abandonConfirmPending) {
+              abandonConfirmPending = true;
+              abandonConfirmTimer = setTimeout(() => {
+                abandonConfirmPending = false;
+                rebuild(gameData);
+              }, 4000);
               rebuild(gameData);
-            },
-            onConfirm() {
-              if (pausedAction === 'abandon') {
-                if (!abandonConfirmPending) {
-                  abandonConfirmPending = true;
-                  abandonConfirmTimer = setTimeout(() => {
-                    abandonConfirmPending = false;
-                    rebuild(gameData);
-                  }, 4000);
-                  rebuild(gameData);
-                } else {
-                  resetSelectionState();
-                  callbacks.onAbandonContract();
-                }
-              } else {
-                resetSelectionState();
-                callbacks.onResumeContract();
-              }
-            },
-          }
-        )
+            } else {
+              resetSelectionState();
+              callbacks.onAbandonContract();
+            }
+          },
+        })
       );
     } else if (activeContract) {
       container.appendChild(
@@ -747,14 +728,13 @@ function renderActiveContract(
 }
 
 interface PausedActionCallbacks {
-  onSelect(action: PausedAction): void;
-  onConfirm(): void;
+  onResume(): void;
+  onAbandon(): void;
 }
 
 function renderPausedContract(
   gameData: GameData,
   callbacks: WorkTabCallbacks,
-  selectedAction: PausedAction,
   abandonConfirmPending: boolean,
   actionCbs: PausedActionCallbacks
 ): HTMLElement {
@@ -814,96 +794,43 @@ function renderPausedContract(
 
   container.appendChild(summary);
 
-  // ─── Action Radio Group ───────────────────────────────────────
-  const actionGroup = document.createElement('div');
-  actionGroup.className = 'action-radio-group';
+  // ─── Action Buttons ───────────────────────────────────────────
+  const actions = document.createElement('div');
+  actions.className = 'paused-action-buttons';
 
+  // Resume button (primary)
+  const resumeBtn = document.createElement('button');
+  resumeBtn.className = 'action-confirm-btn action-confirm-btn--primary';
+  resumeBtn.textContent = 'Resume contract';
+  resumeBtn.addEventListener('click', () => actionCbs.onResume());
+  actions.appendChild(resumeBtn);
+
+  // Abandon button (danger, two-step)
   const hasRouteAssignment = !!ship.routeAssignment;
+  const abandonBtn = document.createElement('button');
+  abandonBtn.className = 'action-confirm-btn';
 
-  const options: {
-    value: PausedAction;
-    label: string;
-    desc: string;
-    warn?: string;
-    style: 'default' | 'danger';
-  }[] = [
-    {
-      value: 'resume',
-      label: 'Resume contract',
-      desc: 'Continue flying and earning. Ship departs for the next leg.',
-      style: 'default',
-    },
-    {
-      value: 'abandon',
-      label: 'Abandon contract',
-      desc: `Ends contract permanently. You keep ${activeContract.creditsEarned.toLocaleString()} cr from completed trips.`,
-      warn: hasRouteAssignment
-        ? 'Your automated route assignment will also end.'
-        : undefined,
-      style: 'danger',
-    },
-  ];
-
-  for (const opt of options) {
-    const card = document.createElement('label');
-    card.className = `action-radio-card action-radio-card--${opt.style}`;
-    if (selectedAction === opt.value) {
-      card.classList.add('action-radio-card--selected');
-    }
-
-    const radio = document.createElement('input');
-    radio.type = 'radio';
-    radio.name = 'paused-action';
-    radio.value = opt.value;
-    radio.checked = selectedAction === opt.value;
-    radio.addEventListener('change', () => actionCbs.onSelect(opt.value));
-    card.appendChild(radio);
-
-    const textWrap = document.createElement('div');
-    textWrap.className = 'action-radio-text';
-
-    const labelEl = document.createElement('div');
-    labelEl.className = 'action-radio-label';
-    labelEl.textContent = opt.label;
-    textWrap.appendChild(labelEl);
-
-    const descEl = document.createElement('div');
-    descEl.className = 'action-radio-desc';
-    descEl.textContent = opt.desc;
-    textWrap.appendChild(descEl);
-
-    if (opt.warn) {
-      const warnEl = document.createElement('div');
-      warnEl.className = 'action-radio-warn';
-      warnEl.textContent = opt.warn;
-      textWrap.appendChild(warnEl);
-    }
-
-    card.appendChild(textWrap);
-    actionGroup.appendChild(card);
-  }
-
-  container.appendChild(actionGroup);
-
-  // Confirm button
-  const confirmBtn = document.createElement('button');
-  confirmBtn.className = 'action-confirm-btn';
-
-  if (selectedAction === 'abandon') {
-    if (abandonConfirmPending) {
-      confirmBtn.textContent = 'Are you sure? Click again to abandon';
-      confirmBtn.classList.add('action-confirm-btn--danger-hot');
-    } else {
-      confirmBtn.textContent = 'Abandon contract';
-      confirmBtn.classList.add('action-confirm-btn--danger');
-    }
+  if (abandonConfirmPending) {
+    abandonBtn.textContent = 'Are you sure? Click again to abandon';
+    abandonBtn.classList.add('action-confirm-btn--danger-hot');
   } else {
-    confirmBtn.textContent = 'Resume contract';
-    confirmBtn.classList.add('action-confirm-btn--primary');
+    abandonBtn.textContent = 'Abandon contract';
+    abandonBtn.classList.add('action-confirm-btn--danger');
   }
+  abandonBtn.addEventListener('click', () => actionCbs.onAbandon());
+  actions.appendChild(abandonBtn);
 
-  confirmBtn.addEventListener('click', () => actionCbs.onConfirm());
-  container.appendChild(confirmBtn);
+  // Consequence text below buttons
+  const abandonHint = document.createElement('div');
+  abandonHint.className = 'action-button-hint';
+  let hintText = `Abandon ends contract permanently. You keep ${activeContract.creditsEarned.toLocaleString()} cr from completed trips.`;
+  if (hasRouteAssignment) {
+    hintText += ' Your automated route assignment will also end.';
+  }
+  abandonHint.textContent = hintText;
+  actions.appendChild(abandonHint);
+
+  container.appendChild(actions);
 
   return container;
 }
