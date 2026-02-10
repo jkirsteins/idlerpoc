@@ -39,6 +39,8 @@ import {
   ROUTE_MASTERY_BONUSES,
   ORE_MASTERY_BONUSES,
   TRADE_MASTERY_BONUSES,
+  routeMasteryKey,
+  tradeRouteMasteryKey,
 } from '../masterySystem';
 import type { MasteryBonus } from '../masterySystem';
 import { getAllOreDefinitions } from '../oreTypes';
@@ -670,7 +672,7 @@ function renderSkillsSection(
     skills.appendChild(renderSkillRow(crew, skillId));
     // Mastery section expanded by default under each skill
     skills.appendChild(
-      renderSkillMastery(skillId, crew.mastery[skillId], crew, gameData.world)
+      renderSkillMastery(skillId, crew.mastery[skillId], crew, gameData)
     );
   }
 
@@ -812,7 +814,7 @@ function renderSkillMastery(
   skillId: SkillId,
   state: SkillMasteryState,
   crew: CrewMember,
-  world: World
+  gameData: GameData
 ): HTMLElement {
   const container = document.createElement('div');
   container.className = 'mastery-section';
@@ -827,7 +829,7 @@ function renderSkillMastery(
   container.appendChild(renderMasteryPool(skillId, state));
 
   // ── Item Mastery List ─────────────────────────────────────────
-  container.appendChild(renderMasteryItems(skillId, state, crew, world));
+  container.appendChild(renderMasteryItems(skillId, state, crew, gameData));
 
   return container;
 }
@@ -965,13 +967,47 @@ function renderMasteryPool(
   return poolSection;
 }
 
+/** Generate all possible route pairs from the world, with lock status. */
+function generateAllRoutes(
+  world: World,
+  pilotingSkill: number,
+  skillId: 'piloting' | 'commerce'
+): Array<{ key: string; locked: boolean; lockReason: string }> {
+  const keyFn = skillId === 'piloting' ? routeMasteryKey : tradeRouteMasteryKey;
+  const seen = new Set<string>();
+  const routes: Array<{ key: string; locked: boolean; lockReason: string }> =
+    [];
+
+  for (let i = 0; i < world.locations.length; i++) {
+    for (let j = i + 1; j < world.locations.length; j++) {
+      const a = world.locations[i];
+      const b = world.locations[j];
+      const key = keyFn(a.id, b.id);
+      if (seen.has(key)) continue;
+      seen.add(key);
+
+      // Route is locked if either location requires higher piloting
+      const maxReq = Math.max(a.pilotingRequirement, b.pilotingRequirement);
+      const locked = pilotingSkill < maxReq;
+
+      routes.push({
+        key,
+        locked,
+        lockReason: locked ? `Piloting ${maxReq}` : '',
+      });
+    }
+  }
+  return routes;
+}
+
 /** Render the per-item mastery list for a skill. */
 function renderMasteryItems(
   skillId: SkillId,
   state: SkillMasteryState,
   crew: CrewMember,
-  world: World
+  gameData: GameData
 ): HTMLElement {
+  const world = gameData.world;
   const container = document.createElement('div');
   container.style.marginTop = '0.5rem';
 
@@ -1007,29 +1043,24 @@ function renderMasteryItems(
       });
     }
   } else {
-    // Piloting routes / Commerce trade routes: show discovered items
-    for (const [itemId, mastery] of Object.entries(state.itemMasteries)) {
-      entries.push({
-        id: itemId,
-        label: getMasteryItemLabel(skillId, itemId, world),
-        mastery,
-        locked: false,
-        lockReason: '',
-      });
-    }
+    // Piloting routes / Commerce trade routes: show ALL routes as catalog
+    // Locked routes require higher piloting to access their destinations
+    const pilotingSkill = Math.floor(crew.skills.piloting);
+    const allRoutes = generateAllRoutes(
+      world,
+      pilotingSkill,
+      skillId as 'piloting' | 'commerce'
+    );
 
-    if (entries.length === 0) {
-      const hint = document.createElement('div');
-      hint.style.color = '#666';
-      hint.style.fontStyle = 'italic';
-      hint.style.fontSize = '0.8rem';
-      hint.style.padding = '0.25rem 0';
-      hint.textContent =
-        skillId === 'piloting'
-          ? 'Fly routes to discover them'
-          : 'Complete trade contracts to discover routes';
-      container.appendChild(hint);
-      return container;
+    for (const route of allRoutes) {
+      const mastery = state.itemMasteries[route.key] ?? null;
+      entries.push({
+        id: route.key,
+        label: getMasteryItemLabel(skillId, route.key, world),
+        mastery,
+        locked: route.locked,
+        lockReason: route.lockReason,
+      });
     }
   }
 

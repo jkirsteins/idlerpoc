@@ -11,7 +11,12 @@ import {
   setAcceptQuestFn,
 } from './routeAssignment';
 import { getFuelPricePerKg } from './ui/refuelDialog';
-import { unassignCrewFromAllSlots } from './jobSlots';
+import { unassignCrewFromAllSlots, getCrewForJobType } from './jobSlots';
+import {
+  awardMasteryXp,
+  routeMasteryKey,
+  tradeRouteMasteryKey,
+} from './masterySystem';
 
 /**
  * Contract Execution
@@ -154,6 +159,65 @@ function checkFirstArrival(
   }
 }
 
+// ─── Mastery XP helpers ──────────────────────────────────────────
+
+/** Count total unique route pairs in the world (for mastery pool cap). */
+function countRoutePairs(gameData: GameData): number {
+  const n = gameData.world.locations.length;
+  return (n * (n - 1)) / 2;
+}
+
+/** Base mastery XP per flight arrival / trip completion. */
+const PILOTING_MASTERY_XP_PER_FLIGHT = 100;
+const COMMERCE_MASTERY_XP_PER_TRIP = 100;
+
+/**
+ * Award piloting route mastery XP to helm crew on flight arrival.
+ */
+function awardPilotingRouteMastery(
+  gameData: GameData,
+  ship: Ship,
+  originId: string,
+  destId: string
+): void {
+  const helmCrew = getCrewForJobType(ship, 'helm');
+  const key = routeMasteryKey(originId, destId);
+  const totalRoutes = countRoutePairs(gameData);
+
+  for (const crew of helmCrew) {
+    awardMasteryXp(
+      crew.mastery.piloting,
+      key,
+      PILOTING_MASTERY_XP_PER_FLIGHT,
+      Math.floor(crew.skills.piloting),
+      totalRoutes
+    );
+  }
+}
+
+/**
+ * Award commerce trade route mastery XP to the captain on trip completion.
+ */
+function awardCommerceRouteMastery(
+  gameData: GameData,
+  ship: Ship,
+  originId: string,
+  destId: string
+): void {
+  const captain = ship.crew.find((c) => c.isCaptain);
+  if (!captain) return;
+  const key = tradeRouteMasteryKey(originId, destId);
+  const totalRoutes = countRoutePairs(gameData);
+
+  awardMasteryXp(
+    captain.mastery.commerce,
+    key,
+    COMMERCE_MASTERY_XP_PER_TRIP,
+    Math.floor(captain.skills.commerce),
+    totalRoutes
+  );
+}
+
 /**
  * Start a contract by accepting a quest
  */
@@ -254,6 +318,14 @@ export function completeLeg(gameData: GameData, ship: Ship): void {
         ship.name
       );
 
+      // Award piloting mastery for manual flight
+      awardPilotingRouteMastery(
+        gameData,
+        ship,
+        flight.origin,
+        flight.destination
+      );
+
       checkFirstArrival(gameData, ship, destination.id);
       removeUnpaidCrew(gameData, ship);
       regenerateQuestsIfNewDay(gameData, ship);
@@ -284,6 +356,9 @@ export function completeLeg(gameData: GameData, ship: Ship): void {
     ship.name
   );
 
+  // Award piloting route mastery on every contract flight arrival
+  awardPilotingRouteMastery(gameData, ship, quest.origin, quest.destination);
+
   if (activeContract.leg === 'outbound') {
     if (quest.type === 'delivery' || quest.type === 'passenger') {
       activeContract.tripsCompleted = 1;
@@ -311,6 +386,14 @@ export function completeLeg(gameData: GameData, ship: Ship): void {
       if (skillUps.length > 0) {
         logSkillUps(gameData.log, gameTime, ship.name, skillUps);
       }
+
+      // Award commerce mastery for delivery/passenger completion
+      awardCommerceRouteMastery(
+        gameData,
+        ship,
+        quest.origin,
+        quest.destination
+      );
 
       ship.location.status = 'docked';
       ship.location.dockedAt = arrivalLocation.id;
@@ -429,6 +512,9 @@ export function completeLeg(gameData: GameData, ship: Ship): void {
       }
       addLog(gameData.log, gameTime, 'trip_complete', message, ship.name);
     }
+
+    // Award commerce mastery for completing a round trip
+    awardCommerceRouteMastery(gameData, ship, quest.origin, quest.destination);
 
     const isComplete =
       (quest.tripsRequired > 0 &&

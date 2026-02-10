@@ -198,7 +198,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
       {
         heading: 'Layer 2: Item Mastery (0-99 per item)',
         paragraphs: [
-          'Each skill has specific items that can be mastered individually. Mastery builds through repeated use and provides familiarity bonuses.',
+          'Each skill has specific items that can be mastered individually. Mastery builds through repeated use and provides familiarity bonuses. Piloting route mastery XP is awarded to the helm crew on every flight arrival. Commerce trade route mastery XP is awarded to the captain on every completed trip.',
         ],
         table: {
           headers: ['Skill', 'Mastery Type', 'Effect'],

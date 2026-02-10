@@ -35,7 +35,7 @@ export function xpForMasteryLevel(level: number): number {
 
 /** Derive mastery level from XP. */
 export function masteryLevelFromXp(xp: number): number {
-  for (let lvl = 98; lvl >= 0; lvl--) {
+  for (let lvl = 99; lvl >= 0; lvl--) {
     if (xp >= XP_TABLE[lvl]) return lvl;
   }
   return 0;
