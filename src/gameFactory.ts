@@ -14,8 +14,8 @@ import type {
 import { getShipClass } from './shipClasses';
 import { generateCrewName } from './names';
 import { generateWorld } from './worldGen';
-import { generateStartingXP, getLevelForXP } from './levelSystem';
-import { generateSkillsForRole, deduceRoleFromSkills } from './crewRoles';
+import { getLevelForXP } from './levelSystem';
+import { generateSkillsForRole } from './crewRoles';
 import { generateAllLocationQuests } from './questGen';
 import { getEquipmentDefinition, canEquipInSlot } from './equipment';
 import { calculateFuelTankCapacity } from './flightPhysics';
@@ -41,14 +41,14 @@ function createCrewMember(
   targetRole: CrewRole,
   isCaptain: boolean = false
 ): CrewMember {
-  const xp = isCaptain ? 120 : generateStartingXP(); // Captain starts at level 4
+  const xp = 0;
   const level = getLevelForXP(xp);
 
-  // Generate skills weighted toward the target role
+  // All crew start with zero skills — progression comes from training
   const skills = generateSkillsForRole(targetRole);
 
-  // Deduce actual role from skills (unless captain)
-  const role = isCaptain ? 'captain' : deduceRoleFromSkills(skills);
+  // Use target role directly (skills start at 0, can't deduce from them)
+  const role = isCaptain ? 'captain' : targetRole;
 
   const hireCost = HIRE_BASE_COST + level * HIRE_LEVEL_MULTIPLIER;
 
@@ -193,19 +193,10 @@ function createStartingShip(
 
   const rooms: Room[] = shipClass.rooms.map((roomType) => createRoom(roomType));
 
-  // Create initial crew
+  // Create initial crew — just the captain, solo on the helm
   const crew: CrewMember[] = [];
   const captain = createCrewMember(captainName, 'captain', true);
   crew.push(captain);
-
-  const pilot = createCrewMember(generateCrewName(), 'pilot');
-  const engineer = createCrewMember(generateCrewName(), 'engineer');
-  crew.push(pilot, engineer);
-
-  const hasCantina = shipClass.rooms.includes('cantina');
-  if (hasCantina) {
-    crew.push(createCrewMember(generateCrewName(), 'cook'));
-  }
 
   const { equipmentSlots, equipment } = createShipEquipment(shipClassId);
   const engine = createEngineInstance(shipClassId);

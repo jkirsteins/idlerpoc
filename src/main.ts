@@ -9,6 +9,7 @@ import type {
   Toast,
   EncounterResult,
   SkillId,
+  LogEntry,
 } from './models';
 import { getActiveShip } from './models';
 import {
@@ -215,6 +216,100 @@ function buildCatchUpReport(
     }
   }
 
+  // Collect notable log entries for the catch-up summary
+  // (skill-ups, crew hires/departures, gravity warnings)
+  const otherHighlightTypes: Set<string> = new Set([
+    'crew_hired',
+    'crew_departed',
+    'gravity_warning',
+  ]);
+  const otherHighlights = newLogs.filter((e) =>
+    otherHighlightTypes.has(e.type)
+  );
+
+  // Aggregate crew_level_up entries by crew+skill into "Name's Skill: 0 → 5"
+  const skillUpGroups = new Map<
+    string,
+    {
+      crewName: string;
+      skill: string;
+      levels: number[];
+      rank: string | null;
+      shipName?: string;
+      gameTime: number;
+    }
+  >();
+  for (const entry of newLogs) {
+    if (entry.type !== 'crew_level_up') continue;
+
+    // "Name's Skill has reached N"
+    const reachMatch = entry.message.match(/^(.+?)'s (\w+) has reached (\d+)$/);
+    // "Name has become Rank in Skill (N)!"
+    const rankMatch = entry.message.match(
+      /^(.+?) has become (.+?) in (\w+) \((\d+)\)!$/
+    );
+
+    let crewName: string;
+    let skill: string;
+    let level: number;
+    let rank: string | null = null;
+
+    if (reachMatch) {
+      crewName = reachMatch[1];
+      skill = reachMatch[2];
+      level = parseInt(reachMatch[3], 10);
+    } else if (rankMatch) {
+      crewName = rankMatch[1];
+      rank = rankMatch[2];
+      skill = rankMatch[3];
+      level = parseInt(rankMatch[4], 10);
+    } else {
+      // Specialization or unknown format — pass through as-is
+      otherHighlights.push(entry);
+      continue;
+    }
+
+    const key = `${crewName}|${skill}`;
+    const existing = skillUpGroups.get(key);
+    if (existing) {
+      existing.levels.push(level);
+      if (rank) existing.rank = rank;
+      existing.gameTime = Math.max(existing.gameTime, entry.gameTime);
+    } else {
+      skillUpGroups.set(key, {
+        crewName,
+        skill,
+        levels: [level],
+        rank,
+        shipName: entry.shipName,
+        gameTime: entry.gameTime,
+      });
+    }
+  }
+
+  const aggregatedSkillUps: LogEntry[] = [];
+  for (const [, group] of skillUpGroups) {
+    const minLevel = Math.min(...group.levels);
+    const maxLevel = Math.max(...group.levels);
+    const startLevel = minLevel - 1; // infer: one below the first level reached
+
+    let message: string;
+    if (group.rank) {
+      message = `${group.crewName}'s ${group.skill}: ${startLevel} → ${maxLevel} (${group.rank})`;
+    } else {
+      message = `${group.crewName}'s ${group.skill}: ${startLevel} → ${maxLevel}`;
+    }
+
+    aggregatedSkillUps.push({
+      gameTime: group.gameTime,
+      type: 'crew_level_up',
+      message,
+      shipName: group.shipName,
+    });
+  }
+
+  const logHighlights = [...aggregatedSkillUps, ...otherHighlights];
+
   return {
     totalTicks,
     elapsedRealSeconds,
@@ -223,6 +318,7 @@ function buildCatchUpReport(
     contractsCompleted,
     arrivals,
     shipReports: Array.from(shipReportMap.values()),
+    logHighlights,
   };
 }
 

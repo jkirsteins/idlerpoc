@@ -16,9 +16,21 @@ import { getSpecializationMultiplier } from './skillRanks';
  *
  * Crew members train skills directly by working job slots during flight.
  * No XP intermediary — job slot assignment determines which skill improves
- * and at what rate. Uses diminishing returns (asymptotic toward cap).
+ * and at what rate.
  *
- * Formula: gain/tick = trainRate × (SKILL_CAP - current) / SKILL_CAP × match_bonus
+ * Uses power-law diminishing returns (idle-game standard):
+ *   gain/tick = RATE_SCALE × trainRate / (1 + skill/CURVE_K)^CURVE_P × match × spec
+ *
+ * Power-law falls off more gently than exponential at high skill levels,
+ * keeping passive training visible on the progress bar throughout the game.
+ * Tuned so captain at helm reaches skill 5 in ~5 min, skill 50 in ~5 days.
+ *
+ * Approximate passive-only timeline (captain at helm, no match/spec):
+ *   Skill  5 (Green):      5 min       Skill 55 (Proficient): ~7 days
+ *   Skill 12 (Novice):    ~49 min      Skill 70 (Skilled):   ~17 days
+ *   Skill 20 (Apprentice): ~4 hours    Skill 83 (Expert):    ~34 days
+ *   Skill 30 (Competent): ~17 hours    Skill 95 (Master):    ~58 days
+ *   Skill 50:             ~5 days
  */
 
 /** Maximum skill value */
@@ -29,6 +41,24 @@ const MASTERY_THRESHOLD = 99.5;
 
 /** Skill matching bonus multiplier (crew's role matches job's trained skill) */
 const SKILL_MATCH_MULTIPLIER = 1.5;
+
+/**
+ * Power-law curve shaping: gain ∝ 1 / (1 + skill/K)^P
+ *
+ * K controls where diminishing returns become noticeable.
+ * P controls steepness — higher P = sharper falloff.
+ * K=5, P=3.2 satisfies the ~5-min-to-5 / ~5-days-to-50 ratio while keeping
+ * passive training visible all the way to Master (~2 months).
+ */
+const CURVE_K = 5;
+const CURVE_P = 3.2;
+
+/**
+ * Rate multiplier that scales per-slot trainRate values into the power-law
+ * formula.  Derived so that RATE_SCALE × helm_trainRate (0.00004) yields
+ * skill 5 in 300 ticks (5 real minutes) for a captain with no match bonus.
+ */
+const RATE_SCALE = 1724;
 
 /**
  * Calculate direct skill training for a crew member based on job slot assignment.
@@ -49,8 +79,8 @@ export function calculateTickTraining(
   const currentSkill = crew.skills[skill];
   if (currentSkill >= SKILL_CAP) return null;
 
-  // Diminishing returns: gain decreases as skill approaches cap
-  const diminishingFactor = (SKILL_CAP - currentSkill) / SKILL_CAP;
+  // Power-law diminishing returns: gentler falloff keeps progress visible at high levels
+  const diminishingFactor = Math.pow(1 + currentSkill / CURVE_K, -CURVE_P);
 
   // Skill matching bonus: crew's role primary skill matches job's trained skill
   const primarySkill = getPrimarySkillForRole(crew.role);
@@ -62,7 +92,8 @@ export function calculateTickTraining(
     crew.specialization
   );
 
-  const gain = baseRate * diminishingFactor * matchBonus * specMultiplier;
+  const gain =
+    RATE_SCALE * baseRate * diminishingFactor * matchBonus * specMultiplier;
 
   return { skill, gain };
 }

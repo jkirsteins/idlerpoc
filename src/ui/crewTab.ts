@@ -5,11 +5,7 @@ import {
   getCrewEquipmentDefinition,
   getAllCrewEquipmentDefinitions,
 } from '../crewEquipment';
-import {
-  getLevelForXP,
-  getLevelProgress,
-  getXPForNextLevel,
-} from '../levelSystem';
+import { getLevelForXP } from '../levelSystem';
 import { getCrewRoleDefinition } from '../crewRoles';
 import {
   getGravityDegradationLevel,
@@ -356,53 +352,6 @@ function renderStatsSection(crew: CrewMember): HTMLElement {
   healthRow.appendChild(healthLabel);
   healthRow.appendChild(healthValue);
   stats.appendChild(healthRow);
-
-  // Morale
-  const moraleRow = document.createElement('div');
-  moraleRow.className = 'stat-row';
-  const moraleLabel = document.createElement('span');
-  moraleLabel.textContent = 'Morale:';
-  const moraleValue = document.createElement('span');
-  moraleValue.textContent = `${crew.morale}/100`;
-  moraleRow.appendChild(moraleLabel);
-  moraleRow.appendChild(moraleValue);
-  stats.appendChild(moraleRow);
-
-  // Level
-  const levelRow = document.createElement('div');
-  levelRow.className = 'stat-row';
-  const levelLabel = document.createElement('span');
-  levelLabel.textContent = 'Level:';
-  const levelValue = document.createElement('span');
-  levelValue.textContent = `${crew.level}`;
-  levelRow.appendChild(levelLabel);
-  levelRow.appendChild(levelValue);
-  stats.appendChild(levelRow);
-
-  // XP Progress
-  const xpRow = document.createElement('div');
-  xpRow.className = 'stat-row';
-  const xpLabel = document.createElement('span');
-  xpLabel.textContent = 'XP:';
-  const xpValue = document.createElement('span');
-  const nextLevelXP = getXPForNextLevel(crew.level);
-  if (nextLevelXP !== null) {
-    xpValue.textContent = `${crew.xp}/${nextLevelXP}`;
-  } else {
-    xpValue.textContent = `${crew.xp} (MAX)`;
-  }
-  xpRow.appendChild(xpLabel);
-  xpRow.appendChild(xpValue);
-  stats.appendChild(xpRow);
-
-  // XP Progress bar
-  const progressBar = document.createElement('div');
-  progressBar.className = 'xp-progress-bar';
-  const progressFill = document.createElement('div');
-  progressFill.className = 'xp-progress-fill';
-  progressFill.style.width = `${getLevelProgress(crew.xp, crew.level)}%`;
-  progressBar.appendChild(progressFill);
-  stats.appendChild(progressBar);
 
   // Attack score
   const attackRow = document.createElement('div');

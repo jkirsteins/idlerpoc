@@ -82,6 +82,32 @@ export function renderCatchUpReport(
     }
   }
 
+  // Log highlights (skill-ups, crew changes, etc.)
+  if (report.logHighlights && report.logHighlights.length > 0) {
+    for (const entry of report.logHighlights) {
+      const line = document.createElement('div');
+      line.className = 'catchup-progress-line';
+      line.textContent = entry.message;
+      switch (entry.type) {
+        case 'crew_level_up':
+          line.style.color = '#4ade80';
+          break;
+        case 'crew_hired':
+          line.style.color = '#4ecdc4';
+          break;
+        case 'crew_departed':
+          line.style.color = '#ff6b6b';
+          break;
+        case 'gravity_warning':
+          line.style.color = '#ffa500';
+          break;
+        default:
+          line.style.color = '#a0a0b0';
+      }
+      progress.appendChild(line);
+    }
+  }
+
   // If nothing interesting happened at all
   if (progress.children.length === 0 && report.shipReports.length === 0) {
     const quietLine = document.createElement('div');
