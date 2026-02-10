@@ -762,10 +762,14 @@ function renderPausedContract(
   pausedBadge.textContent = 'PAUSED';
   summary.appendChild(pausedBadge);
 
-  // Reassurance message
+  // Context-aware reassurance message
+  const flight = ship.activeFlightPlan;
+  const stillInFlight = ship.location.status === 'in_flight' && flight;
   const pauseHint = document.createElement('div');
   pauseHint.className = 'contract-pause-hint';
-  pauseHint.textContent = 'Docked mid-route — resume to continue earning.';
+  pauseHint.textContent = stillInFlight
+    ? 'Ship will dock on arrival. Resume to continue earning.'
+    : 'Docked mid-route — resume to continue earning.';
   summary.appendChild(pauseHint);
 
   const progress = document.createElement('div');
@@ -787,6 +791,11 @@ function renderPausedContract(
   summary.appendChild(earned);
 
   container.appendChild(summary);
+
+  // Flight status (visible when ship is still en route to dock)
+  if (stillInFlight) {
+    container.appendChild(renderFlightStatus(flight, gameData, ship));
+  }
 
   // ─── Action Buttons ───────────────────────────────────────────
   const actions = document.createElement('div');

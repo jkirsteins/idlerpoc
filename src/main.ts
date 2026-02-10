@@ -846,15 +846,26 @@ const callbacks: RendererCallbacks = {
     if (state.phase !== 'playing') return;
     const ship = getActiveShip(state.gameData);
 
-    // If orbiting, dock directly at the orbited location (no need to pause contract)
     if (ship.location.status === 'orbiting' && ship.location.orbitingAt) {
+      // Orbiting — dock immediately at the orbited location
       ship.location.status = 'docked';
       ship.location.dockedAt = ship.location.orbitingAt;
       delete ship.location.orbitingAt;
       ship.engine.state = 'off';
       ship.engine.warmupProgress = 0;
+    } else if (ship.engine.state === 'warming_up' && ship.activeFlightPlan) {
+      // Still warming up — haven't moved yet, cancel flight and dock at origin
+      ship.location.status = 'docked';
+      ship.location.dockedAt = ship.activeFlightPlan.origin;
+      delete ship.location.orbitingAt;
+      delete ship.activeFlightPlan;
+      ship.engine.state = 'off';
+      ship.engine.warmupProgress = 0;
+      if (ship.activeContract) {
+        ship.activeContract.paused = true;
+      }
     } else {
-      // In flight - pause contract and dock on arrival
+      // In flight — pause contract and dock on arrival
       pauseContract(ship);
     }
 
