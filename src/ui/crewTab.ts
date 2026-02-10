@@ -888,8 +888,11 @@ function renderMasteryPool(
   const poolValue = document.createElement('span');
   poolValue.style.color = fillPct >= 95 ? '#fbbf24' : '#ccc';
   poolValue.style.fontWeight = fillPct >= 95 ? 'bold' : 'normal';
+  // Truncate (floor) to 1 decimal so the display never rounds above a
+  // checkpoint threshold that hasn't actually been reached.
+  const displayPct = Math.floor(fillPct * 10) / 10;
   poolValue.textContent =
-    state.pool.maxXp > 0 ? `${fillPct.toFixed(1)}%` : 'No items discovered';
+    state.pool.maxXp > 0 ? `${displayPct.toFixed(1)}%` : 'No items discovered';
   poolHeader.appendChild(poolValue);
 
   poolSection.appendChild(poolHeader);

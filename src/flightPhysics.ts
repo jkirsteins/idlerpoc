@@ -366,7 +366,13 @@ export function initializeFlight(
   let coastTime: number;
   let totalTime: number;
 
-  if (dv_brachistochrone <= allocatedDeltaV) {
+  if (initialAcceleration <= 0 || allocatedDeltaV <= 0) {
+    // Edge case: zero thrust or zero fuel. Use a minimal 1-tick flight
+    // so the ship doesn't get stuck in an infinite flight state.
+    burnTime = 0;
+    coastTime = 0;
+    totalTime = GAME_SECONDS_PER_TICK;
+  } else if (dv_brachistochrone <= allocatedDeltaV) {
     // Short trip: never reaches cruise velocity, no coast phase
     totalTime = 2 * Math.sqrt(distanceMeters / initialAcceleration);
     burnTime = totalTime / 2;
@@ -375,9 +381,18 @@ export function initializeFlight(
     // Long trip: burn-coast-burn
     burnTime = v_cruise / initialAcceleration;
     const burnDistance = 0.5 * initialAcceleration * burnTime * burnTime;
-    const coastDistance = distanceMeters - 2 * burnDistance;
-    coastTime = coastDistance / v_cruise;
+    const coastDistance = Math.max(0, distanceMeters - 2 * burnDistance);
+    coastTime = v_cruise > 0 ? coastDistance / v_cruise : 0;
     totalTime = 2 * burnTime + coastTime;
+  }
+
+  // Final sanity: ensure all timing values are finite positive numbers.
+  // NaN or Infinity would persist through JSON round-trips as null,
+  // permanently corrupting the flight plan.
+  if (!Number.isFinite(totalTime) || totalTime <= 0) {
+    totalTime = GAME_SECONDS_PER_TICK;
+    burnTime = 0;
+    coastTime = 0;
   }
 
   return {

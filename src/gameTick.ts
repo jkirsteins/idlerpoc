@@ -41,6 +41,13 @@ let _isCatchUp = false;
 let _encounterResults: EncounterResult[] = [];
 
 /**
+ * Transient record of ship IDs that have already logged a "cargo full"
+ * warning this mining session. Cleared when cargo has space again.
+ * Kept in module scope instead of polluting the persisted miningAccumulator.
+ */
+const _cargoFullLoggedShips: Record<string, boolean> = {};
+
+/**
  * Register the combat system's encounter resolver.
  * Called once at startup by the combat system module.
  */
@@ -487,11 +494,9 @@ function applyShipTick(gameData: GameData, ship: Ship): boolean {
             );
           }
 
-          // Log cargo full warning (once)
+          // Log cargo full warning (once per full-empty cycle)
           if (miningResult.cargoFull) {
-            // Only log if this is the first tick of being full
-            const wasLogging = ship.miningAccumulator?._cargoFullLogged;
-            if (!wasLogging) {
+            if (!_cargoFullLoggedShips[ship.id]) {
               addLog(
                 gameData.log,
                 gameData.gameTime,
@@ -499,17 +504,14 @@ function applyShipTick(gameData: GameData, ship: Ship): boolean {
                 `${ship.name} cargo hold is full. Mining paused.`,
                 ship.name
               );
-              if (!ship.miningAccumulator) ship.miningAccumulator = {};
-              ship.miningAccumulator['_cargoFullLogged'] = 1;
+              _cargoFullLoggedShips[ship.id] = true;
             }
 
             // Mining route: auto-depart to sell station when cargo full
             checkMiningRouteDeparture(gameData, ship);
           } else {
             // Clear the flag when cargo has space again
-            if (ship.miningAccumulator?._cargoFullLogged) {
-              delete ship.miningAccumulator['_cargoFullLogged'];
-            }
+            delete _cargoFullLoggedShips[ship.id];
           }
         }
       }

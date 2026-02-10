@@ -75,14 +75,14 @@ export function createNavigationView(
     const mapArea = document.createElement('div');
     mapArea.className = 'nav-map';
 
-    // Get current location (either docked location, orbiting location, or flight origin/destination)
+    // Current location is only where the ship physically is (docked or orbiting)
     const currentLocationId =
-      ship.location.dockedAt ||
-      ship.location.orbitingAt ||
-      ship.activeFlightPlan?.destination ||
-      'earth';
+      ship.location.dockedAt || ship.location.orbitingAt || null;
+    // Reference location for distance calculations (includes flight destination as fallback)
+    const referenceLocationId =
+      currentLocationId || ship.activeFlightPlan?.destination || 'earth';
     const currentLocation =
-      gameData.world.locations.find((loc) => loc.id === currentLocationId) ||
+      gameData.world.locations.find((loc) => loc.id === referenceLocationId) ||
       gameData.world.locations[0];
 
     const canStartTrips =
