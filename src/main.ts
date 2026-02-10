@@ -104,10 +104,37 @@ let hiddenSnapshot: {
 } | null = null;
 
 /**
- * Maximum real-world seconds to catch up (1 day).
- * The tick count is derived as cappedSeconds × speed.
+ * Real-world seconds of full-rate offline progress (4 hours).
+ * Beyond this threshold, ticks are awarded at a logarithmically
+ * diminishing rate so progress is never hard-capped but active
+ * play remains more rewarding than long absences.
  */
-const MAX_CATCH_UP_SECONDS = 86400;
+const FULL_RATE_CATCH_UP_SECONDS = 4 * 3600;
+
+/**
+ * Compute the number of ticks to process for an offline absence.
+ *
+ * - First 4 real hours: 1 tick per real second (full rate).
+ * - Beyond 4 hours: logarithmic diminishing returns.
+ *   Uses `K * ln(1 + extra / K)` so the first extra second beyond
+ *   the threshold is still ~1 tick, but it tapers smoothly.
+ *
+ * Examples at 1× speed:
+ *   4h  → 14 400 ticks (30 game-days)
+ *   8h  → ~19 400 ticks (~40 game-days)
+ *   24h → ~26 600 ticks (~55 game-days)
+ *   48h → ~30 500 ticks (~64 game-days)
+ */
+function computeCatchUpTicks(elapsedSeconds: number, speed: number): number {
+  if (elapsedSeconds <= FULL_RATE_CATCH_UP_SECONDS) {
+    return Math.floor(elapsedSeconds * speed);
+  }
+  const fullTicks = FULL_RATE_CATCH_UP_SECONDS * speed;
+  const extraSeconds = elapsedSeconds - FULL_RATE_CATCH_UP_SECONDS;
+  const K = FULL_RATE_CATCH_UP_SECONDS; // controls decay curve
+  const extraTicks = K * Math.log(1 + extraSeconds / K) * speed;
+  return Math.floor(fullTicks + extraTicks);
+}
 
 /**
  * Maximum ticks to process in a single synchronous batch before yielding
@@ -365,13 +392,12 @@ function fastForwardTicks(gameData: GameData): CatchUpReport | null {
   if (elapsedSeconds <= 0) return null;
 
   const speed = gameData.timeSpeed;
-  const cappedSeconds = Math.min(elapsedSeconds, MAX_CATCH_UP_SECONDS);
-  const totalTicks = cappedSeconds * speed;
+  const totalTicks = computeCatchUpTicks(elapsedSeconds, speed);
 
   if (totalTicks <= 0) return null;
 
   console.log(
-    `Fast-forwarding ${totalTicks} ticks (${cappedSeconds}s × ${speed}x)...`
+    `Fast-forwarding ${totalTicks} ticks (${elapsedSeconds}s elapsed, ${speed}x speed)...`
   );
 
   gameData.lastTickTimestamp = now;
@@ -381,6 +407,7 @@ function fastForwardTicks(gameData: GameData): CatchUpReport | null {
     // Small gap: process synchronously
     const prevCredits = gameData.credits;
     const prevGameTime = gameData.gameTime;
+    let tickError = false;
 
     for (let i = 0; i < totalTicks; i++) {
       try {
@@ -390,12 +417,22 @@ function fastForwardTicks(gameData: GameData): CatchUpReport | null {
           `Tick ${i} failed during fast-forward, skipping rest:`,
           e
         );
+        tickError = true;
         break;
       }
     }
 
     const encounterResults = drainEncounterResults();
-    saveGame(gameData);
+
+    // Only persist if all ticks succeeded — a mid-tick exception leaves
+    // the game state partially mutated and saving would cement corruption.
+    if (!tickError) {
+      saveGame(gameData);
+    } else {
+      showErrorBanner(
+        'A game error occurred during offline catch-up. Progress since last save may be lost on reload.'
+      );
+    }
 
     console.log(`Fast-forward complete. Game time: ${gameData.gameTime}s`);
 
@@ -741,12 +778,8 @@ const callbacks: RendererCallbacks = {
       return;
     if (ship.activeContract) return;
 
-    // Deduct fleet-wide crew salaries for 1 day (48 ticks)
-    deductFleetSalaries(state.gameData, TICKS_PER_DAY);
-
-    // Process ALL ships for day advancement (including in-flight)
+    // Gravity recovery for docked ships (happens independently of ticks)
     for (const s of state.gameData.ships) {
-      // Gravity recovery for docked ships
       if (s.location.status === 'docked') {
         const previousExposures = new Map<string, number>();
         for (const crew of s.crew) {
@@ -780,13 +813,22 @@ const callbacks: RendererCallbacks = {
           }
         }
       }
+    }
 
-      // Advance in-flight ships by 48 ticks
-      if (s.location.status === 'in_flight') {
-        for (let i = 0; i < TICKS_PER_DAY; i++) {
-          applyTick(state.gameData);
-        }
+    // Check if any ship in the fleet is in-flight — if so, run the full
+    // tick loop once for 1 day. applyTick already processes ALL ships per
+    // call, so we must NOT call it inside a per-ship loop.
+    const hasInFlightShip = state.gameData.ships.some(
+      (s) => s.location.status === 'in_flight'
+    );
+
+    if (hasInFlightShip) {
+      for (let i = 0; i < TICKS_PER_DAY; i++) {
+        applyTick(state.gameData);
       }
+    } else {
+      // No ships in-flight: still deduct salaries for the day
+      deductFleetSalaries(state.gameData, TICKS_PER_DAY);
     }
 
     // Advance to the start of the next day
@@ -1597,12 +1639,14 @@ function processCatchUpBatch(): void {
   const batch = Math.min(remaining, CATCH_UP_BATCH_SIZE);
 
   let processed = 0;
+  let tickError = false;
   for (let i = 0; i < batch; i++) {
     try {
       applyTick(state.gameData, true);
       processed++;
     } catch (e) {
       console.error('Tick failed during catch-up batch, finishing early:', e);
+      tickError = true;
       // Skip remaining ticks to avoid repeated failures
       activeCatchUp.ticksProcessed = activeCatchUp.totalTicks;
       break;
@@ -1631,7 +1675,13 @@ function processCatchUpBatch(): void {
         catchUpProgress: undefined,
       };
     }
-    saveGame(state.gameData);
+    if (!tickError) {
+      saveGame(state.gameData);
+    } else {
+      showErrorBanner(
+        'A game error occurred during offline catch-up. Progress since last save may be lost on reload.'
+      );
+    }
     renderApp();
   } else {
     // More to go — update progress and yield to browser
@@ -1675,8 +1725,7 @@ function processPendingTicks(): void {
   if (elapsedSeconds <= 0) return;
 
   const speed = state.gameData.timeSpeed;
-  const cappedSeconds = Math.min(elapsedSeconds, MAX_CATCH_UP_SECONDS);
-  const totalTicks = cappedSeconds * speed;
+  const totalTicks = computeCatchUpTicks(elapsedSeconds, speed);
 
   // Use the hidden snapshot for report data if available, so the report
   // covers the full absence (including ticks the browser processed in
@@ -1733,13 +1782,23 @@ function processPendingTicks(): void {
   }
 
   let changed = false;
+  let tickError = false;
   for (let i = 0; i < totalTicks; i++) {
     try {
       changed = applyTick(state.gameData, isCatchUp) || changed;
     } catch (e) {
       console.error('Tick failed during processing:', e);
+      tickError = true;
       break;
     }
+  }
+
+  // Don't persist partially-mutated state from a mid-tick exception
+  if (tickError) {
+    showErrorBanner(
+      'A game error occurred. Progress since last save may be lost on reload.'
+    );
+    return;
   }
 
   state.gameData.lastTickTimestamp = now;

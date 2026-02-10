@@ -32,6 +32,21 @@ export function renderCatchUpReport(
   duration.textContent = `${gamePart} (irl ${realPart}) elapsed`;
   header.appendChild(duration);
 
+  // Show a note when diminishing returns kicked in
+  const FULL_RATE_SECONDS = 4 * 3600; // mirrors FULL_RATE_CATCH_UP_SECONDS in main.ts
+  if (report.elapsedRealSeconds > FULL_RATE_SECONDS) {
+    const capNote = document.createElement('div');
+    capNote.className = 'catchup-cap-note';
+    capNote.textContent =
+      `Away for ${formatRealDuration(report.elapsedRealSeconds)} — ` +
+      `progress beyond ${formatRealDuration(FULL_RATE_SECONDS)} accrues at a reduced rate.`;
+    capNote.style.color = '#888';
+    capNote.style.fontSize = '0.85rem';
+    capNote.style.fontStyle = 'italic';
+    capNote.style.marginTop = '0.25rem';
+    header.appendChild(capNote);
+  }
+
   container.appendChild(header);
 
   // --- General progress summary ---
