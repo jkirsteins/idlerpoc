@@ -7,6 +7,8 @@ import {
   calculateFuelTankCapacity,
   getSpecificImpulse,
   initializeFlight,
+  CREW_MASS_KG,
+  CARGO_ITEM_MASS_KG,
 } from '../flightPhysics';
 import { getShipClass } from '../shipClasses';
 import { getEngineDefinition } from '../engines';
@@ -104,8 +106,12 @@ describe('Fuel Physics - Tsiolkovsky Rocket Equation', () => {
       const shipClass = getShipClass(ship.classId)!;
       const totalMass = getCurrentShipMass(ship);
 
-      // Expected: 200k dry + 10k fuel + 10kg cargo + (crew count × 80)
-      const expectedMass = shipClass.mass + 10000 + 10 + ship.crew.length * 80;
+      // Expected: hull + fuel + cargo + crew
+      const expectedMass =
+        shipClass.mass +
+        10000 +
+        CARGO_ITEM_MASS_KG +
+        ship.crew.length * CREW_MASS_KG;
 
       expect(totalMass).toBe(expectedMass);
     });

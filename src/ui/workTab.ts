@@ -10,7 +10,7 @@ import {
   calculateTripFuelKg,
   estimateTripTime,
 } from '../questGen';
-import { getCrewRoleDefinition } from '../crewRoles';
+import { calculateShipSalaryPerTick } from '../crewRoles';
 import {
   estimateRouteRisk,
   getThreatLevel,
@@ -321,13 +321,7 @@ function renderQuestCard(
   details.appendChild(timeInfo);
 
   // Calculate costs and profit
-  let crewSalaryPerTick = 0;
-  for (const crew of ship.crew) {
-    const roleDef = getCrewRoleDefinition(crew.role);
-    if (roleDef) {
-      crewSalaryPerTick += roleDef.salary;
-    }
-  }
+  const crewSalaryPerTick = calculateShipSalaryPerTick(ship);
   const tripCrewCost = Math.round(crewSalaryPerTick * profileTimeTicks);
 
   // Fuel cost in credits (using local station price)

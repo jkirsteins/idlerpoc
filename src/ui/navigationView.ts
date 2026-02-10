@@ -14,12 +14,8 @@ import {
 } from '../encounterSystem';
 import { renderThreatBadge } from './threatBadge';
 import { getShipClass } from '../shipClasses';
-import { getEngineDefinition } from '../engines';
-import {
-  initializeFlight,
-  calculateFuelCost,
-  computeMaxRange,
-} from '../flightPhysics';
+import { initializeFlight } from '../flightPhysics';
+import { calculateTripFuelKg } from '../questGen';
 import { formatDualTime } from '../timeSystem';
 import type { Component } from './component';
 import { formatFuelMass } from './fuelFormatting';
@@ -72,9 +68,6 @@ export function createNavigationView(
   // When slider changes, patch estimate text in-place (no DOM rebuild)
   profileControl.slider.addEventListener('input', () => {
     const ship = getActiveShip(latestGameData);
-    const shipClass = getShipClass(ship.classId);
-    const engineDef = getEngineDefinition(ship.engine.definitionId);
-    if (!shipClass) return;
     for (const ref of estimateRefs) {
       try {
         const flight = initializeFlight(
@@ -86,8 +79,11 @@ export function createNavigationView(
         );
         const travelTime = formatDualTime(flight.totalTime);
         const distanceKm = getDistanceBetween(ref.origin, ref.destination);
-        const maxRangeKm = computeMaxRange(shipClass, engineDef);
-        const fuelCostKg = calculateFuelCost(distanceKm, maxRangeKm);
+        const fuelCostKg = calculateTripFuelKg(
+          ship,
+          distanceKm,
+          ship.flightProfileBurnFraction
+        );
         ref.el.textContent = `⏱ Travel Time: ${travelTime} | ⛽ Fuel Cost: ~${formatFuelMass(fuelCostKg)}`;
       } catch {
         // skip if estimate fails
@@ -252,7 +248,6 @@ export function createNavigationView(
       // Add travel time and fuel cost estimates for reachable non-current locations
       if (location.id !== currentLocationId && reachable) {
         const shipClass = getShipClass(ship.classId);
-        const engineDef = getEngineDefinition(ship.engine.definitionId);
         if (shipClass) {
           try {
             const flight = initializeFlight(
@@ -265,8 +260,11 @@ export function createNavigationView(
             const travelTime = formatDualTime(flight.totalTime);
 
             const distanceKm = getDistanceBetween(currentLocation, location);
-            const maxRangeKm = computeMaxRange(shipClass, engineDef);
-            const fuelCostKg = calculateFuelCost(distanceKm, maxRangeKm);
+            const fuelCostKg = calculateTripFuelKg(
+              ship,
+              distanceKm,
+              ship.flightProfileBurnFraction
+            );
 
             const travelInfo = document.createElement('div');
             travelInfo.style.fontSize = '0.85em';
