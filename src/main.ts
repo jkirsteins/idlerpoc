@@ -72,9 +72,11 @@ function showErrorBanner(message: string): void {
   document.body.prepend(banner);
 }
 
-// All module-level `let` variables MUST be declared before initializeState()
-// is called, otherwise Safari hits a Temporal Dead Zone error (the `let`
-// bindings are hoisted but not initialized until the declaration is reached).
+// All module-level `let` and `const` variables MUST be declared before
+// initializeState() is called, otherwise the engine hits a Temporal Dead Zone
+// error (the bindings are hoisted but not initialized until the declaration
+// is reached). This includes `const` values referenced by hoisted functions
+// like fastForwardTicks() that run during initialization.
 let tickInterval: number | null = null;
 
 /** State for ongoing batched catch-up processing */
@@ -98,6 +100,30 @@ let hiddenSnapshot: {
   gameTime: number;
   realTimestamp: number;
 } | null = null;
+
+/**
+ * Maximum real-world seconds to catch up (1 day).
+ * The tick count is derived as cappedSeconds × speed.
+ */
+const MAX_CATCH_UP_SECONDS = 86400;
+
+/**
+ * Maximum ticks to process in a single synchronous batch before yielding
+ * to the browser. Keeps the UI responsive during long catch-ups.
+ */
+const CATCH_UP_BATCH_SIZE = 2000;
+
+/**
+ * Real-time threshold (seconds) beyond which we treat the gap as a
+ * significant absence and show the catch-up report modal.
+ */
+const CATCH_UP_REPORT_THRESHOLD_SECONDS = 30;
+
+/**
+ * Real-time threshold (seconds) beyond which encounter severity is
+ * capped (isCatchUp=true) to prevent unfair boarding events.
+ */
+const CATCH_UP_SEVERITY_THRESHOLD_SECONDS = 5;
 
 let state: GameState;
 try {
@@ -321,30 +347,6 @@ function buildCatchUpReport(
     logHighlights,
   };
 }
-
-/**
- * Maximum real-world seconds to catch up (1 day).
- * The tick count is derived as cappedSeconds × speed.
- */
-const MAX_CATCH_UP_SECONDS = 86400;
-
-/**
- * Maximum ticks to process in a single synchronous batch before yielding
- * to the browser. Keeps the UI responsive during long catch-ups.
- */
-const CATCH_UP_BATCH_SIZE = 2000;
-
-/**
- * Real-time threshold (seconds) beyond which we treat the gap as a
- * significant absence and show the catch-up report modal.
- */
-const CATCH_UP_REPORT_THRESHOLD_SECONDS = 30;
-
-/**
- * Real-time threshold (seconds) beyond which encounter severity is
- * capped (isCatchUp=true) to prevent unfair boarding events.
- */
-const CATCH_UP_SEVERITY_THRESHOLD_SECONDS = 5;
 
 /**
  * Fast-forward game state based on elapsed real-world time (initial load).
