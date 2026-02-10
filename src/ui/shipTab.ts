@@ -439,6 +439,25 @@ function renderRadiationBar(gameData: GameData): HTMLElement {
   }
 
   const totalShielding = getEffectiveRadiationShielding(ship);
+
+  // Collect per-item breakdown for tooltip
+  const shieldItems: {
+    name: string;
+    baseShielding: number;
+    effective: number;
+  }[] = [];
+  for (const eq of ship.equipment) {
+    const eqDef = getEquipmentDefinition(eq.definitionId);
+    if (eqDef?.radiationShielding) {
+      const effectiveness = 1 - eq.degradation / 200;
+      const effective = eqDef.radiationShielding * effectiveness;
+      shieldItems.push({
+        name: eqDef.name,
+        baseShielding: eqDef.radiationShielding,
+        effective,
+      });
+    }
+  }
   const netRadiation = Math.max(0, engineRadiation - totalShielding);
   const percentage =
     engineRadiation > 0 ? (netRadiation / engineRadiation) * 100 : 0;
@@ -455,13 +474,77 @@ function renderRadiationBar(gameData: GameData): HTMLElement {
       ? `${netRadiation.toFixed(0)} rad (${engineRadiation.toFixed(0)} - ${totalShielding.toFixed(0)} shield)`
       : 'ENGINE OFF';
 
-  return renderStatBar({
+  const statBar = renderStatBar({
     label: 'RADIATION',
     percentage,
     valueLabel,
     colorClass,
     mode: 'full',
   });
+
+  // Build tooltip with radiation breakdown
+  const tooltipParts: string[] = [];
+
+  tooltipParts.push(
+    `<div><span class="custom-tooltip-label">Engine Output:</span> <span class="custom-tooltip-value">${engineRadiation} rad</span></div>`
+  );
+
+  if (shieldItems.length > 0) {
+    tooltipParts.push('<div class="custom-tooltip-section">Shielding:</div>');
+    for (const item of shieldItems) {
+      tooltipParts.push(
+        `<div class="custom-tooltip-item">${item.name}: -${item.effective.toFixed(0)} rad (${item.baseShielding} base)</div>`
+      );
+    }
+  } else {
+    tooltipParts.push(
+      '<div class="custom-tooltip-item" style="color: #ff6b6b;">No radiation shielding installed!</div>'
+    );
+  }
+
+  tooltipParts.push(
+    `<div><span class="custom-tooltip-label">Net Radiation:</span> <span class="custom-tooltip-value" style="color: ${netRadiation > 0 ? '#ff6b6b' : '#4ade80'}">${netRadiation.toFixed(0)} rad</span></div>`
+  );
+
+  if (netRadiation > 0 && ship.engine.state === 'online') {
+    const dmgPerTick = netRadiation / 100;
+    const dmgPerDay = dmgPerTick * TICKS_PER_DAY;
+    tooltipParts.push(
+      `<div><span class="custom-tooltip-label">Crew Damage:</span> <span class="custom-tooltip-value" style="color: #ff6b6b;">-${dmgPerDay.toFixed(1)} HP/day per crew</span></div>`
+    );
+    tooltipParts.push(
+      '<div class="custom-tooltip-item" style="color: #aaa; font-size: 0.85em;">Medbay patients take 50% reduced damage</div>'
+    );
+  }
+
+  // Containment status
+  const confinementEq = ship.equipment.find(
+    (eq) => eq.definitionId === 'mag_confinement'
+  );
+  if (confinementEq && engineDef.containmentComplexity > 0) {
+    const integrity = 100 - confinementEq.degradation;
+    const integrityColor =
+      confinementEq.degradation > 70
+        ? '#ff6b6b'
+        : confinementEq.degradation > 30
+          ? '#fbbf24'
+          : '#4ade80';
+    tooltipParts.push(
+      `<div style="margin-top: 4px;"><span class="custom-tooltip-label">Containment:</span> <span class="custom-tooltip-value" style="color: ${integrityColor}">${integrity.toFixed(0)}% integrity</span></div>`
+    );
+    if (confinementEq.degradation > 30) {
+      tooltipParts.push(
+        '<div class="custom-tooltip-item" style="color: #ff6b6b;">Radiation spikes active! Staff reactor room to slow degradation.</div>'
+      );
+    }
+  }
+
+  attachTooltip(statBar, {
+    content: tooltipParts.join(''),
+    followMouse: false,
+  });
+
+  return statBar;
 }
 
 function renderHeatBar(gameData: GameData): HTMLElement {

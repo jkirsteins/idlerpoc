@@ -400,7 +400,8 @@ export type LogEntryType =
   | 'ore_mined'
   | 'ore_sold'
   | 'cargo_full'
-  | 'mining_route';
+  | 'mining_route'
+  | 'radiation_warning';
 
 export interface LogEntry {
   gameTime: number;
@@ -457,7 +458,8 @@ export type ToastType =
   | 'encounter_fled'
   | 'level_up'
   | 'credits_gained'
-  | 'credits_lost';
+  | 'credits_lost'
+  | 'radiation_spike';
 
 export interface Toast {
   id: string;
