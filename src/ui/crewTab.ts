@@ -563,21 +563,11 @@ function renderStatsSection(crew: CrewMember, ship: Ship): HTMLElement {
 
   section.appendChild(exposureSection);
 
-  // Radiation Exposure indicator (only shown when engine emits radiation)
+  // Radiation Exposure indicator (always shown for discoverability)
   const engineDef = getEngineDefinition(ship.engine.definitionId);
   const engineRadiation = engineDef.radiationOutput || 0;
 
-  if (engineRadiation > 0) {
-    let totalShielding = 0;
-    for (const eq of ship.equipment) {
-      const eqDef = getEquipmentDefinition(eq.definitionId);
-      if (eqDef?.radiationShielding) {
-        const effectiveness = 1 - eq.degradation / 200;
-        totalShielding += eqDef.radiationShielding * effectiveness;
-      }
-    }
-
-    const netRadiation = Math.max(0, engineRadiation - totalShielding);
+  {
     const radiationSection = document.createElement('div');
     radiationSection.className = 'radiation-exposure-section';
     radiationSection.style.marginTop = '1rem';
@@ -589,72 +579,97 @@ function renderStatsSection(crew: CrewMember, ship: Ship): HTMLElement {
     radTitle.style.fontWeight = 'bold';
     radTitle.style.marginBottom = '0.5rem';
 
-    if (ship.engine.state === 'online' && netRadiation > 0) {
-      const crewJob = getCrewJobSlot(ship, crew.id);
-      const isPatient = crewJob?.type === 'patient';
-      const medbay = ship.rooms.find((r) => r.type === 'medbay');
-      const damagePerTick = netRadiation / 100;
-      const effectiveDamage =
-        isPatient && medbay?.state === 'operational'
-          ? damagePerTick * 0.5
-          : damagePerTick;
-      const damagePerDay = effectiveDamage * TICKS_PER_DAY;
-
-      radTitle.textContent = 'Radiation Exposure: Active';
-      radTitle.style.color = '#f87171';
+    if (engineRadiation === 0) {
+      // Chemical engine — show inactive state
+      radTitle.textContent = 'Radiation Exposure: N/A';
+      radTitle.style.color = '#555';
       radiationSection.appendChild(radTitle);
 
-      const radDetails = document.createElement('div');
-      radDetails.style.fontSize = '0.9em';
-      radDetails.style.lineHeight = '1.6';
-
-      const netLine = document.createElement('div');
-      netLine.innerHTML = `<span style="color: #888;">Net Radiation:</span> <span style="color: ${netRadiation > 30 ? '#f87171' : netRadiation > 15 ? '#fbbf24' : '#fb923c'}">${netRadiation.toFixed(0)} rad</span> <span style="color: #666;">(${engineRadiation} engine - ${totalShielding.toFixed(0)} shield)</span>`;
-      radDetails.appendChild(netLine);
-
-      const damageLine = document.createElement('div');
-      damageLine.innerHTML = `<span style="color: #888;">Health Loss:</span> <span style="color: #f87171;">-${damagePerDay.toFixed(1)} HP/day</span>`;
-      if (isPatient && medbay?.state === 'operational') {
-        damageLine.innerHTML +=
-          ' <span style="color: #4ade80; font-size: 0.85em;">(50% reduced — medbay)</span>';
-      }
-      radDetails.appendChild(damageLine);
-
-      // Containment spike warning
-      const confinementEq = ship.equipment.find(
-        (eq) => eq.definitionId === 'mag_confinement'
-      );
-      if (confinementEq && confinementEq.degradation > 30) {
-        const spikeLine = document.createElement('div');
-        spikeLine.style.color = '#ff6b6b';
-        spikeLine.style.fontWeight = 'bold';
-        spikeLine.style.marginTop = '0.25rem';
-        const integrity = (100 - confinementEq.degradation).toFixed(0);
-        spikeLine.textContent = `Containment breach (${integrity}% integrity) — radiation spikes active!`;
-        radDetails.appendChild(spikeLine);
-      }
-
-      radiationSection.appendChild(radDetails);
-    } else if (ship.engine.state === 'online' && netRadiation === 0) {
-      radTitle.textContent = 'Radiation Exposure: Shielded';
-      radTitle.style.color = '#4ade80';
-      radiationSection.appendChild(radTitle);
-
-      const shieldedNote = document.createElement('div');
-      shieldedNote.style.fontSize = '0.9em';
-      shieldedNote.style.color = '#888';
-      shieldedNote.textContent = `Engine output ${engineRadiation} rad fully absorbed by shielding (${totalShielding.toFixed(0)} capacity).`;
-      radiationSection.appendChild(shieldedNote);
+      const inactiveNote = document.createElement('div');
+      inactiveNote.style.fontSize = '0.9em';
+      inactiveNote.style.color = '#555';
+      inactiveNote.textContent =
+        'Chemical engines produce no radiation. Higher-class drives require shielding.';
+      radiationSection.appendChild(inactiveNote);
     } else {
-      radTitle.textContent = 'Radiation Exposure: Engine Off';
-      radTitle.style.color = '#888';
-      radiationSection.appendChild(radTitle);
+      let totalShielding = 0;
+      for (const eq of ship.equipment) {
+        const eqDef = getEquipmentDefinition(eq.definitionId);
+        if (eqDef?.radiationShielding) {
+          const effectiveness = 1 - eq.degradation / 200;
+          totalShielding += eqDef.radiationShielding * effectiveness;
+        }
+      }
 
-      const offNote = document.createElement('div');
-      offNote.style.fontSize = '0.9em';
-      offNote.style.color = '#666';
-      offNote.textContent = `Engine emits ${engineRadiation} rad when online. Shielding capacity: ${totalShielding.toFixed(0)}.`;
-      radiationSection.appendChild(offNote);
+      const netRadiation = Math.max(0, engineRadiation - totalShielding);
+
+      if (ship.engine.state === 'online' && netRadiation > 0) {
+        const crewJob = getCrewJobSlot(ship, crew.id);
+        const isPatient = crewJob?.type === 'patient';
+        const medbay = ship.rooms.find((r) => r.type === 'medbay');
+        const damagePerTick = netRadiation / 100;
+        const effectiveDamage =
+          isPatient && medbay?.state === 'operational'
+            ? damagePerTick * 0.5
+            : damagePerTick;
+        const damagePerDay = effectiveDamage * TICKS_PER_DAY;
+
+        radTitle.textContent = 'Radiation Exposure: Active';
+        radTitle.style.color = '#f87171';
+        radiationSection.appendChild(radTitle);
+
+        const radDetails = document.createElement('div');
+        radDetails.style.fontSize = '0.9em';
+        radDetails.style.lineHeight = '1.6';
+
+        const netLine = document.createElement('div');
+        netLine.innerHTML = `<span style="color: #888;">Net Radiation:</span> <span style="color: ${netRadiation > 30 ? '#f87171' : netRadiation > 15 ? '#fbbf24' : '#fb923c'}">${netRadiation.toFixed(0)} rad</span> <span style="color: #666;">(${engineRadiation} engine - ${totalShielding.toFixed(0)} shield)</span>`;
+        radDetails.appendChild(netLine);
+
+        const damageLine = document.createElement('div');
+        damageLine.innerHTML = `<span style="color: #888;">Health Loss:</span> <span style="color: #f87171;">-${damagePerDay.toFixed(1)} HP/day</span>`;
+        if (isPatient && medbay?.state === 'operational') {
+          damageLine.innerHTML +=
+            ' <span style="color: #4ade80; font-size: 0.85em;">(50% reduced — medbay)</span>';
+        }
+        radDetails.appendChild(damageLine);
+
+        // Containment spike warning
+        const confinementEq = ship.equipment.find(
+          (eq) => eq.definitionId === 'mag_confinement'
+        );
+        if (confinementEq && confinementEq.degradation > 30) {
+          const spikeLine = document.createElement('div');
+          spikeLine.style.color = '#ff6b6b';
+          spikeLine.style.fontWeight = 'bold';
+          spikeLine.style.marginTop = '0.25rem';
+          const integrity = (100 - confinementEq.degradation).toFixed(0);
+          spikeLine.textContent = `Containment breach (${integrity}% integrity) — radiation spikes active!`;
+          radDetails.appendChild(spikeLine);
+        }
+
+        radiationSection.appendChild(radDetails);
+      } else if (ship.engine.state === 'online' && netRadiation === 0) {
+        radTitle.textContent = 'Radiation Exposure: Shielded';
+        radTitle.style.color = '#4ade80';
+        radiationSection.appendChild(radTitle);
+
+        const shieldedNote = document.createElement('div');
+        shieldedNote.style.fontSize = '0.9em';
+        shieldedNote.style.color = '#888';
+        shieldedNote.textContent = `Engine output ${engineRadiation} rad fully absorbed by shielding (${totalShielding.toFixed(0)} capacity).`;
+        radiationSection.appendChild(shieldedNote);
+      } else {
+        radTitle.textContent = 'Radiation Exposure: Engine Off';
+        radTitle.style.color = '#888';
+        radiationSection.appendChild(radTitle);
+
+        const offNote = document.createElement('div');
+        offNote.style.fontSize = '0.9em';
+        offNote.style.color = '#666';
+        offNote.textContent = `Engine emits ${engineRadiation} rad when online. Shielding capacity: ${totalShielding.toFixed(0)}.`;
+        radiationSection.appendChild(offNote);
+      }
     }
 
     section.appendChild(radiationSection);
