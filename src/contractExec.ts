@@ -463,6 +463,16 @@ export function completeLeg(gameData: GameData, ship: Ship): void {
 
   awardPilotingRouteMastery(gameData, ship, quest.origin, quest.destination);
 
+  // ── Deferred abandon — player chose "Abandon" while in-flight ──
+  if (activeContract.abandonRequested) {
+    dockShipAtLocation(ship, arrivalLocation.id);
+    abandonContract(gameData, ship);
+    checkFirstArrival(gameData, ship, arrivalLocation.id);
+    removeUnpaidCrew(gameData, ship);
+    regenerateQuestsIfNewDay(gameData, ship);
+    return;
+  }
+
   // ── Outbound leg ───────────────────────────────────────────────
   if (activeContract.leg === 'outbound') {
     if (quest.type === 'delivery' || quest.type === 'passenger') {

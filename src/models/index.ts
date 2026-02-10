@@ -347,6 +347,7 @@ export interface ActiveContract {
   creditsEarned: number; // running total
   leg: 'outbound' | 'inbound';
   paused: boolean; // docked mid-contract
+  abandonRequested?: boolean; // deferred abandon — applied on next arrival
 }
 
 export interface RouteAssignment {

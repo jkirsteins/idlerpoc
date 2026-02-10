@@ -915,6 +915,10 @@ const callbacks: RendererCallbacks = {
     if (state.phase !== 'playing') return;
     const ship = getActiveShip(state.gameData);
 
+    if (ship.activeContract) {
+      ship.activeContract.abandonRequested = false;
+    }
+
     if (ship.location.status === 'orbiting' && ship.location.orbitingAt) {
       // Orbiting — dock immediately at the orbited location
       dockShipAtLocation(ship, ship.location.orbitingAt);
@@ -930,7 +934,19 @@ const callbacks: RendererCallbacks = {
   onCancelPause: () => {
     if (state.phase !== 'playing') return;
     const ship = getActiveShip(state.gameData);
-    if (ship.activeContract?.paused) {
+    if (ship.activeContract) {
+      ship.activeContract.paused = false;
+      ship.activeContract.abandonRequested = false;
+    }
+    saveGame(state.gameData);
+    renderApp();
+  },
+
+  onRequestAbandon: () => {
+    if (state.phase !== 'playing') return;
+    const ship = getActiveShip(state.gameData);
+    if (ship.activeContract) {
+      ship.activeContract.abandonRequested = true;
       ship.activeContract.paused = false;
     }
     saveGame(state.gameData);

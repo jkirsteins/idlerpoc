@@ -37,6 +37,7 @@ export interface WorkTabCallbacks {
   onUnassignRoute: () => void;
   onDockAtNearestPort: () => void;
   onCancelPause: () => void;
+  onRequestAbandon: () => void;
   onResumeContract: () => void;
   onAbandonContract: () => void;
   onStartMiningRoute: (sellLocationId: string) => void;
@@ -67,11 +68,10 @@ export function createWorkTab(
     descEl: HTMLElement;
     warnEl: HTMLElement;
   };
-  // ── State (declared before radio group so closures can reference) ─
-  let abandonConfirmPending = false;
-  let abandonConfirmTimer: ReturnType<typeof setTimeout> | null = null;
   let prevPhase: 'none' | 'active' | 'paused' = 'none';
-  let latestGameData: GameData = gameData;
+  // Two-step confirm state for the paused view's abandon button (docked context)
+  let pausedAbandonPending = false;
+  let pausedAbandonTimer: ReturnType<typeof setTimeout> | null = null;
 
   const radioGroupEl = document.createElement('div');
   radioGroupEl.className = 'action-radio-group';
@@ -106,18 +106,6 @@ export function createWorkTab(
     textWrap.appendChild(warnEl);
 
     card.appendChild(textWrap);
-
-    // Abandon confirm: always listen for click, check state inside
-    if (value === 'abandon') {
-      card.addEventListener('click', (e) => {
-        if (abandonConfirmPending) {
-          e.preventDefault();
-          resetSelectionState();
-          callbacks.onAbandonContract();
-        }
-      });
-    }
-
     radioGroupEl.appendChild(card);
     radioCardRefs.set(value, { card, radio, labelEl, descEl, warnEl });
   }
@@ -125,41 +113,13 @@ export function createWorkTab(
   container.appendChild(contentArea);
   container.appendChild(radioGroupEl);
 
-  function resetSelectionState() {
-    abandonConfirmPending = false;
-    if (abandonConfirmTimer) {
-      clearTimeout(abandonConfirmTimer);
-      abandonConfirmTimer = null;
-    }
-  }
-
   function handleRadioSelect(action: ActiveAction) {
-    const ship = getActiveShip(latestGameData);
-
-    if (action === 'pause') {
-      // Set paused flag on contract — applied on arrival
-      resetSelectionState();
-      callbacks.onDockAtNearestPort();
-      return;
-    }
     if (action === 'continue') {
-      // Cancel any pending pause
-      if (ship.activeContract?.paused) {
-        callbacks.onCancelPause();
-      }
-      resetSelectionState();
-      return;
-    }
-    if (action === 'abandon') {
-      if (!abandonConfirmPending) {
-        abandonConfirmPending = true;
-        if (abandonConfirmTimer) clearTimeout(abandonConfirmTimer);
-        abandonConfirmTimer = setTimeout(() => {
-          abandonConfirmPending = false;
-          updateRadioGroup(getActiveShip(latestGameData));
-        }, 4000);
-        updateRadioGroup(ship);
-      }
+      callbacks.onCancelPause();
+    } else if (action === 'pause') {
+      callbacks.onDockAtNearestPort();
+    } else if (action === 'abandon') {
+      callbacks.onRequestAbandon();
     }
   }
 
@@ -167,8 +127,8 @@ export function createWorkTab(
     const activeContract = ship.activeContract;
     if (!activeContract) return;
 
-    // Derive selection from game state + local abandon flow
-    const selectedAction: ActiveAction = abandonConfirmPending
+    // Derive selection entirely from game state
+    const selectedAction: ActiveAction = activeContract.abandonRequested
       ? 'abandon'
       : activeContract.paused
         ? 'pause'
@@ -191,10 +151,8 @@ export function createWorkTab(
         style: 'caution',
       },
       abandon: {
-        label: abandonConfirmPending
-          ? 'Click again to confirm abandon'
-          : 'Abandon contract',
-        desc: `Ends contract permanently. This trip will not be paid. You keep ${activeContract.creditsEarned.toLocaleString()} cr from completed trips.`,
+        label: 'Abandon contract',
+        desc: `Ends contract on arrival. This trip will not be paid. You keep ${activeContract.creditsEarned.toLocaleString()} cr from completed trips.`,
         warn: hasRouteAssignment
           ? 'Your automated route assignment will also end.'
           : undefined,
@@ -210,9 +168,6 @@ export function createWorkTab(
 
       refs.card.className = `action-radio-card action-radio-card--${data.style}`;
       if (isSelected) refs.card.classList.add('action-radio-card--selected');
-      if (action === 'abandon' && abandonConfirmPending) {
-        refs.card.classList.add('action-radio-card--danger-hot');
-      }
 
       refs.labelEl.textContent = data.label;
       refs.descEl.textContent = data.desc;
@@ -227,7 +182,6 @@ export function createWorkTab(
   }
 
   function rebuild(gameData: GameData) {
-    latestGameData = gameData;
     const ship = getActiveShip(gameData);
     const activeContract = ship.activeContract;
 
@@ -240,7 +194,11 @@ export function createWorkTab(
         : 'active';
 
     if (curPhase !== prevPhase) {
-      resetSelectionState();
+      pausedAbandonPending = false;
+      if (pausedAbandonTimer) {
+        clearTimeout(pausedAbandonTimer);
+        pausedAbandonTimer = null;
+      }
       prevPhase = curPhase;
     }
 
@@ -276,21 +234,22 @@ export function createWorkTab(
       updateRadioGroup(ship);
     } else if (curPhase === 'paused') {
       contentArea.appendChild(
-        renderPausedContract(gameData, callbacks, abandonConfirmPending, {
+        renderPausedContract(gameData, callbacks, pausedAbandonPending, {
           onResume() {
-            resetSelectionState();
+            pausedAbandonPending = false;
             callbacks.onResumeContract();
           },
           onAbandon() {
-            if (!abandonConfirmPending) {
-              abandonConfirmPending = true;
-              abandonConfirmTimer = setTimeout(() => {
-                abandonConfirmPending = false;
+            if (!pausedAbandonPending) {
+              pausedAbandonPending = true;
+              if (pausedAbandonTimer) clearTimeout(pausedAbandonTimer);
+              pausedAbandonTimer = setTimeout(() => {
+                pausedAbandonPending = false;
                 rebuild(gameData);
               }, 4000);
               rebuild(gameData);
             } else {
-              resetSelectionState();
+              pausedAbandonPending = false;
               callbacks.onAbandonContract();
             }
           },
@@ -723,13 +682,21 @@ function renderActiveContractContent(
 
   container.appendChild(summary);
 
-  // Pause hint when ship is in-flight with pause pending
-  if (activeContract.paused && ship.location.status === 'in_flight') {
-    const pauseHint = document.createElement('div');
-    pauseHint.className = 'contract-pause-hint';
-    pauseHint.textContent =
-      'Ship will dock on arrival. Change selection below to cancel.';
-    container.appendChild(pauseHint);
+  // Status hint when a deferred action is pending
+  if (ship.location.status === 'in_flight') {
+    if (activeContract.abandonRequested) {
+      const hint = document.createElement('div');
+      hint.className = 'contract-pause-hint';
+      hint.textContent =
+        'Contract will be abandoned on arrival. Change selection below to cancel.';
+      container.appendChild(hint);
+    } else if (activeContract.paused) {
+      const hint = document.createElement('div');
+      hint.className = 'contract-pause-hint';
+      hint.textContent =
+        'Ship will dock on arrival. Change selection below to cancel.';
+      container.appendChild(hint);
+    }
   }
 
   // Flight status
