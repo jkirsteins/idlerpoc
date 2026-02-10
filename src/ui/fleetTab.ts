@@ -335,17 +335,17 @@ function renderFleetMap(
       cell.style.padding = '4px';
       cell.style.textAlign = 'center';
 
-      // Determine current location for this ship
+      // Current location is only where the ship physically is (docked or orbiting)
       const currentLocationId =
-        ship.location.dockedAt ||
-        ship.location.orbitingAt ||
-        ship.activeFlightPlan?.destination ||
-        'earth';
+        ship.location.dockedAt || ship.location.orbitingAt || null;
+      // Reference location for distance calculations (includes flight destination as fallback)
+      const referenceLocationId =
+        currentLocationId || ship.activeFlightPlan?.destination || 'earth';
       const currentLocation = gameData.world.locations.find(
-        (l) => l.id === currentLocationId
+        (l) => l.id === referenceLocationId
       );
 
-      if (currentLocation && location.id === currentLocationId) {
+      if (currentLocationId && location.id === currentLocationId) {
         cell.textContent = '📍';
         cell.title = 'Current location';
         cell.style.color = '#4ade80';
