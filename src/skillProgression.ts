@@ -211,47 +211,46 @@ export function awardEventSkillGains(
 
   switch (event.type) {
     case 'encounter_evaded': {
-      // Bridge crew earn astrogation
+      // Bridge crew earn piloting
       const bridgeCrew = crewInJobTypes(['helm', 'scanner', 'comms']);
       for (const crew of bridgeCrew) {
-        grantSkill(crew, 'astrogation', 2.0);
+        grantSkill(crew, 'piloting', 2.0);
       }
       break;
     }
 
     case 'encounter_negotiated': {
-      // Negotiator earns charisma
+      // Negotiator earns piloting (showed skill under pressure)
       const negotiator = ship.crew.find((c) => c.id === event.negotiatorId);
-      if (negotiator) grantSkill(negotiator, 'charisma', 2.5);
+      if (negotiator) grantSkill(negotiator, 'piloting', 2.5);
       break;
     }
 
     case 'encounter_victory': {
-      // Combat job crew earn strength
+      // Combat job crew earn piloting
       const combatCrew = crewInJobTypes([
         'arms_maint',
         'fire_control',
         'targeting',
       ]);
       for (const crew of combatCrew) {
-        grantSkill(crew, 'strength', 3.0);
+        grantSkill(crew, 'piloting', 3.0);
       }
       break;
     }
 
     case 'encounter_harassment': {
-      // All crew earn loyalty (survived together)
+      // All crew earn piloting (survived together)
       for (const crew of ship.crew) {
-        grantSkill(crew, 'loyalty', 1.0);
+        grantSkill(crew, 'piloting', 1.0);
       }
       break;
     }
 
     case 'encounter_boarding': {
-      // All crew earn loyalty + strength
+      // All crew earn piloting (combat experience)
       for (const crew of ship.crew) {
-        grantSkill(crew, 'loyalty', 1.5);
-        grantSkill(crew, 'strength', 1.5);
+        grantSkill(crew, 'piloting', 2.0);
       }
       break;
     }
@@ -279,10 +278,10 @@ export function awardEventSkillGains(
       if (captain) {
         grantSkill(captain, 'commerce', commerceGain);
       }
-      // First officer = non-captain crew with highest loyalty
+      // First officer = non-captain crew with highest commerce
       const firstOfficer = ship.crew
         .filter((c) => !c.isCaptain)
-        .sort((a, b) => b.skills.loyalty - a.skills.loyalty)[0];
+        .sort((a, b) => b.skills.commerce - a.skills.commerce)[0];
       if (firstOfficer) {
         grantSkill(firstOfficer, 'commerce', commerceGain * 0.5);
       }
@@ -290,9 +289,9 @@ export function awardEventSkillGains(
     }
 
     case 'first_arrival': {
-      // All crew earn astrogation
+      // All crew earn piloting (new territory)
       for (const crew of ship.crew) {
-        grantSkill(crew, 'astrogation', 2.0);
+        grantSkill(crew, 'piloting', 2.0);
       }
       break;
     }

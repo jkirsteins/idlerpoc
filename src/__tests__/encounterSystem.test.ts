@@ -24,9 +24,11 @@ import {
 describe('calculatePositionDanger', () => {
   const world = createTestWorld();
 
-  it('returns minimum danger near Earth (0 km)', () => {
+  it('returns low danger near Earth (0 km)', () => {
     const danger = calculatePositionDanger(0, world);
-    expect(danger).toBeCloseTo(0.1, 1);
+    // Scrapyard Ring (lawless, 800 km) is within LAWLESS_RADIUS, boosting danger
+    // dangerFromAlliance=0.1 * lawlessBonus≈3.0 ≈ 0.3
+    expect(danger).toBeCloseTo(0.3, 1);
   });
 
   it('returns minimum danger near Mars (54.6M km)', () => {
@@ -34,9 +36,10 @@ describe('calculatePositionDanger', () => {
     expect(danger).toBeCloseTo(0.1, 1);
   });
 
-  it('returns minimum danger near Gateway Station (400 km)', () => {
+  it('returns low danger near Gateway Station (400 km)', () => {
     const danger = calculatePositionDanger(400, world);
-    expect(danger).toBeCloseTo(0.1, 1);
+    // Scrapyard Ring (lawless, 800 km) is within LAWLESS_RADIUS, boosting danger
+    expect(danger).toBeCloseTo(0.3, 1);
   });
 
   it('returns maximum danger in deep space midway Earth-Mars', () => {
@@ -160,23 +163,19 @@ describe('calculateCrewSkillFactor', () => {
     expect(calculateCrewSkillFactor(ship)).toBe(1.0);
   });
 
-  it('reduces with astrogation skill 30', () => {
+  it('reduces with piloting skill 30', () => {
     const ship = createTestShip();
-    // Default test ship has navigator (astrogation 30) on helm
+    // Default test ship has pilot (piloting 30) on helm
     const factor = calculateCrewSkillFactor(ship);
     expect(factor).toBeCloseTo(1 / (1 + 30 * 0.008), 3);
     expect(factor).toBeCloseTo(0.806, 2);
   });
 
-  it('reduces more with astrogation skill 60', () => {
+  it('reduces more with piloting skill 60', () => {
     const crew = createTestCrew({
       skills: {
-        piloting: 15,
-        astrogation: 60,
-        engineering: 10,
-        strength: 10,
-        charisma: 10,
-        loyalty: 10,
+        piloting: 60,
+        mining: 10,
         commerce: 0,
       },
     });
@@ -192,26 +191,18 @@ describe('calculateCrewSkillFactor', () => {
     expect(factor).toBeCloseTo(0.676, 2);
   });
 
-  it('uses best astrogation among scanner/helm crew', () => {
+  it('uses best piloting among scanner/helm crew', () => {
     const navigator = createTestCrew({
       skills: {
-        piloting: 15,
-        astrogation: 50,
-        engineering: 10,
-        strength: 10,
-        charisma: 10,
-        loyalty: 10,
+        piloting: 50,
+        mining: 10,
         commerce: 0,
       },
     });
     const pilot = createTestCrew({
       skills: {
         piloting: 40,
-        astrogation: 15,
-        engineering: 10,
-        strength: 10,
-        charisma: 10,
-        loyalty: 10,
+        mining: 10,
         commerce: 0,
       },
     });
@@ -227,15 +218,11 @@ describe('calculateCrewSkillFactor', () => {
     expect(factor).toBeCloseTo(1 / (1 + 50 * 0.008), 3);
   });
 
-  it('astrogation 0 gives no reduction', () => {
+  it('piloting 0 gives no reduction', () => {
     const crew = createTestCrew({
       skills: {
-        piloting: 5,
-        astrogation: 0,
-        engineering: 3,
-        strength: 3,
-        charisma: 3,
-        loyalty: 3,
+        piloting: 0,
+        mining: 3,
         commerce: 0,
       },
     });
@@ -479,12 +466,8 @@ describe('calculateEncounterChance', () => {
     clearJobSlots(ship, 'scanner');
     const lowSkillCrew = createTestCrew({
       skills: {
-        piloting: 3,
-        astrogation: 1,
-        engineering: 2,
-        strength: 2,
-        charisma: 2,
-        loyalty: 2,
+        piloting: 1,
+        mining: 2,
         commerce: 0,
       },
     });
@@ -496,12 +479,8 @@ describe('calculateEncounterChance', () => {
     clearJobSlots(ship, 'helm');
     const highSkillCrew = createTestCrew({
       skills: {
-        piloting: 3,
-        astrogation: 10,
-        engineering: 2,
-        strength: 2,
-        charisma: 2,
-        loyalty: 2,
+        piloting: 10,
+        mining: 2,
         commerce: 0,
       },
     });

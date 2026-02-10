@@ -40,8 +40,8 @@ export const ENCOUNTER_CONSTANTS = {
   HEAT_DIVISOR: 200,
   /** Heat signature multiplier during coast phase */
   COAST_HEAT_FACTOR: 0.1,
-  /** Astrogation skill → detection reduction scaling */
-  ASTROGATION_FACTOR: 0.008,
+  /** Piloting skill → detection reduction scaling */
+  PILOTING_FACTOR: 0.008,
 };
 
 /**
@@ -144,28 +144,28 @@ export function calculateHeatSignature(
 }
 
 /**
- * Calculate crew skill factor from best astrogation skill on the bridge.
+ * Calculate crew skill factor from best piloting skill on the bridge.
  *
- * Skilled navigators reduce encounter probability by plotting evasive routes.
+ * Skilled pilots reduce encounter probability by plotting evasive routes.
  */
 export function calculateCrewSkillFactor(ship: Ship): number {
-  // Scanner crew contribute astrogation skill to route evasion
+  // Scanner and helm crew contribute piloting skill to route evasion
   const scannerCrew = getCrewForJobType(ship, 'scanner');
   const helmCrew = getCrewForJobType(ship, 'helm');
   const relevantCrew = [...scannerCrew, ...helmCrew];
 
   if (relevantCrew.length === 0) {
-    return 1.0; // No navigator = no reduction
+    return 1.0; // No pilot = no reduction
   }
 
-  let bestAstrogation = 0;
+  let bestPiloting = 0;
   for (const crew of relevantCrew) {
-    if (crew.skills.astrogation > bestAstrogation) {
-      bestAstrogation = crew.skills.astrogation;
+    if (crew.skills.piloting > bestPiloting) {
+      bestPiloting = crew.skills.piloting;
     }
   }
 
-  return 1 / (1 + bestAstrogation * ENCOUNTER_CONSTANTS.ASTROGATION_FACTOR);
+  return 1 / (1 + bestPiloting * ENCOUNTER_CONSTANTS.PILOTING_FACTOR);
 }
 
 /**

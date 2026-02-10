@@ -24,45 +24,17 @@ export const CREW_ROLE_DEFINITIONS: CrewRoleDefinition[] = [
     salary: 0.1,
   },
   {
-    role: 'navigator',
-    name: 'Navigator',
-    description: 'Plots routes, analyzes hazards, operates scanners.',
-    preferredRoom: 'bridge',
+    role: 'miner',
+    name: 'Miner',
+    description: 'Extracts ores and resources from asteroids and planets.',
+    preferredRoom: 'cargo_hold',
     salary: 0.1,
   },
   {
-    role: 'engineer',
-    name: 'Engineer',
-    description: 'Keeps the engines running smoothly.',
-    preferredRoom: 'engine_room',
-    salary: 0.15,
-  },
-  {
-    role: 'cook',
-    name: 'Cook',
-    description: 'Prepares meals and boosts crew morale.',
-    preferredRoom: 'cantina',
-    salary: 0.05,
-  },
-  {
-    role: 'medic',
-    name: 'Medic',
-    description: 'Treats injuries and illnesses.',
-    preferredRoom: 'medbay',
-    salary: 0.075,
-  },
-  {
-    role: 'gunner',
-    name: 'Gunner',
-    description: 'Operates weapons systems.',
-    preferredRoom: 'armory',
-    salary: 0.075,
-  },
-  {
-    role: 'mechanic',
-    name: 'Mechanic',
-    description: 'Repairs ship systems and equipment.',
-    preferredRoom: 'engine_room',
+    role: 'trader',
+    name: 'Trader',
+    description: 'Manages commerce, negotiations, and trade operations.',
+    preferredRoom: 'bridge',
     salary: 0.1,
   },
 ];
@@ -79,28 +51,18 @@ export function getCrewRoleName(role: CrewRole): string {
 
 /**
  * Mapping of skills to their corresponding roles.
- * Commerce is excluded — it doesn't determine role (trained by captains/first officers via trade).
+ * Commerce determines the trader role.
  */
 const SKILL_TO_ROLE: Partial<Record<SkillId, CrewRole>> = {
   piloting: 'pilot',
-  astrogation: 'navigator',
-  engineering: 'engineer',
-  strength: 'gunner',
-  charisma: 'cook', // Quartermaster/morale role (cook manages crew welfare)
-  loyalty: 'medic', // First Officer/support role (medic cares for crew)
+  mining: 'miner',
+  commerce: 'trader',
 };
 
 /**
  * Priority order for tie-breaking when multiple skills are equal
  */
-const SKILL_PRIORITY: SkillId[] = [
-  'piloting',
-  'astrogation',
-  'engineering',
-  'strength',
-  'charisma',
-  'loyalty',
-];
+const SKILL_PRIORITY: SkillId[] = ['piloting', 'mining', 'commerce'];
 
 /**
  * Deduce a crew member's role based on their highest skill.
@@ -135,11 +97,7 @@ export function deduceRoleFromSkills(skills: CrewSkills): CrewRole {
 export function generateSkillsForRole(_targetRole: CrewRole): CrewSkills {
   return {
     piloting: 0,
-    astrogation: 0,
-    engineering: 0,
-    strength: 0,
-    charisma: 0,
-    loyalty: 0,
+    mining: 0,
     commerce: 0,
   };
 }

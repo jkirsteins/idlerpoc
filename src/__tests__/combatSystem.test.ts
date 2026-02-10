@@ -115,15 +115,11 @@ describe('attemptEvasion', () => {
     );
   });
 
-  it('adds astrogation skill bonus from bridge crew', () => {
+  it('adds piloting skill bonus from bridge crew', () => {
     const navigator = createTestCrew({
       skills: {
-        piloting: 3,
-        astrogation: 10,
-        engineering: 2,
-        strength: 2,
-        charisma: 2,
-        loyalty: 2,
+        piloting: 10,
+        mining: 2,
         commerce: 0,
       },
     });
@@ -139,7 +135,7 @@ describe('attemptEvasion', () => {
       },
       activeFlightPlan: createTestFlight({ currentVelocity: 0 }),
     });
-    // Assign navigator to scanner (astrogation-based) slot
+    // Assign navigator to scanner (piloting-based) slot
     assignCrewToJob(ship, navigator.id, 'scanner', bridge.id);
 
     const result = attemptEvasion(ship);
@@ -152,12 +148,8 @@ describe('attemptEvasion', () => {
   it('maximum evasion chance is about 65%', () => {
     const navigator = createTestCrew({
       skills: {
-        piloting: 15,
-        astrogation: 100,
-        engineering: 10,
-        strength: 10,
-        charisma: 10,
-        loyalty: 10,
+        piloting: 100,
+        mining: 10,
         commerce: 0,
       },
     });
@@ -173,7 +165,7 @@ describe('attemptEvasion', () => {
       },
       activeFlightPlan: createTestFlight({ currentVelocity: 100_000 }),
     });
-    // Assign navigator to scanner (astrogation-based) slot
+    // Assign navigator to scanner (piloting-based) slot
     assignCrewToJob(ship, navigator.id, 'scanner', bridge.id);
 
     const result = attemptEvasion(ship);
@@ -183,15 +175,11 @@ describe('attemptEvasion', () => {
 });
 
 describe('attemptNegotiation', () => {
-  it('returns 0 chance with charisma 0', () => {
+  it('returns 0 chance with piloting 0', () => {
     const crew = createTestCrew({
       skills: {
-        piloting: 3,
-        astrogation: 3,
-        engineering: 3,
-        strength: 3,
-        charisma: 0,
-        loyalty: 3,
+        piloting: 0,
+        mining: 3,
         commerce: 0,
       },
     });
@@ -201,16 +189,12 @@ describe('attemptNegotiation', () => {
     expect(result.chance).toBe(0);
   });
 
-  it('returns 50% chance with charisma 100', () => {
+  it('returns 50% chance with piloting 100', () => {
     const crew = createTestCrew({
       name: 'Smooth Talker',
       skills: {
-        piloting: 15,
-        astrogation: 15,
-        engineering: 15,
-        strength: 15,
-        charisma: 100,
-        loyalty: 15,
+        piloting: 100,
+        mining: 15,
         commerce: 0,
       },
     });
@@ -221,16 +205,12 @@ describe('attemptNegotiation', () => {
     expect(result.negotiatorName).toBe('Smooth Talker');
   });
 
-  it('uses best charisma among all crew', () => {
-    const cook = createTestCrew({
-      name: 'Chef',
+  it('uses best piloting among all crew', () => {
+    const miner = createTestCrew({
+      name: 'Miner',
       skills: {
-        piloting: 10,
-        astrogation: 10,
-        engineering: 10,
-        strength: 10,
-        charisma: 80,
-        loyalty: 10,
+        piloting: 80,
+        mining: 10,
         commerce: 0,
       },
     });
@@ -238,19 +218,15 @@ describe('attemptNegotiation', () => {
       name: 'Pilot',
       skills: {
         piloting: 50,
-        astrogation: 30,
-        engineering: 10,
-        strength: 10,
-        charisma: 15,
-        loyalty: 10,
+        mining: 10,
         commerce: 0,
       },
     });
-    const ship = createTestShip({ crew: [pilot, cook] });
+    const ship = createTestShip({ crew: [pilot, miner] });
 
     const result = attemptNegotiation(ship);
     expect(result.chance).toBe(80 / 200);
-    expect(result.negotiatorName).toBe('Chef');
+    expect(result.negotiatorName).toBe('Miner');
   });
 });
 
@@ -296,12 +272,8 @@ describe('calculateDefenseScore', () => {
   it('includes PD station staffing bonus', () => {
     const gunner = createTestCrew({
       skills: {
-        piloting: 10,
-        astrogation: 10,
-        engineering: 10,
-        strength: 50,
-        charisma: 10,
-        loyalty: 10,
+        piloting: 50,
+        mining: 10,
         commerce: 0,
       },
     });
@@ -324,12 +296,8 @@ describe('calculateDefenseScore', () => {
   it('includes armory crew with weapons', () => {
     const gunner = createTestCrew({
       skills: {
-        piloting: 10,
-        astrogation: 10,
-        engineering: 10,
-        strength: 50,
-        charisma: 10,
-        loyalty: 10,
+        piloting: 50,
+        mining: 10,
         commerce: 0,
       },
       equipment: [{ id: 'rifle-1', definitionId: 'rifle' }],
@@ -346,7 +314,7 @@ describe('calculateDefenseScore', () => {
     assignCrewToJob(ship, gunner.id, 'arms_maint', armory.id);
 
     const score = calculateDefenseScore(ship);
-    // Armory: strength(50)/10 + rifle(7) = 12, health 100% → 12 + mass: 2.0 = 14.0
+    // Armory: piloting(50)/10 + rifle(7) = 12, health 100% → 12 + mass: 2.0 = 14.0
     expect(score).toBeCloseTo(14.0, 0);
   });
 
@@ -354,12 +322,8 @@ describe('calculateDefenseScore', () => {
     const gunner = createTestCrew({
       health: 50,
       skills: {
-        piloting: 10,
-        astrogation: 10,
-        engineering: 10,
-        strength: 50,
-        charisma: 10,
-        loyalty: 10,
+        piloting: 50,
+        mining: 10,
         commerce: 0,
       },
       equipment: [{ id: 'rifle-1', definitionId: 'rifle' }],
@@ -819,12 +783,8 @@ describe('resolveEncounter', () => {
   it('evasion succeeds when roll is low enough', () => {
     const navigator = createTestCrew({
       skills: {
-        piloting: 3,
-        astrogation: 10,
-        engineering: 2,
-        strength: 2,
-        charisma: 2,
-        loyalty: 2,
+        piloting: 10,
+        mining: 2,
         commerce: 0,
       },
     });
@@ -860,11 +820,7 @@ describe('resolveEncounter', () => {
       createTestCrew({
         skills: {
           piloting: 1,
-          astrogation: 0,
-          engineering: 1,
-          strength: 1,
-          charisma: 0,
-          loyalty: 1,
+          mining: 1,
           commerce: 0,
         },
       }),
@@ -961,11 +917,7 @@ describe('combat variance', () => {
     const navigator = createTestCrew({
       skills: {
         piloting: 3,
-        astrogation: 0,
-        engineering: 2,
-        strength: 2,
-        charisma: 0,
-        loyalty: 2,
+        mining: 2,
         commerce: 0,
       },
     });

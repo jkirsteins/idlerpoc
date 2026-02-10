@@ -105,6 +105,7 @@ describe('flightPhysics', () => {
         y: 50,
         services: [],
         size: 1,
+        pilotingRequirement: 0,
       };
 
       const nearDestination: WorldLocation = {

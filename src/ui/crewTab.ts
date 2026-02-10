@@ -51,7 +51,7 @@ function snapshotCrewProps(
     crewSkills: ship.crew
       .map(
         (c) =>
-          `${c.skills.piloting}${c.skills.astrogation}${c.skills.engineering}${c.skills.strength}${c.skills.charisma}${c.skills.loyalty}${c.skills.commerce}${c.specialization?.skillId ?? ''}`
+          `${c.skills.piloting}${c.skills.mining}${c.skills.commerce}${c.specialization?.skillId ?? ''}`
       )
       .join(),
     crewEquip: ship.crew
@@ -227,10 +227,10 @@ function renderNoCrewSelected(): HTMLElement {
 }
 
 function calculateAttackScore(crew: CrewMember): number {
-  // Base attack from strength skill
+  // Base attack from piloting skill
   const level = getGravityDegradationLevel(crew.zeroGExposure);
   const multiplier = getStrengthMultiplier(level);
-  let attack = Math.floor(crew.skills.strength * multiplier);
+  let attack = Math.floor(crew.skills.piloting * multiplier);
 
   // Add weapon bonus
   const weaponSlot = crew.equipment.find((item) => {
@@ -569,18 +569,7 @@ function renderSkillRow(crew: CrewMember, skillId: SkillId): HTMLElement {
   const skillValue = document.createElement('span');
   skillValue.className = 'skill-value';
 
-  if (skillId === 'strength') {
-    const level = getGravityDegradationLevel(crew.zeroGExposure);
-    const multiplier = getStrengthMultiplier(level);
-    const effectiveStrength = Math.floor(rawValue * multiplier);
-    if (level !== 'none') {
-      skillValue.innerHTML = `${intValue} <span style="opacity: 0.6">(eff: ${effectiveStrength})</span>`;
-    } else {
-      skillValue.textContent = `${intValue}`;
-    }
-  } else {
-    skillValue.textContent = `${intValue}`;
-  }
+  skillValue.textContent = `${intValue}`;
 
   rightSpan.appendChild(skillValue);
   topRow.appendChild(rightSpan);
@@ -645,23 +634,10 @@ function renderSkillsSection(
   const skills = document.createElement('div');
   skills.className = 'crew-skills';
 
-  // Core combat/utility skills
-  const coreSkillIds: SkillId[] = [
-    'piloting',
-    'astrogation',
-    'engineering',
-    'strength',
-    'charisma',
-    'loyalty',
-  ];
+  const coreSkillIds: SkillId[] = ['piloting', 'mining', 'commerce'];
 
   for (const skillId of coreSkillIds) {
     skills.appendChild(renderSkillRow(crew, skillId));
-  }
-
-  // Commerce (only shown for captain or if > 0)
-  if (crew.isCaptain || crew.skills.commerce > 0) {
-    skills.appendChild(renderSkillRow(crew, 'commerce'));
   }
 
   // Show "Ranged Combat" attribute if weapon equipped
@@ -940,7 +916,7 @@ function renderHiringSection(
     const skills = document.createElement('div');
     skills.style.fontSize = '0.85rem';
     skills.style.color = '#888';
-    skills.textContent = `Skills: Pilot ${Math.floor(candidate.skills.piloting)} | Nav ${Math.floor(candidate.skills.astrogation)} | Eng ${Math.floor(candidate.skills.engineering)} | Str ${Math.floor(candidate.skills.strength)}`;
+    skills.textContent = `Skills: Pilot ${Math.floor(candidate.skills.piloting)} | Mining ${Math.floor(candidate.skills.mining)} | Commerce ${Math.floor(candidate.skills.commerce)}`;
     infoDiv.appendChild(skills);
 
     candidateDiv.appendChild(infoDiv);

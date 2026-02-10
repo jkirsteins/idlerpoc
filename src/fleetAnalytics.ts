@@ -143,7 +143,7 @@ export function getShipHealthAlerts(ship: Ship): ShipHealthAlert[] {
 
   // Warning: Missing critical crew roles
   const hasPilot = ship.crew.some((c) => c.role === 'pilot');
-  const hasEngineer = ship.crew.some((c) => c.role === 'engineer');
+  const hasMiner = ship.crew.some((c) => c.role === 'miner');
   const shipClass = getShipClass(ship.classId);
 
   if (!hasPilot && shipClass && shipClass.maxCrew > 1) {
@@ -154,11 +154,11 @@ export function getShipHealthAlerts(ship: Ship): ShipHealthAlert[] {
     });
   }
 
-  if (!hasEngineer && shipClass && shipClass.maxCrew > 2) {
+  if (!hasMiner && shipClass && shipClass.maxCrew > 2) {
     alerts.push({
       severity: 'warning',
-      message: 'No Engineer assigned',
-      action: 'Hire engineer for maintenance',
+      message: 'No Miner assigned',
+      action: 'Hire miner for resource extraction',
     });
   }
 
@@ -416,19 +416,19 @@ export function getMissingCrewRoles(ship: Ship): string[] {
   if (!shipClass) return missing;
 
   const hasPilot = ship.crew.some((c) => c.role === 'pilot');
-  const hasNavigator = ship.crew.some((c) => c.role === 'navigator');
-  const hasEngineer = ship.crew.some((c) => c.role === 'engineer');
+  const hasMiner = ship.crew.some((c) => c.role === 'miner');
+  const hasTrader = ship.crew.some((c) => c.role === 'trader');
 
   if (!hasPilot && shipClass.maxCrew > 1) {
     missing.push('Pilot');
   }
 
-  if (!hasNavigator && shipClass.maxCrew > 2) {
-    missing.push('Navigator');
+  if (!hasMiner && shipClass.maxCrew > 2) {
+    missing.push('Miner');
   }
 
-  if (!hasEngineer && shipClass.maxCrew > 2) {
-    missing.push('Engineer');
+  if (!hasTrader && shipClass.maxCrew > 3) {
+    missing.push('Trader');
   }
 
   return missing;

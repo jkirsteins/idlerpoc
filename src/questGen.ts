@@ -187,36 +187,30 @@ function calculatePayment(
 }
 
 /**
- * Calculate payment bonus from skilled crew members in appropriate rooms.
+ * Calculate payment bonus from skilled crew members in appropriate roles.
  *
- * - Navigator on bridge: +2% per astrogation point above 5
- * - Engineer in engine room: +1% per engineering point above 5
- * - Cook in cantina: +3% per charisma point above 5
+ * - Scanner/helm crew: piloting bonus (evasion reputation)
+ * - Drive ops crew: piloting bonus (efficiency)
+ * - Mining crew with ore in cargo: mining bonus
  */
 function calculateCrewSkillBonus(ship: Ship): number {
   let bonus = 0;
 
-  // Scanner crew: astrogation bonus (navigator equivalent)
+  // Scanner crew: piloting bonus
   for (const crew of getCrewForJobType(ship, 'scanner')) {
-    const pointsAbove50 = Math.max(0, crew.skills.astrogation - 50);
+    const pointsAbove50 = Math.max(0, crew.skills.piloting - 50);
     bonus += pointsAbove50 * 0.002;
   }
 
-  // Drive ops crew: engineering bonus
+  // Drive ops crew: piloting bonus
   for (const crew of getCrewForJobType(ship, 'drive_ops')) {
-    const pointsAbove50 = Math.max(0, crew.skills.engineering - 50);
+    const pointsAbove50 = Math.max(0, crew.skills.piloting - 50);
     bonus += pointsAbove50 * 0.001;
   }
 
-  // Galley crew: charisma bonus (cook equivalent)
-  for (const crew of getCrewForJobType(ship, 'galley')) {
-    const pointsAbove50 = Math.max(0, crew.skills.charisma - 50);
-    bonus += pointsAbove50 * 0.003;
-  }
-
-  // Comms crew: charisma bonus for negotiation
-  for (const crew of getCrewForJobType(ship, 'comms')) {
-    const pointsAbove50 = Math.max(0, crew.skills.charisma - 50);
+  // Helm crew: piloting bonus
+  for (const crew of getCrewForJobType(ship, 'helm')) {
+    const pointsAbove50 = Math.max(0, crew.skills.piloting - 50);
     bonus += pointsAbove50 * 0.002;
   }
 

@@ -1,4 +1,6 @@
 import type { GameData } from './models';
+import { generateWorld } from './worldGen';
+import { generateJobSlotsForShip } from './jobSlots';
 
 const STORAGE_KEY = 'spaceship_game_data';
 
@@ -9,7 +11,7 @@ const STORAGE_KEY = 'spaceship_game_data';
  *
  * See docs/save-migration.md for the full migration architecture.
  */
-export const CURRENT_SAVE_VERSION = 1;
+export const CURRENT_SAVE_VERSION = 2;
 
 /** Whether the last save attempt failed (used for UI warnings). */
 let _lastSaveFailed = false;
@@ -117,8 +119,96 @@ const migrations: Record<number, MigrationFn> = {
     return data;
   },
 
-  // Future migrations go here:
-  // 1: (data) => { /* v1 → v2 */ data.saveVersion = 2; return data; },
+  /**
+   * v1 → v2: Skill system revamp.
+   * - 7 skills → 3 skills (piloting, mining, commerce)
+   * - 8 crew roles → 4 (captain, pilot, miner, trader)
+   * - Add mastery system to crew members
+   * - Add oreCargo to ships
+   * - Regenerate world (new mining locations, pilotingRequirement)
+   * - Regenerate job slots (new mining_ops slot, changed skill assignments)
+   */
+  1: (data: RawSave): RawSave => {
+    // Role mapping: old → new
+    const ROLE_MAP: Record<string, string> = {
+      captain: 'captain',
+      pilot: 'pilot',
+      navigator: 'pilot',
+      engineer: 'miner',
+      cook: 'trader',
+      medic: 'trader',
+      gunner: 'pilot',
+      mechanic: 'miner',
+    };
+
+    // Empty mastery state factory (inline to avoid import cycle)
+    const emptyMastery = () => ({
+      piloting: { itemMasteries: {}, pool: { xp: 0, maxXp: 0 } },
+      mining: { itemMasteries: {}, pool: { xp: 0, maxXp: 0 } },
+      commerce: { itemMasteries: {}, pool: { xp: 0, maxXp: 0 } },
+    });
+
+    const ships = data.ships as Array<Record<string, unknown>> | undefined;
+    if (ships) {
+      for (const ship of ships) {
+        // Add oreCargo
+        if (!ship.oreCargo) {
+          ship.oreCargo = [];
+        }
+
+        // Migrate crew skills and roles
+        const crew = ship.crew as Array<Record<string, unknown>> | undefined;
+        if (crew) {
+          for (const member of crew) {
+            // Migrate skills: keep best of piloting/astrogation, start mining at 0
+            const oldSkills = member.skills as
+              | Record<string, number>
+              | undefined;
+            if (oldSkills) {
+              const bestPiloting = Math.max(
+                oldSkills.piloting ?? 0,
+                oldSkills.astrogation ?? 0
+              );
+              const commerce = oldSkills.commerce ?? 0;
+              member.skills = {
+                piloting: bestPiloting,
+                mining: 0,
+                commerce,
+              };
+            }
+
+            // Migrate role
+            const oldRole = member.role as string;
+            member.role = ROLE_MAP[oldRole] ?? 'pilot';
+
+            // Add mastery
+            if (!member.mastery) {
+              member.mastery = emptyMastery();
+            }
+          }
+        }
+
+        // Regenerate job slots for new slot types
+        // We need rooms and equipment to regenerate properly
+        const rooms = ship.rooms as Array<Record<string, unknown>> | undefined;
+        const equipment = ship.equipment as
+          | Array<Record<string, unknown>>
+          | undefined;
+        if (rooms && equipment) {
+          // Use the ship object directly - generateJobSlotsForShip reads rooms/equipment
+          ship.jobSlots = generateJobSlotsForShip(
+            ship as unknown as Parameters<typeof generateJobSlotsForShip>[0]
+          );
+        }
+      }
+    }
+
+    // Regenerate world with new mining locations and pilotingRequirement
+    data.world = generateWorld() as unknown as RawSave;
+
+    data.saveVersion = 2;
+    return data;
+  },
 };
 
 /**

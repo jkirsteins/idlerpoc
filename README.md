@@ -30,24 +30,31 @@ npm run dev
   - Direct skill training: jobs train crew skills with power-law diminishing returns (no XP intermediary)
   - All crew start at zero skills — progression comes entirely from training and events
   - Skill 5 in ~5 real minutes, skill 50 in ~5 real days (captain at helm baseline)
+  - **3 skills** (Piloting, Mining, Commerce) with Melvor Idle-inspired mastery system
+  - **Three-layer progression**: Skill Level (gates access), Item Mastery (per-route/ore/trade efficiency), Mastery Pool (skill-wide checkpoint bonuses at 10/25/50/95%)
   - **10 named skill ranks** (Untrained → Master) with non-linear distribution for idle-game pacing
-  - **Skill progress bars** showing advancement toward next rank
   - **Commerce skill** trained by captain/first officer completing trade routes — improves quest pay and fuel pricing
   - **Specialization system**: at skill 50, crew can lock in +50% training speed in one skill (-25% others)
-  - **Piloting skill gates ship class**: Class II requires 25, Class III requires 50, etc.
+  - **Piloting skill gates destinations and ship class**: destinations have piloting requirements; Class II requires 25, Class III requires 50, etc.
+  - 4 crew roles (Captain, Pilot, Miner, Trader) — role deduced from highest skill
   - Passive slots (Patient, Rest) benefit crew without training skills
   - Helm is the only required job — no helm crew means the ship coasts
   - Auto-assign crew to best-fit slots based on skill affinity
-  - Crew skills (Piloting, Astrogation, Engineering, Strength, Charisma, Loyalty, Commerce) on 0-100 scale
-  - 8 crew roles including Navigator (astrogation specialist)
-  - Crew salaries paid per tick during flight (0.5-1.5 credits/tick depending on role)
+  - Crew salaries paid per tick during flight
   - Unpaid crew depart at next station
   - Hire new crew at stations with hiring services
+- **Mining System**:
+  - Mine ores at locations with `mine` service (asteroid belts, planets)
+  - 8 ore types from Iron (common) to Exotic Matter (rare) — mining level gates access
+  - 6 tiers of mining equipment (crew equipment slot) from Basic Mining Laser to Quantum Resonance Drill
+  - Per-ore mastery: mine more efficiently the more you mine a specific ore
+  - Sell ore at stations with trade service — prices vary by location
+  - Near-Earth mining destinations reachable by Station Keeper (Debris Field Alpha, Scrapyard Ring, NEA-2247)
 - **Navigation System**:
-  - World map with 8 locations (Earth, Gateway Station, Forge Station, Mars, etc.)
-  - Visual navigation chart showing distances and reachable locations
-  - Access via bridge crew (requires staffed bridge)
-  - Dynamic reachability based on ship range and fuel
+  - World map with 11 locations including 3 new near-Earth mining destinations
+  - Visual navigation chart showing distances, piloting requirements, and reachable locations
+  - Destinations gated by piloting skill level (10 for nearby, 75+ for outer system)
+  - Dynamic reachability based on ship range, fuel, and piloting skill
 - **Quest & Contract System**:
   - Accept delivery, passenger, freight, supply, and standing freight contracts
   - **Persistent trade routes** at every location with trade service — permanent work lines to all trading partners
@@ -126,10 +133,11 @@ npm run dev
   - 18 ship equipment types with category labels (life support, shielding, thermal, defense, navigation, structural, gravity systems)
   - 9 room types (bridge, engine room, reactor room, point defense station, etc.)
   - 3 factions (Terran Alliance, Free Traders Guild, Kreth Collective)
-  - 9 crew equipment items (weapons, tools, accessories, armor, gravity countermeasures)
+  - 15 crew equipment items (weapons, tools, accessories, armor, gravity countermeasures, 6 mining equipment tiers)
+  - 8 ore types with mining level requirements and location availability
   - Progressive XP/leveling system (20 levels)
-  - 10-rank skill progression with commerce, specialization, and gameplay unlocks (see `docs/skill-system.md`)
-  - 8 world locations with varied services and quest availability
+  - 3-skill mastery system with per-item progression and mastery pool checkpoints (see `docs/skill-revamp-design.md`)
+  - 11 world locations including 3 near-Earth mining destinations
 
 ## Scripts
 
