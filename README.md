@@ -27,7 +27,7 @@ npm run dev
   - Rooms generate job slots (bridge → Helm + Comms, engine room → Drive Ops, etc.)
   - Ship equipment generates additional slots (nav scanner → Scan Ops, point defense → Targeting)
   - Ship-wide repair slots accept multiple engineers generating repair points
-  - Direct skill training: jobs train crew skills with exponential diminishing returns (no XP intermediary)
+  - Direct skill training: jobs train crew skills with power-law diminishing returns (no XP intermediary)
   - All crew start at zero skills — progression comes entirely from training and events
   - Skill 5 in ~5 real minutes, skill 50 in ~5 real days (captain at helm baseline)
   - **10 named skill ranks** (Untrained → Master) with non-linear distribution for idle-game pacing
