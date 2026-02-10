@@ -929,11 +929,36 @@ function renderShipPurchase(
     const canAfford = gameData.credits >= shipClass.price;
 
     if (!isUnlocked) {
+      const progress =
+        shipClass.unlockThreshold > 0
+          ? (gameData.lifetimeCreditsEarned / shipClass.unlockThreshold) * 100
+          : 100;
+      const remaining =
+        shipClass.unlockThreshold - gameData.lifetimeCreditsEarned;
+
       const lockMsg = document.createElement('div');
       lockMsg.style.fontSize = '0.85rem';
       lockMsg.style.color = '#ff4444';
-      lockMsg.textContent = `🔒 Unlock at ${shipClass.unlockThreshold.toLocaleString()} lifetime credits earned`;
+      lockMsg.textContent = `🔒 ${gameData.lifetimeCreditsEarned.toLocaleString()} / ${shipClass.unlockThreshold.toLocaleString()} lifetime cr (${remaining.toLocaleString()} remaining)`;
       card.appendChild(lockMsg);
+
+      const progressBar = document.createElement('div');
+      progressBar.style.width = '100%';
+      progressBar.style.height = '6px';
+      progressBar.style.background = 'rgba(255, 255, 255, 0.1)';
+      progressBar.style.borderRadius = '3px';
+      progressBar.style.marginTop = '0.4rem';
+      progressBar.style.overflow = 'hidden';
+
+      const progressFill = document.createElement('div');
+      progressFill.style.width = `${Math.min(100, progress)}%`;
+      progressFill.style.height = '100%';
+      progressFill.style.background = '#ff4444';
+      progressFill.style.borderRadius = '3px';
+      progressFill.style.transition = 'width 0.3s ease';
+      progressBar.appendChild(progressFill);
+
+      card.appendChild(progressBar);
     } else if (!canAfford) {
       const affordMsg = document.createElement('div');
       affordMsg.style.fontSize = '0.85rem';
