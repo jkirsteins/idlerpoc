@@ -2046,6 +2046,21 @@ button:disabled:hover {
   background: rgba(255, 107, 107, 0.08);
 }
 
+.action-radio-card--danger-hot {
+  border-color: #cc0000;
+  background: rgba(204, 0, 0, 0.15);
+  animation: danger-pulse-border 0.6s ease-in-out infinite alternate;
+}
+
+@keyframes danger-pulse-border {
+  from {
+    border-color: #cc0000;
+  }
+  to {
+    border-color: #ff4444;
+  }
+}
+
 .action-radio-card input[type='radio'] {
   margin-top: 3px;
   accent-color: #4ecdc4;

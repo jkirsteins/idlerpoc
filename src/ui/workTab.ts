@@ -139,32 +139,32 @@ export function createWorkTab(
           abandonConfirmPending,
           {
             onSelect(action: ActiveAction) {
-              activeAction = action;
-              abandonConfirmPending = false;
-              if (abandonConfirmTimer) {
-                clearTimeout(abandonConfirmTimer);
-                abandonConfirmTimer = null;
-              }
-              rebuild(gameData);
-            },
-            onConfirm() {
-              if (activeAction === 'continue') return;
-              if (activeAction === 'abandon') {
-                if (!abandonConfirmPending) {
-                  abandonConfirmPending = true;
-                  abandonConfirmTimer = setTimeout(() => {
-                    abandonConfirmPending = false;
-                    rebuild(gameData);
-                  }, 4000);
-                  rebuild(gameData);
-                } else {
-                  resetSelectionState();
-                  callbacks.onAbandonContract();
-                }
-              } else {
+              if (action === 'pause') {
+                // Immediate deferred action — sets dockOnArrival flag
                 resetSelectionState();
                 callbacks.onDockAtNearestPort();
+                return;
               }
+              if (action === 'abandon') {
+                // First click: enter warning state on the card
+                activeAction = 'abandon';
+                abandonConfirmPending = true;
+                if (abandonConfirmTimer) clearTimeout(abandonConfirmTimer);
+                abandonConfirmTimer = setTimeout(() => {
+                  activeAction = 'continue';
+                  abandonConfirmPending = false;
+                  rebuild(gameData);
+                }, 4000);
+                rebuild(gameData);
+                return;
+              }
+              // 'continue' — reset everything
+              resetSelectionState();
+              rebuild(gameData);
+            },
+            onConfirmAbandon() {
+              resetSelectionState();
+              callbacks.onAbandonContract();
             },
           }
         )
@@ -527,7 +527,7 @@ function renderQuestCard(
 
 interface ActiveActionCallbacks {
   onSelect(action: ActiveAction): void;
-  onConfirm(): void;
+  onConfirmAbandon(): void;
 }
 
 function renderActiveContract(
@@ -668,6 +668,9 @@ function renderActiveContract(
       card.classList.add('action-radio-card--selected');
     }
 
+    // Abandon in warning state gets special treatment
+    const isAbandonWarning = opt.value === 'abandon' && abandonConfirmPending;
+
     const radio = document.createElement('input');
     radio.type = 'radio';
     radio.name = 'active-action';
@@ -681,7 +684,9 @@ function renderActiveContract(
 
     const labelEl = document.createElement('div');
     labelEl.className = 'action-radio-label';
-    labelEl.textContent = opt.label;
+    labelEl.textContent = isAbandonWarning
+      ? 'Click again to confirm abandon'
+      : opt.label;
     textWrap.appendChild(labelEl);
 
     const descEl = document.createElement('div');
@@ -697,32 +702,21 @@ function renderActiveContract(
     }
 
     card.appendChild(textWrap);
+
+    // Second click on already-selected abandon card confirms
+    if (isAbandonWarning) {
+      card.classList.add('action-radio-card--danger-hot');
+      card.addEventListener('click', (e) => {
+        // Prevent the radio change from also firing
+        e.preventDefault();
+        actionCbs.onConfirmAbandon();
+      });
+    }
+
     actionGroup.appendChild(card);
   }
 
   container.appendChild(actionGroup);
-
-  // Confirm button (hidden when "continue" is selected)
-  if (selectedAction !== 'continue') {
-    const confirmBtn = document.createElement('button');
-    confirmBtn.className = 'action-confirm-btn';
-
-    if (selectedAction === 'abandon') {
-      if (abandonConfirmPending) {
-        confirmBtn.textContent = 'Are you sure? Click again to abandon';
-        confirmBtn.classList.add('action-confirm-btn--danger-hot');
-      } else {
-        confirmBtn.textContent = 'Abandon contract';
-        confirmBtn.classList.add('action-confirm-btn--danger');
-      }
-    } else {
-      confirmBtn.textContent = 'Pause & dock on arrival';
-      confirmBtn.classList.add('action-confirm-btn--caution');
-    }
-
-    confirmBtn.addEventListener('click', () => actionCbs.onConfirm());
-    container.appendChild(confirmBtn);
-  }
 
   return container;
 }
