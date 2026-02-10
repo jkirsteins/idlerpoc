@@ -7,7 +7,7 @@ import { getDistanceBetween } from './utils';
 export { getDistanceBetween } from './utils';
 
 /**
- * Check if a location is reachable based on ship's range and current fuel
+ * Check if a location is reachable based on ship's range, fuel, and crew skill
  */
 export function isLocationReachable(
   ship: Ship,
@@ -17,6 +17,11 @@ export function isLocationReachable(
   // Current location is always reachable
   if (location.id === fromLocation.id) {
     return true;
+  }
+
+  // Crew must meet destination's piloting requirement
+  if (!canShipAccessLocation(ship, location)) {
+    return false;
   }
 
   const shipClass = getShipClass(ship.classId);
@@ -55,6 +60,11 @@ export function getUnreachableReason(
   // Current location is always reachable
   if (location.id === fromLocation.id) {
     return null;
+  }
+
+  // Check piloting requirement
+  if (!canShipAccessLocation(ship, location)) {
+    return `Piloting ${location.pilotingRequirement} required`;
   }
 
   const shipClass = getShipClass(ship.classId);
@@ -99,6 +109,24 @@ export function meetsPilotingRequirement(
   location: WorldLocation
 ): boolean {
   return Math.floor(pilotingSkill) >= location.pilotingRequirement;
+}
+
+/**
+ * Check if a ship's crew can access a location.
+ * Central gate: uses the best piloting skill on the ship
+ * vs the location's piloting requirement.
+ */
+export function canShipAccessLocation(
+  ship: Ship,
+  location: WorldLocation
+): boolean {
+  let bestPiloting = 0;
+  for (const crew of ship.crew) {
+    if (crew.skills.piloting > bestPiloting) {
+      bestPiloting = crew.skills.piloting;
+    }
+  }
+  return meetsPilotingRequirement(bestPiloting, location);
 }
 
 /**

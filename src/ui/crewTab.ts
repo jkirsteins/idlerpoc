@@ -5,9 +5,12 @@ import type {
   SkillId,
   SkillMasteryState,
   ItemMastery,
+  Ship,
   World,
+  WorldLocation,
 } from '../models';
 import { getActiveShip } from '../models';
+import { canShipAccessLocation } from '../worldGen';
 import type { TabbedViewCallbacks } from './types';
 import {
   getCrewEquipmentDefinition,
@@ -967,35 +970,30 @@ function renderMasteryPool(
   return poolSection;
 }
 
-/** Generate all possible route pairs from the world, with lock status. */
-function generateAllRoutes(
+/**
+ * Generate routes from the ship's current location to all other destinations.
+ * Uses the central canShipAccessLocation gate for lock status.
+ */
+function generateRoutesFromCurrentLocation(
+  ship: Ship,
+  currentLocation: WorldLocation,
   world: World,
-  pilotingSkill: number,
   skillId: 'piloting' | 'commerce'
 ): Array<{ key: string; locked: boolean; lockReason: string }> {
   const keyFn = skillId === 'piloting' ? routeMasteryKey : tradeRouteMasteryKey;
-  const seen = new Set<string>();
   const routes: Array<{ key: string; locked: boolean; lockReason: string }> =
     [];
 
-  for (let i = 0; i < world.locations.length; i++) {
-    for (let j = i + 1; j < world.locations.length; j++) {
-      const a = world.locations[i];
-      const b = world.locations[j];
-      const key = keyFn(a.id, b.id);
-      if (seen.has(key)) continue;
-      seen.add(key);
+  for (const dest of world.locations) {
+    if (dest.id === currentLocation.id) continue;
+    const key = keyFn(currentLocation.id, dest.id);
+    const locked = !canShipAccessLocation(ship, dest);
 
-      // Route is locked if either location requires higher piloting
-      const maxReq = Math.max(a.pilotingRequirement, b.pilotingRequirement);
-      const locked = pilotingSkill < maxReq;
-
-      routes.push({
-        key,
-        locked,
-        lockReason: locked ? `Piloting ${maxReq}` : '',
-      });
-    }
+    routes.push({
+      key,
+      locked,
+      lockReason: locked ? `Piloting ${dest.pilotingRequirement}` : '',
+    });
   }
   return routes;
 }
@@ -1043,23 +1041,43 @@ function renderMasteryItems(
       });
     }
   } else {
-    // Piloting routes / Commerce trade routes: show ALL routes as catalog
-    // Locked routes require higher piloting to access their destinations
-    const pilotingSkill = Math.floor(crew.skills.piloting);
-    const allRoutes = generateAllRoutes(
-      world,
-      pilotingSkill,
-      skillId as 'piloting' | 'commerce'
-    );
+    // Piloting routes / Commerce trade routes: show routes from current location
+    const ship = getActiveShip(gameData);
+    const currentLocId =
+      ship.location.dockedAt ?? ship.location.orbitingAt ?? null;
+    const currentLoc = currentLocId
+      ? world.locations.find((l) => l.id === currentLocId)
+      : null;
 
-    for (const route of allRoutes) {
-      const mastery = state.itemMasteries[route.key] ?? null;
+    if (currentLoc) {
+      const routes = generateRoutesFromCurrentLocation(
+        ship,
+        currentLoc,
+        world,
+        skillId as 'piloting' | 'commerce'
+      );
+
+      for (const route of routes) {
+        const mastery = state.itemMasteries[route.key] ?? null;
+        entries.push({
+          id: route.key,
+          label: getMasteryItemLabel(skillId, route.key, world),
+          mastery,
+          locked: route.locked,
+          lockReason: route.lockReason,
+        });
+      }
+    }
+
+    // Also show any previously mastered routes not from current location
+    for (const [itemId, itemMastery] of Object.entries(state.itemMasteries)) {
+      if (entries.some((e) => e.id === itemId)) continue; // Already listed
       entries.push({
-        id: route.key,
-        label: getMasteryItemLabel(skillId, route.key, world),
-        mastery,
-        locked: route.locked,
-        lockReason: route.lockReason,
+        id: itemId,
+        label: getMasteryItemLabel(skillId, itemId, world),
+        mastery: itemMastery,
+        locked: false,
+        lockReason: '',
       });
     }
   }

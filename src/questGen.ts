@@ -1,6 +1,6 @@
 import type { Quest, Ship, WorldLocation, World } from './models';
 import { getShipClass } from './shipClasses';
-import { getDistanceBetween } from './worldGen';
+import { getDistanceBetween, canShipAccessLocation } from './worldGen';
 import {
   calculateAvailableCargoCapacity,
   calculateDeltaV,
@@ -273,13 +273,19 @@ export function estimateTripTime(
 }
 
 /**
- * Check if destination is reachable from origin with current ship
+ * Check if destination is reachable from origin with current ship.
+ * Checks both fuel range AND crew piloting skill vs destination requirement.
  */
 function isDestinationReachable(
   ship: Ship,
   origin: WorldLocation,
   destination: WorldLocation
 ): boolean {
+  // Crew must meet destination's piloting requirement
+  if (!canShipAccessLocation(ship, destination)) {
+    return false;
+  }
+
   const distanceKm = getDistanceBetween(origin, destination);
 
   // Calculate fuel required for round trip
@@ -650,9 +656,12 @@ export function generatePersistentTradeRoutes(
 
   const routes: Quest[] = [];
 
-  // Trade route to every other location with trade service
+  // Trade route to every other accessible location with trade service
   const tradePartners = world.locations.filter(
-    (l) => l.id !== location.id && l.services.includes('trade')
+    (l) =>
+      l.id !== location.id &&
+      l.services.includes('trade') &&
+      canShipAccessLocation(ship, l)
   );
 
   for (const partner of tradePartners) {
