@@ -249,6 +249,7 @@ export function createTestGameData(
   const ship = createTestShip();
 
   return {
+    saveVersion: 1,
     ships: [ship],
     activeShipId: ship.id,
     credits: 10_000,

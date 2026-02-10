@@ -119,6 +119,7 @@ npm run dev
 - **Live UI Architecture**: All tabs use mount-once/update-on-tick pattern — tab components are created once and kept alive, receiving live updates every tick even when hidden. Switching tabs is instant with no stale data. Shared flight status strip appears on both Ship and Work tabs during flight.
 - **Responsive Design**: Mobile-friendly layout with collapsible sidebar drawer, compact status bar, scrollable tabs, and adaptive grids for phone/tablet screens
 - **Real-time Simulation**: Elapsed-time tick system that catches up based on real time passed — works across browser throttling, background tabs, and phone sleep. Catch-up report modal shown for long absences
+- **Save Data Migration**: Versioned save format with automatic migration pipeline — existing saves upgrade gracefully when the data shape changes (see `docs/save-migration.md`)
 - **Game Data Catalogs**:
   - 9 engine types (chemical, nuclear fission, fusion, advanced fusion) with thrust and delta-v specifications
   - 18 ship equipment types with category labels (life support, shielding, thermal, defense, navigation, structural, gravity systems)

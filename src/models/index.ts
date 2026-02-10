@@ -434,6 +434,7 @@ export interface CatchUpReport {
 }
 
 export interface GameData {
+  saveVersion: number; // migration version — see docs/save-migration.md
   ships: Ship[];
   activeShipId: string;
   credits: number;

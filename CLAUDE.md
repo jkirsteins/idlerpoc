@@ -25,7 +25,7 @@ UI components follow a **mount-once / update-on-tick** pattern (see `src/ui/comp
 - Update README to reflect project goals/scope before commits.
 - README: high-level only. Infer architecture from code; detailed docs go in docs/.
 - Commit messages: concise, no "Claude Code" mentions.
-- Never implement any migration code unless asked. For a proof of concept we should just reset the game state when making incompatible changes.
+- **Save data must never be lost or corrupted.** Existing saves must migrate gracefully to new formats. See `docs/save-migration.md` for the versioned migration architecture. Every change that alters the persisted `GameData` shape must include a migration function in `storage.ts` and bump `CURRENT_SAVE_VERSION`. Additive optional fields can still use simple backfill defaults without a version bump.
 - "tick" is a implementation term, and should not appear in the game UI ever. Instead of "tick" convert it to terms like days, months, years, etc.
 - When providing time values in the game UI, always provide in-game value and real-life value. E.g. "2 days (irl 5 min)" formatting. Use shared components for displaying time so it can be changed later easily.
 - Maintain BACKLOG.md: add deferred ideas during design discussions, remove items when implemented.
