@@ -57,9 +57,6 @@ import {
 
 const app = document.getElementById('app')!;
 
-// Initialize the combat system encounter resolver
-initCombatSystem();
-
 /** Show a dismissable banner at the top of the page. */
 function showErrorBanner(message: string): void {
   const banner = document.createElement('div');
@@ -72,11 +69,11 @@ function showErrorBanner(message: string): void {
   document.body.prepend(banner);
 }
 
-// All module-level `let` and `const` variables MUST be declared before
-// initializeState() is called, otherwise the engine hits a Temporal Dead Zone
-// error (the bindings are hoisted but not initialized until the declaration
-// is reached). This includes `const` values referenced by hoisted functions
-// like fastForwardTicks() that run during initialization.
+// All module-level `let` and `const` declarations MUST appear before any
+// top-level side effects (function calls, try blocks, etc.) to prevent
+// Temporal Dead Zone errors. Hoisted functions called during initialisation
+// may reference these bindings, which must already be initialised.
+// Enforced by: local/no-side-effects-before-definitions
 let tickInterval: number | null = null;
 
 /** State for ongoing batched catch-up processing */
@@ -126,15 +123,6 @@ const CATCH_UP_REPORT_THRESHOLD_SECONDS = 30;
 const CATCH_UP_SEVERITY_THRESHOLD_SECONDS = 5;
 
 let state: GameState;
-try {
-  state = initializeState();
-} catch (e) {
-  console.error('Failed to initialize game state, clearing save:', e);
-  clearGame();
-  state = { phase: 'no_game' };
-  const errorDetail = e instanceof Error ? e.message : String(e);
-  showErrorBanner(`Save corrupted and cleared: ${errorDetail}`);
-}
 
 /**
  * Build a CatchUpReport summarising what happened during an absence.
@@ -1285,6 +1273,21 @@ const callbacks: RendererCallbacks = {
     renderApp();
   },
 };
+
+// ── Module initialisation (all side effects below all declarations) ──
+
+// Initialize the combat system encounter resolver
+initCombatSystem();
+
+try {
+  state = initializeState();
+} catch (e) {
+  console.error('Failed to initialize game state, clearing save:', e);
+  clearGame();
+  state = { phase: 'no_game' };
+  const errorDetail = e instanceof Error ? e.message : String(e);
+  showErrorBanner(`Save corrupted and cleared: ${errorDetail}`);
+}
 
 window.addEventListener('wizard-next', ((
   event: CustomEvent<{ step: WizardStep; draft: WizardDraft }>

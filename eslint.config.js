@@ -1,11 +1,12 @@
 import eslint from '@eslint/js';
 import tseslint from 'typescript-eslint';
+import noSideEffectsBeforeDefinitions from './eslint-rules/no-side-effects-before-definitions.js';
 
 export default tseslint.config(
   eslint.configs.recommended,
   ...tseslint.configs.recommendedTypeChecked,
   {
-    ignores: ['dist/**'],
+    ignores: ['dist/**', 'eslint-rules/**', 'docs/**', 'vite.config.ts', 'eslint.config.js'],
   },
   {
     languageOptions: {
@@ -19,6 +20,13 @@ export default tseslint.config(
       parserOptions: {
         projectService: true,
         tsconfigRootDir: import.meta.dirname,
+      },
+    },
+    plugins: {
+      local: {
+        rules: {
+          'no-side-effects-before-definitions': noSideEffectsBeforeDefinitions,
+        },
       },
     },
     rules: {
@@ -41,6 +49,9 @@ export default tseslint.config(
       eqeqeq: ['error', 'smart'],
       // Ensure switch statements over union types handle every member.
       '@typescript-eslint/switch-exhaustiveness-check': 'error',
+      // Prevent TDZ from hoisted functions: all const/let declarations must
+      // appear before any top-level side effects (calls, try blocks, etc.).
+      'local/no-side-effects-before-definitions': 'error',
     },
   }
 );

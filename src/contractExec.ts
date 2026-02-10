@@ -24,10 +24,6 @@ import {
  * Manages active contract state and transitions (per-ship)
  */
 
-// Register acceptQuest with routeAssignment to break circular dependency.
-// acceptQuest is a hoisted function declaration, so this is safe at top-level.
-setAcceptQuestFn(acceptQuest);
-
 /**
  * Auto-refuel a ship to 100% at a station between legs.
  * Always tops up the tank. If the ship can't afford a full refuel, auto-pauses.
@@ -170,6 +166,10 @@ function countRoutePairs(gameData: GameData): number {
 /** Base mastery XP per flight arrival / trip completion. */
 const PILOTING_MASTERY_XP_PER_FLIGHT = 100;
 const COMMERCE_MASTERY_XP_PER_TRIP = 100;
+
+// Register acceptQuest with routeAssignment to break circular dependency.
+// acceptQuest is a hoisted function declaration, so this is safe at top-level.
+setAcceptQuestFn(acceptQuest);
 
 /**
  * Award piloting route mastery XP to helm crew on flight arrival.
