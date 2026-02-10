@@ -58,7 +58,8 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
         paragraphs: [
           'The game is idle-friendly: closing the browser or backgrounding the tab does not lose progress. When you return, the game computes all elapsed time and processes pending updates in batches.',
           'If you were away for more than 5 real minutes, a catch-up report shows what happened while you were gone, including [[encounters|encounters]], [[contracts|contract]] completions, and [[credits-economy|credit]] changes.',
-          'Catch-up processes up to 1 real day of elapsed time. During fast-forward, [[encounters|encounter]] severity is capped (boardings downgraded to harassment) to prevent unfair losses while away.',
+          'Offline progress is never hard-capped — you will always make progress no matter how long you are away. The first 4 real-world hours accrue at full rate. Beyond that, progress continues at a logarithmically diminishing rate, so active play remains more rewarding than very long absences. During fast-forward, [[encounters|encounter]] severity is capped (boardings downgraded to harassment) to prevent unfair losses while away.',
+          'The event log keeps the most recent 200 entries. Older events are automatically pruned to keep save data compact.',
         ],
       },
       {
@@ -812,7 +813,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
           'Each ship has a flight profile slider (Economy to Max Speed) that controls the burn fraction of the delta-v budget.',
           'Economy: More coasting, less fuel, longer trip, more [[zero-g-exposure|zero-g exposure]].',
           'Max Speed: Maximum burns, more fuel, shorter trip, less zero-g but more fuel cost.',
-          'Quest cards show profile-aware estimates so you can make informed decisions.',
+          'The slider is available on the Work tab and the [[navigation|Navigation Chart]]. Adjusting it on either tab updates travel time and fuel estimates in real time.',
         ],
       },
       {
@@ -1041,6 +1042,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
           'Before departure, your [[crew-roles|pilot]] plots a course. Navigation quality depends on [[skill-system|piloting]] skill and [[ship-equipment|equipment]].',
           'Good navigation reduces debris [[encounters|encounters]], improves fuel efficiency, and gives better hazard warnings.',
           'Locations shown as unreachable are beyond your current fuel range at the selected [[flight-physics|flight profile]].',
+          'Use the [[flight-physics|flight profile]] slider on the Nav tab to choose between economy (less fuel, longer trip) and max speed (more fuel, shorter trip) before departing. Travel time and fuel estimates update as you adjust.',
         ],
       },
     ],
@@ -1289,9 +1291,10 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
       {
         heading: 'Recovery',
         paragraphs: [
-          'Zero-g exposure slowly recovers while docked. Recovery happens during manual day advancement at a rate of 0.5x the accumulation rate — it takes roughly twice as long to recover as it did to accumulate.',
+          'Zero-g exposure continuously recovers while docked at a rate of 0.5x the accumulation rate — it takes roughly twice as long to recover as it did to accumulate.',
           'There is no instant reset. Long voyages build up a "debt" that must be paid off with extended docking time.',
           'Recovery does not occur during flight or while at zero-g stations.',
+          'While docked with active exposure, the Crew tab shows a recovery indicator with estimated time to reach the next lower tier and full recovery.',
         ],
       },
       {

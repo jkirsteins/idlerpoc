@@ -406,6 +406,7 @@ export function completeLeg(gameData: GameData, ship: Ship): void {
       } else {
         ship.location.status = 'orbiting';
         ship.location.orbitingAt = destination.id;
+        delete ship.location.dockedAt;
         delete ship.activeFlightPlan;
         ship.engine.state = 'off';
         ship.engine.warmupProgress = 0;
@@ -582,8 +583,10 @@ export function completeLeg(gameData: GameData, ship: Ship): void {
 
     dockShipAtLocation(ship, arrivalLocation.id);
 
-    // Check for route assignment auto-restart BEFORE clearing contract
+    // Save quest data from completed contract BEFORE clearing, so
+    // autoRestartRouteTrip can reference payment/cargo values.
     const hasRouteAssignment = ship.routeAssignment !== null;
+    const completedQuest = activeContract.quest;
 
     ship.activeContract = null;
 
@@ -595,7 +598,7 @@ export function completeLeg(gameData: GameData, ship: Ship): void {
       checkAutoRefuel(gameData, ship, arrivalLocation.id);
 
       if (ship.routeAssignment) {
-        autoRestartRouteTrip(gameData, ship);
+        autoRestartRouteTrip(gameData, ship, completedQuest);
       }
     }
   } else {

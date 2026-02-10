@@ -82,8 +82,8 @@ npm run dev
   - Start date: 2247-01-01
 - **Flight Physics**:
   - Burn-coast-burn flight profiles for low-thrust ships
-  - **Per-ship flight profile slider** (Economy to Max Speed): controls burn fraction of delta-v budget, trading trip time for fuel savings
-  - Quest cards show profile-aware fuel cost, trip time, crew salary, and estimated profit/loss for informed decision-making
+  - **Per-ship flight profile slider** (Economy to Max Speed): controls burn fraction of delta-v budget, trading trip time for fuel savings. Available on both the Work tab and the Navigation Chart for adjusting before any departure
+  - Quest cards and navigation chart show profile-aware fuel cost, trip time, crew salary, and estimated profit/loss for informed decision-making
   - Real-time G-force display (0g during coast phase)
   - Velocity and distance tracking
   - Fuel consumption only during burns
@@ -126,7 +126,7 @@ npm run dev
   - Fast-forward severity cap (boarding → harassment during catch-up)
   - Catch-up report modal summarizing encounters that occurred while away
   - Encounter cooldown prevents rapid consecutive encounters per ship
-- **Event Log**: Comprehensive log of all events (departures, arrivals, payments, contract completions, encounters)
+- **Event Log**: Rolling log of the most recent 200 events (departures, arrivals, payments, contract completions, encounters); older entries pruned automatically
 - **Resource Tracking**: Monitor credits, fuel, oxygen, crew count, crew costs per tick, and power consumption
 - **Equipment Trading**: Buy and sell crew equipment at stations with trade services (50% sell value)
 - **In-Game Encyclopedia (Gamepedia)**: Searchable guide explaining all game mechanics — skills, zero-g exposure, flight physics, encounters, and more. Inspired by Civilization's Civilopedia with category filtering, cross-linked articles, and a "See Also" section for discovery

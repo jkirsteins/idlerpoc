@@ -47,7 +47,7 @@ export function masteryLevelFromXp(xp: number): number {
 // ─── Pool Constants ──────────────────────────────────────────────
 
 /** Pool XP cap per item in the skill. */
-const POOL_CAP_PER_ITEM = 500_000;
+const POOL_CAP_PER_ITEM = 1_000;
 
 /** Fraction of item mastery XP that flows into the pool. */
 const POOL_FLOW_RATE = 0.25;

@@ -209,12 +209,17 @@ export function checkAutoRefuel(
 }
 
 /**
- * Auto-restart next trip for route-assigned ships
- * Called after inbound leg completion in completeLeg()
+ * Auto-restart next trip for route-assigned ships.
+ * Called after inbound leg completion in completeLeg().
+ *
+ * @param previousQuest The quest from the just-completed contract. Must be
+ *   passed explicitly because ship.activeContract is already null by the
+ *   time this function runs.
  */
 export function autoRestartRouteTrip(
   gameData: GameData,
-  ship: Ship
+  ship: Ship,
+  previousQuest?: Quest
 ): { restarted: boolean; reason?: string } {
   if (!ship.routeAssignment) {
     return { restarted: false, reason: 'No route assignment' };
@@ -236,13 +241,10 @@ export function autoRestartRouteTrip(
     return { restarted: false, reason: 'Route locations not found' };
   }
 
-  // Create a new quest instance for the next trip
-  // Use the same structure but generate new ID for tracking
-  // Preserve original quest type (trade_route or standing_freight)
+  // Create a new quest instance for the next trip, carrying forward the
+  // payment and cargo values from the previous quest.
   const questType =
-    ship.activeContract?.quest.type === 'trade_route'
-      ? 'trade_route'
-      : 'standing_freight';
+    previousQuest?.type === 'trade_route' ? 'trade_route' : 'standing_freight';
   const nextQuest: Quest = {
     id: generateId(),
     type: questType,
@@ -250,14 +252,14 @@ export function autoRestartRouteTrip(
     description: `Automated freight route`,
     origin: assignment.originId,
     destination: assignment.destinationId,
-    cargoRequired: ship.activeContract?.quest.cargoRequired || 0,
+    cargoRequired: previousQuest?.cargoRequired || 0,
     totalCargoRequired: 0,
     tripsRequired: -1, // Unlimited
-    paymentPerTrip: ship.activeContract?.quest.paymentPerTrip || 0,
+    paymentPerTrip: previousQuest?.paymentPerTrip || 0,
     paymentOnCompletion: 0,
     expiresAfterDays: 0,
-    estimatedFuelPerTrip: ship.activeContract?.quest.estimatedFuelPerTrip || 0,
-    estimatedTripTicks: ship.activeContract?.quest.estimatedTripTicks || 0,
+    estimatedFuelPerTrip: previousQuest?.estimatedFuelPerTrip || 0,
+    estimatedTripTicks: previousQuest?.estimatedTripTicks || 0,
   };
 
   // Start next trip immediately (no user interaction)
