@@ -82,8 +82,8 @@ npm run dev
   - Start date: 2247-01-01
 - **Flight Physics**:
   - Burn-coast-burn flight profiles for low-thrust ships
-  - **Per-ship flight profile slider** (Economy to Max Speed): controls burn fraction of delta-v budget, trading trip time for fuel savings
-  - Quest cards show profile-aware fuel cost, trip time, crew salary, and estimated profit/loss for informed decision-making
+  - **Per-ship flight profile slider** (Economy to Max Speed): controls burn fraction of delta-v budget, trading trip time for fuel savings. Available on both the Work tab and the Navigation Chart for adjusting before any departure
+  - Quest cards and navigation chart show profile-aware fuel cost, trip time, crew salary, and estimated profit/loss for informed decision-making
   - Real-time G-force display (0g during coast phase)
   - Velocity and distance tracking
   - Fuel consumption only during burns
