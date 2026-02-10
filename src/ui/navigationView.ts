@@ -39,8 +39,8 @@ export interface NavigationViewCallbacks {
 }
 
 function formatDistance(km: number): string {
-  if (km === 0) return 'Current Location';
-  if (km < 1000) return `${km} km`;
+  if (km < 0.5) return 'Current Location';
+  if (km < 1000) return `${Math.round(km)} km`;
   if (km < 1_000_000) return `${(km / 1000).toFixed(1)}K km`;
   return `${(km / 1_000_000).toFixed(1)}M km`;
 }
