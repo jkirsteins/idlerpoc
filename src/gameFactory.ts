@@ -228,8 +228,10 @@ function createStartingShip(
     engine,
     cargo,
     oreCargo: [],
+    miningAccumulator: {},
     activeContract: null,
     routeAssignment: null,
+    miningRoute: null,
     activeFlightPlan: undefined,
     metrics: {
       creditsEarned: 0,
@@ -295,8 +297,10 @@ export function createAdditionalShip(
     engine,
     cargo: [],
     oreCargo: [],
+    miningAccumulator: {},
     activeContract: null,
     routeAssignment: null,
+    miningRoute: null,
     activeFlightPlan: undefined,
     metrics: {
       creditsEarned: 0,

@@ -79,6 +79,7 @@ export interface RendererCallbacks {
   onHireCrew: (crewId: string) => void;
   onBuyEquipment: (equipmentId: CrewEquipmentId) => void;
   onSellEquipment: (itemId: string) => void;
+  onBuyShipEquipment: (equipmentId: import('../models').EquipmentId) => void;
   onSelectShip: (shipId: string) => void;
   onBuyShip: (classId: string, shipName: string) => void;
   onTransferCrew: (
@@ -90,6 +91,10 @@ export interface RendererCallbacks {
     crewId: string,
     skillId: import('../models').SkillId
   ) => void;
+  onSellOre: (oreId: import('../models').OreId, quantity: number) => void;
+  onSellAllOre: () => void;
+  onStartMiningRoute: (sellLocationId: string) => void;
+  onCancelMiningRoute: () => void;
   onDismissCatchUp: () => void;
 }
 
@@ -318,9 +323,14 @@ function mountPlayingLayout(
       onHireCrew: callbacks.onHireCrew,
       onBuyEquipment: callbacks.onBuyEquipment,
       onSellEquipment: callbacks.onSellEquipment,
+      onBuyShipEquipment: callbacks.onBuyShipEquipment,
       onSelectShip: callbacks.onSelectShip,
       onBuyShip: callbacks.onBuyShip,
       onTransferCrew: callbacks.onTransferCrew,
+      onSellOre: callbacks.onSellOre,
+      onSellAllOre: callbacks.onSellAllOre,
+      onStartMiningRoute: callbacks.onStartMiningRoute,
+      onCancelMiningRoute: callbacks.onCancelMiningRoute,
     },
     state.selectedCrewId
   );

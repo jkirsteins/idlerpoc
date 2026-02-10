@@ -1,4 +1,4 @@
-import type { CrewEquipmentId, SkillId } from '../models';
+import type { CrewEquipmentId, EquipmentId, OreId, SkillId } from '../models';
 
 /**
  * Shared UI types extracted to break circular dependencies
@@ -7,6 +7,7 @@ import type { CrewEquipmentId, SkillId } from '../models';
 
 export type PlayingTab =
   | 'ship'
+  | 'station'
   | 'crew'
   | 'work'
   | 'nav'
@@ -42,6 +43,7 @@ export interface TabbedViewCallbacks {
   onHireCrew: (crewId: string) => void;
   onBuyEquipment: (equipmentId: CrewEquipmentId) => void;
   onSellEquipment: (itemId: string) => void;
+  onBuyShipEquipment: (equipmentId: EquipmentId) => void;
   onSelectShip: (shipId: string) => void;
   onBuyShip: (classId: string, shipName: string) => void;
   onTransferCrew: (
@@ -50,4 +52,8 @@ export interface TabbedViewCallbacks {
     toShipId: string
   ) => void;
   onSpecializeCrew?: (crewId: string, skillId: SkillId) => void;
+  onSellOre: (oreId: OreId, quantity: number) => void;
+  onSellAllOre: () => void;
+  onStartMiningRoute: (sellLocationId: string) => void;
+  onCancelMiningRoute: () => void;
 }

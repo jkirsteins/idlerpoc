@@ -128,6 +128,61 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
       'commerce-skill',
       'crew-hiring',
       'mining-system',
+      'station-services',
+    ],
+  },
+
+  {
+    id: 'station-services',
+    title: 'Station Services',
+    category: 'Core Systems',
+    summary:
+      'What you can do when docked — fuel, trade, hiring, and equipment.',
+    sections: [
+      {
+        paragraphs: [
+          'When your ship is docked at a location, the Station tab provides access to all services available at that port. Which sections appear depends on the services the location offers.',
+        ],
+      },
+      {
+        heading: 'Fuel Depot',
+        paragraphs: [
+          'Locations with the refuel service let you purchase fuel. Price per kilogram varies by location. See [[credits-economy|Credits & Economy]] for how the [[commerce-skill|Commerce]] skill reduces fuel costs.',
+        ],
+      },
+      {
+        heading: 'Ore Exchange',
+        paragraphs: [
+          'At locations with trade services, you can sell [[ore-types|mined ore]] from your cargo hold. Prices depend on ore rarity, location type, and your [[commerce-skill|Commerce]] skill. Sell individual ore types or use Sell All for a quick offload.',
+        ],
+      },
+      {
+        heading: 'Station Store',
+        paragraphs: [
+          'The store has three sub-tabs: Buy Crew Gear (personal [[crew-equipment|crew equipment]]), Sell (offload items at 50% value), and Ship Equipment ([[ship-equipment|ship-mounted gear]] like mining rigs). Upgrading ship equipment gives trade-in credit for the old item.',
+        ],
+      },
+      {
+        heading: 'Hiring Office',
+        paragraphs: [
+          'Locations with hiring services present a roster of [[crew-hiring|available crew candidates]]. Each candidate shows their role, skill levels, hire cost, and ongoing salary.',
+        ],
+      },
+      {
+        heading: 'Flavor Text',
+        paragraphs: [
+          'Each time you dock, the Station tab shows an atmospheric description of the port — the sights, sounds, and smells of each location type. The text rotates daily so repeat visits feel varied.',
+        ],
+      },
+    ],
+    relatedArticles: [
+      'credits-economy',
+      'crew-hiring',
+      'crew-equipment',
+      'ship-equipment',
+      'mining-system',
+      'ore-types',
+      'commerce-skill',
     ],
   },
 
@@ -497,7 +552,12 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
         ],
       },
     ],
-    relatedArticles: ['crew-roles', 'crew-salaries', 'credits-economy'],
+    relatedArticles: [
+      'crew-roles',
+      'crew-salaries',
+      'credits-economy',
+      'station-services',
+    ],
   },
 
   {
@@ -858,6 +918,11 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
               '[[zero-g-exposure|Zero-g]] countermeasures',
               'Exercise Module, Centrifuge Pod',
             ],
+            [
+              '[[mining-system|Mining]]',
+              'Ore extraction from asteroids',
+              'Mining Laser Array, Industrial Rig, Deep Core System, Quantum Array',
+            ],
           ],
         },
       },
@@ -881,6 +946,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
       'zero-g-exposure',
       'life-support',
       'radiation',
+      'mining-system',
     ],
   },
 
@@ -889,7 +955,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
     title: 'Crew Equipment',
     category: 'Ship Systems',
     summary:
-      'Personal equipment for crew: weapons, tools, armor, mining gear, and accessories.',
+      'Personal equipment for crew: weapons, tools, armor, and accessories.',
     sections: [
       {
         paragraphs: [
@@ -911,11 +977,6 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
               'Tools',
               'Toolkit (1,200 cr), Medkit (1,500 cr), Scanner (2,000 cr)',
               'Improves [[crew-roles|role]] effectiveness',
-            ],
-            [
-              'Mining',
-              'Basic Mining Laser, Improved Laser, Heavy Drill, Deep Core Extractor, Fusion Cutter, Quantum Excavator',
-              'Determines [[mining-system|mining]] capability and extraction rate',
             ],
             [
               'Accessories',
@@ -1341,25 +1402,30 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
       {
         heading: 'How Mining Works',
         paragraphs: [
-          'Mining happens automatically while your ship is orbiting a location that provides a mine service. Crew assigned to the mining_ops [[job-slots|job slot]] perform the extraction work.',
-          'Crew in mining_ops train the [[skill-system|mining]] skill passively during operations. Higher mining skill unlocks rarer ores and improves extraction speed.',
-          "Extracted ore is stored in your ship's cargo hold. Sell ore at any station with a trade service to convert it into [[credits-economy|credits]].",
+          'Mining happens automatically while your ship is orbiting a location that provides a mine service. Crew assigned to the mining_ops [[job-slots|job slot]] in the mining bay operate the ship-mounted mining equipment. The ship must have mining equipment installed — without it, miners cannot extract ore.',
+          'Extraction rate depends on [[ship-equipment|ship mining equipment]] quality, [[skill-system|mining]] skill, and [[mastery-system|ore mastery]]. Miners automatically target the highest-value ore they can extract at the current location.',
+          "Extracted ore is stored in your ship's cargo hold. When cargo is full, mining pauses. Sell ore at any station with a trade service to convert it into [[credits-economy|credits]]. Sell prices vary by location type and improve with the [[skill-system|commerce]] skill.",
         ],
       },
       {
         heading: 'Mining Equipment',
         paragraphs: [
-          'Mining equipment is equipped in the crew equipment slot and determines what [[ore-types|ores]] you can extract and your extraction rate. Better equipment requires higher [[skill-system|mining]] skill to operate.',
+          'Mining equipment is ship-mounted and installed in [[ship-equipment|equipment slots]]. It is operated by crew from the mining bay. Better equipment requires higher [[skill-system|mining]] skill to operate and draws more power.',
+          'Mining equipment is purchased and upgraded at stations with trade services via the Ship Equipment tab in the Station Store. Upgrading provides a trade-in credit of 50% of the old equipment value.',
         ],
         table: {
-          headers: ['Equipment', 'Mining Level Req', 'Rate Multiplier'],
+          headers: [
+            'Equipment',
+            'Mining Level Req',
+            'Rate Multiplier',
+            'Power Draw',
+            'Price',
+          ],
           rows: [
-            ['Basic Mining Laser', '0', '1.0x'],
-            ['Improved Mining Laser', '15', '1.5x'],
-            ['Heavy Drill', '30', '2.0x'],
-            ['Deep Core Extractor', '50', '2.5x'],
-            ['Fusion Cutter', '75', '3.5x'],
-            ['Quantum Excavator', '90', '5.0x'],
+            ['Mining Laser Array', '0', '1.0x', '8 kW', '2,000 cr'],
+            ['Industrial Mining Rig', '20', '2.0x', '15 kW', '8,000 cr'],
+            ['Deep Core Extraction System', '50', '3.5x', '25 kW', '30,000 cr'],
+            ['Quantum Resonance Array', '80', '5.0x', '40 kW', '80,000 cr'],
           ],
         },
       },
@@ -1387,13 +1453,30 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
           '25% of ore mastery XP flows into the mining mastery pool, which provides skill-wide bonuses at key checkpoints.',
         ],
       },
+      {
+        heading: 'Selling Ore',
+        paragraphs: [
+          "Ore is sold at stations that offer a trade service. Sell prices depend on the ore base value, the location type, and your best crew member's [[commerce-skill|commerce]] skill. Planets offer the best prices (1.1× multiplier) while remote locations pay less.",
+          'Price formula: base value × location multiplier × (1 + commerce skill × 0.005). At commerce 100, you earn 50% more per unit.',
+        ],
+      },
+      {
+        heading: 'Auto-Sell Mining Routes',
+        paragraphs: [
+          'For fully idle mining, set up an auto-sell route from the mining panel while orbiting a mining location. Select a trade station to sell ore at, and the ship will automatically:',
+          '1. Mine until cargo is full\n2. Fly to the trade station and dock\n3. Sell all ore and auto-refuel if needed\n4. Fly back to the mining location and resume mining',
+          'The route repeats indefinitely until cancelled or funds run out for refueling. The mining panel shows route stats including trips completed and total credits earned.',
+          'Choose your sell destination carefully — closer stations reduce transit time but may offer lower prices. Sell price multipliers are shown in the destination picker. The piloting skill gate still applies: you can only pick stations your crew can reach.',
+        ],
+      },
     ],
     relatedArticles: [
       'ore-types',
       'mastery-system',
       'mining-destinations',
-      'crew-equipment',
+      'ship-equipment',
       'skill-system',
+      'commerce-skill',
     ],
   },
 
@@ -1458,8 +1541,8 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
       {
         heading: 'Selling Ore',
         paragraphs: [
-          'Ore is sold at any station with a trade service. Prices are based on the ore base value, modified by local supply and demand.',
-          'Building [[mastery-system|trade route mastery]] in [[commerce-skill|commerce]] can improve the prices you receive when selling ore.',
+          'Ore is sold at any station with a trade service. Dock at the station and use the Sell Ore panel in the Work tab. You can sell individual ore types or all at once.',
+          'Sell price = base value × location multiplier × commerce bonus. Planets offer 1.1x prices, space stations 1.0x, and smaller outposts less. The [[skill-system|commerce]] skill of your best trader adds +0.5% per skill point (up to +50% at skill 100).',
         ],
       },
     ],

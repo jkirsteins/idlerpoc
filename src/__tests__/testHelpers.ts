@@ -124,6 +124,10 @@ export function createTestShip(overrides: Partial<Ship> = {}): Ship {
     type: 'engine_room',
   });
 
+  const miningBay = createTestRoom({
+    type: 'mining_bay',
+  });
+
   const captain = createTestCrew({
     name: 'Captain',
     role: 'captain',
@@ -134,7 +138,7 @@ export function createTestShip(overrides: Partial<Ship> = {}): Ship {
     id: uid(),
     name: 'Test Ship',
     classId: 'wayfarer' as ShipClassId,
-    rooms: [bridge, engineRoom],
+    rooms: [bridge, engineRoom, miningBay],
     crew: [captain, bridgeCrew],
     jobSlots: [],
     fuelKg: 22400, // 80% of 28,000 kg max fuel (Wayfarer)
@@ -143,6 +147,7 @@ export function createTestShip(overrides: Partial<Ship> = {}): Ship {
     equipment: [
       createTestEquipment({ definitionId: 'life_support' }),
       createTestEquipment({ definitionId: 'air_filters' }),
+      createTestEquipment({ definitionId: 'mining_laser' }),
     ],
     equipmentSlots: [
       { id: uid(), tags: ['standard'] },
@@ -156,8 +161,10 @@ export function createTestShip(overrides: Partial<Ship> = {}): Ship {
     engine: createTestEngine({ definitionId: 'ntr_mk1' as EngineId }),
     cargo: [],
     oreCargo: [],
+    miningAccumulator: {},
     activeContract: null,
     routeAssignment: null,
+    miningRoute: null,
     activeFlightPlan: createTestFlight(),
     metrics: {
       creditsEarned: 0,

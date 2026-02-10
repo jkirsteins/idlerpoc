@@ -19,9 +19,17 @@ import {
 import { renderThreatBadge } from './threatBadge';
 import type { Component } from './component';
 import { formatFuelMass, calculateFuelPercentage } from './fuelFormatting';
-import { getDistanceBetween } from '../worldGen';
+import { getDistanceBetween, canShipAccessLocation } from '../worldGen';
 import { getFuelPricePerKg } from './refuelDialog';
 import { renderFlightStatus } from './flightStatus';
+import { getOreDefinition, canMineOre } from '../oreTypes';
+import { getCrewForJobType } from '../jobSlots';
+import { getBestShipMiningEquipment } from '../equipment';
+import { getOreCargoWeight, getRemainingOreCapacity } from '../miningSystem';
+import {
+  createFlightProfileControl,
+  updateFlightProfileControl,
+} from './flightProfileControl';
 
 export interface WorkTabCallbacks {
   onAcceptQuest: (questId: string) => void;
@@ -30,6 +38,8 @@ export interface WorkTabCallbacks {
   onDockAtNearestPort: () => void;
   onResumeContract: () => void;
   onAbandonContract: () => void;
+  onStartMiningRoute: (sellLocationId: string) => void;
+  onCancelMiningRoute: () => void;
 }
 
 export function createWorkTab(
@@ -55,6 +65,18 @@ export function createWorkTab(
       // Update slider to match current ship setting (e.g. after switching ships)
       updateFlightProfileControl(profileControl, ship);
       container.appendChild(profileControl.el);
+
+      // Mining status panel
+      const mineLocationId = ship.location.orbitingAt ?? ship.location.dockedAt;
+      const mineLocation = mineLocationId
+        ? gameData.world.locations.find((l) => l.id === mineLocationId)
+        : null;
+      if (mineLocation?.services.includes('mine')) {
+        container.appendChild(
+          renderMiningStatus(gameData, ship, mineLocation, callbacks)
+        );
+      }
+
       const workContent = renderAvailableWork(gameData, callbacks);
       container.appendChild(workContent);
     } else if (activeContract && activeContract.paused) {
@@ -66,126 +88,6 @@ export function createWorkTab(
 
   rebuild(gameData);
   return { el: container, update: rebuild };
-}
-
-/**
- * Flight profile presets for display labels
- */
-function getProfileLabel(burnFraction: number): string {
-  if (burnFraction >= 0.95) return 'Max Speed';
-  if (burnFraction >= 0.75) return 'Fast';
-  if (burnFraction >= 0.5) return 'Balanced';
-  if (burnFraction >= 0.3) return 'Economical';
-  return 'Max Economy';
-}
-
-interface FlightProfileControl {
-  el: HTMLElement;
-  slider: HTMLInputElement;
-  label: HTMLElement;
-  /** Update the mutable ship reference so the slider mutates the correct ship. */
-  updateShipRef: (ship: Ship) => void;
-}
-
-function createFlightProfileControl(gameData: GameData): FlightProfileControl {
-  // Mutable reference — updated by updateFlightProfileControl each tick
-  // so the slider always mutates the *current* active ship even after
-  // the player switches ships (keep-alive tabs survive across switches).
-  let currentShip = getActiveShip(gameData);
-
-  const el = document.createElement('div');
-  el.className = 'flight-profile-control';
-  el.style.cssText = `
-    margin-bottom: 0.75rem;
-    padding: 0.75rem;
-    background: rgba(74, 158, 255, 0.05);
-    border: 1px solid #333;
-    border-radius: 4px;
-  `;
-
-  const header = document.createElement('div');
-  header.style.cssText =
-    'display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;';
-
-  const title = document.createElement('span');
-  title.style.cssText = 'font-weight: bold; font-size: 0.9rem; color: #ccc;';
-  title.textContent = 'Flight Profile';
-  header.appendChild(title);
-
-  const label = document.createElement('span');
-  label.style.cssText =
-    'font-size: 0.85rem; color: #4a9eff; font-weight: bold;';
-  label.textContent = `${Math.round(currentShip.flightProfileBurnFraction * 100)}% — ${getProfileLabel(currentShip.flightProfileBurnFraction)}`;
-  header.appendChild(label);
-
-  el.appendChild(header);
-
-  // Slider row with labels
-  const sliderRow = document.createElement('div');
-  sliderRow.style.cssText = 'display: flex; align-items: center; gap: 8px;';
-
-  const leftLabel = document.createElement('span');
-  leftLabel.style.cssText =
-    'font-size: 0.75rem; color: #888; white-space: nowrap;';
-  leftLabel.textContent = 'Economy';
-  sliderRow.appendChild(leftLabel);
-
-  const slider = document.createElement('input');
-  slider.type = 'range';
-  slider.min = '10';
-  slider.max = '100';
-  slider.step = '10';
-  slider.value = String(
-    Math.round(currentShip.flightProfileBurnFraction * 100)
-  );
-  slider.style.cssText = 'flex: 1; cursor: pointer;';
-  slider.addEventListener('input', () => {
-    const fraction = parseInt(slider.value) / 100;
-    currentShip.flightProfileBurnFraction = fraction;
-    label.textContent = `${slider.value}% — ${getProfileLabel(fraction)}`;
-  });
-  sliderRow.appendChild(slider);
-
-  const rightLabel = document.createElement('span');
-  rightLabel.style.cssText =
-    'font-size: 0.75rem; color: #888; white-space: nowrap;';
-  rightLabel.textContent = 'Max Speed';
-  sliderRow.appendChild(rightLabel);
-
-  el.appendChild(sliderRow);
-
-  // Description
-  const desc = document.createElement('div');
-  desc.style.cssText = 'font-size: 0.75rem; color: #666; margin-top: 0.4rem;';
-  desc.textContent =
-    'Lower = longer coast phase, less fuel. Higher = shorter trip, more fuel.';
-  el.appendChild(desc);
-
-  return {
-    el,
-    slider,
-    label,
-    updateShipRef: (ship: Ship) => {
-      currentShip = ship;
-    },
-  };
-}
-
-function updateFlightProfileControl(
-  control: FlightProfileControl,
-  ship: Ship
-): void {
-  // Always refresh the mutable ref so the slider mutates the right ship
-  control.updateShipRef(ship);
-
-  const currentSliderVal = parseInt(control.slider.value);
-  const shipVal = Math.round(ship.flightProfileBurnFraction * 100);
-  // Only update if the ship value changed externally (e.g. switched ships)
-  // Don't overwrite while user is dragging
-  if (currentSliderVal !== shipVal) {
-    control.slider.value = String(shipVal);
-    control.label.textContent = `${shipVal}% — ${getProfileLabel(ship.flightProfileBurnFraction)}`;
-  }
 }
 
 function renderAvailableWork(
@@ -765,4 +667,308 @@ function renderRouteAssignmentInfo(
   container.appendChild(actions);
 
   return container;
+}
+
+// ─── Mining Status Panel ────────────────────────────────────────
+
+function renderMiningStatus(
+  gameData: GameData,
+  ship: Ship,
+  location: import('../models').WorldLocation,
+  callbacks: WorkTabCallbacks
+): HTMLElement {
+  const panel = document.createElement('div');
+  panel.className = 'mining-status-panel';
+  panel.style.cssText = `
+    margin-bottom: 1rem;
+    padding: 0.75rem;
+    background: rgba(255, 165, 0, 0.08);
+    border: 1px solid #b87333;
+    border-radius: 4px;
+  `;
+
+  // Header
+  const header = document.createElement('div');
+  header.style.cssText =
+    'display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;';
+  const title = document.createElement('span');
+  title.style.cssText = 'font-weight: bold; font-size: 1rem; color: #ffa500;';
+  title.textContent = `⛏️ Mining at ${location.name}`;
+  header.appendChild(title);
+
+  // Active/inactive status badge
+  const isDocked = ship.location.status === 'docked';
+  const miners = getCrewForJobType(ship, 'mining_ops');
+  const shipMiningEquip = getBestShipMiningEquipment(ship);
+  const hasActiveMiner = shipMiningEquip !== undefined && miners.length > 0;
+  const statusBadge = document.createElement('span');
+  if (isDocked) {
+    statusBadge.style.cssText =
+      'font-size: 0.8rem; padding: 2px 8px; border-radius: 3px; background: rgba(74,158,255,0.15); color: #4a9eff; border: 1px solid #4a9eff;';
+    statusBadge.textContent = 'DOCKED';
+  } else if (hasActiveMiner && getRemainingOreCapacity(ship) > 0) {
+    statusBadge.style.cssText =
+      'font-size: 0.8rem; padding: 2px 8px; border-radius: 3px; background: rgba(76,175,80,0.2); color: #4caf50; border: 1px solid #4caf50;';
+    statusBadge.textContent = 'ACTIVE';
+  } else if (hasActiveMiner) {
+    statusBadge.style.cssText =
+      'font-size: 0.8rem; padding: 2px 8px; border-radius: 3px; background: rgba(233,69,96,0.2); color: #e94560; border: 1px solid #e94560;';
+    statusBadge.textContent = 'CARGO FULL';
+  } else {
+    statusBadge.style.cssText =
+      'font-size: 0.8rem; padding: 2px 8px; border-radius: 3px; background: rgba(255,165,0,0.15); color: #ffa500; border: 1px solid #b87333;';
+    statusBadge.textContent = 'IDLE';
+  }
+  header.appendChild(statusBadge);
+  panel.appendChild(header);
+
+  // Undock prompt when docked at a mining location
+  if (isDocked) {
+    const undockPrompt = document.createElement('div');
+    undockPrompt.style.cssText =
+      'padding: 0.5rem; margin-bottom: 0.5rem; background: rgba(74,158,255,0.1); border: 1px solid #4a9eff; border-radius: 4px; font-size: 0.85rem; color: #4a9eff;';
+    undockPrompt.textContent =
+      'Undock to enter orbit and begin mining operations. Mining equipment operates while orbiting.';
+    panel.appendChild(undockPrompt);
+  }
+
+  // Available ores at this location
+  const oresSection = document.createElement('div');
+  oresSection.style.cssText = 'margin-bottom: 0.5rem;';
+  const oresLabel = document.createElement('div');
+  oresLabel.style.cssText =
+    'font-size: 0.85rem; color: #aaa; margin-bottom: 0.25rem;';
+  oresLabel.textContent = 'Available Ores:';
+  oresSection.appendChild(oresLabel);
+
+  const availableOres = location.availableOres ?? [];
+  for (const oreId of availableOres) {
+    const ore = getOreDefinition(oreId);
+    const oreTag = document.createElement('span');
+    oreTag.style.cssText = `
+      display: inline-block; margin: 2px 4px 2px 0; padding: 2px 8px;
+      border-radius: 3px; font-size: 0.8rem;
+      background: rgba(255,165,0,0.15); border: 1px solid #665533;
+    `;
+    // Check if any miner can mine this ore
+    const someMinerCanMine = miners.some((m) =>
+      canMineOre(m.skills.mining, oreId)
+    );
+    if (!someMinerCanMine) {
+      oreTag.style.opacity = '0.5';
+      oreTag.title = `Requires Mining ${ore.miningLevelRequired}`;
+    }
+    oreTag.textContent = `${ore.icon} ${ore.name} (${ore.baseValue} cr)`;
+    if (!someMinerCanMine) {
+      oreTag.textContent += ` [Mining ${ore.miningLevelRequired}]`;
+    }
+    oresSection.appendChild(oreTag);
+  }
+  panel.appendChild(oresSection);
+
+  // Miners status
+  const minersSection = document.createElement('div');
+  minersSection.style.cssText = 'margin-bottom: 0.5rem; font-size: 0.85rem;';
+
+  if (miners.length === 0) {
+    const noMiners = document.createElement('div');
+    noMiners.style.color = '#e94560';
+    noMiners.textContent =
+      'No crew assigned to Mining Ops. Assign crew in the Ship tab.';
+    minersSection.appendChild(noMiners);
+  } else if (!shipMiningEquip) {
+    const noEquip = document.createElement('div');
+    noEquip.style.color = '#e94560';
+    noEquip.textContent =
+      'No mining equipment installed on ship. Purchase at a station store.';
+    minersSection.appendChild(noEquip);
+  } else {
+    // Show ship equipment info
+    const equipInfo = document.createElement('div');
+    equipInfo.style.cssText =
+      'margin-bottom: 4px; color: #6c6; font-size: 0.8rem;';
+    equipInfo.textContent = `Ship Equipment: ${shipMiningEquip.name} (${shipMiningEquip.miningRate}x)`;
+    if (
+      shipMiningEquip.miningLevelRequired &&
+      shipMiningEquip.miningLevelRequired > 0
+    ) {
+      equipInfo.textContent += ` · Requires Mining ${shipMiningEquip.miningLevelRequired}`;
+    }
+    minersSection.appendChild(equipInfo);
+
+    for (const miner of miners) {
+      const minerLine = document.createElement('div');
+      minerLine.style.cssText = 'margin-bottom: 2px; color: #ccc;';
+      const miningSkill = Math.floor(miner.skills.mining);
+
+      if (miningSkill < (shipMiningEquip.miningLevelRequired ?? 0)) {
+        minerLine.style.color = '#ffa500';
+        minerLine.textContent = `${miner.name} (Mining ${miningSkill}) — Skill too low to operate equipment`;
+      } else {
+        const bestOre = availableOres
+          .map((id) => getOreDefinition(id))
+          .filter((o) => miningSkill >= o.miningLevelRequired)
+          .sort((a, b) => b.baseValue - a.baseValue)[0];
+
+        minerLine.textContent = `${miner.name} (Mining ${miningSkill})`;
+        if (bestOre) {
+          minerLine.textContent += ` → ${bestOre.icon} ${bestOre.name}`;
+        }
+      }
+      minersSection.appendChild(minerLine);
+    }
+  }
+  panel.appendChild(minersSection);
+
+  // Cargo status
+  const cargoSection = document.createElement('div');
+  cargoSection.style.cssText = 'font-size: 0.85rem; color: #aaa;';
+
+  const oreWeight = getOreCargoWeight(ship);
+  const remaining = getRemainingOreCapacity(ship);
+  const totalOreUnits = ship.oreCargo.reduce(
+    (sum, item) => sum + item.quantity,
+    0
+  );
+
+  let cargoText = `Ore Cargo: ${totalOreUnits} units (${Math.round(oreWeight).toLocaleString()} kg)`;
+  if (remaining <= 0) {
+    cargoText += ' — FULL';
+    cargoSection.style.color = '#e94560';
+  } else {
+    cargoText += ` — ${Math.round(remaining).toLocaleString()} kg remaining`;
+  }
+  cargoSection.textContent = cargoText;
+  panel.appendChild(cargoSection);
+
+  // Ore cargo breakdown
+  if (ship.oreCargo.length > 0) {
+    const breakdown = document.createElement('div');
+    breakdown.style.cssText =
+      'margin-top: 0.35rem; font-size: 0.8rem; color: #888;';
+    for (const item of ship.oreCargo) {
+      const ore = getOreDefinition(item.oreId);
+      const line = document.createElement('div');
+      line.textContent = `  ${ore.icon} ${ore.name}: ${item.quantity} units`;
+      breakdown.appendChild(line);
+    }
+    panel.appendChild(breakdown);
+  }
+
+  // ─── Mining Route Controls ──────────────────────────────────
+  const routeSection = document.createElement('div');
+  routeSection.style.cssText =
+    'margin-top: 0.75rem; padding-top: 0.5rem; border-top: 1px solid #444;';
+
+  if (ship.miningRoute) {
+    // Active route status
+    const route = ship.miningRoute;
+    const sellLoc = gameData.world.locations.find(
+      (l) => l.id === route.sellLocationId
+    );
+
+    const routeHeader = document.createElement('div');
+    routeHeader.style.cssText =
+      'display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;';
+
+    const routeLabel = document.createElement('span');
+    routeLabel.style.cssText = 'font-size: 0.85rem; color: #4caf50;';
+    routeLabel.textContent = `🔄 Auto-sell route → ${sellLoc?.name ?? 'Unknown'}`;
+    routeHeader.appendChild(routeLabel);
+
+    const cancelBtn = document.createElement('button');
+    cancelBtn.textContent = 'Cancel Route';
+    cancelBtn.style.cssText = 'font-size: 0.75rem; padding: 2px 8px;';
+    cancelBtn.addEventListener('click', () => callbacks.onCancelMiningRoute());
+    routeHeader.appendChild(cancelBtn);
+
+    routeSection.appendChild(routeHeader);
+
+    const routeStats = document.createElement('div');
+    routeStats.style.cssText = 'font-size: 0.8rem; color: #888;';
+    routeStats.textContent = `Trips: ${route.totalTrips} · Earned: ${route.totalCreditsEarned.toLocaleString()} cr · Status: ${route.status}`;
+    routeSection.appendChild(routeStats);
+  } else {
+    // Set up route — show sell destination picker
+    const routeLabel = document.createElement('div');
+    routeLabel.style.cssText =
+      'font-size: 0.85rem; color: #aaa; margin-bottom: 0.35rem;';
+    routeLabel.textContent = '🔄 Auto-Sell Route (idle mining)';
+    routeSection.appendChild(routeLabel);
+
+    // Find reachable trade locations
+    const tradeLocations = gameData.world.locations.filter(
+      (l) =>
+        l.id !== location.id &&
+        l.services.includes('trade') &&
+        canShipAccessLocation(ship, l)
+    );
+
+    if (tradeLocations.length === 0) {
+      const noTrade = document.createElement('div');
+      noTrade.style.cssText = 'font-size: 0.8rem; color: #888;';
+      noTrade.textContent =
+        'No reachable trade stations available for auto-sell.';
+      routeSection.appendChild(noTrade);
+    } else {
+      const row = document.createElement('div');
+      row.style.cssText =
+        'display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;';
+
+      const select = document.createElement('select');
+      select.style.cssText =
+        'font-size: 0.8rem; padding: 3px 6px; background: #1a1a2e; color: #eee; border: 1px solid #444; border-radius: 3px;';
+
+      // Sort by distance (nearest first)
+      const sorted = tradeLocations
+        .map((loc) => ({
+          loc,
+          dist: getDistanceBetween(location, loc),
+        }))
+        .sort((a, b) => a.dist - b.dist);
+
+      for (const { loc, dist } of sorted) {
+        const opt = document.createElement('option');
+        opt.value = loc.id;
+        const distLabel =
+          dist < 1e9
+            ? `${(dist / 1e6).toFixed(0)} Mm`
+            : `${(dist / 1e9).toFixed(1)} Gm`;
+        // Show location type price multiplier hint
+        const priceHint =
+          loc.type === 'planet'
+            ? '1.1×'
+            : loc.type === 'space_station'
+              ? '1.0×'
+              : loc.type === 'orbital'
+                ? '0.85×'
+                : loc.type === 'moon'
+                  ? '0.9×'
+                  : '0.8×';
+        opt.textContent = `${loc.name} (${distLabel}, ${priceHint} price)`;
+        select.appendChild(opt);
+      }
+      row.appendChild(select);
+
+      const startBtn = document.createElement('button');
+      startBtn.textContent = 'Start Route';
+      startBtn.style.cssText = 'font-size: 0.8rem; padding: 3px 10px;';
+      startBtn.addEventListener('click', () =>
+        callbacks.onStartMiningRoute(select.value)
+      );
+      row.appendChild(startBtn);
+
+      routeSection.appendChild(row);
+
+      const hint = document.createElement('div');
+      hint.style.cssText =
+        'font-size: 0.75rem; color: #666; margin-top: 0.25rem;';
+      hint.textContent =
+        'When cargo fills, ship auto-flies to sell ore, refuels, then returns to mine.';
+      routeSection.appendChild(hint);
+    }
+  }
+  panel.appendChild(routeSection);
+
+  return panel;
 }

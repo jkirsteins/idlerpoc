@@ -19,6 +19,9 @@ import { calculateEncounterChance } from './encounterSystem';
 import { applyPassiveTraining, logSkillUps } from './skillProgression';
 import { getCrewForJobType, isRoomStaffed, getCrewJobSlot } from './jobSlots';
 import { applyOxygenTick, getOxygenHealthDamage } from './lifeSupportSystem';
+import { applyMiningTick } from './miningSystem';
+import { checkMiningRouteDeparture } from './miningRoute';
+import { addLog } from './logSystem';
 
 /**
  * Encounter system hook.
@@ -443,6 +446,73 @@ function applyShipTick(gameData: GameData, ship: Ship): boolean {
         const pointsPerEquipment = totalRepairPoints / degradedEquipment.length;
         for (const eq of degradedEquipment) {
           eq.degradation = Math.max(0, eq.degradation - pointsPerEquipment);
+        }
+      }
+    }
+
+    // === MINING ===
+    // Extract ore when orbiting a mine-enabled location
+    if (ship.location.status === 'orbiting' && ship.location.orbitingAt) {
+      const mineLocation = gameData.world.locations.find(
+        (l) => l.id === ship.location.orbitingAt
+      );
+      if (mineLocation) {
+        const miningResult = applyMiningTick(ship, mineLocation);
+        if (miningResult) {
+          // Log ore extraction (batch: only log when units are actually extracted)
+          for (const [oreId, qty] of Object.entries(
+            miningResult.oreExtracted
+          )) {
+            if (qty > 0) {
+              addLog(
+                gameData.log,
+                gameData.gameTime,
+                'ore_mined',
+                `${ship.name} extracted ${qty} ${oreId.replace(/_/g, ' ')}`,
+                ship.name
+              );
+            }
+          }
+
+          // Log mastery level-ups
+          for (const lu of miningResult.masteryLevelUps) {
+            addLog(
+              gameData.log,
+              gameData.gameTime,
+              'crew_level_up',
+              `${lu.crewName}'s ${lu.oreName} mastery reached level ${lu.newLevel}`,
+              ship.name
+            );
+          }
+
+          // Log cargo full warning (once)
+          if (miningResult.cargoFull) {
+            // Only log if this is the first tick of being full
+            const wasLogging = ship.miningAccumulator?._cargoFullLogged;
+            if (!wasLogging) {
+              addLog(
+                gameData.log,
+                gameData.gameTime,
+                'cargo_full',
+                `${ship.name} cargo hold is full. Mining paused.`,
+                ship.name
+              );
+              if (!ship.miningAccumulator) ship.miningAccumulator = {};
+              (ship.miningAccumulator as Record<string, number>)[
+                '_cargoFullLogged'
+              ] = 1;
+            }
+
+            // Mining route: auto-depart to sell station when cargo full
+            checkMiningRouteDeparture(gameData, ship);
+          } else {
+            // Clear the flag when cargo has space again
+            if (ship.miningAccumulator?._cargoFullLogged) {
+              delete (ship.miningAccumulator as Record<string, number>)[
+                '_cargoFullLogged'
+              ];
+            }
+          }
         }
       }
     }

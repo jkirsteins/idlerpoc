@@ -1,6 +1,7 @@
 import type { GameData } from './models';
 import { generateWorld } from './worldGen';
 import { generateJobSlotsForShip } from './jobSlots';
+import { generateId } from './utils';
 
 const STORAGE_KEY = 'spaceship_game_data';
 
@@ -309,10 +310,108 @@ export function loadGame(): GameData | null {
       return null;
     }
 
+    // Additive backfills (no version bump needed)
+    backfillMiningData(migrated);
+
     return migrated;
   } catch (e) {
     console.error('Failed to parse or migrate save data:', e);
     return null;
+  }
+}
+
+/**
+ * Additive backfill for mining-related data.
+ * Adds miningAccumulator, miningRoute, mining_bay room, mining_ops job slots,
+ * and ship mining equipment if missing.
+ * No version bump needed — these are optional fields with safe defaults.
+ */
+function backfillMiningData(gameData: GameData): void {
+  // Ship classes that should have mining_bay
+  const MINING_BAY_CLASSES = new Set([
+    'wayfarer',
+    'corsair',
+    'dreadnought',
+    'firebrand',
+    'leviathan',
+  ]);
+
+  for (const ship of gameData.ships) {
+    // Backfill miningAccumulator
+    if (!ship.miningAccumulator) {
+      ship.miningAccumulator = {};
+    }
+
+    // Backfill miningRoute
+    if (ship.miningRoute === undefined) {
+      ship.miningRoute = null;
+    }
+
+    // Backfill mining_bay room if this ship class should have one
+    if (MINING_BAY_CLASSES.has(ship.classId)) {
+      const hasMiningBay = ship.rooms.some((r) => r.type === 'mining_bay');
+      if (!hasMiningBay) {
+        ship.rooms.push({
+          id: generateId(),
+          type: 'mining_bay',
+          state: 'operational',
+        });
+      }
+
+      // Backfill ship mining equipment (mining_laser for wayfarer default)
+      const hasShipMiningEquip = ship.equipment.some((eq) => {
+        const MINING_IDS = [
+          'mining_laser',
+          'mining_rig',
+          'deep_core_mining',
+          'quantum_mining',
+        ];
+        return MINING_IDS.includes(eq.definitionId);
+      });
+      if (!hasShipMiningEquip) {
+        ship.equipment.push({
+          id: generateId(),
+          definitionId: 'mining_laser',
+          degradation: 0,
+        });
+      }
+    }
+
+    // Regenerate job slots to pick up mining_bay → mining_ops
+    const hasMiningOps = ship.jobSlots.some((s) => s.type === 'mining_ops');
+    if (!hasMiningOps && MINING_BAY_CLASSES.has(ship.classId)) {
+      // Add mining_ops slots sourced from mining_bay room
+      const miningBayRoom = ship.rooms.find((r) => r.type === 'mining_bay');
+      if (miningBayRoom) {
+        for (let i = 0; i < 2; i++) {
+          ship.jobSlots.push({
+            id: generateId(),
+            type: 'mining_ops',
+            assignedCrewId: null,
+            sourceRoomId: miningBayRoom.id,
+          });
+        }
+      }
+    }
+
+    // Remove any old crew mining equipment (from pre-refactor saves)
+    const CREW_MINING_IDS = [
+      'basic_mining_laser',
+      'plasma_cutter',
+      'sonic_drill',
+      'fusion_excavator',
+      'quantum_resonance_drill',
+      'zero_point_extractor',
+    ];
+    for (const crew of ship.crew) {
+      crew.equipment = crew.equipment.filter(
+        (eq) => !CREW_MINING_IDS.includes(eq.definitionId)
+      );
+    }
+    // Also remove from ship cargo
+    ship.cargo = ship.cargo.filter(
+      (item) => !CREW_MINING_IDS.includes(item.definitionId)
+    );
   }
 }
 

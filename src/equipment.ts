@@ -7,7 +7,8 @@ export type EquipmentCategory =
   | 'defense'
   | 'navigation'
   | 'structural'
-  | 'gravity';
+  | 'gravity'
+  | 'mining';
 
 export interface EquipmentDefinition {
   id: EquipmentId;
@@ -21,6 +22,9 @@ export interface EquipmentDefinition {
   radiationShielding?: number; // 0-100+ radiation blocked
   heatDissipation?: number; // kW-thermal dissipated
   oxygenOutput?: number; // O2 units generated per tick when powered
+  miningRate?: number; // extraction rate multiplier (ship-mounted mining equipment)
+  miningLevelRequired?: number; // min crew mining skill to operate
+  value?: number; // purchase price in credits
 }
 
 export const EQUIPMENT_DEFINITIONS: EquipmentDefinition[] = [
@@ -201,6 +205,63 @@ export const EQUIPMENT_DEFINITIONS: EquipmentDefinition[] = [
     hasDegradation: false,
     requiredTags: ['standard'],
   },
+  // Mining Equipment (ship-mounted, operated by crew from mining bay)
+  {
+    id: 'mining_laser',
+    name: 'Mining Laser Array',
+    description:
+      'Ship-mounted thermal cutting lasers for surface ore extraction. Operated from the mining bay.',
+    icon: '⛏️',
+    category: 'mining',
+    powerDraw: 8,
+    hasDegradation: true,
+    requiredTags: ['standard'],
+    miningRate: 1.0,
+    miningLevelRequired: 0,
+    value: 2000,
+  },
+  {
+    id: 'mining_rig',
+    name: 'Industrial Mining Rig',
+    description:
+      'Heavy-duty mechanical drill array with automated ore collection. Higher extraction rate.',
+    icon: '⛏️',
+    category: 'mining',
+    powerDraw: 15,
+    hasDegradation: true,
+    requiredTags: ['standard'],
+    miningRate: 2.0,
+    miningLevelRequired: 20,
+    value: 8000,
+  },
+  {
+    id: 'deep_core_mining',
+    name: 'Deep Core Extraction System',
+    description:
+      'Resonance-based extraction array for reaching deep mineral veins in dense asteroids.',
+    icon: '⛏️',
+    category: 'mining',
+    powerDraw: 25,
+    hasDegradation: true,
+    requiredTags: ['standard'],
+    miningRate: 3.5,
+    miningLevelRequired: 50,
+    value: 30000,
+  },
+  {
+    id: 'quantum_mining',
+    name: 'Quantum Resonance Array',
+    description:
+      'Experimental extraction system using quantum tunneling to separate exotic matter from asteroid cores.',
+    icon: '⛏️',
+    category: 'mining',
+    powerDraw: 40,
+    hasDegradation: true,
+    requiredTags: ['standard'],
+    miningRate: 5.0,
+    miningLevelRequired: 80,
+    value: 80000,
+  },
 ];
 
 export function getEquipmentDefinition(
@@ -236,5 +297,35 @@ export function getCategoryLabel(category: EquipmentCategory): string {
       return 'STRUCTURAL';
     case 'gravity':
       return 'GRAVITY';
+    case 'mining':
+      return 'MINING';
   }
+}
+
+/**
+ * Get the best mining equipment installed on a ship.
+ * Returns undefined if no mining equipment is installed.
+ */
+export function getBestShipMiningEquipment(
+  ship: import('./models').Ship
+): EquipmentDefinition | undefined {
+  const miningGear = ship.equipment
+    .map((eq) => getEquipmentDefinition(eq.definitionId))
+    .filter(
+      (def): def is EquipmentDefinition =>
+        def !== undefined && def.category === 'mining'
+    );
+  if (miningGear.length === 0) return undefined;
+  return miningGear.reduce((best, current) =>
+    (current.miningRate ?? 0) > (best.miningRate ?? 0) ? current : best
+  );
+}
+
+/**
+ * Get all mining equipment definitions, sorted by tier (cheapest first).
+ */
+export function getMiningEquipmentDefinitions(): EquipmentDefinition[] {
+  return EQUIPMENT_DEFINITIONS.filter((eq) => eq.category === 'mining').sort(
+    (a, b) => (a.value ?? 0) - (b.value ?? 0)
+  );
 }

@@ -7,20 +7,9 @@ export type CrewEquipmentId =
   | 'rebreather'
   | 'wrist_terminal'
   | 'armored_vest'
-  | 'g_seat'
-  | 'basic_mining_laser'
-  | 'improved_mining_laser'
-  | 'heavy_mining_drill'
-  | 'deep_core_extractor'
-  | 'fusion_assisted_drill'
-  | 'quantum_resonance_drill';
+  | 'g_seat';
 
-export type CrewEquipmentCategory =
-  | 'weapon'
-  | 'tool'
-  | 'accessory'
-  | 'armor'
-  | 'mining';
+export type CrewEquipmentCategory = 'weapon' | 'tool' | 'accessory' | 'armor';
 
 export interface CrewEquipmentDefinition {
   id: CrewEquipmentId;
@@ -32,8 +21,6 @@ export interface CrewEquipmentDefinition {
   value: number; // credits
   storageUnits: number;
   attackScore: number;
-  miningRate?: number; // multiplier for mining yield (mining equipment only)
-  miningLevelRequired?: number; // minimum mining skill to use (mining equipment only)
 }
 
 export const CREW_EQUIPMENT_DEFINITIONS: CrewEquipmentDefinition[] = [
@@ -152,91 +139,6 @@ export const CREW_EQUIPMENT_DEFINITIONS: CrewEquipmentDefinition[] = [
     storageUnits: 3,
     attackScore: 0,
   },
-
-  // Mining Equipment
-  {
-    id: 'basic_mining_laser',
-    name: 'ML-1 Mining Laser',
-    description:
-      'Entry-level thermal cutting laser for surface ore extraction.',
-    icon: '⛏️',
-    category: 'mining',
-    weight: 5.0,
-    value: 500,
-    storageUnits: 2,
-    attackScore: 0,
-    miningRate: 1.0,
-    miningLevelRequired: 0,
-  },
-  {
-    id: 'improved_mining_laser',
-    name: 'ML-3 Improved Mining Laser',
-    description: 'Higher-powered laser with tighter beam focus. Cuts deeper.',
-    icon: '⛏️',
-    category: 'mining',
-    weight: 7.0,
-    value: 1500,
-    storageUnits: 2,
-    attackScore: 0,
-    miningRate: 1.5,
-    miningLevelRequired: 15,
-  },
-  {
-    id: 'heavy_mining_drill',
-    name: 'HD-50 Heavy Mining Drill',
-    description:
-      'Mechanical rotary drill for dense ore deposits. Requires physical strength.',
-    icon: '⛏️',
-    category: 'mining',
-    weight: 15.0,
-    value: 4000,
-    storageUnits: 4,
-    attackScore: 0,
-    miningRate: 2.0,
-    miningLevelRequired: 30,
-  },
-  {
-    id: 'deep_core_extractor',
-    name: 'DCE-7 Deep Core Extractor',
-    description:
-      'Resonance-based extraction system for reaching deep mineral veins.',
-    icon: '⛏️',
-    category: 'mining',
-    weight: 12.0,
-    value: 10000,
-    storageUnits: 3,
-    attackScore: 0,
-    miningRate: 2.5,
-    miningLevelRequired: 50,
-  },
-  {
-    id: 'fusion_assisted_drill',
-    name: 'FAD-12 Fusion-Assisted Drill',
-    description:
-      'Micro-fusion torch head for cutting through the hardest materials.',
-    icon: '⛏️',
-    category: 'mining',
-    weight: 18.0,
-    value: 25000,
-    storageUnits: 5,
-    attackScore: 0,
-    miningRate: 3.5,
-    miningLevelRequired: 75,
-  },
-  {
-    id: 'quantum_resonance_drill',
-    name: 'QRD-X Quantum Resonance Drill',
-    description:
-      'Experimental extraction device using quantum tunneling to separate exotic matter.',
-    icon: '⛏️',
-    category: 'mining',
-    weight: 10.0,
-    value: 75000,
-    storageUnits: 3,
-    attackScore: 0,
-    miningRate: 5.0,
-    miningLevelRequired: 90,
-  },
 ];
 
 export function getCrewEquipmentDefinition(
@@ -257,23 +159,4 @@ export function getCrewEquipmentByCategory(
   category: CrewEquipmentCategory
 ): CrewEquipmentDefinition[] {
   return CREW_EQUIPMENT_DEFINITIONS.filter((e) => e.category === category);
-}
-
-/**
- * Get the best mining equipment a crew member has equipped.
- * Returns undefined if no mining equipment is equipped.
- */
-export function getBestMiningEquipment(
-  equippedIds: CrewEquipmentId[]
-): CrewEquipmentDefinition | undefined {
-  const miningGear = equippedIds
-    .map((id) => CREW_EQUIPMENT_DEFINITIONS.find((e) => e.id === id))
-    .filter(
-      (e): e is CrewEquipmentDefinition =>
-        e !== undefined && e.category === 'mining'
-    );
-  if (miningGear.length === 0) return undefined;
-  return miningGear.reduce((best, current) =>
-    (current.miningRate ?? 0) > (best.miningRate ?? 0) ? current : best
-  );
 }

@@ -10,6 +10,7 @@ import type {
   EncounterResult,
   SkillId,
   LogEntry,
+  OreId,
 } from './models';
 import { getActiveShip } from './models';
 import {
@@ -55,6 +56,9 @@ import {
   unassignCrewFromAllSlots,
   autoAssignCrewToJobs,
 } from './jobSlots';
+import { sellOre, sellAllOre } from './miningSystem';
+import { assignMiningRoute, cancelMiningRoute } from './miningRoute';
+import { getEquipmentDefinition, canEquipInSlot } from './equipment';
 
 const app = document.getElementById('app')!;
 
@@ -1126,6 +1130,80 @@ const callbacks: RendererCallbacks = {
     renderApp();
   },
 
+  onBuyShipEquipment: (equipmentId) => {
+    if (state.phase !== 'playing') return;
+    const ship = getActiveShip(state.gameData);
+    if (ship.location.status !== 'docked') return;
+
+    const equipDef = getEquipmentDefinition(equipmentId);
+    if (!equipDef) return;
+    if (equipDef.value === undefined || state.gameData.credits < equipDef.value)
+      return;
+
+    // Find existing mining equipment on the ship (if upgrading)
+    const existingMiningIdx = ship.equipment.findIndex((eq) => {
+      const def = getEquipmentDefinition(eq.definitionId);
+      return def?.category === 'mining';
+    });
+
+    let tradeInCredit = 0;
+    if (existingMiningIdx !== -1) {
+      const oldEquip = ship.equipment[existingMiningIdx];
+      const oldDef = getEquipmentDefinition(oldEquip.definitionId);
+      tradeInCredit = Math.floor((oldDef?.value ?? 0) * 0.5);
+
+      // Remove old equipment from slot
+      for (const slot of ship.equipmentSlots) {
+        if (slot.equippedId === oldEquip.id) {
+          slot.equippedId = undefined;
+          break;
+        }
+      }
+      // Remove from equipment array
+      ship.equipment.splice(existingMiningIdx, 1);
+    }
+
+    // Check for compatible slot
+    const compatibleSlot = ship.equipmentSlots.find(
+      (slot) => !slot.equippedId && canEquipInSlot(equipDef, slot)
+    );
+    if (!compatibleSlot && existingMiningIdx === -1) return; // No free slot
+
+    // Deduct credits (minus trade-in)
+    const netCost = equipDef.value - tradeInCredit;
+    if (state.gameData.credits < netCost) return;
+    state.gameData.credits -= netCost;
+
+    // Install new equipment
+    const newEquip = {
+      id: Math.random().toString(36).substring(2, 11),
+      definitionId: equipmentId,
+      degradation: 0,
+    };
+    ship.equipment.push(newEquip);
+
+    // Assign to slot
+    const targetSlot =
+      compatibleSlot ??
+      ship.equipmentSlots.find((s) => canEquipInSlot(equipDef, s));
+    if (targetSlot) {
+      targetSlot.equippedId = newEquip.id;
+    }
+
+    addLog(
+      state.gameData.log,
+      state.gameData.gameTime,
+      'equipment_bought',
+      tradeInCredit > 0
+        ? `Installed ${equipDef.name} (traded in old equipment for ${tradeInCredit} cr credit)`
+        : `Installed ${equipDef.name} for ${equipDef.value} cr`,
+      ship.name
+    );
+
+    saveGame(state.gameData);
+    renderApp();
+  },
+
   onSelectShip: (shipId: string) => {
     if (state.phase !== 'playing') return;
     const ship = state.gameData.ships.find((s) => s.id === shipId);
@@ -1270,6 +1348,59 @@ const callbacks: RendererCallbacks = {
     state.gameData.isPaused = false; // Auto-unpause when setting speed
     // Reset timestamp so speed change takes effect from now
     state.gameData.lastTickTimestamp = Date.now();
+    saveGame(state.gameData);
+    renderApp();
+  },
+
+  onSellOre: (oreId: OreId, quantity: number) => {
+    if (state.phase !== 'playing') return;
+    const ship = getActiveShip(state.gameData);
+    if (ship.location.status !== 'docked' || !ship.location.dockedAt) return;
+
+    const location = state.gameData.world.locations.find(
+      (l) => l.id === ship.location.dockedAt
+    );
+    if (!location || !location.services.includes('trade')) return;
+
+    sellOre(ship, oreId, quantity, location, state.gameData);
+    saveGame(state.gameData);
+    renderApp();
+  },
+
+  onSellAllOre: () => {
+    if (state.phase !== 'playing') return;
+    const ship = getActiveShip(state.gameData);
+    if (ship.location.status !== 'docked' || !ship.location.dockedAt) return;
+
+    const location = state.gameData.world.locations.find(
+      (l) => l.id === ship.location.dockedAt
+    );
+    if (!location || !location.services.includes('trade')) return;
+
+    sellAllOre(ship, location, state.gameData);
+    saveGame(state.gameData);
+    renderApp();
+  },
+
+  onStartMiningRoute: (sellLocationId: string) => {
+    if (state.phase !== 'playing') return;
+    const ship = getActiveShip(state.gameData);
+
+    const result = assignMiningRoute(state.gameData, ship, sellLocationId);
+    if (!result.success) {
+      console.warn('Mining route failed:', result.error);
+      return;
+    }
+
+    saveGame(state.gameData);
+    renderApp();
+  },
+
+  onCancelMiningRoute: () => {
+    if (state.phase !== 'playing') return;
+    const ship = getActiveShip(state.gameData);
+
+    cancelMiningRoute(state.gameData, ship);
     saveGame(state.gameData);
     renderApp();
   },

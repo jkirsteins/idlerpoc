@@ -14,7 +14,8 @@ npm run dev
 - **Captain as Playable Character**: You start solo — just a captain at the helm. Hire crew as you progress
 - **Ship Creation**: Choose your captain name, ship name, and starting ship class
 - **Ship Classes**: 7 ship classes from orbital tenders to fusion torch ships (Class I-III) (see `src/shipClasses.ts`)
-- **Tabbed Interface**: Switch between Ship, Crew, Work, Nav, Fleet, Log, Guide, and Settings tabs
+- **Tabbed Interface**: Switch between Ship, Station, Crew, Work, Nav, Fleet, Log, Guide, and Settings tabs
+- **Station Tab**: Consolidated interface for all docked-station services — fuel depot, ore exchange, hiring office, and station store. Randomized atmospheric flavor text per location type, service badges, and location descriptions
 - **Docking & Undocking**: Transition between docked (station power) and in-flight (engine power)
 - **Engine System**:
   - Multiple engine types with different warmup times and power outputs
@@ -44,12 +45,17 @@ npm run dev
   - Unpaid crew depart at next station
   - Hire new crew at stations with hiring services
 - **Mining System**:
-  - Mine ores at locations with `mine` service (asteroid belts, planets)
-  - 8 ore types from Iron (common) to Exotic Matter (rare) — mining level gates access
-  - 6 tiers of mining equipment (crew equipment slot) from Basic Mining Laser to Quantum Resonance Drill
-  - Per-ore mastery: mine more efficiently the more you mine a specific ore
-  - Sell ore at stations with trade service — prices vary by location
-  - Near-Earth mining destinations reachable by Station Keeper (Debris Field Alpha, Scrapyard Ring, NEA-2247)
+  - Orbit locations with `mine` service to extract ore (crew in mining_ops slots operate ship-mounted mining equipment from the mining bay)
+  - 8 ore types from Iron (common, 5 cr) to Exotic Matter (rare, 200 cr) — mining skill level gates access
+  - 4 tiers of ship-mounted mining equipment: Mining Laser Array (1.0x), Industrial Mining Rig (2.0x), Deep Core System (3.5x), Quantum Resonance Array (5.0x)
+  - Equipment purchased/upgraded at Station Store → Ship Equipment tab; trade-in old gear for 50% credit
+  - Extraction rate scales with equipment tier, mining skill, and per-ore mastery bonuses
+  - Mining is a Class II+ activity — Station Keeper has no mining bay, requires upgrading to Wayfarer or better
+  - Mastery pool bonuses at 10/25/50/95% full: XP boost, yield bonus, wear reduction, double-drop chance
+  - Sell ore at any station with trade service — prices vary by location type and commerce skill
+  - Cargo capacity limits: ore has weight, mining pauses when hold is full
+  - **Auto-sell mining routes**: set up idle-friendly mine→sell→return loop from the mining panel; auto-sells ore, auto-refuels, returns to mine
+  - Near-Earth mining destinations reachable by Class II ships (Debris Field Alpha, Scrapyard Ring, NEA-2247)
 - **Navigation System**:
   - World map with 11 locations including 3 new near-Earth mining destinations
   - Visual navigation chart showing distances, piloting requirements, and reachable locations

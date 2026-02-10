@@ -9,7 +9,8 @@ export type RoomType =
   | 'cargo_hold'
   | 'armory'
   | 'quarters'
-  | 'point_defense_station';
+  | 'point_defense_station'
+  | 'mining_bay';
 
 export type ShipClassId =
   | 'station_keeper'
@@ -38,7 +39,11 @@ export type EquipmentId =
   | 'centrifuge_pod'
   | 'exercise_module'
   | 'micro_deflector'
-  | 'point_defense_laser';
+  | 'point_defense_laser'
+  | 'mining_laser'
+  | 'mining_rig'
+  | 'deep_core_mining'
+  | 'quantum_mining';
 
 export type FactionId =
   | 'terran_alliance'
@@ -64,13 +69,7 @@ export type CrewEquipmentId =
   | 'rebreather'
   | 'wrist_terminal'
   | 'armored_vest'
-  | 'g_seat'
-  | 'basic_mining_laser'
-  | 'improved_mining_laser'
-  | 'heavy_mining_drill'
-  | 'deep_core_extractor'
-  | 'fusion_assisted_drill'
-  | 'quantum_resonance_drill';
+  | 'g_seat';
 
 export type SkillId = 'piloting' | 'mining' | 'commerce';
 
@@ -305,8 +304,10 @@ export interface Ship {
   engine: EngineInstance;
   cargo: CrewEquipmentInstance[];
   oreCargo: OreCargoItem[]; // mined ore in cargo hold
+  miningAccumulator: Record<string, number>; // fractional ore per OreId
   activeContract: ActiveContract | null;
   routeAssignment: RouteAssignment | null; // Automated route for standing freight
+  miningRoute: MiningRoute | null; // Automated mine → sell → return loop
   lastEncounterTime?: number; // gameTime of last encounter (for cooldown)
   metrics: ShipMetrics; // Performance tracking for fleet management
   role?: 'courier' | 'freighter' | 'scout' | 'combat' | 'luxury'; // Player-assigned specialization
@@ -360,6 +361,15 @@ export interface RouteAssignment {
   lastTripCompletedAt: number; // gameTime of last trip completion
 }
 
+export interface MiningRoute {
+  mineLocationId: string; // Asteroid belt / mine location
+  sellLocationId: string; // Trade station to sell ore
+  status: 'mining' | 'selling' | 'returning'; // Current phase
+  totalTrips: number; // Round-trips completed
+  totalCreditsEarned: number; // Lifetime ore sale earnings
+  assignedAt: number; // gameTime when route was set up
+}
+
 export type LogEntryType =
   | 'departure'
   | 'arrival'
@@ -383,7 +393,12 @@ export type LogEntryType =
   | 'encounter_boarding'
   | 'encounter_fled'
   | 'crew_level_up'
-  | 'crew_role_change';
+  | 'crew_role_change'
+  | 'mining_started'
+  | 'ore_mined'
+  | 'ore_sold'
+  | 'cargo_full'
+  | 'mining_route';
 
 export interface LogEntry {
   gameTime: number;
