@@ -124,8 +124,8 @@ describe('Mastery System', () => {
       const state = createEmptyMasteryState();
       awardMasteryXp(state, 'earth->mars', 100, 10, 5);
 
-      // maxXp = POOL_CAP_PER_ITEM (500,000) * totalItemCount (5)
-      expect(state.pool.maxXp).toBe(2_500_000);
+      // maxXp = POOL_CAP_PER_ITEM (1,000) * totalItemCount (5)
+      expect(state.pool.maxXp).toBe(5_000);
     });
 
     it('reports level-up when it occurs', () => {
@@ -150,7 +150,7 @@ describe('Mastery System', () => {
 
     it('caps pool XP at maxXp', () => {
       const state = createEmptyMasteryState();
-      // Use 1 item so maxXp = 500,000. Award enormous XP.
+      // Use 1 item so maxXp = 1,000. Award enormous XP.
       for (let i = 0; i < 100; i++) {
         awardMasteryXp(state, 'test_item', 100_000, 10, 1);
       }
