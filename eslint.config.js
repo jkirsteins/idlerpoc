@@ -3,7 +3,7 @@ import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
   eslint.configs.recommended,
-  ...tseslint.configs.recommended,
+  ...tseslint.configs.recommendedTypeChecked,
   {
     ignores: ['dist/**'],
   },
@@ -15,6 +15,10 @@ export default tseslint.config(
         document: 'readonly',
         window: 'readonly',
         console: 'readonly',
+      },
+      parserOptions: {
+        projectService: true,
+        tsconfigRootDir: import.meta.dirname,
       },
     },
     rules: {
@@ -33,6 +37,10 @@ export default tseslint.config(
           allowNamedExports: true,
         },
       ],
+      // Enforce strict equality, except for idiomatic == null / != null checks.
+      eqeqeq: ['error', 'smart'],
+      // Ensure switch statements over union types handle every member.
+      '@typescript-eslint/switch-exhaustiveness-check': 'error',
     },
   }
 );

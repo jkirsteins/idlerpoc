@@ -565,7 +565,7 @@ describe('applyEncounterOutcome', () => {
     };
 
     applyEncounterOutcome(result, ship, gameData);
-    expect(ship.activeFlightPlan!.totalTime).toBe(105_000);
+    expect(ship.activeFlightPlan?.totalTime).toBe(105_000);
   });
 
   it('steals credits on boarding', () => {
@@ -989,7 +989,7 @@ describe('fled outcome', () => {
     };
 
     applyEncounterOutcome(result, ship, gameData);
-    expect(ship.activeFlightPlan!.totalTime).toBe(108_000);
+    expect(ship.activeFlightPlan?.totalTime).toBe(108_000);
   });
 
   it('increments fled stat', () => {

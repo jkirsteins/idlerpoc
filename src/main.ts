@@ -1004,7 +1004,7 @@ const callbacks: RendererCallbacks = {
 
     if (!origin || !destination) return;
 
-    import('./flightPhysics').then(({ startShipFlight }) => {
+    void import('./flightPhysics').then(({ startShipFlight }) => {
       if (state.phase !== 'playing') return;
 
       const departed = startShipFlight(

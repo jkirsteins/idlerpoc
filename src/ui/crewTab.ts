@@ -1054,7 +1054,7 @@ function renderMasteryItems(
         ship,
         currentLoc,
         world,
-        skillId as 'piloting' | 'commerce'
+        skillId
       );
 
       for (const route of routes) {
