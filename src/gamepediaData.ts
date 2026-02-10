@@ -1387,6 +1387,22 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
           '25% of ore mastery XP flows into the mining mastery pool, which provides skill-wide bonuses at key checkpoints.',
         ],
       },
+      {
+        heading: 'Selling Ore',
+        paragraphs: [
+          "Ore is sold at stations that offer a trade service. Sell prices depend on the ore base value, the location type, and your best crew member's [[commerce-skill|commerce]] skill. Planets offer the best prices (1.1× multiplier) while remote locations pay less.",
+          'Price formula: base value × location multiplier × (1 + commerce skill × 0.005). At commerce 100, you earn 50% more per unit.',
+        ],
+      },
+      {
+        heading: 'Auto-Sell Mining Routes',
+        paragraphs: [
+          'For fully idle mining, set up an auto-sell route from the mining panel while orbiting a mining location. Select a trade station to sell ore at, and the ship will automatically:',
+          '1. Mine until cargo is full\n2. Fly to the trade station and dock\n3. Sell all ore and auto-refuel if needed\n4. Fly back to the mining location and resume mining',
+          'The route repeats indefinitely until cancelled or funds run out for refueling. The mining panel shows route stats including trips completed and total credits earned.',
+          'Choose your sell destination carefully — closer stations reduce transit time but may offer lower prices. Sell price multipliers are shown in the destination picker. The piloting skill gate still applies: you can only pick stations your crew can reach.',
+        ],
+      },
     ],
     relatedArticles: [
       'ore-types',
@@ -1394,6 +1410,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
       'mining-destinations',
       'crew-equipment',
       'skill-system',
+      'commerce-skill',
     ],
   },
 

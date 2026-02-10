@@ -331,6 +331,11 @@ function backfillMiningData(gameData: GameData): void {
       ship.miningAccumulator = {};
     }
 
+    // Backfill miningRoute
+    if (ship.miningRoute === undefined) {
+      ship.miningRoute = null;
+    }
+
     // Backfill mining_ops job slots if missing
     const hasMiningOps = ship.jobSlots.some((s) => s.type === 'mining_ops');
     if (!hasMiningOps) {

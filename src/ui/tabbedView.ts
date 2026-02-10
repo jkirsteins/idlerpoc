@@ -161,6 +161,8 @@ export function createTabbedView(
           onAbandonContract: callbacks.onAbandonContract,
           onSellOre: callbacks.onSellOre,
           onSellAllOre: callbacks.onSellAllOre,
+          onStartMiningRoute: callbacks.onStartMiningRoute,
+          onCancelMiningRoute: callbacks.onCancelMiningRoute,
         });
       case 'nav':
         return createNavigationView(gameData, {

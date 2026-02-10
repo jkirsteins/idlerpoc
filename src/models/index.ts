@@ -308,6 +308,7 @@ export interface Ship {
   miningAccumulator: Record<string, number>; // fractional ore per OreId
   activeContract: ActiveContract | null;
   routeAssignment: RouteAssignment | null; // Automated route for standing freight
+  miningRoute: MiningRoute | null; // Automated mine → sell → return loop
   lastEncounterTime?: number; // gameTime of last encounter (for cooldown)
   metrics: ShipMetrics; // Performance tracking for fleet management
   role?: 'courier' | 'freighter' | 'scout' | 'combat' | 'luxury'; // Player-assigned specialization
@@ -361,6 +362,15 @@ export interface RouteAssignment {
   lastTripCompletedAt: number; // gameTime of last trip completion
 }
 
+export interface MiningRoute {
+  mineLocationId: string; // Asteroid belt / mine location
+  sellLocationId: string; // Trade station to sell ore
+  status: 'mining' | 'selling' | 'returning'; // Current phase
+  totalTrips: number; // Round-trips completed
+  totalCreditsEarned: number; // Lifetime ore sale earnings
+  assignedAt: number; // gameTime when route was set up
+}
+
 export type LogEntryType =
   | 'departure'
   | 'arrival'
@@ -388,7 +398,8 @@ export type LogEntryType =
   | 'mining_started'
   | 'ore_mined'
   | 'ore_sold'
-  | 'cargo_full';
+  | 'cargo_full'
+  | 'mining_route';
 
 export interface LogEntry {
   gameTime: number;

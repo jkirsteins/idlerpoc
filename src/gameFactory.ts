@@ -231,6 +231,7 @@ function createStartingShip(
     miningAccumulator: {},
     activeContract: null,
     routeAssignment: null,
+    miningRoute: null,
     activeFlightPlan: undefined,
     metrics: {
       creditsEarned: 0,
@@ -299,6 +300,7 @@ export function createAdditionalShip(
     miningAccumulator: {},
     activeContract: null,
     routeAssignment: null,
+    miningRoute: null,
     activeFlightPlan: undefined,
     metrics: {
       creditsEarned: 0,

@@ -56,6 +56,7 @@ import {
   autoAssignCrewToJobs,
 } from './jobSlots';
 import { sellOre, sellAllOre } from './miningSystem';
+import { assignMiningRoute, cancelMiningRoute } from './miningRoute';
 
 const app = document.getElementById('app')!;
 
@@ -1311,6 +1312,29 @@ const callbacks: RendererCallbacks = {
     if (!location || !location.services.includes('trade')) return;
 
     sellAllOre(ship, location, state.gameData);
+    saveGame(state.gameData);
+    renderApp();
+  },
+
+  onStartMiningRoute: (sellLocationId: string) => {
+    if (state.phase !== 'playing') return;
+    const ship = getActiveShip(state.gameData);
+
+    const result = assignMiningRoute(state.gameData, ship, sellLocationId);
+    if (!result.success) {
+      console.warn('Mining route failed:', result.error);
+      return;
+    }
+
+    saveGame(state.gameData);
+    renderApp();
+  },
+
+  onCancelMiningRoute: () => {
+    if (state.phase !== 'playing') return;
+    const ship = getActiveShip(state.gameData);
+
+    cancelMiningRoute(state.gameData, ship);
     saveGame(state.gameData);
     renderApp();
   },

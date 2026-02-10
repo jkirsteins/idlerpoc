@@ -19,7 +19,7 @@ import {
 import { renderThreatBadge } from './threatBadge';
 import type { Component } from './component';
 import { formatFuelMass, calculateFuelPercentage } from './fuelFormatting';
-import { getDistanceBetween } from '../worldGen';
+import { getDistanceBetween, canShipAccessLocation } from '../worldGen';
 import { getFuelPricePerKg } from './refuelDialog';
 import { renderFlightStatus } from './flightStatus';
 import { getOreDefinition, canMineOre } from '../oreTypes';
@@ -40,6 +40,8 @@ export interface WorkTabCallbacks {
   onAbandonContract: () => void;
   onSellOre: (oreId: OreId, quantity: number) => void;
   onSellAllOre: () => void;
+  onStartMiningRoute: (sellLocationId: string) => void;
+  onCancelMiningRoute: () => void;
 }
 
 export function createWorkTab(
@@ -77,7 +79,7 @@ export function createWorkTab(
         orbitLocation?.services.includes('mine')
       ) {
         container.appendChild(
-          renderMiningStatus(gameData, ship, orbitLocation)
+          renderMiningStatus(gameData, ship, orbitLocation, callbacks)
         );
       }
 
@@ -810,9 +812,10 @@ function renderRouteAssignmentInfo(
 // ─── Mining Status Panel ────────────────────────────────────────
 
 function renderMiningStatus(
-  _gameData: GameData,
+  gameData: GameData,
   ship: Ship,
-  location: import('../models').WorldLocation
+  location: import('../models').WorldLocation,
+  callbacks: WorkTabCallbacks
 ): HTMLElement {
   const panel = document.createElement('div');
   panel.className = 'mining-status-panel';
@@ -963,6 +966,121 @@ function renderMiningStatus(
     }
     panel.appendChild(breakdown);
   }
+
+  // ─── Mining Route Controls ──────────────────────────────────
+  const routeSection = document.createElement('div');
+  routeSection.style.cssText =
+    'margin-top: 0.75rem; padding-top: 0.5rem; border-top: 1px solid #444;';
+
+  if (ship.miningRoute) {
+    // Active route status
+    const route = ship.miningRoute;
+    const sellLoc = gameData.world.locations.find(
+      (l) => l.id === route.sellLocationId
+    );
+
+    const routeHeader = document.createElement('div');
+    routeHeader.style.cssText =
+      'display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;';
+
+    const routeLabel = document.createElement('span');
+    routeLabel.style.cssText = 'font-size: 0.85rem; color: #4caf50;';
+    routeLabel.textContent = `🔄 Auto-sell route → ${sellLoc?.name ?? 'Unknown'}`;
+    routeHeader.appendChild(routeLabel);
+
+    const cancelBtn = document.createElement('button');
+    cancelBtn.textContent = 'Cancel Route';
+    cancelBtn.style.cssText = 'font-size: 0.75rem; padding: 2px 8px;';
+    cancelBtn.addEventListener('click', () => callbacks.onCancelMiningRoute());
+    routeHeader.appendChild(cancelBtn);
+
+    routeSection.appendChild(routeHeader);
+
+    const routeStats = document.createElement('div');
+    routeStats.style.cssText = 'font-size: 0.8rem; color: #888;';
+    routeStats.textContent = `Trips: ${route.totalTrips} · Earned: ${route.totalCreditsEarned.toLocaleString()} cr · Status: ${route.status}`;
+    routeSection.appendChild(routeStats);
+  } else {
+    // Set up route — show sell destination picker
+    const routeLabel = document.createElement('div');
+    routeLabel.style.cssText =
+      'font-size: 0.85rem; color: #aaa; margin-bottom: 0.35rem;';
+    routeLabel.textContent = '🔄 Auto-Sell Route (idle mining)';
+    routeSection.appendChild(routeLabel);
+
+    // Find reachable trade locations
+    const tradeLocations = gameData.world.locations.filter(
+      (l) =>
+        l.id !== location.id &&
+        l.services.includes('trade') &&
+        canShipAccessLocation(ship, l)
+    );
+
+    if (tradeLocations.length === 0) {
+      const noTrade = document.createElement('div');
+      noTrade.style.cssText = 'font-size: 0.8rem; color: #888;';
+      noTrade.textContent =
+        'No reachable trade stations available for auto-sell.';
+      routeSection.appendChild(noTrade);
+    } else {
+      const row = document.createElement('div');
+      row.style.cssText =
+        'display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;';
+
+      const select = document.createElement('select');
+      select.style.cssText =
+        'font-size: 0.8rem; padding: 3px 6px; background: #1a1a2e; color: #eee; border: 1px solid #444; border-radius: 3px;';
+
+      // Sort by distance (nearest first)
+      const sorted = tradeLocations
+        .map((loc) => ({
+          loc,
+          dist: getDistanceBetween(location, loc),
+        }))
+        .sort((a, b) => a.dist - b.dist);
+
+      for (const { loc, dist } of sorted) {
+        const opt = document.createElement('option');
+        opt.value = loc.id;
+        const distLabel =
+          dist < 1e9
+            ? `${(dist / 1e6).toFixed(0)} Mm`
+            : `${(dist / 1e9).toFixed(1)} Gm`;
+        // Show location type price multiplier hint
+        const priceHint =
+          loc.type === 'planet'
+            ? '1.1×'
+            : loc.type === 'space_station'
+              ? '1.0×'
+              : loc.type === 'orbital'
+                ? '0.85×'
+                : loc.type === 'moon'
+                  ? '0.9×'
+                  : '0.8×';
+        opt.textContent = `${loc.name} (${distLabel}, ${priceHint} price)`;
+        select.appendChild(opt);
+      }
+      row.appendChild(select);
+
+      const startBtn = document.createElement('button');
+      startBtn.textContent = 'Start Route';
+      startBtn.style.cssText = 'font-size: 0.8rem; padding: 3px 10px;';
+      startBtn.addEventListener('click', () =>
+        callbacks.onStartMiningRoute(select.value)
+      );
+      row.appendChild(startBtn);
+
+      routeSection.appendChild(row);
+
+      const hint = document.createElement('div');
+      hint.style.cssText =
+        'font-size: 0.75rem; color: #666; margin-top: 0.25rem;';
+      hint.textContent =
+        'When cargo fills, ship auto-flies to sell ore, refuels, then returns to mine.';
+      routeSection.appendChild(hint);
+    }
+  }
+  panel.appendChild(routeSection);
 
   return panel;
 }

@@ -10,6 +10,7 @@ import {
   autoRestartRouteTrip,
   setAcceptQuestFn,
 } from './routeAssignment';
+import { handleMiningRouteArrival } from './miningRoute';
 import { getFuelPricePerKg } from './ui/refuelDialog';
 import { unassignCrewFromAllSlots, getCrewForJobType } from './jobSlots';
 import {
@@ -329,6 +330,9 @@ export function completeLeg(gameData: GameData, ship: Ship): void {
       checkFirstArrival(gameData, ship, destination.id);
       removeUnpaidCrew(gameData, ship);
       regenerateQuestsIfNewDay(gameData, ship);
+
+      // Mining route auto-continuation (sell ore, refuel, return to mine)
+      handleMiningRouteArrival(gameData, ship);
     }
     return;
   }

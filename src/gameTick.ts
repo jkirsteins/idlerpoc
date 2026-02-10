@@ -20,6 +20,7 @@ import { applyPassiveTraining, logSkillUps } from './skillProgression';
 import { getCrewForJobType, isRoomStaffed, getCrewJobSlot } from './jobSlots';
 import { applyOxygenTick, getOxygenHealthDamage } from './lifeSupportSystem';
 import { applyMiningTick } from './miningSystem';
+import { checkMiningRouteDeparture } from './miningRoute';
 import { addLog } from './logSystem';
 
 /**
@@ -501,6 +502,9 @@ function applyShipTick(gameData: GameData, ship: Ship): boolean {
                 '_cargoFullLogged'
               ] = 1;
             }
+
+            // Mining route: auto-depart to sell station when cargo full
+            checkMiningRouteDeparture(gameData, ship);
           } else {
             // Clear the flag when cargo has space again
             if (ship.miningAccumulator?._cargoFullLogged) {

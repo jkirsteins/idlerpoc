@@ -92,6 +92,8 @@ export interface RendererCallbacks {
   ) => void;
   onSellOre: (oreId: import('../models').OreId, quantity: number) => void;
   onSellAllOre: () => void;
+  onStartMiningRoute: (sellLocationId: string) => void;
+  onCancelMiningRoute: () => void;
   onDismissCatchUp: () => void;
 }
 
@@ -325,6 +327,8 @@ function mountPlayingLayout(
       onTransferCrew: callbacks.onTransferCrew,
       onSellOre: callbacks.onSellOre,
       onSellAllOre: callbacks.onSellAllOre,
+      onStartMiningRoute: callbacks.onStartMiningRoute,
+      onCancelMiningRoute: callbacks.onCancelMiningRoute,
     },
     state.selectedCrewId
   );

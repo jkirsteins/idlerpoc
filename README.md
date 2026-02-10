@@ -51,6 +51,7 @@ npm run dev
   - Mastery pool bonuses at 10/25/50/95% full: XP boost, yield bonus, wear reduction, double-drop chance
   - Sell ore at any station with trade service — prices vary by location type and commerce skill
   - Cargo capacity limits: ore has weight, mining pauses when hold is full
+  - **Auto-sell mining routes**: set up idle-friendly mine→sell→return loop from the mining panel; auto-sells ore, auto-refuels, returns to mine
   - Near-Earth mining destinations reachable by Station Keeper (Debris Field Alpha, Scrapyard Ring, NEA-2247)
 - **Navigation System**:
   - World map with 11 locations including 3 new near-Earth mining destinations
