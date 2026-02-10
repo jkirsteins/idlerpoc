@@ -12,6 +12,7 @@ export type PlayingTab =
   | 'nav'
   | 'fleet'
   | 'log'
+  | 'guide'
   | 'settings';
 
 export interface TabbedViewCallbacks {

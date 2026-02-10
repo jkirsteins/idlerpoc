@@ -11,6 +11,7 @@ import { createWorkTab } from './workTab';
 import { createFleetTab } from './fleetTab';
 import { createLogTab } from './logTab';
 import { createSettingsTab } from './settingsTab';
+import { createGamepediaTab } from './gamepediaTab';
 import { createFleetPanel } from './fleetPanel';
 import { createNavigationView } from './navigationView';
 import {
@@ -78,6 +79,7 @@ export function createTabbedView(
     { label: 'Nav', tab: 'nav' },
     { label: 'Fleet', tab: 'fleet' },
     { label: 'Log', tab: 'log' },
+    { label: 'Guide', tab: 'guide' },
     { label: 'Settings', tab: 'settings' },
   ];
 
@@ -174,6 +176,8 @@ export function createTabbedView(
         });
       case 'log':
         return createLogTab(gameData);
+      case 'guide':
+        return createGamepediaTab(gameData);
       case 'settings':
         return createSettingsTab(gameData, callbacks);
       default:
