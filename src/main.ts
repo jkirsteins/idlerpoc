@@ -32,6 +32,7 @@ import {
   advanceToNextDayStart,
   getDaysSinceEpoch,
   GAME_SECONDS_PER_DAY,
+  GAME_SECONDS_PER_TICK,
   TICKS_PER_DAY,
 } from './timeSystem';
 import { generateAllLocationQuests } from './questGen';
@@ -49,6 +50,7 @@ import { getCrewEquipmentDefinition } from './crewEquipment';
 import {
   applyGravityRecovery,
   getGravityDegradationLevel,
+  getDegradationLevelName,
 } from './gravitySystem';
 import { getShipClass } from './shipClasses';
 import {
@@ -1666,6 +1668,61 @@ function processCatchUpBatch(): void {
 function processPendingTicks(): void {
   // Skip if batched catch-up is in progress
   if (activeCatchUp) return;
+
+  // Docked gravity recovery runs on real wall-clock time, independent of
+  // game pause state — crew heal while the player reviews station services.
+  if (state.phase === 'playing') {
+    const now = Date.now();
+    const elapsedMs = now - state.gameData.lastTickTimestamp;
+    const elapsedRealSeconds = Math.floor(elapsedMs / 1000);
+    if (elapsedRealSeconds > 0) {
+      const gameSecondsElapsed = elapsedRealSeconds * GAME_SECONDS_PER_TICK;
+      let recoveryChanged = false;
+      for (const ship of state.gameData.ships) {
+        if (ship.location.status !== 'docked') continue;
+        const hasExposure = ship.crew.some((c) => c.zeroGExposure > 0);
+        if (!hasExposure) continue;
+
+        const previousExposures = new Map<string, number>();
+        for (const crew of ship.crew) {
+          previousExposures.set(crew.id, crew.zeroGExposure);
+        }
+
+        applyGravityRecovery(ship, gameSecondsElapsed);
+
+        for (const crew of ship.crew) {
+          const prev = previousExposures.get(crew.id) || 0;
+          if (crew.zeroGExposure < prev) {
+            recoveryChanged = true;
+            const prevLevel = getGravityDegradationLevel(prev);
+            const newLevel = getGravityDegradationLevel(crew.zeroGExposure);
+            if (prevLevel !== newLevel) {
+              const message =
+                newLevel === 'none'
+                  ? `${crew.name} has fully recovered from zero-g atrophy.`
+                  : `${crew.name} has recovered to ${getDegradationLevelName(newLevel)} zero-g atrophy.`;
+              addLog(
+                state.gameData.log,
+                state.gameData.gameTime,
+                'gravity_warning',
+                message,
+                ship.name
+              );
+            }
+          }
+        }
+      }
+
+      if (recoveryChanged) {
+        // Update timestamp so recovery doesn't double-count with tick processing
+        state.gameData.lastTickTimestamp = now;
+        saveGame(state.gameData);
+        renderApp();
+        return;
+      }
+    }
+  }
+
   if (state.phase !== 'playing' || state.gameData.isPaused) return;
 
   const now = Date.now();

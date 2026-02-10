@@ -12,10 +12,8 @@ import { getCrewRoleDefinition } from './crewRoles';
 import { getEquipmentDefinition } from './equipment';
 import {
   applyGravityTick,
-  applyGravityRecovery,
   checkThresholdCrossing,
   getDegradationDescription,
-  getDegradationLevelName,
 } from './gravitySystem';
 import { calculateEncounterChance } from './encounterSystem';
 import { applyPassiveTraining, logSkillUps } from './skillProgression';
@@ -516,36 +514,6 @@ function applyShipTick(gameData: GameData, ship: Ship): boolean {
     }
 
     changed = true;
-  }
-
-  // Gravity recovery (while docked)
-  if (ship.location.status === 'docked') {
-    const previousExposures = new Map<string, number>();
-    for (const crew of ship.crew) {
-      previousExposures.set(crew.id, crew.zeroGExposure);
-    }
-
-    applyGravityRecovery(ship, GAME_SECONDS_PER_TICK);
-
-    for (const crew of ship.crew) {
-      const previousExposure = previousExposures.get(crew.id) || 0;
-      const newLevel = checkThresholdCrossing(crew, previousExposure);
-
-      if (newLevel !== null && previousExposure > crew.zeroGExposure) {
-        const message =
-          newLevel === 'none'
-            ? `${crew.name} has fully recovered from zero-g atrophy.`
-            : `${crew.name} has recovered to ${getDegradationLevelName(newLevel)} zero-g atrophy.`;
-
-        addLog(
-          gameData.log,
-          gameData.gameTime,
-          'gravity_warning',
-          message,
-          ship.name
-        );
-      }
-    }
   }
 
   return changed;
