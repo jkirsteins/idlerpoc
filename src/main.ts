@@ -40,6 +40,7 @@ import {
   pauseContract,
   resumeContract,
   abandonContract,
+  dockShipAtLocation,
   initContractExec,
 } from './contractExec';
 import { getSkillRank } from './skillRanks';
@@ -582,8 +583,6 @@ const callbacks: RendererCallbacks = {
         progress > 0.5
           ? ship.activeFlightPlan.destination
           : ship.activeFlightPlan.origin;
-
-      delete ship.activeFlightPlan;
     } else if (ship.location.dockedAt) {
       // Already docked - no-op
       dockLocation = ship.location.dockedAt;
@@ -595,11 +594,7 @@ const callbacks: RendererCallbacks = {
       return;
     }
 
-    ship.location.status = 'docked';
-    ship.location.dockedAt = dockLocation;
-    delete ship.location.orbitingAt;
-    ship.engine.state = 'off';
-    ship.engine.warmupProgress = 0;
+    dockShipAtLocation(ship, dockLocation);
 
     // Clear route assignment if manually docking
     if (ship.routeAssignment) {
@@ -848,11 +843,7 @@ const callbacks: RendererCallbacks = {
 
     if (ship.location.status === 'orbiting' && ship.location.orbitingAt) {
       // Orbiting — dock immediately at the orbited location
-      ship.location.status = 'docked';
-      ship.location.dockedAt = ship.location.orbitingAt;
-      delete ship.location.orbitingAt;
-      ship.engine.state = 'off';
-      ship.engine.warmupProgress = 0;
+      dockShipAtLocation(ship, ship.location.orbitingAt);
     } else {
       // In flight (warming up or moving) — pause contract, dock on arrival
       pauseContract(ship);
