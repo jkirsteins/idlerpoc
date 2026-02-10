@@ -24,6 +24,7 @@ import {
   calculateFuelPercentage,
   getFuelColorHex,
 } from './fuelFormatting';
+import { generateShipName } from '../names';
 
 export interface FleetTabCallbacks {
   onSelectShip: (shipId: string) => void;
@@ -956,6 +957,15 @@ function renderShipPurchase(
       nameInput.style.borderRadius = '4px';
       nameInput.style.color = '#fff';
       buyContainer.appendChild(nameInput);
+
+      const randomBtn = document.createElement('button');
+      randomBtn.type = 'button';
+      randomBtn.className = 'secondary';
+      randomBtn.textContent = 'Randomize';
+      randomBtn.addEventListener('click', () => {
+        nameInput.value = generateShipName();
+      });
+      buyContainer.appendChild(randomBtn);
 
       const buyBtn = document.createElement('button');
       buyBtn.textContent = 'Buy Ship';
