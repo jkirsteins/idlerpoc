@@ -110,6 +110,12 @@ export function createWorkTab(
     radioCardRefs.set(value, { card, radio, labelEl, descEl, warnEl });
   }
 
+  // Persistent hint shown below the slider when adjusting during flight
+  const profileHintEl = document.createElement('div');
+  profileHintEl.style.cssText =
+    'font-size: 0.75rem; color: #888; padding: 0 0.75rem 0.5rem;';
+  profileHintEl.textContent = 'Changes take effect on the next leg.';
+
   container.appendChild(contentArea);
   container.appendChild(radioGroupEl);
 
@@ -204,6 +210,8 @@ export function createWorkTab(
 
     // Content area: rebuild freely (non-interactive)
     contentArea.replaceChildren();
+    // Clean up hint — re-added only when needed
+    if (profileHintEl.parentNode) profileHintEl.remove();
 
     if (curPhase === 'none') {
       if (
@@ -226,12 +234,26 @@ export function createWorkTab(
         }
 
         contentArea.appendChild(renderAvailableWork(gameData, callbacks));
+      } else {
+        // Ensure slider is removed if it was mounted in the container
+        if (profileControl.el.parentNode === container) {
+          profileControl.el.remove();
+        }
       }
       radioGroupEl.style.display = 'none';
     } else if (curPhase === 'active') {
       contentArea.appendChild(renderActiveContractContent(gameData, callbacks));
       radioGroupEl.style.display = '';
       updateRadioGroup(ship);
+
+      // Flight profile slider below radio options
+      updateFlightProfileControl(profileControl, ship);
+      radioGroupEl.after(profileControl.el);
+
+      // Hint when in-flight: changes won't affect current leg
+      if (ship.location.status === 'in_flight') {
+        profileControl.el.after(profileHintEl);
+      }
     } else if (curPhase === 'paused') {
       contentArea.appendChild(
         renderPausedContract(gameData, callbacks, pausedAbandonPending, {
@@ -255,6 +277,9 @@ export function createWorkTab(
           },
         })
       );
+      // Show flight profile slider for adjusting before resume
+      updateFlightProfileControl(profileControl, ship);
+      contentArea.appendChild(profileControl.el);
       radioGroupEl.style.display = 'none';
     }
   }
