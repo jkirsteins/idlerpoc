@@ -13,9 +13,9 @@ locations** across 4 files, with **three different formulas**:
 
 ### Variant A: Hull only (missing crew AND cargo)
 
-| File | Line | Context |
-|------|------|---------|
-| `flightPhysics.ts` | 68 | `getCurrentShipMass()` uses `const dryMass = shipClass.mass` then adds crew/cargo separately |
+| File               | Line | Context                                                                                      |
+| ------------------ | ---- | -------------------------------------------------------------------------------------------- |
+| `flightPhysics.ts` | 68   | `getCurrentShipMass()` uses `const dryMass = shipClass.mass` then adds crew/cargo separately |
 
 This one isn't actually wrong in context since crew/cargo are added later in the
 same function, but the intermediate `dryMass` local variable name is misleading
@@ -23,20 +23,20 @@ and differs from how `dryMass` is used elsewhere.
 
 ### Variant B: Hull + crew, **missing cargo** (WRONG for fuel calculations)
 
-| File | Line | Context |
-|------|------|---------|
-| `flightPhysics.ts` | 343 | `initializeFlight()` — `shipClass.mass + ship.crew.length * 80` |
-| `questGen.ts` | 149 | `calculatePayment()` — same formula |
-| `fleetAnalytics.ts` | 239 | fuel summary display |
-| `fleetAnalytics.ts` | 302 | contract match scoring |
-| `fleetAnalytics.ts` | 377 | profit estimation |
+| File                | Line | Context                                                         |
+| ------------------- | ---- | --------------------------------------------------------------- |
+| `flightPhysics.ts`  | 343  | `initializeFlight()` — `shipClass.mass + ship.crew.length * 80` |
+| `questGen.ts`       | 149  | `calculatePayment()` — same formula                             |
+| `fleetAnalytics.ts` | 239  | fuel summary display                                            |
+| `fleetAnalytics.ts` | 302  | contract match scoring                                          |
+| `fleetAnalytics.ts` | 377  | profit estimation                                               |
 
 ### Variant C: Hull + crew + cargo (CORRECT)
 
-| File | Line | Context |
-|------|------|---------|
+| File               | Line    | Context                   |
+| ------------------ | ------- | ------------------------- |
 | `flightPhysics.ts` | 259-262 | `calculateOneLegFuelKg()` |
-| `questGen.ts` | 51-54 | `calculateTripFuelKg()` |
+| `questGen.ts`      | 51-54   | `calculateTripFuelKg()`   |
 
 ### Impact
 
@@ -62,11 +62,11 @@ import and use it.
 
 ## CRITICAL: Fuel Price Inconsistency (2.0 vs 0.5 cr/kg)
 
-| File | Line | Value | Usage |
-|------|------|-------|-------|
-| `questGen.ts` | 22 | `FUEL_PRICE_PER_KG = 2.0` | Quest payment cost floor calculation |
-| `questGen.ts` | 158, 596 | `fuelKgRequired * 2 * FUEL_PRICE_PER_KG` | Round-trip fuel cost for quest economics |
-| `fleetAnalytics.ts` | 385 | `fuelNeededKg * 0.5` | Profit estimation in fleet analytics UI |
+| File                | Line     | Value                                    | Usage                                    |
+| ------------------- | -------- | ---------------------------------------- | ---------------------------------------- |
+| `questGen.ts`       | 22       | `FUEL_PRICE_PER_KG = 2.0`                | Quest payment cost floor calculation     |
+| `questGen.ts`       | 158, 596 | `fuelKgRequired * 2 * FUEL_PRICE_PER_KG` | Round-trip fuel cost for quest economics |
+| `fleetAnalytics.ts` | 385      | `fuelNeededKg * 0.5`                     | Profit estimation in fleet analytics UI  |
 
 The fleet analytics UI displays estimated profit to the player using **0.5 cr/kg**
 (4x cheaper than the actual 2.0 cr/kg used in quest generation). This makes every
@@ -98,10 +98,10 @@ export function calculateFuelCost(distanceKm, maxRangeKm): number {
 
 This linear approximation is used by:
 
-| File | Line | Context |
-|------|------|---------|
-| `ui/navigationView.ts` | 217 | Fuel cost display on navigation chart |
-| `ui/fleetTab.ts` | 359 | Reachability check in fleet tab |
+| File                   | Line | Context                               |
+| ---------------------- | ---- | ------------------------------------- |
+| `ui/navigationView.ts` | 217  | Fuel cost display on navigation chart |
+| `ui/fleetTab.ts`       | 359  | Reachability check in fleet tab       |
 
 Meanwhile, all game logic uses `calculateTripFuelKg()` or
 `calculateOneLegFuelKg()` which use proper Tsiolkovsky physics. The navigation
@@ -119,11 +119,11 @@ use `calculateTripFuelKg()` or `calculateOneLegFuelKg()`.
 
 Identical loop computing `1 - eq.degradation / 200` for radiation shielding:
 
-| File | Line | Context |
-|------|------|---------|
-| `gameTick.ts` | 227-234 | Actual game logic (radiation damage) |
-| `ui/sidebars.ts` | 528-535 | Sidebar display |
-| `ui/shipTab.ts` | 432-438 | Ship tab display |
+| File             | Line    | Context                              |
+| ---------------- | ------- | ------------------------------------ |
+| `gameTick.ts`    | 227-234 | Actual game logic (radiation damage) |
+| `ui/sidebars.ts` | 528-535 | Sidebar display                      |
+| `ui/shipTab.ts`  | 432-438 | Ship tab display                     |
 
 If the degradation formula changes (e.g., `/200` becomes `/150`), the game logic
 and two UI locations must all be updated in lockstep.
@@ -139,11 +139,11 @@ Extract `getEffectiveRadiationShielding(ship: Ship): number` to a shared module
 
 Same pattern as radiation shielding — identical loop with `1 - eq.degradation / 200`:
 
-| File | Line | Context |
-|------|------|---------|
-| `gameTick.ts` | 261-268 | Actual game logic (heat damage) |
-| `ui/sidebars.ts` | 560-566 | Sidebar display |
-| `ui/shipTab.ts` | 471-477 | Ship tab display |
+| File             | Line    | Context                         |
+| ---------------- | ------- | ------------------------------- |
+| `gameTick.ts`    | 261-268 | Actual game logic (heat damage) |
+| `ui/sidebars.ts` | 560-566 | Sidebar display                 |
+| `ui/shipTab.ts`  | 471-477 | Ship tab display                |
 
 ### Recommendation
 
@@ -158,12 +158,12 @@ function.
 `flightPhysics.ts:317-413` implement the same burn-coast-burn physics but with
 different edge-case handling:
 
-| Guard | `initializeFlight()` | `estimateTripTime()` |
-|-------|---------------------|---------------------|
-| Zero thrust/fuel | Returns `GAME_SECONDS_PER_TICK` (line 374) | No guard |
-| Negative coast distance | `Math.max(0, ...)` (line 384) | No guard |
-| Zero cruise velocity | `v_cruise > 0 ? ... : 0` (line 385) | No guard |
-| NaN/Infinity sanity | Explicit check (line 392) | No guard |
+| Guard                   | `initializeFlight()`                       | `estimateTripTime()` |
+| ----------------------- | ------------------------------------------ | -------------------- |
+| Zero thrust/fuel        | Returns `GAME_SECONDS_PER_TICK` (line 374) | No guard             |
+| Negative coast distance | `Math.max(0, ...)` (line 384)              | No guard             |
+| Zero cruise velocity    | `v_cruise > 0 ? ... : 0` (line 385)        | No guard             |
+| NaN/Infinity sanity     | Explicit check (line 392)                  | No guard             |
 
 Also, `estimateTripTime()` uses `shipClass.mass` as the acceleration base
 (line 246), while `initializeFlight()` uses `getCurrentShipMass(ship)` which
@@ -183,15 +183,15 @@ mass basis.
 
 The pattern "sum of `getCrewRoleDefinition(crew.role).salary`" appears in:
 
-| File | Line | Context |
-|------|------|---------|
-| `gameTick.ts` | 81-88 | Actual salary deduction |
-| `questGen.ts` | 135-138 | Quest payment calculation |
-| `questGen.ts` | 588-591 | Contract validation |
-| `fleetAnalytics.ts` | 392-395 | Profit estimation |
-| `ui/workTab.ts` | 325-330 | Work tab display |
-| `ui/sidebars.ts` | 403-408 | Sidebar display |
-| `ui/tabbedView.ts` | 403-408 | Tab bar display |
+| File                | Line    | Context                   |
+| ------------------- | ------- | ------------------------- |
+| `gameTick.ts`       | 81-88   | Actual salary deduction   |
+| `questGen.ts`       | 135-138 | Quest payment calculation |
+| `questGen.ts`       | 588-591 | Contract validation       |
+| `fleetAnalytics.ts` | 392-395 | Profit estimation         |
+| `ui/workTab.ts`     | 325-330 | Work tab display          |
+| `ui/sidebars.ts`    | 403-408 | Sidebar display           |
+| `ui/tabbedView.ts`  | 403-408 | Tab bar display           |
 
 ### Recommendation
 
@@ -220,11 +220,11 @@ and export it. Tests should import the constant rather than hardcoding it.
 
 The value `10` (kg per cargo item) appears in:
 
-| File | Line |
-|------|------|
+| File               | Line                                      |
+| ------------------ | ----------------------------------------- |
 | `flightPhysics.ts` | 74 (with comment "will be refined later") |
-| `flightPhysics.ts` | 262 |
-| `questGen.ts` | 54 |
+| `flightPhysics.ts` | 262                                       |
+| `questGen.ts`      | 54                                        |
 
 Note: `ui/shipTab.ts:838` uses `* 100` for cargo display, which is a separate
 bug (10x the actual weight used in physics).
@@ -241,12 +241,12 @@ Define `const CARGO_ITEM_MASS_KG = 10` as a shared constant. Fix the `* 100` in
 The pattern of finding the highest piloting skill among a crew subset is
 copy-pasted across:
 
-| File | Line | Crew Subset |
-|------|------|-------------|
+| File                 | Line    | Crew Subset                  |
+| -------------------- | ------- | ---------------------------- |
 | `encounterSystem.ts` | 161-166 | `relevantCrew` (bridge crew) |
-| `worldGen.ts` | 123-128 | All ship crew |
-| `combatSystem.ts` | 167-170 | Bridge crew (scanner + helm) |
-| `combatSystem.ts` | 191-197 | Comms crew |
+| `worldGen.ts`        | 123-128 | All ship crew                |
+| `combatSystem.ts`    | 167-170 | Bridge crew (scanner + helm) |
+| `combatSystem.ts`    | 191-197 | Comms crew                   |
 
 ### Recommendation
 
@@ -259,9 +259,9 @@ helper in `crewRoles.ts`.
 
 The formula `crew.skills.piloting * 0.05` for repair points appears in:
 
-| File | Line | Context |
-|------|------|---------|
-| `gameTick.ts` | 445 | Actual repair logic |
+| File            | Line | Context             |
+| --------------- | ---- | ------------------- |
+| `gameTick.ts`   | 445  | Actual repair logic |
 | `ui/shipTab.ts` | 1062 | Repair rate display |
 
 This also seems like a potential design bug — repair points are based on
@@ -275,10 +275,10 @@ Extract a `calculateRepairPointsPerTick(crew: CrewMember): number` function.
 
 ## MEDIUM: `FUEL_FRACTION = 0.7` (2 locations in same file)
 
-| File | Line | Function |
-|------|------|----------|
-| `flightPhysics.ts` | 42 | `calculateFuelTankCapacity()` |
-| `flightPhysics.ts` | 55 | `calculateAvailableCargoCapacity()` |
+| File               | Line | Function                            |
+| ------------------ | ---- | ----------------------------------- |
+| `flightPhysics.ts` | 42   | `calculateFuelTankCapacity()`       |
+| `flightPhysics.ts` | 55   | `calculateAvailableCargoCapacity()` |
 
 Both functions define `const FUEL_FRACTION = 0.7` locally. If one is changed
 without the other, fuel tank + cargo capacity won't sum to 100%.
@@ -293,10 +293,10 @@ Define `FUEL_FRACTION` once at module scope and share it between both functions.
 
 Two different degradation-to-effectiveness formulas are used:
 
-| Formula | Used For | Files |
-|---------|----------|-------|
+| Formula                 | Used For                                                         | Files                                                 |
+| ----------------------- | ---------------------------------------------------------------- | ----------------------------------------------------- |
 | `1 - degradation / 200` | Radiation shielding, heat dissipation, point defense, deflectors | gameTick.ts, sidebars.ts, shipTab.ts, combatSystem.ts |
-| `1 - degradation / 100` | Oxygen generation (air filtration) | lifeSupportSystem.ts |
+| `1 - degradation / 100` | Oxygen generation (air filtration)                               | lifeSupportSystem.ts                                  |
 
 This may be intentional (oxygen equipment is more sensitive) but it's not
 documented. If someone "fixes" the inconsistency, they may break the intended
@@ -320,7 +320,11 @@ const currentMass = getCurrentShipMass(ship);
 const acceleration = thrust / currentMass;
 const requiredDeltaV = 2 * Math.sqrt(distanceMeters * acceleration);
 const dryMass = shipClass.mass + ship.crew.length * 80;
-const fuelNeededKg = calculateFuelMassRequired(dryMass, requiredDeltaV, specificImpulse);
+const fuelNeededKg = calculateFuelMassRequired(
+  dryMass,
+  requiredDeltaV,
+  specificImpulse
+);
 ```
 
 appears at lines 234-245, 297-308, and 372-383 of `fleetAnalytics.ts`. This is
@@ -346,17 +350,17 @@ dangerous but is unnecessarily verbose.
 
 ## Summary Prioritization
 
-| Priority | Issue | Risk if not fixed |
-|----------|-------|-------------------|
-| CRITICAL | Dry mass inconsistency (3 variants) | Wrong fuel/time calculations in different contexts |
-| CRITICAL | Fuel price 0.5 vs 2.0 cr/kg | Fleet analytics shows 4x wrong profit estimates |
-| CRITICAL | `calculateFuelCost()` stub in use | Nav/fleet UI shows fundamentally wrong fuel numbers |
-| HIGH | Radiation/heat effectiveness 3x | UI and game logic diverge on formula change |
-| HIGH | Trip time missing guards | Potential NaN/negative times in quest estimation |
-| HIGH | Trip time mass basis mismatch | Quest cards show shorter trips than reality |
-| HIGH | Salary calc 6+ locations | Any salary formula change must update 6+ files |
-| HIGH | Magic numbers 80, 10 | 13+ locations to update on any mass model change |
-| HIGH | Best-piloting pattern 4x | Subtle bugs if crew subset logic diverges |
-| MEDIUM | Repair points 2x | UI shows wrong rate if formula changes |
-| MEDIUM | FUEL_FRACTION 2x | Fuel + cargo won't sum to 100% if one changes |
-| MEDIUM | fleetAnalytics inline fuel calc 3x | Already diverged from canonical implementation |
+| Priority | Issue                               | Risk if not fixed                                   |
+| -------- | ----------------------------------- | --------------------------------------------------- |
+| CRITICAL | Dry mass inconsistency (3 variants) | Wrong fuel/time calculations in different contexts  |
+| CRITICAL | Fuel price 0.5 vs 2.0 cr/kg         | Fleet analytics shows 4x wrong profit estimates     |
+| CRITICAL | `calculateFuelCost()` stub in use   | Nav/fleet UI shows fundamentally wrong fuel numbers |
+| HIGH     | Radiation/heat effectiveness 3x     | UI and game logic diverge on formula change         |
+| HIGH     | Trip time missing guards            | Potential NaN/negative times in quest estimation    |
+| HIGH     | Trip time mass basis mismatch       | Quest cards show shorter trips than reality         |
+| HIGH     | Salary calc 6+ locations            | Any salary formula change must update 6+ files      |
+| HIGH     | Magic numbers 80, 10                | 13+ locations to update on any mass model change    |
+| HIGH     | Best-piloting pattern 4x            | Subtle bugs if crew subset logic diverges           |
+| MEDIUM   | Repair points 2x                    | UI shows wrong rate if formula changes              |
+| MEDIUM   | FUEL_FRACTION 2x                    | Fuel + cargo won't sum to 100% if one changes       |
+| MEDIUM   | fleetAnalytics inline fuel calc 3x  | Already diverged from canonical implementation      |
