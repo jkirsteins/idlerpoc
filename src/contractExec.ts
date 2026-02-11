@@ -8,7 +8,7 @@ import type {
 import { getShipCommander } from './models';
 import { startShipFlight } from './flightPhysics';
 import { addLog } from './logSystem';
-import { generateAllLocationQuests } from './questGen';
+import { refreshExpiredQuests } from './questGen';
 import { getDaysSinceEpoch, TICKS_PER_DAY } from './timeSystem';
 import { generateHireableCrewByLocation } from './gameFactory';
 import { awardEventSkillGains, logSkillUps } from './skillProgression';
@@ -93,12 +93,19 @@ function getDockedLocationIds(gameData: GameData): string[] {
 }
 
 /**
- * Regenerate quests if we've crossed a day boundary
+ * Refresh quests if we've crossed a day boundary.
+ * Removes expired quests and generates new ones to fill empty slots.
+ * Quests with remaining expiry time are preserved across day boundaries.
  */
 function regenerateQuestsIfNewDay(gameData: GameData, ship: Ship): void {
   const currentDay = getDaysSinceEpoch(gameData.gameTime);
   if (currentDay > gameData.lastQuestRegenDay) {
-    gameData.availableQuests = generateAllLocationQuests(ship, gameData.world);
+    gameData.availableQuests = refreshExpiredQuests(
+      ship,
+      gameData.world,
+      gameData.availableQuests,
+      currentDay
+    );
     gameData.lastQuestRegenDay = currentDay;
 
     // Regenerate hireable crew only for stations with docked ships

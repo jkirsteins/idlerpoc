@@ -202,10 +202,10 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
       {
         heading: 'Active Contracts (High Pay)',
         paragraphs: [
-          'Finite contracts pay significantly more than automated routes — the reward for paying attention. They expire and refresh daily, so watch the job board for lucrative opportunities.',
+          "Finite contracts pay significantly more than automated routes — the reward for paying attention. Each contract has a real expiry deadline: when it expires, it disappears from the board and a new contract takes its place. Contracts that haven't expired yet persist across days.",
           'Passenger: Ferry passengers between locations. Highest pay of any contract type but tightest deadline (3 days). Requires crew quarters.',
           'Delivery: Transport specific cargo to a destination. High one-time payment on completion. 7-day deadline.',
-          'Supply: Deliver large quantities of materials over multiple trips. Very high lump-sum payment on completion. 30-day deadline.',
+          'Supply: Deliver large quantities of materials over multiple trips. Very high lump-sum payment on completion. 30-day deadline — stays on the board long enough to plan around.',
           'Freight: Haul bulk goods over multiple trips. Good per-trip pay with a 14-day deadline.',
         ],
       },

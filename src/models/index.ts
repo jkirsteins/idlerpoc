@@ -340,6 +340,7 @@ export interface Quest {
   paymentPerTrip: number; // credits (0 if lump sum only)
   paymentOnCompletion: number; // credits (0 if per-trip only)
   expiresAfterDays: number; // 0 = no expiry
+  generatedOnDay?: number; // game day when quest was created (for expiry tracking)
   estimatedFuelPerTrip: number; // display only
   estimatedTripTicks: number; // display only
 }

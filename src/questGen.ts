@@ -470,8 +470,8 @@ function generateStandingFreightQuest(
     : 1000;
   const cargoKg = Math.round(Math.min(1000 + Math.random() * 9000, maxCargoSF));
   const paymentPerTrip = Math.round(
-    calculatePayment(ship, distanceKm, cargoKg) * 0.5
-  ); // Passive discount: infinite trips, automatable — low but reliable per-trip
+    calculatePayment(ship, distanceKm, cargoKg) * 0.6
+  ); // Passive discount: infinite trips, automatable — modest but always profitable
   const estimatedTime = estimateTripTime(ship, distanceKm);
   const fuelKgRequired = calculateTripFuelKg(ship, distanceKm);
 
@@ -701,19 +701,69 @@ export function generatePersistentTradeRoutes(
 }
 
 /**
- * Generate quests for all locations in the world
+ * Generate quests for all locations in the world.
+ * Each quest is stamped with generatedOnDay for expiry tracking.
  */
 export function generateAllLocationQuests(
   ship: Ship,
-  world: World
+  world: World,
+  currentDay: number = 0
 ): Record<string, Quest[]> {
   const allQuests: Record<string, Quest[]> = {};
   for (const location of world.locations) {
     const tradeRoutes = generatePersistentTradeRoutes(ship, location, world);
-    const randomQuests = generateQuestsForLocation(ship, location, world);
+    const randomQuests = generateQuestsForLocation(
+      ship,
+      location,
+      world,
+      location.size,
+      currentDay
+    );
     allQuests[location.id] = [...tradeRoutes, ...randomQuests];
   }
   return allQuests;
+}
+
+/**
+ * Refresh quests across all locations: remove expired quests, keep valid ones,
+ * generate new quests to fill empty slots. Trade routes are always preserved.
+ */
+export function refreshExpiredQuests(
+  ship: Ship,
+  world: World,
+  existingQuests: Record<string, Quest[]>,
+  currentDay: number
+): Record<string, Quest[]> {
+  const refreshed: Record<string, Quest[]> = {};
+
+  for (const location of world.locations) {
+    const existing = existingQuests[location.id] || [];
+
+    // Trade routes are always preserved (regenerated fresh to pick up new partners)
+    const tradeRoutes = generatePersistentTradeRoutes(ship, location, world);
+
+    // Keep non-trade quests that haven't expired
+    const survivingQuests = existing.filter((q) => {
+      if (q.type === 'trade_route') return false; // replaced by fresh trade routes
+      if (q.expiresAfterDays === 0) return true; // never expires (standing freight)
+      const age = currentDay - (q.generatedOnDay ?? 0);
+      return age < q.expiresAfterDays;
+    });
+
+    // Generate new quests to fill back to location.size
+    const slotsToFill = Math.max(0, location.size - survivingQuests.length);
+    const newQuests = generateQuestsForLocation(
+      ship,
+      location,
+      world,
+      slotsToFill,
+      currentDay
+    );
+
+    refreshed[location.id] = [...tradeRoutes, ...survivingQuests, ...newQuests];
+  }
+
+  return refreshed;
 }
 
 /**
@@ -722,10 +772,15 @@ export function generateAllLocationQuests(
 export function generateQuestsForLocation(
   ship: Ship,
   location: WorldLocation,
-  world: World
+  world: World,
+  count: number = location.size,
+  currentDay: number = 0
 ): Quest[] {
   const quests: Quest[] = [];
-  const count = location.size;
+
+  if (count <= 0) {
+    return [];
+  }
 
   // Get all reachable destinations from this location
   const reachableDestinations = world.locations.filter(
@@ -774,6 +829,7 @@ export function generateQuestsForLocation(
         quest = generateDeliveryQuest(ship, location, destination);
     }
 
+    quest.generatedOnDay = currentDay;
     quests.push(quest);
   }
 

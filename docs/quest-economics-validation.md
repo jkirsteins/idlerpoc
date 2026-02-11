@@ -513,12 +513,12 @@ if (route includes refueling stop at hub station) {
 
 ### 3. Standing Freight Route Adjustments
 
-Standing freight now uses 0.5x multiplier (down from 0.7x) as part of the active vs passive income rebalancing (see `docs/quest-reward-balancing.md`). This creates a clear ~2x pay gap between active contracts and passive automation.
+Standing freight now uses 0.6x multiplier (down from 0.7x) as part of the active vs passive income rebalancing (see `docs/quest-reward-balancing.md`). This creates a clear ~2x pay gap between active contracts and passive automation while keeping standing freight always profitable (0.6 × 1.3 = 0.78x costs at worst).
 
-- Firebrand Meridian standing freight: Payment × 0.5 = 531,700 - 818,000 cr
-- Still profitable but margins thin — intended as background income, not primary earnings
+- Firebrand Meridian standing freight: Payment × 0.6 = 638,000 - 982,000 cr
+- Always profitable but modest margins — intended as background income, not primary earnings
 
-**Future consideration** (BACKLOG.md): Distance-based multiplier scaling (0.5x short → 0.7x long) could reward players who seek out longer standing freight routes.
+**Future consideration** (BACKLOG.md): Distance-based multiplier scaling (0.6x short → 0.8x long) could reward players who seek out longer standing freight routes.
 
 ### 4. Fusion Ship Short-Route Inefficiency
 

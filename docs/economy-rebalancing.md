@@ -130,7 +130,7 @@ See `docs/quest-reward-balancing.md` for the full design rationale.
 | Delivery         | 1.5x            | High active premium: one-shot, 7d expiry                      |
 | Supply           | 2.5x total      | High commitment: large bulk contract, 30d expiry, lump sum    |
 | Freight          | 1.2x per trip   | Semi-active: multi-trip with 14d deadline                     |
-| Standing Freight | 0.5x per trip   | Passive: infinite, automatable — low but reliable             |
+| Standing Freight | 0.6x per trip   | Passive: infinite, automatable — modest but always profitable |
 | Trade Route      | 120% cost floor | Baseline passive income: permanent, deterministic, automated  |
 
 ### Expected Outcomes
