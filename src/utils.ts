@@ -1,4 +1,4 @@
-import type { WorldLocation } from './models';
+import type { GameData, Ship, WorldLocation } from './models';
 
 /**
  * Generate a random ID string (9 chars, base-36).
@@ -18,4 +18,56 @@ export function getDistanceBetween(
   locB: WorldLocation
 ): number {
   return Math.abs(locA.distanceFromEarth - locB.distanceFromEarth);
+}
+
+/** Format a trade route name: "Origin ↔ Destination" (bidirectional). */
+export function formatTradeRouteName(
+  originName: string,
+  destName: string
+): string {
+  return `${originName} \u2194 ${destName}`;
+}
+
+/** Format a mining route name: "Mine → Sell" (directional). */
+export function formatMiningRouteName(
+  mineName: string,
+  sellName: string
+): string {
+  return `${mineName} \u2192 ${sellName}`;
+}
+
+/** Resolve a ship's trade route to a formatted name, or undefined if no route. */
+export function getTradeRouteName(
+  ship: Ship,
+  gameData: GameData
+): string | undefined {
+  if (!ship.routeAssignment) return undefined;
+  const origin = gameData.world.locations.find(
+    (l) => l.id === ship.routeAssignment!.originId
+  );
+  const dest = gameData.world.locations.find(
+    (l) => l.id === ship.routeAssignment!.destinationId
+  );
+  return formatTradeRouteName(
+    origin?.name ?? ship.routeAssignment.originId,
+    dest?.name ?? ship.routeAssignment.destinationId
+  );
+}
+
+/** Resolve a ship's mining route to a formatted name, or undefined if no route. */
+export function getMiningRouteName(
+  ship: Ship,
+  gameData: GameData
+): string | undefined {
+  if (!ship.miningRoute) return undefined;
+  const mine = gameData.world.locations.find(
+    (l) => l.id === ship.miningRoute!.mineLocationId
+  );
+  const sell = gameData.world.locations.find(
+    (l) => l.id === ship.miningRoute!.sellLocationId
+  );
+  return formatMiningRouteName(
+    mine?.name ?? ship.miningRoute.mineLocationId,
+    sell?.name ?? ship.miningRoute.sellLocationId
+  );
 }

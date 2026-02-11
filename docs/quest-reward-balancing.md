@@ -4,7 +4,7 @@
 
 **Active play must pay significantly more than passive automation.**
 
-Finite contracts (delivery, passenger, freight, supply) require player attention: they have real completion deadlines once accepted and must be manually selected from the daily board. This attention cost must be rewarded with meaningfully higher pay compared to trade routes that can be set and forgotten.
+Finite contracts (delivery, passenger, freight) require player attention: they have real completion deadlines once accepted and must be manually selected from the daily board. This attention cost must be rewarded with meaningfully higher pay compared to trade routes that can be set and forgotten.
 
 The inverse is also true: **passive income must be reliable but modest.** Trade routes are the "background income" that keeps the operation running while the player is away. They should always be profitable but never so lucrative that active play feels unnecessary.
 
@@ -17,42 +17,39 @@ Deadlines apply to **accepted contracts**, not board listings. Unaccepted quests
 | Passenger   | 3 days      | Contract lost. No payment (single-leg, nothing to keep).       |
 | Delivery    | 7 days      | Contract lost. No payment (single-leg, nothing to keep).       |
 | Freight     | 14 days     | Contract lost. Credits from completed trips are kept.          |
-| Supply      | 30 days     | Contract lost. Lump sum forfeited. No per-trip pay to keep.    |
 | Trade Route | No deadline | Permanent, automated — runs indefinitely until player cancels. |
 
 **What happens when a deadline is missed**: The contract expires on the next arrival after the deadline day. The player keeps any per-trip credits already earned (freight) but loses the remaining payout. They dock and can immediately accept a new contract. No money is deducted — the cost is forfeited opportunity, not punishment.
 
-This creates meaningful pressure: a 3-day passenger contract on a long route is genuinely risky. A 30-day supply contract gives plenty of breathing room. Players must weigh pay vs deadline vs route distance.
+This creates meaningful pressure: a 3-day passenger contract on a long route is genuinely risky. A 14-day freight contract gives breathing room but still has a horizon. Players must weigh pay vs deadline vs route distance.
 
 ## The Attention-Reward Spectrum
 
 This follows an established pattern in idle/incremental games:
 
-| Attention Level            | Quest Types         | Design Intent                                                           |
-| -------------------------- | ------------------- | ----------------------------------------------------------------------- |
-| **High** (most rewarding)  | Passenger, Delivery | Short deadlines, one-shot — must complete quickly for high pay          |
-| **Medium**                 | Freight, Supply     | Multi-trip commitment with moderate deadline — plan ahead, stay engaged |
-| **None** (baseline income) | Trade Routes        | Permanent, deterministic, fully automatable — pure passive income       |
+| Attention Level            | Quest Types         | Design Intent                                                  |
+| -------------------------- | ------------------- | -------------------------------------------------------------- |
+| **High** (most rewarding)  | Passenger, Delivery | Short deadlines, one-shot — must complete quickly for high pay |
+| **Medium**                 | Freight             | Multi-trip commitment with moderate deadline — plan ahead      |
+| **None** (baseline income) | Trade Routes        | Permanent, deterministic, fully automatable — passive income   |
 
 The pay gap between active and passive should be **2-3x** to make the attention cost feel worthwhile. A gap smaller than ~1.5x causes most players to default to passive play because the marginal effort isn't worth the marginal reward. A gap larger than ~4x makes passive play feel punishingly bad, which undermines the idle-game identity.
 
 ## Target Pay Ratios (per trip, relative to operating costs)
 
-| Quest Type      | Multiplier        | Effective Pay Range  | Rationale                                                             |
-| --------------- | ----------------- | -------------------- | --------------------------------------------------------------------- |
-| **Passenger**   | **2.0x**          | 2.6-4.0x costs/trip  | Highest pay: tightest deadline (3d), requires quarters, one-shot      |
-| **Delivery**    | **1.5x**          | 1.95-3.0x costs/trip | High pay: 7d deadline, one-shot, requires cargo capacity              |
-| **Supply**      | **1.3x per trip** | 1.69-2.6x costs/trip | Good per-trip: multi-trip lump sum, 30d deadline, all-or-nothing      |
-| **Freight**     | **1.2x/trip**     | 1.56-2.4x costs/trip | Decent per-trip: multi-trip with 14d deadline, credits kept on expire |
-| **Trade Route** | **120% fixed**    | ~1.2-1.6x costs/trip | Baseline: permanent, deterministic, zero-attention passive income     |
+| Quest Type      | Multiplier     | Effective Pay Range  | Rationale                                                           |
+| --------------- | -------------- | -------------------- | ------------------------------------------------------------------- |
+| **Passenger**   | **2.0x**       | 2.6-4.0x costs/trip  | Highest pay: tightest deadline (3d), requires quarters, one-shot    |
+| **Delivery**    | **1.5x**       | 1.95-3.0x costs/trip | High pay: 7d deadline, one-shot, requires cargo capacity            |
+| **Freight**     | **1.25x/trip** | 1.63-2.5x costs/trip | Good per-trip: multi-trip with 14d deadline, credits kept on expire |
+| **Trade Route** | **120% fixed** | ~1.2-1.6x costs/trip | Baseline: permanent, deterministic, zero-attention passive income   |
 
 ### Resulting Hierarchy (average cr/trip at same operating cost)
 
 ```
 Passenger (2.0x)  ████████████████████  ← Active: highest reward, tightest deadline
 Delivery  (1.5x)  ███████████████       ← Active: high reward
-Supply    (1.3x)  ████████████          ← Active: committed multi-trip, lump-sum risk
-Freight   (1.2x)  ██████████            ← Semi-active: decent per-trip
+Freight  (1.25x)  ██████████            ← Semi-active: good per-trip, multi-trip
 Trade Rte (120%)  ████                  ← Passive: reliable baseline
 ```
 
@@ -74,20 +71,13 @@ Active quests average ~2-3x costs per trip. Trade routes average ~1.2-1.3x costs
 - **Cargo flexibility** — random cargo type and amount adds variety
 - The bread-and-butter active contract — always available, always worth doing
 
-### Freight (1.2x per trip) — Semi-Active Reward
+### Freight (1.25x per trip) — Semi-Active Reward
 
 - **14-day deadline** — generous but still finite
-- **Multi-trip** — 2-5 trips create a planning horizon
+- **Multi-trip** — 2-7 trips create a planning horizon
 - **Per-trip payment** — already-earned credits survive expiry
 - Sits between active and passive: commit for a while, get reliable income
-
-### Supply (1.3x per trip) — Committed Multi-Trip Reward
-
-- **30-day deadline** — longest deadline, big window
-- **Large total cargo** — scales with ship capacity (3-7 trips worth of full loads)
-- **Lump sum risk** — all payment on completion; expire and you lose it all
-- **Per-trip rate** sits between freight and delivery, compensating for the all-or-nothing payout
-- Total payment scales with trip count so bigger ships earn proportionally more
+- The only multi-trip finite contract — fills the middle of the attention spectrum
 
 ### Trade Routes (120% of costs) — Baseline Passive Income
 
@@ -103,13 +93,12 @@ All contract types scale cargo amounts with the accepting ship's available cargo
 hold, ensuring bigger ships haul more per trip and earn proportionally more through
 the cargo premium (`1 + cargoKg/10000 × 0.5`).
 
-| Quest Type      | Cargo per Trip           | Notes                                 |
-| --------------- | ------------------------ | ------------------------------------- |
-| **Delivery**    | 30-80% of available hold | Variable load size for variety        |
-| **Freight**     | 50-80% of available hold | Freight loads heavy                   |
-| **Supply**      | 80% of available hold    | Max load, trip count determines total |
-| **Trade Route** | 80% of available hold    | Always fills the ship                 |
-| **Passenger**   | N/A (no cargo)           | Payment from operating costs only     |
+| Quest Type      | Cargo per Trip           | Notes                          |
+| --------------- | ------------------------ | ------------------------------ |
+| **Delivery**    | 30-80% of available hold | Variable load size for variety |
+| **Freight**     | 50-80% of available hold | Freight loads heavy            |
+| **Trade Route** | 80% of available hold    | Always fills the ship          |
+| **Passenger**   | N/A (no cargo)           | Payment from operating costs   |
 
 This means upgrading to a larger ship class immediately increases income on all cargo-hauling
 contracts. A Class II ship earning 8x the cargo premium of a Class I ship is the primary

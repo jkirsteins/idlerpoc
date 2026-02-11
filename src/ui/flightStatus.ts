@@ -308,10 +308,15 @@ export function createFlightStatusComponent(
 
     // Show radio buttons when:
     // - ship has an active contract AND
-    // - ship is in flight (including paused-while-in-flight)
+    // - ship is in flight (including paused-while-in-flight) AND
+    // - the contract requires more than one trip (single-trip contracts
+    //   complete on arrival so continue/pause/abandon choices are meaningless)
     const activeContract = ship.activeContract;
     const showActions =
-      !!activeContract && ship.location.status === 'in_flight' && !!flight;
+      !!activeContract &&
+      ship.location.status === 'in_flight' &&
+      !!flight &&
+      activeContract.quest.tripsRequired !== 1;
 
     if (showActions) {
       radioGroupEl.style.display = '';

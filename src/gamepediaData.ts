@@ -57,7 +57,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
         heading: 'Idle Catch-Up',
         paragraphs: [
           'The game is idle-friendly: closing the browser or backgrounding the tab does not lose progress. When you return, the game computes all elapsed time and processes pending updates in batches.',
-          'If you were away for more than 5 real minutes, a catch-up report shows what happened while you were gone, including [[encounters|encounters]], [[contracts|contract]] completions, and [[credits-economy|credit]] changes.',
+          'If you were away for more than 5 real minutes, a catch-up report shows what happened while you were gone, including per-ship [[contracts|contract]] progress (ongoing, completed, expired, or abandoned), [[encounters|encounters]], and [[credits-economy|credit]] changes.',
           'Offline progress is never hard-capped — you will always make progress no matter how long you are away. The first 4 real-world hours accrue at full rate. Beyond that, progress continues at a logarithmically diminishing rate, so active play remains more rewarding than very long absences. During fast-forward, [[encounters|encounter]] severity is capped (boardings downgraded to harassment) to prevent unfair losses while away.',
           'The event log keeps the most recent 200 entries. Older events are automatically pruned to keep save data compact.',
         ],
@@ -101,7 +101,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
       {
         heading: 'Income Sources',
         paragraphs: [
-          '[[contracts|Contracts]]: Delivery, passenger, freight, and supply contracts pay upon completion or per trip. Active contracts with deadlines pay significantly more than passive trade routes.',
+          '[[contracts|Contracts]]: Delivery, passenger, and freight contracts pay upon completion or per trip. Active contracts with deadlines pay significantly more than passive trade routes.',
           '[[contracts|Trade routes]] provide reliable recurring income between trading stations. Lower pay per trip but permanent and fully automatable.',
           '[[mining-system|Mining]]: Extract ore at mining locations and sell at stations with trade services.',
           '[[encounters|Combat]] victories occasionally yield bounty payments.',
@@ -216,14 +216,13 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
           "Finite contracts pay significantly more than automated trade routes — the reward for paying attention. Each accepted contract has a deadline: if you don't complete it in time, it expires and you lose the remaining payout (but keep any per-trip credits earned).",
           'Passenger: Ferry passengers between locations. Highest pay of any contract type but tightest deadline (3 days). Requires crew quarters.',
           'Delivery: Transport specific cargo to a destination. High one-time payment on completion. 7-day deadline.',
-          'Supply: Deliver large quantities of materials over multiple trips. Very high lump-sum payment on completion. 30-day deadline.',
-          'Freight: Haul bulk goods over multiple trips. Good per-trip pay with a 14-day deadline.',
+          'Freight: Haul bulk goods over multiple trips (2-7 round trips). Good per-trip pay with a 14-day deadline. Credits earned from completed trips are kept even if the contract expires.',
         ],
       },
       {
         heading: 'Passive Routes (Steady Pay)',
         paragraphs: [
-          'Trade routes are permanent routes between all trading partners at every trade hub. They never expire, have no deadline, and can be fully automated — set a ship on a route and forget about it. The trade-off is lower pay per trip compared to active contracts.',
+          'Trade routes are permanent routes between all trading partners at every trade hub. They never expire, have no deadline, and can be fully automated — set a ship on a route and forget about it. The trade-off is lower cr/hr compared to active contracts.',
           'Trade goods are determined by [[navigation|location]] type: planets export manufactured goods, stations export tech components, asteroid belts export raw ore.',
           'Trade route payment scales with distance, route danger, and location economic power. [[commerce-skill|Commerce skill]] bonuses apply to all contract types but yield the biggest absolute gains on high-paying active contracts.',
         ],
@@ -232,7 +231,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
         heading: 'Cargo Scaling & Ship Progression',
         paragraphs: [
           "All cargo-hauling contracts scale the load with your [[ship-classes|ship's]] available cargo hold. Bigger ships fill their holds more per trip, earning proportionally more through cargo premiums. Upgrading to a larger ship class immediately increases income on all contracts and trade routes.",
-          'For multi-trip contracts that pay a lump sum on completion (such as supply contracts), the quest card shows the per-trip credit equivalent so you can compare profitability at a glance.',
+          'All quest cards show costs, payment, and profit as credits per in-game hour (cr/hr). This lets you compare profitability across contracts of different distances at a glance — a short trip and a long trip are equally easy to evaluate.',
         ],
       },
       {
@@ -240,7 +239,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
         paragraphs: [
           'You can only have one active contract per ship at a time. While in flight you can choose to continue, pause and dock on arrival, or abandon the contract.',
           'Pausing a contract preserves all progress — resume anytime from the docked state. Abandoning a contract ends it permanently, but you keep credits earned from completed trips. The current in-progress trip will not be paid.',
-          'Quest cards show estimated fuel cost, trip time, [[crew-salaries|crew salary]] cost, and projected profit/loss based on your current [[flight-physics|flight profile]].',
+          'Quest cards show estimated fuel cost, trip time (with real-time equivalent), [[crew-salaries|crew salary]] cost, and projected profit/loss as cr/hr based on your current [[flight-physics|flight profile]].',
           'Accepting a contract requires the [[job-slots|helm]] to be manned — make sure you have crew assigned to the helm before browsing the job board.',
         ],
       },

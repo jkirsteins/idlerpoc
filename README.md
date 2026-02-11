@@ -67,14 +67,14 @@ npm run dev
   - **Mid-flight redirect**: change destination while in flight — distances, threat levels, and fuel estimates update live from the ship's current position in space
   - Redirect replots a fresh burn-coast-burn trajectory from the ship's interpolated position (not available during contracts or mining routes)
 - **Quest & Contract System**:
-  - Accept delivery, passenger, freight, and supply contracts with completion deadlines
+  - Accept delivery, passenger, and freight contracts with completion deadlines
   - **Active vs passive income**: Finite contracts pay ~2-3x more than automated trade routes — rewarding attentive play while keeping idle income reliable (see `docs/quest-reward-balancing.md`)
-  - **Contract deadlines**: Accepted contracts must be completed within their deadline (3-30 days depending on type) or they expire
+  - **Contract deadlines**: Accepted contracts must be completed within their deadline (3-14 days depending on type) or they expire
   - **Persistent trade routes** at every location with trade service — permanent, automatable, modest-but-steady background income
   - Trade route pay scales with distance, route danger, and location economic power
   - Trade goods derived from location type (planets export manufactured goods, stations export tech components, etc.)
   - **Cargo scales with ship capacity**: all contract types fill the ship's hold proportionally — bigger ships earn more per trip through cargo premiums, making ship upgrades immediately rewarding
-  - Quest cards show per-trip payment breakdown for multi-trip lump-sum contracts
+  - Quest cards show per-trip payment breakdown for multi-trip contracts
   - Quest generation based on location size and ship capabilities
   - Automatic flight execution with multi-leg trips
   - Payment per trip or on completion
@@ -146,7 +146,7 @@ npm run dev
 - **In-Game Encyclopedia (Gamepedia)**: Searchable guide explaining all game mechanics — skills, zero-g exposure, flight physics, encounters, and more. Inspired by Civilization's Civilopedia with category filtering, cross-linked articles, and a "See Also" section for discovery
 - **Live UI Architecture**: All tabs use mount-once/update-on-tick pattern — tab components are created once and kept alive, receiving live updates every tick even when hidden. Switching tabs is instant with no stale data. Shared flight status component (flight info + station-arrival action controls) appears on both Ship and Work tabs during flight.
 - **Responsive Design**: Mobile-friendly layout with collapsible sidebar drawer, compact status bar, scrollable tabs, and adaptive grids for phone/tablet screens
-- **Real-time Simulation**: Elapsed-time tick system that catches up based on real time passed — works across browser throttling, background tabs, and phone sleep. Catch-up report modal shown for long absences
+- **Real-time Simulation**: Elapsed-time tick system that catches up based on real time passed — works across browser throttling, background tabs, and phone sleep. Catch-up report modal shown for long absences with per-ship contract status (ongoing, completed, expired, abandoned), encounter summaries, and credit changes
 - **Save Data Migration**: Versioned save format with automatic migration pipeline — existing saves upgrade gracefully when the data shape changes (see `docs/save-migration.md`)
 - **Game Data Catalogs**:
   - 9 engine types (chemical, nuclear fission, fusion, advanced fusion) with thrust and delta-v specifications

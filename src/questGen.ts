@@ -406,10 +406,10 @@ function generateFreightQuest(
   const cargoKg = Math.round(
     Math.max(1000, maxCargoFreight * (0.5 + Math.random() * 0.3))
   );
-  const trips = Math.floor(2 + Math.random() * 4); // 2-5 trips
+  const trips = Math.floor(2 + Math.random() * 6); // 2-7 trips
 
   const paymentPerTrip = Math.round(
-    calculatePayment(ship, distanceKm, cargoKg, origin, destination) * 1.2
+    calculatePayment(ship, distanceKm, cargoKg, origin, destination) * 1.25
   ); // Semi-active premium: multi-trip with 14d expiry
   const estimatedTime = estimateTripTime(ship, distanceKm);
   const fuelKgRequired = calculateTripFuelKg(ship, distanceKm);
@@ -433,59 +433,6 @@ function generateFreightQuest(
 }
 
 /**
- * Generate a supply quest
- */
-function generateSupplyQuest(
-  ship: Ship,
-  origin: WorldLocation,
-  destination: WorldLocation
-): Quest {
-  const distanceKm = getDistanceBetween(origin, destination);
-  const cargoType = CARGO_TYPES[Math.floor(Math.random() * CARGO_TYPES.length)];
-
-  const shipClass = getShipClass(ship.classId);
-  const availableCargoSupply = shipClass
-    ? calculateAvailableCargoCapacity(shipClass.cargoCapacity)
-    : 1500;
-  // Use 80% of available cargo — no hard cap so bigger ships haul more per trip
-  const cargoPerTrip = Math.floor(availableCargoSupply * 0.8);
-
-  // Fixed trip count (3-7); total cargo scales with ship capacity
-  const trips = Math.floor(3 + Math.random() * 5);
-  const totalCargoKg = cargoPerTrip * trips;
-
-  // Payment scales with trip count — each trip pays 1.3x base cost.
-  // Per-trip rate sits between freight (1.2x) and delivery (1.5x),
-  // compensating for the lump-sum risk (no payout until all trips done).
-  const perTripBase = calculatePayment(
-    ship,
-    distanceKm,
-    cargoPerTrip,
-    origin,
-    destination
-  );
-  const payment = Math.round(perTripBase * 1.3 * trips);
-  const estimatedTime = estimateTripTime(ship, distanceKm);
-  const fuelKgRequired = calculateTripFuelKg(ship, distanceKm);
-
-  return {
-    id: generateId(),
-    type: 'supply',
-    title: `Supply contract: ${formatMass(totalCargoKg)}`,
-    description: `Deliver total of ${formatMass(totalCargoKg)} of ${cargoType} to ${destination.name} (multiple trips required)`,
-    origin: origin.id,
-    destination: destination.id,
-    cargoRequired: Math.round(cargoPerTrip),
-    totalCargoRequired: totalCargoKg,
-    tripsRequired: trips,
-    paymentPerTrip: 0,
-    paymentOnCompletion: payment,
-    expiresAfterDays: 30,
-    estimatedFuelPerTrip: fuelKgRequired * 2, // Round trip in kg
-    estimatedTripTicks: gameSecondsToTicks(estimatedTime * 2),
-  };
-}
-
 /**
  * Trade goods exported by each location type.
  * Derived from location type — what each type naturally produces/exports.
@@ -567,7 +514,7 @@ export function calculateTradeRoutePayment(
 ): number {
   const distanceKm = getDistanceBetween(origin, destination);
 
-  // 1. Operating cost floor (deterministic — fixed at 150% of costs)
+  // 1. Operating cost floor (deterministic — fixed at 120% of costs)
   const tripTimeSecs = estimateTripTime(ship, distanceKm);
   const roundTripTicks = (tripTimeSecs * 2) / GAME_SECONDS_PER_TICK;
 
@@ -784,7 +731,7 @@ export function generateQuestsForLocation(
   }
 
   // Generate diverse quest types
-  const questTypes = ['delivery', 'passenger', 'freight', 'supply'];
+  const questTypes = ['delivery', 'passenger', 'freight'];
 
   for (let i = 0; i < count; i++) {
     const destination =
@@ -803,9 +750,6 @@ export function generateQuestsForLocation(
         break;
       case 'freight':
         quest = generateFreightQuest(ship, location, destination);
-        break;
-      case 'supply':
-        quest = generateSupplyQuest(ship, location, destination);
         break;
       default:
         quest = generateDeliveryQuest(ship, location, destination);

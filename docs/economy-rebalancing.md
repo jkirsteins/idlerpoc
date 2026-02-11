@@ -128,8 +128,7 @@ See `docs/quest-reward-balancing.md` for the full design rationale.
 | ----------- | --------------- | ------------------------------------------------------------- |
 | Passenger   | 2.0x            | Highest active premium: tightest deadline (3d), quarters req. |
 | Delivery    | 1.5x            | High active premium: one-shot, 7d deadline                    |
-| Supply      | 2.5x total      | High commitment: large bulk contract, 30d deadline, lump sum  |
-| Freight     | 1.2x per trip   | Semi-active: multi-trip with 14d deadline                     |
+| Freight     | 1.25x per trip  | Semi-active: multi-trip (2-7) with 14d deadline               |
 | Trade Route | 120% cost floor | Baseline passive income: permanent, deterministic, automated  |
 
 ### Expected Outcomes
