@@ -1,13 +1,60 @@
-import type { CatchUpReport, LogEntryType } from '../models';
+import type {
+  CatchUpReport,
+  CatchUpEncounterStats,
+  LogEntryType,
+} from '../models';
 import {
   formatDuration,
   formatRealDuration,
   GAME_SECONDS_PER_TICK,
 } from '../timeSystem';
 
+/** Render encounter detail lines into a container element. */
+function renderEncounterLines(
+  enc: CatchUpEncounterStats,
+  parent: HTMLElement
+): void {
+  const lines: { text: string; color: string }[] = [];
+  if (enc.evaded > 0)
+    lines.push({
+      text: `Evaded ${enc.evaded} contact${enc.evaded > 1 ? 's' : ''}`,
+      color: '#4caf50',
+    });
+  if (enc.negotiated > 0)
+    lines.push({
+      text: `Negotiated ${enc.negotiated} safe passage${enc.negotiated > 1 ? 's' : ''}`,
+      color: '#ffc107',
+    });
+  if (enc.victories > 0)
+    lines.push({
+      text: `Repelled ${enc.victories} raider${enc.victories > 1 ? 's' : ''}`,
+      color: '#4ecdc4',
+    });
+  if (enc.harassments > 0)
+    lines.push({
+      text: `${enc.harassments} skirmish${enc.harassments > 1 ? 'es' : ''} (minor damage)`,
+      color: '#ffa500',
+    });
+  if (enc.fled > 0)
+    lines.push({
+      text: `Fled ${enc.fled} encounter${enc.fled > 1 ? 's' : ''} (outmatched)`,
+      color: '#cc8800',
+    });
+
+  for (const { text, color } of lines) {
+    const line = document.createElement('div');
+    line.className = 'catchup-ship-event';
+    line.textContent = text;
+    line.style.color = color;
+    line.style.paddingLeft = '0.75rem';
+    line.style.fontSize = '0.85rem';
+    parent.appendChild(line);
+  }
+}
+
 /**
  * Render the catch-up report modal shown after a significant absence.
- * Shows general progress (credits, trips, arrivals) and encounter details.
+ * Ship-centric layout: each ship appears once with all its activities consolidated.
  */
 export function renderCatchUpReport(
   report: CatchUpReport,
@@ -16,7 +63,7 @@ export function renderCatchUpReport(
   const container = document.createElement('div');
   container.className = 'catchup-report';
 
-  // Header
+  // --- Header ---
   const header = document.createElement('div');
   header.className = 'catchup-header';
 
@@ -49,67 +96,110 @@ export function renderCatchUpReport(
 
   container.appendChild(header);
 
-  // --- General progress summary ---
-  const progress = document.createElement('div');
-  progress.className = 'catchup-progress';
+  // --- Fleet-wide stats ---
+  const fleetStats = document.createElement('div');
+  fleetStats.className = 'catchup-progress';
 
-  // Net credits change
   if (report.creditsDelta !== 0) {
     const creditLine = document.createElement('div');
     creditLine.className = 'catchup-progress-line';
     const sign = report.creditsDelta >= 0 ? '+' : '';
     creditLine.textContent = `Credits: ${sign}${report.creditsDelta.toLocaleString()}`;
     creditLine.style.color = report.creditsDelta >= 0 ? '#4ecdc4' : '#ff6b6b';
-    progress.appendChild(creditLine);
+    fleetStats.appendChild(creditLine);
   }
 
-  // Trips completed
-  if (report.tripsCompleted > 0) {
-    const tripLine = document.createElement('div');
-    tripLine.className = 'catchup-progress-line';
-    tripLine.textContent = `${report.tripsCompleted} trip${report.tripsCompleted > 1 ? 's' : ''} completed`;
-    tripLine.style.color = '#4caf50';
-    progress.appendChild(tripLine);
-  }
-
-  // Contracts completed
   if (report.contractsCompleted > 0) {
     const contractLine = document.createElement('div');
     contractLine.className = 'catchup-progress-line';
     contractLine.textContent = `${report.contractsCompleted} contract${report.contractsCompleted > 1 ? 's' : ''} completed`;
     contractLine.style.color = '#4ecdc4';
-    progress.appendChild(contractLine);
+    fleetStats.appendChild(contractLine);
   }
 
-  // Trade route trip summaries
-  for (const summary of report.routeTripSummaries) {
-    const line = document.createElement('div');
-    line.className = 'catchup-progress-line';
-    line.textContent = `${summary.shipName} performed ${summary.trips} trip${summary.trips > 1 ? 's' : ''} on ${summary.routeName}`;
-    line.style.color = '#4a9eff';
-    progress.appendChild(line);
+  if (fleetStats.children.length > 0) {
+    container.appendChild(fleetStats);
   }
 
-  // Arrivals (non-trade-route ships)
-  for (const arrival of report.arrivals) {
-    const line = document.createElement('div');
-    line.className = 'catchup-progress-line';
-    line.textContent = `${arrival.shipName} arrived at ${arrival.location}`;
-    line.style.color = '#a0a0b0';
-    progress.appendChild(line);
+  // --- Per-ship summaries ---
+  let totalEncounterCreditsGained = 0;
+  let totalEncounterCreditsLost = 0;
+  let totalHealthLost = 0;
+  let shipsWithEncounters = 0;
+
+  if (report.shipSummaries.length > 0) {
+    const shipsSection = document.createElement('div');
+    shipsSection.className = 'catchup-fleet-summary';
+
+    for (const summary of report.shipSummaries) {
+      const shipDiv = document.createElement('div');
+      shipDiv.className = 'catchup-ship';
+
+      // Ship name
+      const nameEl = document.createElement('div');
+      nameEl.className = 'catchup-ship-name';
+      nameEl.textContent = summary.shipName;
+      shipDiv.appendChild(nameEl);
+
+      // Activity line
+      const activityEl = document.createElement('div');
+      activityEl.className = 'catchup-ship-activity';
+      activityEl.style.paddingLeft = '0.75rem';
+      activityEl.style.fontSize = '0.9rem';
+
+      switch (summary.activity.type) {
+        case 'trade_route':
+          if (summary.activity.tripsCompleted > 0) {
+            activityEl.textContent = `${summary.activity.tripsCompleted} trip${summary.activity.tripsCompleted > 1 ? 's' : ''} on ${summary.activity.routeName}`;
+            activityEl.style.color = '#4a9eff';
+          } else {
+            activityEl.textContent = `Assigned to ${summary.activity.routeName} (no trips completed)`;
+            activityEl.style.color = '#a0a0b0';
+          }
+          break;
+        case 'completed_trips':
+          activityEl.textContent = `Completed ${summary.activity.tripsCompleted} trip${summary.activity.tripsCompleted > 1 ? 's' : ''}`;
+          if (summary.activity.arrivedAt) {
+            activityEl.textContent += `, arrived at ${summary.activity.arrivedAt}`;
+          }
+          activityEl.style.color = '#4caf50';
+          break;
+        case 'en_route':
+          activityEl.textContent = `En route to ${summary.activity.destination}`;
+          activityEl.style.color = '#a0a0b0';
+          activityEl.style.fontStyle = 'italic';
+          break;
+        case 'idle':
+          activityEl.textContent = `Docked at ${summary.activity.location}`;
+          activityEl.style.color = '#a0a0b0';
+          break;
+      }
+
+      shipDiv.appendChild(activityEl);
+
+      // Encounter lines (if any)
+      if (summary.encounters) {
+        renderEncounterLines(summary.encounters, shipDiv);
+
+        // Accumulate fleet-wide encounter totals
+        if (summary.encounters.creditsDelta > 0) {
+          totalEncounterCreditsGained += summary.encounters.creditsDelta;
+        } else {
+          totalEncounterCreditsLost += Math.abs(
+            summary.encounters.creditsDelta
+          );
+        }
+        totalHealthLost += summary.encounters.avgHealthLost;
+        shipsWithEncounters++;
+      }
+
+      shipsSection.appendChild(shipDiv);
+    }
+
+    container.appendChild(shipsSection);
   }
 
-  // Ships still en route
-  for (const ship of report.enRouteShips) {
-    const line = document.createElement('div');
-    line.className = 'catchup-progress-line';
-    line.textContent = `${ship.shipName} still en route to ${ship.destination}`;
-    line.style.color = '#a0a0b0';
-    line.style.fontStyle = 'italic';
-    progress.appendChild(line);
-  }
-
-  // Log highlights (skill-ups, crew changes, etc.)
+  // --- Crew highlights (skill-ups, hires, departures) ---
   const HIGHLIGHT_COLORS: Partial<Record<LogEntryType, string>> = {
     crew_level_up: '#4ade80',
     crew_hired: '#4ecdc4',
@@ -118,102 +208,26 @@ export function renderCatchUpReport(
   };
 
   if (report.logHighlights && report.logHighlights.length > 0) {
+    const crewSection = document.createElement('div');
+    crewSection.className = 'catchup-progress';
+
     for (const entry of report.logHighlights) {
       const line = document.createElement('div');
       line.className = 'catchup-progress-line';
       line.textContent = entry.message;
       line.style.color = HIGHLIGHT_COLORS[entry.type] ?? '#a0a0b0';
-      progress.appendChild(line);
-    }
-  }
-
-  // If nothing interesting happened at all
-  if (progress.children.length === 0 && report.shipReports.length === 0) {
-    const quietLine = document.createElement('div');
-    quietLine.className = 'catchup-progress-line';
-    quietLine.textContent = 'All quiet — nothing notable happened.';
-    quietLine.style.color = '#a0a0b0';
-    progress.appendChild(quietLine);
-  }
-
-  if (progress.children.length > 0) {
-    container.appendChild(progress);
-  }
-
-  // --- Per-ship encounter summaries ---
-  if (report.shipReports.length > 0) {
-    const encounterHeader = document.createElement('div');
-    encounterHeader.className = 'catchup-section-header';
-    encounterHeader.textContent = 'Encounters';
-    container.appendChild(encounterHeader);
-
-    const fleetSummary = document.createElement('div');
-    fleetSummary.className = 'catchup-fleet-summary';
-
-    let totalEncounterCreditsGained = 0;
-    let totalEncounterCreditsLost = 0;
-
-    for (const shipReport of report.shipReports) {
-      const shipDiv = document.createElement('div');
-      shipDiv.className = 'catchup-ship';
-
-      const shipName = document.createElement('div');
-      shipName.className = 'catchup-ship-name';
-      shipName.textContent = shipReport.shipName;
-      shipDiv.appendChild(shipName);
-
-      const events = document.createElement('div');
-      events.className = 'catchup-ship-events';
-
-      if (shipReport.evaded > 0) {
-        const line = document.createElement('div');
-        line.style.color = '#4caf50';
-        line.textContent = `Evaded ${shipReport.evaded} contact${shipReport.evaded > 1 ? 's' : ''}`;
-        events.appendChild(line);
-      }
-
-      if (shipReport.negotiated > 0) {
-        const line = document.createElement('div');
-        line.style.color = '#ffc107';
-        line.textContent = `Negotiated ${shipReport.negotiated} safe passage${shipReport.negotiated > 1 ? 's' : ''}`;
-        events.appendChild(line);
-      }
-
-      if (shipReport.victories > 0) {
-        const line = document.createElement('div');
-        line.style.color = '#4ecdc4';
-        line.textContent = `Repelled ${shipReport.victories} raider${shipReport.victories > 1 ? 's' : ''}`;
-        events.appendChild(line);
-      }
-
-      if (shipReport.harassments > 0) {
-        const line = document.createElement('div');
-        line.style.color = '#ffa500';
-        line.textContent = `${shipReport.harassments} skirmish${shipReport.harassments > 1 ? 'es' : ''} (minor damage)`;
-        events.appendChild(line);
-      }
-
-      if (shipReport.fled > 0) {
-        const line = document.createElement('div');
-        line.style.color = '#cc8800';
-        line.textContent = `Fled ${shipReport.fled} encounter${shipReport.fled > 1 ? 's' : ''} (outmatched)`;
-        events.appendChild(line);
-      }
-
-      shipDiv.appendChild(events);
-      fleetSummary.appendChild(shipDiv);
-
-      // Accumulate encounter credit totals
-      if (shipReport.creditsDelta > 0) {
-        totalEncounterCreditsGained += shipReport.creditsDelta;
-      } else {
-        totalEncounterCreditsLost += Math.abs(shipReport.creditsDelta);
-      }
+      crewSection.appendChild(line);
     }
 
-    container.appendChild(fleetSummary);
+    container.appendChild(crewSection);
+  }
 
-    // Encounter impact
+  // --- Fleet-wide encounter impact ---
+  if (
+    totalEncounterCreditsGained > 0 ||
+    totalEncounterCreditsLost > 0 ||
+    totalHealthLost > 0
+  ) {
     const impact = document.createElement('div');
     impact.className = 'catchup-impact';
 
@@ -231,16 +245,8 @@ export function renderCatchUpReport(
       impact.appendChild(creditLine);
     }
 
-    // Average health loss
-    const totalHealthLost = report.shipReports.reduce(
-      (sum, r) => sum + r.avgHealthLost,
-      0
-    );
     const avgHealthLost =
-      report.shipReports.length > 0
-        ? totalHealthLost / report.shipReports.length
-        : 0;
-
+      shipsWithEncounters > 0 ? totalHealthLost / shipsWithEncounters : 0;
     if (avgHealthLost > 0) {
       const healthLine = document.createElement('div');
       healthLine.textContent = `Crew health: -${avgHealthLost.toFixed(0)} average across fleet`;
@@ -251,6 +257,21 @@ export function renderCatchUpReport(
     if (impact.children.length > 0) {
       container.appendChild(impact);
     }
+  }
+
+  // If nothing interesting happened at all
+  if (
+    report.shipSummaries.length === 0 &&
+    (!report.logHighlights || report.logHighlights.length === 0)
+  ) {
+    const quietSection = document.createElement('div');
+    quietSection.className = 'catchup-progress';
+    const quietLine = document.createElement('div');
+    quietLine.className = 'catchup-progress-line';
+    quietLine.textContent = 'All quiet — nothing notable happened.';
+    quietLine.style.color = '#a0a0b0';
+    quietSection.appendChild(quietLine);
+    container.appendChild(quietSection);
   }
 
   // Dismiss button

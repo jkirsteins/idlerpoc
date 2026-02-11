@@ -146,6 +146,17 @@ export function render(
     return;
   }
 
+  // Catch-up modal is already showing — skip rebuild to prevent flicker
+  if (
+    state.phase === 'playing' &&
+    (state.catchUpReport || state.catchUpProgress) &&
+    mounted !== null &&
+    mounted.hasCatchUpReport &&
+    container.contains(mounted.wrapper)
+  ) {
+    return;
+  }
+
   // Slow path: full rebuild (phase change, first mount, catch-up modal)
   container.innerHTML = '';
   mounted = null;
