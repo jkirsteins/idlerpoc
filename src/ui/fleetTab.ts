@@ -483,7 +483,6 @@ function renderFleetPerformanceDashboard(gameData: GameData): HTMLElement {
           .join('')}
       </div>
     `;
-    performersRow.appendChild(performersRow);
     dashboardContent.appendChild(performersRow);
   }
 
