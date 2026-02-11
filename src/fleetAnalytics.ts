@@ -9,6 +9,7 @@ import { getDistanceBetween } from './worldGen';
 import { TICKS_PER_DAY, GAME_SECONDS_PER_DAY } from './timeSystem';
 import { formatExposureDays } from './gravitySystem';
 import { formatFuelMass, calculateFuelPercentage } from './ui/fuelFormatting';
+import { resolveQuestForShip } from './questGen';
 
 // Average fuel price for profit estimates (matches questGen.ts FUEL_PRICE_PER_KG).
 // Actual station prices vary by location (1.6–5.0 cr/kg via getFuelPricePerKg).
@@ -262,6 +263,9 @@ export function matchShipToContract(
   if (!shipClass) {
     return { score: 1, reasons: ['Unknown ship class'], estimatedProfit: 0 };
   }
+
+  // Resolve quest template for this ship so scoring uses per-ship values
+  quest = resolveQuestForShip(quest, ship, gameData.world);
 
   // Check if ship is at origin
   const currentLocationId = ship.location.dockedAt || ship.location.orbitingAt;

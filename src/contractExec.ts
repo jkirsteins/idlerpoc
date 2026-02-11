@@ -10,7 +10,7 @@ import { startShipFlight } from './flightPhysics';
 import { addLog } from './logSystem';
 import { formatFuelMass } from './ui/fuelFormatting';
 import { formatCredits } from './formatting';
-import { generateAllLocationQuests } from './questGen';
+import { generateAllLocationQuests, resolveQuestForShip } from './questGen';
 import { getDaysSinceEpoch, TICKS_PER_DAY } from './timeSystem';
 import { generateHireableCrewByLocation } from './gameFactory';
 import { awardEventSkillGains, logSkillUps } from './skillProgression';
@@ -255,8 +255,12 @@ export function acceptQuest(
 ): void {
   const { world, gameTime } = gameData;
 
+  // Freeze resolved per-ship values into the contract snapshot so that
+  // cargo, payment, fuel, and time are locked to the accepting ship's state.
+  const resolvedQuest = resolveQuestForShip(quest, ship, world);
+
   const contract: ActiveContract = {
-    quest,
+    quest: resolvedQuest,
     tripsCompleted: 0,
     cargoDelivered: 0,
     creditsEarned: 0,

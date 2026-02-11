@@ -4,13 +4,8 @@ import {
   formatDualTime,
   GAME_SECONDS_PER_TICK,
   GAME_SECONDS_PER_HOUR,
-  gameSecondsToTicks,
 } from '../timeSystem';
-import {
-  canAcceptQuest,
-  calculateTripFuelKg,
-  estimateTripTime,
-} from '../questGen';
+import { canAcceptQuest, resolveQuestForShip } from '../questGen';
 import { calculateShipSalaryPerTick } from '../crewRoles';
 import {
   estimateRouteRisk,
@@ -888,6 +883,9 @@ export function createWorkTab(
       (l) => l.id === quest.destination
     );
     const origin = gd.world.locations.find((l) => l.id === quest.origin);
+
+    // Resolve quest template into per-ship values (cargo, payment, fuel, time)
+    const resolved = resolveQuestForShip(quest, ship, gd.world);
     const { canAccept, reason } = canAcceptQuest(ship, quest, gd.world);
 
     // Card disabled state
@@ -898,7 +896,7 @@ export function createWorkTab(
     }
 
     refs.title.textContent = quest.title;
-    refs.description.textContent = quest.description;
+    refs.description.textContent = resolved.description;
 
     // Destination
     if (destination) {
@@ -920,8 +918,8 @@ export function createWorkTab(
     }
 
     // Cargo
-    if (quest.cargoRequired > 0) {
-      refs.cargoInfo.textContent = `Cargo: ${formatMass(quest.cargoRequired)}`;
+    if (resolved.cargoRequired > 0) {
+      refs.cargoInfo.textContent = `Cargo: ${formatMass(resolved.cargoRequired)}`;
       refs.cargoInfo.style.display = '';
     } else {
       refs.cargoInfo.style.display = 'none';
@@ -946,23 +944,10 @@ export function createWorkTab(
       refs.tripsInfo.style.display = 'none';
     }
 
-    // Recalculate fuel and time based on flight profile
-    const burnFraction = ship.flightProfileBurnFraction ?? 1.0;
-    const distanceKm =
-      origin && destination ? getDistanceBetween(origin, destination) : 0;
-
-    // Profile-aware fuel estimate (round trip)
-    const profileFuelKg =
-      distanceKm > 0
-        ? calculateTripFuelKg(ship, distanceKm, burnFraction) * 2
-        : quest.estimatedFuelPerTrip;
-
-    // Profile-aware time estimate (round trip in game seconds)
-    const profileTimeSecs =
-      distanceKm > 0
-        ? estimateTripTime(ship, distanceKm, burnFraction) * 2
-        : quest.estimatedTripTicks * GAME_SECONDS_PER_TICK;
-    const profileTimeTicks = gameSecondsToTicks(profileTimeSecs);
+    // Fuel and time from resolved per-ship values
+    const profileFuelKg = resolved.estimatedFuelPerTrip;
+    const profileTimeSecs = resolved.estimatedTripTicks * GAME_SECONDS_PER_TICK;
+    const profileTimeTicks = resolved.estimatedTripTicks;
 
     refs.fuelInfo.textContent = `Fuel: ~${formatFuelMass(profileFuelKg)} per trip`;
     refs.timeInfo.textContent = `Time: ~${formatDualTime(profileTimeSecs)} per trip`;
@@ -996,11 +981,11 @@ export function createWorkTab(
 
     // For lump-sum multi-trip contracts, divide by trips for per-trip comparison
     const tripPayment =
-      quest.paymentPerTrip > 0
-        ? quest.paymentPerTrip
+      resolved.paymentPerTrip > 0
+        ? resolved.paymentPerTrip
         : quest.tripsRequired > 1
-          ? Math.round(quest.paymentOnCompletion / quest.tripsRequired)
-          : quest.paymentOnCompletion;
+          ? Math.round(resolved.paymentOnCompletion / quest.tripsRequired)
+          : resolved.paymentOnCompletion;
 
     // Captain command bonus attribution
     updateCaptainBonusDisplay(refs, ship, gd);
@@ -1027,12 +1012,12 @@ export function createWorkTab(
     }
 
     // Payment — show per-hour rate for comparability across different trip distances
-    if (quest.paymentPerTrip > 0) {
-      refs.payment.textContent = `Payment: ${formatCredits(perHour(quest.paymentPerTrip))}/hr (${formatCredits(quest.paymentPerTrip)}/trip)`;
+    if (resolved.paymentPerTrip > 0) {
+      refs.payment.textContent = `Payment: ${formatCredits(perHour(resolved.paymentPerTrip))}/hr (${formatCredits(resolved.paymentPerTrip)}/trip)`;
     } else if (quest.tripsRequired > 1) {
-      refs.payment.textContent = `Payment: ${formatCredits(quest.paymentOnCompletion)} on completion (${formatCredits(perHour(tripPayment))}/hr)`;
+      refs.payment.textContent = `Payment: ${formatCredits(resolved.paymentOnCompletion)} on completion (${formatCredits(perHour(tripPayment))}/hr)`;
     } else {
-      refs.payment.textContent = `Payment: ${formatCredits(quest.paymentOnCompletion)} on completion (${formatCredits(perHour(quest.paymentOnCompletion))}/hr)`;
+      refs.payment.textContent = `Payment: ${formatCredits(resolved.paymentOnCompletion)} on completion (${formatCredits(perHour(resolved.paymentOnCompletion))}/hr)`;
     }
 
     // Buttons vs reason

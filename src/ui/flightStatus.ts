@@ -265,9 +265,10 @@ export function createFlightStatusComponent(
       },
       abandon: {
         label: 'Abandon contract',
-        desc: activeContract.leg === 'inbound'
-          ? `Ends contract on arrival. This return trip will still be paid. You keep all earnings from completed trips.`
-          : `Ends contract on arrival. No payment for this outbound trip — delivery not yet complete. You keep ${formatCredits(activeContract.creditsEarned)} from prior trips.`,
+        desc:
+          activeContract.leg === 'inbound'
+            ? `Ends contract on arrival. This return trip will still be paid. You keep all earnings from completed trips.`
+            : `Ends contract on arrival. No payment for this outbound trip — delivery not yet complete. You keep ${formatCredits(activeContract.creditsEarned)} from prior trips.`,
         warn: hasRouteAssignment
           ? 'Your automated route assignment will also end.'
           : undefined,

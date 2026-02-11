@@ -329,14 +329,16 @@ export interface Quest {
   description: string;
   origin: string;
   destination: string;
-  cargoRequired: number; // kg per trip (0 for passenger)
+  cargoRequired: number; // kg per trip (0 for passenger) — resolved per-ship via resolveQuestForShip()
   totalCargoRequired: number; // unused legacy field, always 0
   tripsRequired: number; // 1 for one-off, N for freight, -1 for indefinite
-  paymentPerTrip: number; // credits (0 if lump sum only)
-  paymentOnCompletion: number; // credits (0 if per-trip only)
+  paymentPerTrip: number; // credits (0 if lump sum only) — resolved per-ship
+  paymentOnCompletion: number; // credits (0 if per-trip only) — resolved per-ship
   expiresAfterDays: number; // 0 = no deadline; N = days to complete once accepted
-  estimatedFuelPerTrip: number; // display only
-  estimatedTripTicks: number; // display only
+  estimatedFuelPerTrip: number; // display only — resolved per-ship
+  estimatedTripTicks: number; // display only — resolved per-ship
+  cargoFraction?: number; // 0–1 fraction of available hold to fill (set at generation, resolved per-ship)
+  cargoTypeName?: string; // e.g. "medical supplies" — used to generate description per-ship
 }
 
 export interface ActiveContract {
