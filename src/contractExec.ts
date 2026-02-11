@@ -485,6 +485,28 @@ export function completeLeg(gameData: GameData, ship: Ship): void {
 
   // ── Deferred abandon — player chose "Abandon" while in-flight ──
   if (activeContract.abandonRequested) {
+    // If arriving on the inbound leg, the round trip is complete — pay first
+    if (activeContract.leg === 'inbound' && quest.paymentPerTrip > 0) {
+      activeContract.tripsCompleted++;
+      const tripEarned = addCredits(gameData, quest.paymentPerTrip, ship);
+      activeContract.creditsEarned += tripEarned;
+      ship.metrics.creditsEarned += tripEarned;
+
+      if (ship.routeAssignment) {
+        ship.routeAssignment.totalTripsCompleted++;
+        ship.routeAssignment.creditsEarned += tripEarned;
+        ship.routeAssignment.lastTripCompletedAt = gameTime;
+      }
+
+      addLog(
+        gameData.log,
+        gameTime,
+        'payment',
+        `Trip ${activeContract.tripsCompleted} complete. Earned ${formatCredits(tripEarned)}.`,
+        ship.name
+      );
+    }
+
     dockShipAtLocation(ship, arrivalLocation.id);
     abandonContract(gameData, ship);
     checkFirstArrival(gameData, ship, arrivalLocation.id);
