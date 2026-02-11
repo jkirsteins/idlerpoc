@@ -30,6 +30,14 @@ import { applyOxygenTick, getOxygenHealthDamage } from './lifeSupportSystem';
 import { applyMiningTick } from './miningSystem';
 import { checkMiningRouteDeparture } from './miningRoute';
 import { addLog } from './logSystem';
+import {
+  awardMasteryXp,
+  getEquipmentRepairMasteryBonus,
+  getRepairsPoolSpeedBonus,
+  getRepairsPoolFilterReduction,
+  getRepairsPoolBonusChance,
+} from './masterySystem';
+import { getAllEquipmentDefinitions } from './equipment';
 
 /**
  * Encounter system hook.
@@ -398,10 +406,24 @@ function applyShipTick(gameData: GameData, ship: Ship): boolean {
   }
 
   // Air filter degradation (always happens)
+  // Repairs pool 50% checkpoint reduces filter degradation by 10%
+  const bestRepairCrewForFilters = getCrewForJobType(ship, 'repair');
+  let filterReduction = 0;
+  if (bestRepairCrewForFilters.length > 0) {
+    const bestRepairer = bestRepairCrewForFilters.reduce((best, c) =>
+      c.skills.repairs > best.skills.repairs ? c : best
+    );
+    const pool = bestRepairer.mastery?.repairs?.pool ?? { xp: 0, maxXp: 0 };
+    filterReduction = getRepairsPoolFilterReduction(pool);
+  }
+  const filterDegradationRate = 0.005 * (1 - filterReduction);
   for (const equipment of ship.equipment) {
     if (equipment.definitionId === 'air_filters') {
       if (equipment.degradation < 100) {
-        equipment.degradation = Math.min(100, equipment.degradation + 0.005);
+        equipment.degradation = Math.min(
+          100,
+          equipment.degradation + filterDegradationRate
+        );
         changed = true;
       }
     }
@@ -614,27 +636,76 @@ function applyShipTick(gameData: GameData, ship: Ship): boolean {
   }
 
   // Repair: crew in repair slots generates repair points distributed to degraded equipment.
-  // Works in all ship states (docked, in_flight, orbiting) so crews can maintain
-  // equipment at stations, not just during voyages.
-  const repairCrew = getCrewForJobType(ship, 'repair');
-  if (repairCrew.length > 0) {
-    let totalRepairPoints = 0;
-    for (const eng of repairCrew) {
-      totalRepairPoints += calculateRepairPoints(eng);
-    }
-
-    // Distribute repair points equally across degraded equipment
-    const degradedEquipment = ship.equipment.filter((eq) => eq.degradation > 0);
-    if (degradedEquipment.length > 0 && totalRepairPoints > 0) {
-      const pointsPerEquipment = totalRepairPoints / degradedEquipment.length;
-      for (const eq of degradedEquipment) {
-        eq.degradation = Math.max(0, eq.degradation - pointsPerEquipment);
-      }
-      changed = true;
-    }
+  if (applyRepairTick(ship)) {
+    changed = true;
   }
 
   return changed;
+}
+
+/**
+ * Apply one tick of crew repair activity.
+ * Works in all ship states (docked, in_flight, orbiting).
+ * Repair mastery: each equipment type repaired gains mastery XP for the repairer.
+ */
+function applyRepairTick(ship: Ship): boolean {
+  const repairCrew = getCrewForJobType(ship, 'repair');
+  if (repairCrew.length === 0) return false;
+
+  // Find best repairer for pool bonuses
+  const bestRepairer = repairCrew.reduce((best, c) =>
+    c.skills.repairs > best.skills.repairs ? c : best
+  );
+  const repairsPool = bestRepairer.mastery?.repairs?.pool ?? {
+    xp: 0,
+    maxXp: 0,
+  };
+  const poolSpeedBonus = getRepairsPoolSpeedBonus(repairsPool);
+  const bonusPointChance = getRepairsPoolBonusChance(repairsPool);
+
+  let totalRepairPoints = 0;
+  for (const eng of repairCrew) {
+    let points = calculateRepairPoints(eng);
+    // Pool bonus: +5% repair speed at 25%
+    points *= 1 + poolSpeedBonus;
+    // Pool bonus: +10% chance for bonus repair points at 95%
+    if (bonusPointChance > 0 && Math.random() < bonusPointChance) {
+      points *= 1.5;
+    }
+    totalRepairPoints += points;
+  }
+
+  // Distribute repair points across degraded equipment with per-item mastery bonuses
+  const degradedEquipment = ship.equipment.filter((eq) => eq.degradation > 0);
+  if (degradedEquipment.length === 0 || totalRepairPoints <= 0) return false;
+
+  const basePointsPerEquipment = totalRepairPoints / degradedEquipment.length;
+  const totalEquipmentCount = getAllEquipmentDefinitions().filter(
+    (d) => d.hasDegradation
+  ).length;
+
+  for (const eq of degradedEquipment) {
+    // Per-equipment mastery bonus: repairing mastered equipment is faster
+    const masteryState = bestRepairer.mastery?.repairs;
+    const itemMastery = masteryState?.itemMasteries[eq.definitionId];
+    const masteryLevel = itemMastery?.level ?? 0;
+    const masteryBonus = getEquipmentRepairMasteryBonus(masteryLevel);
+    const effectivePoints = basePointsPerEquipment * (1 + masteryBonus);
+
+    eq.degradation = Math.max(0, eq.degradation - effectivePoints);
+
+    // Award repair mastery XP to the best repairer for this equipment type
+    if (masteryState) {
+      awardMasteryXp(
+        masteryState,
+        eq.definitionId,
+        5, // base mastery XP per tick of repair
+        Math.floor(bestRepairer.skills.repairs),
+        totalEquipmentCount
+      );
+    }
+  }
+  return true;
 }
 
 export function applyTick(

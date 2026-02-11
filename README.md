@@ -32,8 +32,8 @@ npm run dev
   - Direct skill training: jobs train crew skills with power-law diminishing returns (no XP intermediary)
   - Captain starts at zero skills; hired crew arrive with archetype-weighted starting skills (quality varies)
   - Skill 5 in ~5 real minutes, skill 50 in ~5 real days (captain at helm baseline)
-  - **3 skills** (Piloting, Mining, Commerce) with Melvor Idle-inspired mastery system
-  - **Three-layer progression**: Skill Level (gates access), Item Mastery (per-route/ore/trade efficiency), Mastery Pool (skill-wide checkpoint bonuses at 10/25/50/95%)
+  - **4 skills** (Piloting, Mining, Commerce, Repairs) with Melvor Idle-inspired mastery system
+  - **Three-layer progression**: Skill Level (gates access), Item Mastery (per-route/ore/trade/equipment efficiency), Mastery Pool (skill-wide checkpoint bonuses at 10/25/50/95%)
   - **10 named skill ranks** (Untrained → Master) with non-linear distribution for idle-game pacing
   - **Commerce skill** trained by captain/first officer completing trade routes — improves quest pay and fuel pricing
   - **Captain Command Bonus**: Captain's skills provide ship-wide multipliers — Commerce boosts income (+1% per skill point), Piloting improves evasion, Mining increases extraction. Acting captain fallback provides 25% bonus. Captain-only negotiation and rally defense bonus in combat. Fleet coordination aura: +10% income/training at same location, +5% one hop away. Captain's ship trains at 1.5× speed

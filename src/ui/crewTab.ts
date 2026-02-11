@@ -30,7 +30,10 @@ import {
 } from '../gravitySystem';
 import { TICKS_PER_DAY, formatDualTime, formatGameDate } from '../timeSystem';
 import { getEngineDefinition } from '../engines';
-import { getEquipmentDefinition } from '../equipment';
+import {
+  getEquipmentDefinition,
+  getAllEquipmentDefinitions,
+} from '../equipment';
 import { calculateTickTraining } from '../skillProgression';
 import { getCrewJobSlot, getJobSlotDefinition } from '../jobSlots';
 import {
@@ -46,6 +49,7 @@ import {
   ROUTE_MASTERY_BONUSES,
   ORE_MASTERY_BONUSES,
   TRADE_MASTERY_BONUSES,
+  EQUIPMENT_REPAIR_MASTERY_BONUSES,
   routeMasteryKey,
   tradeRouteMasteryKey,
 } from '../masterySystem';
@@ -82,6 +86,12 @@ function getMasteryItemLabel(
     const ore = getAllOreDefinitions().find((o) => o.id === itemId);
     return ore ? `${ore.icon} ${ore.name}` : itemId;
   }
+  if (skillId === 'repairs') {
+    const eqDef = getEquipmentDefinition(
+      itemId as import('../models').EquipmentId
+    );
+    return eqDef ? `${eqDef.icon} ${eqDef.name}` : itemId;
+  }
   const separator = skillId === 'piloting' ? '->' : '<=>';
   const parts = itemId.split(separator);
   if (parts.length === 2) {
@@ -97,6 +107,7 @@ function getMasteryItemLabel(
 function getBonusTable(skillId: SkillId): MasteryBonus[] {
   if (skillId === 'piloting') return ROUTE_MASTERY_BONUSES;
   if (skillId === 'mining') return ORE_MASTERY_BONUSES;
+  if (skillId === 'repairs') return EQUIPMENT_REPAIR_MASTERY_BONUSES;
   return TRADE_MASTERY_BONUSES;
 }
 
@@ -123,6 +134,7 @@ function getNextBonusLabel(
 function getMasteryItemTypeName(skillId: SkillId): string {
   if (skillId === 'piloting') return 'Routes';
   if (skillId === 'mining') return 'Ores';
+  if (skillId === 'repairs') return 'Equipment';
   return 'Trade Routes';
 }
 
@@ -181,10 +193,14 @@ function snapshotCrewProps(
     crewMastery: ship.crew
       .map((c) => {
         const m = c.mastery;
-        const poolSummary = (['piloting', 'mining', 'commerce'] as const)
+        const poolSummary = (
+          ['piloting', 'mining', 'commerce', 'repairs'] as const
+        )
           .map((s) => `${s}:${m[s].pool.xp}/${m[s].pool.maxXp}`)
           .join(',');
-        const itemCount = (['piloting', 'mining', 'commerce'] as const)
+        const itemCount = (
+          ['piloting', 'mining', 'commerce', 'repairs'] as const
+        )
           .map((s) => Object.keys(m[s].itemMasteries).length)
           .join(',');
         return `${c.id}:${poolSummary}|${itemCount}`;
@@ -667,6 +683,21 @@ function updateMasterySection(
         mastery,
         locked,
         lockReason: locked ? `Mining ${ore.miningLevelRequired}` : '',
+      });
+    }
+  } else if (skillId === 'repairs') {
+    // Show all degradable equipment types
+    const degradableEquipment = getAllEquipmentDefinitions().filter(
+      (d) => d.hasDegradation
+    );
+    for (const eqDef of degradableEquipment) {
+      const mastery = state.itemMasteries[eqDef.id] ?? null;
+      entries.push({
+        id: eqDef.id,
+        label: `${eqDef.icon} ${eqDef.name}`,
+        mastery,
+        locked: false,
+        lockReason: '',
       });
     }
   } else {
@@ -1335,7 +1366,7 @@ export function createCrewTab(
   skillsDiv.className = 'crew-skills';
 
   // Create 3 fixed skill rows + mastery sections
-  const coreSkillIds: SkillId[] = ['piloting', 'mining', 'commerce'];
+  const coreSkillIds: SkillId[] = ['piloting', 'mining', 'commerce', 'repairs'];
   const skillRowRefs: Record<SkillId, SkillRowRefs> = {} as Record<
     SkillId,
     SkillRowRefs

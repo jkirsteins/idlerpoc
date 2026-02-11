@@ -44,6 +44,13 @@ export const CREW_ROLE_DEFINITIONS: CrewRoleDefinition[] = [
     preferredRoom: 'bridge',
     salary: 0.1,
   },
+  {
+    role: 'engineer',
+    name: 'Engineer',
+    description: 'Maintains and repairs ship equipment and systems.',
+    preferredRoom: 'engine_room',
+    salary: 0.1,
+  },
 ];
 
 export function getCrewRoleDefinition(
@@ -64,12 +71,13 @@ const SKILL_TO_ROLE: Partial<Record<SkillId, CrewRole>> = {
   piloting: 'pilot',
   mining: 'miner',
   commerce: 'trader',
+  repairs: 'engineer',
 };
 
 /**
  * Priority order for tie-breaking when multiple skills are equal
  */
-const SKILL_PRIORITY: SkillId[] = ['piloting', 'mining', 'commerce'];
+const SKILL_PRIORITY: SkillId[] = ['piloting', 'mining', 'commerce', 'repairs'];
 
 /**
  * Deduce a crew member's role based on their highest skill.
@@ -108,6 +116,7 @@ const ARCHETYPE_SKILLS: Partial<
   pilot: { primary: 'piloting', secondary: 'commerce', tertiary: 'mining' },
   miner: { primary: 'mining', secondary: 'piloting', tertiary: 'commerce' },
   trader: { primary: 'commerce', secondary: 'piloting', tertiary: 'mining' },
+  engineer: { primary: 'repairs', secondary: 'piloting', tertiary: 'mining' },
 };
 
 /** Maximum primary skill a candidate can spawn with */
@@ -155,12 +164,12 @@ export function generateSkillsForRole(
   quality: number = 0
 ): CrewSkills {
   if (quality <= 0 || targetRole === 'captain') {
-    return { piloting: 0, mining: 0, commerce: 0 };
+    return { piloting: 0, mining: 0, commerce: 0, repairs: 0 };
   }
 
   const archetype = ARCHETYPE_SKILLS[targetRole];
   if (!archetype) {
-    return { piloting: 0, mining: 0, commerce: 0 };
+    return { piloting: 0, mining: 0, commerce: 0, repairs: 0 };
   }
 
   const primaryValue = quality * MAX_STARTING_PRIMARY_SKILL;
@@ -170,7 +179,12 @@ export function generateSkillsForRole(
   const secondaryValue = primaryValue * secondaryRatio;
   const tertiaryValue = primaryValue * Math.random() * TERTIARY_SKILL_MAX_RATIO;
 
-  const skills: CrewSkills = { piloting: 0, mining: 0, commerce: 0 };
+  const skills: CrewSkills = {
+    piloting: 0,
+    mining: 0,
+    commerce: 0,
+    repairs: 0,
+  };
   skills[archetype.primary] = Math.round(primaryValue * 10) / 10;
   skills[archetype.secondary] = Math.round(secondaryValue * 10) / 10;
   skills[archetype.tertiary] = Math.round(tertiaryValue * 10) / 10;
@@ -220,7 +234,8 @@ export function calculateHireCost(
   skills: CrewSkills,
   baseCost: number
 ): number {
-  const totalSkill = skills.piloting + skills.mining + skills.commerce;
+  const totalSkill =
+    skills.piloting + skills.mining + skills.commerce + skills.repairs;
   if (totalSkill <= 0) return baseCost;
   return (
     baseCost + Math.round(COST_SCALE * Math.pow(totalSkill, COST_EXPONENT))
@@ -233,7 +248,8 @@ export function calculateHireCost(
  * Locked at hire time — training after hiring does not increase wages.
  */
 export function calculateSalaryMultiplier(skills: CrewSkills): number {
-  const totalSkill = skills.piloting + skills.mining + skills.commerce;
+  const totalSkill =
+    skills.piloting + skills.mining + skills.commerce + skills.repairs;
   if (totalSkill <= 0) return 1.0;
   return (
     1.0 + SALARY_SCALE * Math.pow(totalSkill / SALARY_DIVISOR, SALARY_EXPONENT)
@@ -287,9 +303,10 @@ export function getBestCrewSkill(crew: CrewMember[], skillId: SkillId): number {
 
 /**
  * Calculate repair points per tick for a single crew member.
+ * Uses the repairs skill (not piloting). Higher repairs skill = faster repairs.
  * Used by both game logic (gameTick) and UI (shipTab).
  */
 export const REPAIR_SKILL_FACTOR = 0.05;
 export function calculateRepairPoints(crew: CrewMember): number {
-  return crew.skills.piloting * REPAIR_SKILL_FACTOR;
+  return crew.skills.repairs * REPAIR_SKILL_FACTOR;
 }

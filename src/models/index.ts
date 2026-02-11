@@ -1,4 +1,4 @@
-export type CrewRole = 'captain' | 'pilot' | 'miner' | 'trader';
+export type CrewRole = 'captain' | 'pilot' | 'miner' | 'trader' | 'engineer';
 
 export type RoomType =
   | 'bridge'
@@ -71,7 +71,7 @@ export type CrewEquipmentId =
   | 'armored_vest'
   | 'g_seat';
 
-export type SkillId = 'piloting' | 'mining' | 'commerce';
+export type SkillId = 'piloting' | 'mining' | 'commerce' | 'repairs';
 
 export type ShipClassTier = 'I' | 'II' | 'III' | 'IV' | 'V';
 
@@ -136,6 +136,7 @@ export interface CrewSkills {
   piloting: number; // 0-100
   mining: number; // 0-100
   commerce: number; // 0-100, trained by captain/first officer completing trade routes
+  repairs: number; // 0-100, trained by crew assigned to repair job slots
 }
 
 // ─── Ore & Mining Types ──────────────────────────────────────────

@@ -408,6 +408,7 @@ export function loadGame(): GameData | null {
     // Additive backfills (no version bump needed)
     backfillMiningData(migrated);
     backfillLedgerSnapshots(migrated);
+    backfillRepairsSkill(migrated);
 
     return migrated;
   } catch (e) {
@@ -544,6 +545,7 @@ export function importGame(json: string): GameData | null {
 
   backfillMiningData(migrated);
   backfillLedgerSnapshots(migrated);
+  backfillRepairsSkill(migrated);
 
   // Reset timestamp so the game doesn't try to catch up for offline time
   migrated.lastTickTimestamp = Date.now();
@@ -559,6 +561,53 @@ export function importGame(json: string): GameData | null {
 function backfillLedgerSnapshots(gameData: GameData): void {
   if (!gameData.dailyLedgerSnapshots) {
     gameData.dailyLedgerSnapshots = [];
+  }
+}
+
+/**
+ * Additive backfill for repairs skill.
+ * Adds repairs: 0 to skills and repairs mastery state to all crew.
+ * No version bump needed — additive with safe defaults.
+ */
+function backfillRepairsSkill(gameData: GameData): void {
+  function backfillCrew(crew: GameData['ships'][0]['crew'][0]): void {
+    // Backfill repairs skill (old saves won't have it)
+    if (crew.skills.repairs === undefined) {
+      // Safe mutation of deserialized JSON — the field simply doesn't exist yet
+      (crew.skills as unknown as Record<string, number>).repairs = 0;
+    }
+    // Backfill repairs mastery
+    if (!crew.mastery?.repairs) {
+      if (!crew.mastery) {
+        (crew as unknown as Record<string, unknown>).mastery = {};
+      }
+      (crew.mastery as unknown as Record<string, unknown>).repairs = {
+        itemMasteries: {},
+        pool: { xp: 0, maxXp: 0 },
+      };
+    }
+  }
+
+  for (const ship of gameData.ships) {
+    for (const crew of ship.crew) {
+      backfillCrew(crew);
+    }
+    // Backfill hireable crew too (stored on ship in older saves)
+    const rawShip = ship as unknown as Record<string, unknown>;
+    if (Array.isArray(rawShip.hireableCrew)) {
+      for (const crew of rawShip.hireableCrew as GameData['ships'][0]['crew']) {
+        backfillCrew(crew);
+      }
+    }
+  }
+
+  // Also backfill location-based hireable crew pools
+  if (gameData.hireableCrewByLocation) {
+    for (const crewList of Object.values(gameData.hireableCrewByLocation)) {
+      for (const crew of crewList) {
+        backfillCrew(crew);
+      }
+    }
   }
 }
 

@@ -267,14 +267,14 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
       {
         heading: 'Layer 1: Skill Level (0-99)',
         paragraphs: [
-          'The base skill level determines what you can do. Higher levels unlock new capabilities: better [[ship-classes|ship classes]] for piloting, rarer [[ore-types|ores]] for mining, and larger trade bonuses for [[commerce-skill|commerce]].',
+          'The base skill level determines what you can do. Higher levels unlock new capabilities: better [[ship-classes|ship classes]] for piloting, rarer [[ore-types|ores]] for mining, larger trade bonuses for [[commerce-skill|commerce]], and faster repair speed for repairs.',
           'Skill level trains passively through [[job-slots|job slot]] assignment during flight. Training uses diminishing returns — fast progress early, slow progress at high levels.',
         ],
       },
       {
         heading: 'Layer 2: Item Mastery (0-99 per item)',
         paragraphs: [
-          "Each skill has specific items that can be mastered individually. Mastery builds through repeated use and provides familiarity bonuses. Piloting route mastery XP is awarded to the helm crew on every flight arrival. Commerce trade route mastery XP is awarded to the ship's commanding officer on every completed trip.",
+          "Each skill has specific items that can be mastered individually. Mastery builds through repeated use and provides familiarity bonuses. Piloting route mastery XP is awarded to the helm crew on every flight arrival. Commerce trade route mastery XP is awarded to the ship's commanding officer on every completed trip. Repairs equipment mastery XP is earned by repairing specific equipment types.",
         ],
         table: {
           headers: ['Skill', 'Mastery Type', 'Effect'],
@@ -294,6 +294,11 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
               'Trade route mastery',
               'Better prices and payment bonuses on familiar trade routes',
             ],
+            [
+              '[[skill-system|Repairs]]',
+              'Equipment mastery',
+              'Faster repair speed for mastered [[ship-equipment|equipment]] types',
+            ],
           ],
         },
       },
@@ -304,21 +309,35 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
           'The mastery pool provides skill-wide bonuses at key checkpoints. Bonuses are specific to each skill:',
         ],
         table: {
-          headers: ['Checkpoint', 'Piloting', 'Mining', 'Commerce'],
+          headers: ['Checkpoint', 'Piloting', 'Mining', 'Commerce', 'Repairs'],
           rows: [
-            ['10%', '+5% mastery XP', '+5% mastery XP', '+5% mastery XP'],
-            ['25%', '-0.1s engine warmup', '+5% ore yield', '-5% crew salary'],
+            [
+              '10%',
+              '+5% mastery XP',
+              '+5% mastery XP',
+              '+5% mastery XP',
+              '+5% mastery XP',
+            ],
+            [
+              '25%',
+              '-0.1s engine warmup',
+              '+5% ore yield',
+              '-5% crew salary',
+              '+5% repair speed',
+            ],
             [
               '50%',
               '+5% fuel efficiency',
               '-10% equipment degradation',
               '+5% sell price',
+              '-10% air filter degradation',
             ],
             [
               '95%',
               '+10% evasion chance',
               '+10% double ore chance',
               '+10% contract payment',
+              '+10% bonus repair points',
             ],
           ],
         },
@@ -343,11 +362,11 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
     title: 'Skill System',
     category: 'Crew',
     summary:
-      'Three core skills with mastery layers, trained passively via job slot assignment.',
+      'Four core skills with mastery layers, trained passively via job slot assignment.',
     sections: [
       {
         paragraphs: [
-          'Every crew member has 3 skills on a 0-99 scale. Skills train passively through [[job-slots|job slot]] assignment during flight. Each skill feeds into the [[mastery-system|three-layer mastery system]] for deeper progression.',
+          'Every crew member has 4 skills on a 0-99 scale. Skills train passively through [[job-slots|job slot]] assignment during flight. Each skill feeds into the [[mastery-system|three-layer mastery system]] for deeper progression.',
         ],
       },
       {
@@ -373,6 +392,11 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
               '[[crew-roles|Trader]]',
               'Trade negotiations, route optimization, economic bonuses',
             ],
+            [
+              'Repairs',
+              '[[crew-roles|Engineer]]',
+              '[[ship-equipment|Equipment]] maintenance, repair speed, mastery of specific equipment types',
+            ],
           ],
         },
       },
@@ -387,7 +411,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
       {
         heading: 'Mastery Layers',
         paragraphs: [
-          'Beyond the base skill level, each skill has [[mastery-system|item mastery]] and a mastery pool that provide additional bonuses. Route mastery for piloting, ore mastery for mining, and trade route mastery for commerce all reward repeated engagement with specific content.',
+          'Beyond the base skill level, each skill has [[mastery-system|item mastery]] and a mastery pool that provide additional bonuses. Route mastery for piloting, ore mastery for mining, trade route mastery for commerce, and equipment mastery for repairs all reward repeated engagement with specific content.',
         ],
       },
       {
@@ -538,13 +562,18 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
               'Trader',
               'Trade negotiations and route optimization',
             ],
+            [
+              '[[skill-system|Repairs]]',
+              'Engineer',
+              '[[ship-equipment|Equipment]] maintenance and repair',
+            ],
           ],
         },
       },
       {
         heading: 'Role Priority',
         paragraphs: [
-          'When skills are tied, roles are assigned in priority order: Piloting > Mining > Commerce.',
+          'When skills are tied, roles are assigned in priority order: Piloting > Mining > Commerce > Repairs.',
           'Crew can transition roles over time as they develop different [[skill-system|skills]] through [[job-slots|job training]], though this is uncommon.',
         ],
       },
@@ -579,7 +608,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
       {
         heading: 'Archetypes & Skills',
         paragraphs: [
-          'Every candidate has a [[crew-roles|role]] archetype — [[crew-roles|Pilot]], [[crew-roles|Miner]], or [[crew-roles|Trader]] — that determines their [[skill-system|skill]] distribution. A pilot has strong piloting with some commerce; a miner has strong mining with some piloting; a trader has strong commerce with some piloting.',
+          'Every candidate has a [[crew-roles|role]] archetype — [[crew-roles|Pilot]], [[crew-roles|Miner]], [[crew-roles|Trader]], or [[crew-roles|Engineer]] — that determines their [[skill-system|skill]] distribution. A pilot has strong piloting with some commerce; a miner has strong mining with some piloting; a trader has strong commerce with some piloting; an engineer has strong repairs with some piloting.',
           'Candidate quality varies widely. Most candidates are green recruits with low skills, but occasionally a seasoned veteran will appear. Larger stations attract slightly better candidates on average.',
         ],
       },
