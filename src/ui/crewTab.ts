@@ -1000,7 +1000,6 @@ export function createCrewTab(
   transferSection.style.border = '1px solid #4a9eff';
   transferSection.style.borderRadius = '4px';
   transferSection.style.marginBottom = '1rem';
-  transferSection.style.display = 'none';
 
   const transferTitle = document.createElement('div');
   transferTitle.textContent = 'Transfer Crew';
@@ -1515,15 +1514,28 @@ export function createCrewTab(
     }
     detailRole.textContent = crew.role.replace('_', ' ').toUpperCase();
 
-    // ── Transfer section ──
-    const showTransfer =
-      !crew.isCaptain &&
-      ship.location.status === 'docked' &&
-      gameData.ships.length > 1;
+    // ── Transfer section (always visible, shows context messages) ──
+    transferSection.style.display = '';
 
-    transferSection.style.display = showTransfer ? '' : 'none';
-
-    if (showTransfer) {
+    if (crew.isCaptain) {
+      transferNoShipsMsg.textContent = 'Captains cannot be transferred.';
+      transferNoShipsMsg.style.display = '';
+      transferControls.style.display = 'none';
+      transferSection.style.opacity = '0.4';
+    } else if (gameData.ships.length <= 1) {
+      transferNoShipsMsg.textContent =
+        'Acquire additional ships to transfer crew between them.';
+      transferNoShipsMsg.style.display = '';
+      transferControls.style.display = 'none';
+      transferSection.style.opacity = '0.4';
+    } else if (ship.location.status !== 'docked') {
+      transferNoShipsMsg.textContent =
+        'Dock at a station to transfer crew between ships.';
+      transferNoShipsMsg.style.display = '';
+      transferControls.style.display = 'none';
+      transferSection.style.opacity = '0.4';
+    } else {
+      transferSection.style.opacity = '';
       const dockedLocationId = ship.location.dockedAt;
       const otherDockedShips = gameData.ships.filter(
         (s) =>
@@ -1533,6 +1545,8 @@ export function createCrewTab(
       );
 
       if (otherDockedShips.length === 0) {
+        transferNoShipsMsg.textContent =
+          'No other ships docked at this station.';
         transferNoShipsMsg.style.display = '';
         transferControls.style.display = 'none';
       } else {

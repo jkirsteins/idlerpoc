@@ -160,9 +160,8 @@ export function createFleetTab(
       });
       if (needsAttention.length > 0) {
         swapSlot(attentionSlot, renderNeedsAttentionQueue(needsAttention));
-        attentionSlot.style.display = '';
       } else {
-        attentionSlot.style.display = 'none';
+        swapSlot(attentionSlot, renderAllShipsOperational());
       }
 
       swapSlot(
@@ -534,6 +533,28 @@ function renderFleetPerformanceDashboard(gameData: GameData): HTMLElement {
   dashboardContent.appendChild(utilizationRow);
 
   section.appendChild(dashboardContent);
+  return section;
+}
+
+/**
+ * Render "All ships operational" neutral state for the attention slot.
+ */
+function renderAllShipsOperational(): HTMLElement {
+  const section = document.createElement('div');
+  section.className = 'needs-attention-queue';
+  section.style.marginBottom = '1.5rem';
+  section.style.padding = '1rem';
+  section.style.background = 'rgba(74, 158, 255, 0.05)';
+  section.style.border = '1px solid #444';
+  section.style.borderRadius = '4px';
+  section.style.opacity = '0.6';
+
+  const title = document.createElement('h3');
+  title.textContent = 'Fleet Status: All Ships Operational';
+  title.style.color = '#aaa';
+  title.style.fontSize = '0.9rem';
+  section.appendChild(title);
+
   return section;
 }
 

@@ -896,20 +896,22 @@ export function createStationTab(
 
     // Current installed section
     if (currentMiningEquip) {
-      shipEquipCurrentSection.style.display = '';
       shipEquipCurrentName.textContent = `${currentMiningEquip.icon} ${currentMiningEquip.name} (${currentMiningEquip.miningRate}x rate)`;
+      shipEquipCurrentSection.style.opacity = '';
     } else {
-      shipEquipCurrentSection.style.display = 'none';
+      shipEquipCurrentName.textContent = 'None installed';
+      shipEquipCurrentSection.style.opacity = '0.4';
     }
 
-    // No mining bay message
+    // No mining bay message (shown alongside items, not instead of)
     if (!hasMiningBay) {
       noMiningBayMessage.style.display = '';
-      miningItemsContainer.style.display = 'none';
-      return;
+      miningItemsContainer.style.opacity = '0.3';
+      miningItemsContainer.style.pointerEvents = 'none';
     } else {
       noMiningBayMessage.style.display = 'none';
-      miningItemsContainer.style.display = '';
+      miningItemsContainer.style.opacity = '';
+      miningItemsContainer.style.pointerEvents = '';
     }
 
     // Update each mining equipment row

@@ -294,15 +294,18 @@ export function createSettingsTab(
       const progress = (ltc / threshold) * 100;
       progressFill.style.width = `${Math.min(100, progress)}%`;
 
-      unlockRow.style.display = '';
-      progressBar.style.display = '';
+      unlockRow.style.opacity = '';
+      progressBar.style.opacity = '';
     } else {
       if (prevUnlockShipName !== '' || prevUnlockThreshold !== -1) {
+        unlockLabel.textContent = 'Ship Unlocks:';
         prevUnlockShipName = '';
         prevUnlockThreshold = -1;
       }
-      unlockRow.style.display = 'none';
-      progressBar.style.display = 'none';
+      unlockValue.textContent = 'All ships unlocked!';
+      progressFill.style.width = '100%';
+      unlockRow.style.opacity = '0.4';
+      progressBar.style.opacity = '0.4';
     }
 
     // Encounter stats
