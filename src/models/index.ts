@@ -235,6 +235,7 @@ export interface CrewMember {
   equipment: CrewEquipmentInstance[];
   unpaidTicks: number; // Accumulated ticks of unpaid salary
   hireCost: number; // Cost to hire this crew member (reference)
+  salaryMultiplier: number; // 1.0 = base salary; higher for skilled hires
   zeroGExposure: number; // cumulative game-seconds in zero-g
   specialization?: SkillSpecialization; // locked-in skill specialization
   mastery: Record<SkillId, SkillMasteryState>; // per-skill mastery state

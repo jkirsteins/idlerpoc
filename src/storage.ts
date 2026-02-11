@@ -13,7 +13,7 @@ const BACKUP_KEY = 'spaceship_game_data_backup';
  *
  * See docs/save-migration.md for the full migration architecture.
  */
-export const CURRENT_SAVE_VERSION = 3;
+export const CURRENT_SAVE_VERSION = 4;
 
 /** Whether the last save attempt failed (used for UI warnings). */
 let _lastSaveFailed = false;
@@ -254,6 +254,44 @@ const migrations: Record<number, MigrationFn> = {
     }
 
     data.saveVersion = 3;
+    return data;
+  },
+
+  /**
+   * v3 → v4: Crew salary multiplier for skill-based hiring costs.
+   * - Add salaryMultiplier to all crew (1.0 = base rate for existing crew)
+   * - Existing hired crew keep 1.0 (they were hired under the old flat rate)
+   */
+  3: (data: RawSave): RawSave => {
+    const ships = data.ships as Array<Record<string, unknown>> | undefined;
+    if (ships) {
+      for (const ship of ships) {
+        const crew = ship.crew as Array<Record<string, unknown>> | undefined;
+        if (crew) {
+          for (const member of crew) {
+            if (member.salaryMultiplier === undefined) {
+              member.salaryMultiplier = 1.0;
+            }
+          }
+        }
+      }
+    }
+
+    // Also backfill hireable crew pools
+    const pools = data.hireableCrewByLocation as
+      | Record<string, Array<Record<string, unknown>>>
+      | undefined;
+    if (pools) {
+      for (const locationId of Object.keys(pools)) {
+        for (const member of pools[locationId]) {
+          if (member.salaryMultiplier === undefined) {
+            member.salaryMultiplier = 1.0;
+          }
+        }
+      }
+    }
+
+    data.saveVersion = 4;
     return data;
   },
 };

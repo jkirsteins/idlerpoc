@@ -15,9 +15,9 @@ import type { TabbedViewCallbacks } from './types';
 import { getCrewEquipmentDefinition } from '../crewEquipment';
 import { getLevelForXP } from '../levelSystem';
 import {
-  getCrewRoleDefinition,
   getCrewRoleName,
   getPrimarySkillForRole,
+  getCrewSalaryPerTick,
 } from '../crewRoles';
 import {
   getGravityDegradationLevel,
@@ -1619,12 +1619,7 @@ export function createCrewTab(
     // ── Transfer section (always visible, shows context messages) ──
     transferSection.style.display = '';
 
-    if (crew.isCaptain) {
-      transferNoShipsMsg.textContent = 'Captains cannot be transferred.';
-      transferNoShipsMsg.style.display = '';
-      transferControls.style.display = 'none';
-      transferSection.style.opacity = '0.4';
-    } else if (gameData.ships.length <= 1) {
+    if (gameData.ships.length <= 1) {
       transferNoShipsMsg.textContent =
         'Acquire additional ships to transfer crew between them.';
       transferNoShipsMsg.style.display = '';
@@ -1664,13 +1659,13 @@ export function createCrewTab(
     healthValue.textContent = `${crew.health}/100`;
     attackValue.textContent = `${calculateAttackScore(crew)}`;
 
-    const roleDef = getCrewRoleDefinition(crew.role);
-    if (roleDef) {
+    const crewSalaryPerTick = getCrewSalaryPerTick(crew);
+    if (crewSalaryPerTick > 0) {
       salaryRow.style.display = '';
-      salaryValue.textContent =
-        roleDef.salary > 0
-          ? `${(roleDef.salary * TICKS_PER_DAY).toFixed(0)} cr/day`
-          : 'None (Captain)';
+      salaryValue.textContent = `${(crewSalaryPerTick * TICKS_PER_DAY).toFixed(0)} cr/day`;
+    } else if (crew.isCaptain) {
+      salaryRow.style.display = '';
+      salaryValue.textContent = 'None (Captain)';
     } else {
       salaryRow.style.display = 'none';
     }

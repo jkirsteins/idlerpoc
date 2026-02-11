@@ -28,8 +28,9 @@ import { getOreDefinition } from '../oreTypes';
 import { getOreSellPrice } from '../miningSystem';
 import { formatFuelMass, calculateFuelPercentage } from './fuelFormatting';
 import { getFuelPricePerKg } from './refuelDialog';
-import { getCrewRoleDefinition } from '../crewRoles';
-import { GAME_SECONDS_PER_DAY } from '../timeSystem';
+import { getCrewRoleDefinition, getCrewSalaryPerTick } from '../crewRoles';
+import { getSkillRank } from '../skillRanks';
+import { GAME_SECONDS_PER_DAY, TICKS_PER_DAY } from '../timeSystem';
 
 // ═══════════════════════════════════════════════════════════
 // FLAVOR TEXT
@@ -1099,23 +1100,45 @@ export function createStationTab(
   ): void {
     refs.nameDiv.textContent = candidate.name;
 
+    // Show role with primary skill rank (e.g. "Pilot · Novice Piloting")
     const roleDef = getCrewRoleDefinition(candidate.role);
-    refs.roleDiv.textContent = `${roleDef?.name ?? candidate.role} · Level ${candidate.level}`;
+    const roleName = roleDef?.name ?? candidate.role;
+    const primarySkillId =
+      candidate.role === 'pilot'
+        ? 'piloting'
+        : candidate.role === 'miner'
+          ? 'mining'
+          : 'commerce';
+    const primaryValue = candidate.skills[primarySkillId];
+    const rank = getSkillRank(primaryValue);
+    refs.roleDiv.textContent =
+      primaryValue > 0
+        ? `${roleName} · ${rank.name} ${primarySkillId}`
+        : `${roleName} · Untrained`;
 
+    // Show all non-zero skills with values
+    const SKILL_LABELS: Record<string, string> = {
+      piloting: 'Pilot',
+      mining: 'Mining',
+      commerce: 'Commerce',
+    };
     const skillParts: string[] = [];
     for (const skillId of ['piloting', 'mining', 'commerce'] as const) {
       const value = candidate.skills[skillId];
       if (value > 0) {
-        skillParts.push(`${skillId} ${Math.floor(value)}`);
+        skillParts.push(`${SKILL_LABELS[skillId]} ${Math.floor(value)}`);
       }
     }
     refs.skillsDiv.textContent =
-      skillParts.length > 0 ? skillParts.join(' · ') : 'Untrained';
+      skillParts.length > 0 ? skillParts.join(' · ') : 'No experience';
 
-    refs.costLabel.textContent = `${candidate.hireCost} cr`;
+    refs.costLabel.textContent = `Hire: ${candidate.hireCost.toLocaleString()} cr`;
 
-    if (roleDef) {
-      refs.salaryLabel.textContent = `Salary: ${roleDef.salary} cr/day`;
+    // Show per-crew salary (not flat per-role) in daily amount
+    const salaryPerTick = getCrewSalaryPerTick(candidate);
+    const salaryPerDay = salaryPerTick * TICKS_PER_DAY;
+    if (salaryPerDay > 0) {
+      refs.salaryLabel.textContent = `Salary: ${salaryPerDay.toFixed(0)} cr/day`;
       refs.salaryLabel.style.display = '';
     } else {
       refs.salaryLabel.style.display = 'none';
