@@ -13,7 +13,11 @@ import { canShipAccessLocation } from '../worldGen';
 import type { TabbedViewCallbacks } from './types';
 import { getCrewEquipmentDefinition } from '../crewEquipment';
 import { getLevelForXP } from '../levelSystem';
-import { getCrewRoleDefinition } from '../crewRoles';
+import {
+  getCrewRoleDefinition,
+  getCrewRoleName,
+  getPrimarySkillForRole,
+} from '../crewRoles';
 import {
   getGravityDegradationLevel,
   getStrengthMultiplier,
@@ -23,7 +27,7 @@ import {
   getNextThreshold,
   estimateRecoveryTime,
 } from '../gravitySystem';
-import { TICKS_PER_DAY, formatDualTime } from '../timeSystem';
+import { TICKS_PER_DAY, formatDualTime, formatGameDate } from '../timeSystem';
 import { getEngineDefinition } from '../engines';
 import { getEquipmentDefinition } from '../equipment';
 import { calculateTickTraining } from '../skillProgression';
@@ -63,10 +67,11 @@ function snapshotCrewProps(
     credits: gameData.credits,
     shipsCount: gameData.ships.length,
     // Crew roster identity + all rendered fields
+    gameTime: gameData.gameTime,
     crew: ship.crew
       .map(
         (c) =>
-          `${c.id},${c.health},${c.morale},${c.level},${c.xp},${c.unpaidTicks},${c.zeroGExposure},${c.equipment.length}`
+          `${c.id},${c.health},${c.morale},${c.level},${c.xp},${c.unpaidTicks},${c.zeroGExposure},${c.equipment.length},${c.hiredAt},${c.boardedShipAt}`
       )
       .join(';'),
     crewSkills: ship.crew
@@ -203,7 +208,16 @@ function renderCrewList(
 
     const roleDiv = document.createElement('div');
     roleDiv.className = 'crew-list-role';
-    roleDiv.textContent = crew.role.replace('_', ' ');
+    if (crew.isCaptain) {
+      roleDiv.textContent = 'Owner-Operator';
+    } else {
+      const primarySkill = getPrimarySkillForRole(crew.role);
+      const rankName = primarySkill
+        ? getSkillRank(Math.floor(crew.skills[primarySkill])).name
+        : '';
+      const roleName = getCrewRoleName(crew.role);
+      roleDiv.textContent = rankName ? `${rankName} ${roleName}` : roleName;
+    }
     item.appendChild(roleDiv);
 
     const levelDiv = document.createElement('div');
@@ -263,6 +277,81 @@ function calculateAttackScore(crew: CrewMember): number {
   return attack;
 }
 
+function renderServiceRecord(
+  gameData: GameData,
+  crew: CrewMember,
+  ship: Ship
+): HTMLElement {
+  const section = document.createElement('div');
+  section.className = 'crew-service-record';
+  section.style.padding = '0.75rem';
+  section.style.marginBottom = '1rem';
+  section.style.background = 'rgba(255,255,255,0.03)';
+  section.style.border = '1px solid rgba(255,255,255,0.08)';
+  section.style.borderRadius = '4px';
+  section.style.fontSize = '0.9rem';
+  section.style.lineHeight = '1.6';
+  section.style.color = '#aaa';
+
+  // Current assignment line
+  const assignmentLine = document.createElement('div');
+  const jobSlot = getCrewJobSlot(ship, crew.id);
+  if (jobSlot) {
+    const jobDef = getJobSlotDefinition(jobSlot.type);
+    const jobName = jobDef?.name ?? jobSlot.type;
+    assignmentLine.textContent = `Assigned to ${jobName} aboard ${ship.name}`;
+  } else if (ship.location.status === 'docked') {
+    assignmentLine.textContent = `Stationed aboard ${ship.name}`;
+  } else {
+    assignmentLine.textContent = `Aboard ${ship.name}`;
+  }
+  assignmentLine.style.color = '#ccc';
+  section.appendChild(assignmentLine);
+
+  // Ship tenure line
+  const shipTenure = gameData.gameTime - crew.boardedShipAt;
+  const shipTenureLine = document.createElement('div');
+  if (shipTenure > 0) {
+    shipTenureLine.textContent = `Aboard since ${formatGameDate(crew.boardedShipAt)} — ${formatDualTime(shipTenure)}`;
+  } else {
+    shipTenureLine.textContent = `Aboard since ${formatGameDate(crew.boardedShipAt)}`;
+  }
+  section.appendChild(shipTenureLine);
+
+  // Company tenure line (only if different from ship tenure)
+  const companyTenure = gameData.gameTime - crew.hiredAt;
+  if (crew.hiredAt !== crew.boardedShipAt) {
+    const companyLine = document.createElement('div');
+    if (companyTenure > 0) {
+      companyLine.textContent = `With the company since ${formatGameDate(crew.hiredAt)} — ${formatDualTime(companyTenure)}`;
+    } else {
+      companyLine.textContent = `With the company since ${formatGameDate(crew.hiredAt)}`;
+    }
+    section.appendChild(companyLine);
+  }
+
+  // Recruitment origin
+  if (crew.isCaptain) {
+    const originLine = document.createElement('div');
+    originLine.style.fontStyle = 'italic';
+    originLine.style.color = '#888';
+    originLine.textContent = 'Company founder';
+    section.appendChild(originLine);
+  } else if (crew.hiredLocation) {
+    const location = gameData.world.locations.find(
+      (l) => l.id === crew.hiredLocation
+    );
+    if (location) {
+      const originLine = document.createElement('div');
+      originLine.style.color = '#888';
+      originLine.textContent = `Recruited at ${location.name}`;
+      section.appendChild(originLine);
+    }
+  }
+
+  return section;
+}
+
 function renderCrewDetail(
   gameData: GameData,
   crew: CrewMember,
@@ -288,13 +377,28 @@ function renderCrewDetail(
 
   const role = document.createElement('div');
   role.className = 'crew-detail-role';
-  role.textContent = crew.role.replace('_', ' ').toUpperCase();
+  // Show ranked title: e.g. "COMPETENT PILOT" or "OWNER-OPERATOR"
+  if (crew.isCaptain) {
+    role.textContent = 'OWNER-OPERATOR';
+  } else {
+    const primarySkill = getPrimarySkillForRole(crew.role);
+    const rankName = primarySkill
+      ? getSkillRank(Math.floor(crew.skills[primarySkill])).name
+      : '';
+    const roleName = getCrewRoleName(crew.role);
+    role.textContent = rankName
+      ? `${rankName} ${roleName}`.toUpperCase()
+      : roleName.toUpperCase();
+  }
   header.appendChild(role);
 
   panel.appendChild(header);
 
-  // Transfer crew option (when docked with multiple ships)
+  // Service record section
   const ship = getActiveShip(gameData);
+  panel.appendChild(renderServiceRecord(gameData, crew, ship));
+
+  // Transfer crew option (when docked with multiple ships)
   if (
     !crew.isCaptain &&
     ship.location.status === 'docked' &&

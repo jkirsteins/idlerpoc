@@ -512,7 +512,12 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
         ],
       },
     ],
-    relatedArticles: ['skill-system', 'job-slots', 'crew-hiring'],
+    relatedArticles: [
+      'skill-system',
+      'job-slots',
+      'crew-hiring',
+      'crew-profiles',
+    ],
   },
 
   {
@@ -557,6 +562,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
     relatedArticles: [
       'crew-roles',
       'crew-salaries',
+      'crew-profiles',
       'credits-economy',
       'station-services',
     ],
@@ -600,6 +606,36 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
       'crew-hiring',
       'contracts',
     ],
+  },
+
+  {
+    id: 'crew-profiles',
+    title: 'Crew Profiles',
+    category: 'Crew',
+    summary:
+      'Service records, ranked titles, and biographical information for each crew member.',
+    sections: [
+      {
+        paragraphs: [
+          'Each crew member has a service record that tracks their history with the company. Open the Crew tab and select a crew member to view their profile.',
+        ],
+      },
+      {
+        heading: 'Ranked Title',
+        paragraphs: [
+          'A crew member\'s title combines their [[skill-system|skill rank]] with their [[crew-roles|role]]. For example, a pilot with Competent-level piloting is titled "Competent Pilot". Titles update automatically as skills improve through [[job-slots|job training]].',
+          'The captain is always shown as "Owner-Operator" regardless of skill level.',
+        ],
+      },
+      {
+        heading: 'Service Record',
+        paragraphs: [
+          "The service record shows the crew member's current [[job-slots|job assignment]], how long they have been aboard their current ship, and their total time with the company.",
+          'When crew are [[crew-hiring|hired]], the recruitment location is recorded. Transferring crew between ships updates their ship tenure while preserving their company tenure.',
+        ],
+      },
+    ],
+    relatedArticles: ['crew-roles', 'crew-hiring', 'skill-system', 'job-slots'],
   },
 
   {

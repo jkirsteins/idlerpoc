@@ -238,6 +238,9 @@ export interface CrewMember {
   zeroGExposure: number; // cumulative game-seconds in zero-g
   specialization?: SkillSpecialization; // locked-in skill specialization
   mastery: Record<SkillId, SkillMasteryState>; // per-skill mastery state
+  hiredAt: number; // gameTime when hired (0 = game start / captain)
+  boardedShipAt: number; // gameTime when joined current ship
+  hiredLocation?: string; // location ID where recruited (undefined for captain)
 }
 
 export interface Room {
