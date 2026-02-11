@@ -559,10 +559,6 @@ export function completeLeg(gameData: GameData, ship: Ship): void {
   // ── Inbound leg ────────────────────────────────────────────────
   activeContract.tripsCompleted++;
 
-  if (quest.type === 'supply') {
-    activeContract.cargoDelivered += quest.cargoRequired;
-  }
-
   if (quest.paymentPerTrip > 0) {
     activeContract.creditsEarned += quest.paymentPerTrip;
     addCredits(gameData, quest.paymentPerTrip);
@@ -593,10 +589,8 @@ export function completeLeg(gameData: GameData, ship: Ship): void {
   awardCommerceRouteMastery(gameData, ship, quest.origin, quest.destination);
 
   const isComplete =
-    (quest.tripsRequired > 0 &&
-      activeContract.tripsCompleted >= quest.tripsRequired) ||
-    (quest.type === 'supply' &&
-      activeContract.cargoDelivered >= quest.totalCargoRequired);
+    quest.tripsRequired > 0 &&
+    activeContract.tripsCompleted >= quest.tripsRequired;
 
   if (isComplete) {
     if (quest.paymentOnCompletion > 0) {

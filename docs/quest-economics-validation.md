@@ -511,9 +511,11 @@ if (route includes refueling stop at hub station) {
 }
 ```
 
-### 3. Standing Freight Removed
+### 3. Standing Freight & Supply Removed
 
-Standing freight was removed as a quest type — it was redundant with trade routes (both were infinite, automatable routes). Trade routes alone now fill the "passive income" role at 120% cost floor. See `docs/quest-reward-balancing.md` for the active vs passive income design.
+Standing freight was removed as a quest type — it was redundant with trade routes (both were infinite, automatable routes). Trade routes alone now fill the "passive income" role at 120% cost floor.
+
+Supply contracts were merged into freight — both were multi-trip cargo hauling contracts occupying the same attention tier. Supply's lump-sum risk model didn't create meaningfully different player decisions vs freight's per-trip payment. Freight now covers 2-7 trips at 1.25x multiplier with per-trip payment, combining the best of both. See `docs/quest-reward-balancing.md` for the active vs passive income design.
 
 ### 4. Fusion Ship Short-Route Inefficiency
 

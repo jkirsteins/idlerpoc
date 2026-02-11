@@ -147,18 +147,18 @@ Mining equipment goes in crew equipment slots. The miner must have the equipment
 
 Commerce level determines what trade contracts you can access and economic bonuses.
 
-| Level | Unlock                                             |
-| ----- | -------------------------------------------------- |
-| 0     | Basic delivery contracts                           |
-| 10    | Freight contracts                                  |
-| 15    | Passenger contracts                                |
-| 25    | +5% quest payment, -5% fuel cost, Supply contracts |
-| 35    | Trade route automation                             |
-| 50    | +10% quest payment, -10% fuel cost                 |
-| 65    | Premium contracts (higher pay, longer routes)      |
-| 75    | +15% quest payment, -15% fuel cost                 |
-| 85    | Exclusive trade routes (highest-value routes)      |
-| 95    | +20% quest payment, -20% fuel cost                 |
+| Level | Unlock                                        |
+| ----- | --------------------------------------------- |
+| 0     | Basic delivery contracts                      |
+| 10    | Freight contracts                             |
+| 15    | Passenger contracts                           |
+| 25    | +5% quest payment, -5% fuel cost              |
+| 35    | Trade route automation                        |
+| 50    | +10% quest payment, -10% fuel cost            |
+| 65    | Premium contracts (higher pay, longer routes) |
+| 75    | +15% quest payment, -15% fuel cost            |
+| 85    | Exclusive trade routes (highest-value routes) |
+| 95    | +20% quest payment, -20% fuel cost            |
 
 ### Per-Item Mastery: Trade Route Knowledge
 

@@ -320,12 +320,7 @@ export interface Ship {
   flightProfileBurnFraction: number; // 0.1-1.0: per-ship flight profile setting (1.0 = max speed, lower = more coasting, less fuel)
 }
 
-export type QuestType =
-  | 'delivery'
-  | 'passenger'
-  | 'freight'
-  | 'supply'
-  | 'trade_route';
+export type QuestType = 'delivery' | 'passenger' | 'freight' | 'trade_route';
 
 export interface Quest {
   id: string;
@@ -335,7 +330,7 @@ export interface Quest {
   origin: string;
   destination: string;
   cargoRequired: number; // kg per trip (0 for passenger)
-  totalCargoRequired: number; // for supply contracts (0 otherwise)
+  totalCargoRequired: number; // unused legacy field, always 0
   tripsRequired: number; // 1 for one-off, N for freight, -1 for indefinite
   paymentPerTrip: number; // credits (0 if lump sum only)
   paymentOnCompletion: number; // credits (0 if per-trip only)
@@ -347,7 +342,7 @@ export interface Quest {
 export interface ActiveContract {
   quest: Quest; // snapshot
   tripsCompleted: number;
-  cargoDelivered: number; // for supply contracts
+  cargoDelivered: number; // unused legacy field, always 0
   creditsEarned: number; // running total
   leg: 'outbound' | 'inbound';
   paused: boolean; // docked mid-contract

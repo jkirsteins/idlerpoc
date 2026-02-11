@@ -101,7 +101,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
       {
         heading: 'Income Sources',
         paragraphs: [
-          '[[contracts|Contracts]]: Delivery, passenger, freight, and supply contracts pay upon completion or per trip. Active contracts with deadlines pay significantly more than passive trade routes.',
+          '[[contracts|Contracts]]: Delivery, passenger, and freight contracts pay upon completion or per trip. Active contracts with deadlines pay significantly more than passive trade routes.',
           '[[contracts|Trade routes]] provide reliable recurring income between trading stations. Lower pay per trip but permanent and fully automatable.',
           '[[mining-system|Mining]]: Extract ore at mining locations and sell at stations with trade services.',
           '[[encounters|Combat]] victories occasionally yield bounty payments.',
@@ -214,8 +214,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
           "Finite contracts pay significantly more than automated trade routes — the reward for paying attention. Each accepted contract has a deadline: if you don't complete it in time, it expires and you lose the remaining payout (but keep any per-trip credits earned).",
           'Passenger: Ferry passengers between locations. Highest pay of any contract type but tightest deadline (3 days). Requires crew quarters.',
           'Delivery: Transport specific cargo to a destination. High one-time payment on completion. 7-day deadline.',
-          'Supply: Deliver large quantities of materials over multiple trips. Very high lump-sum payment on completion. 30-day deadline.',
-          'Freight: Haul bulk goods over multiple trips. Good per-trip pay with a 14-day deadline.',
+          'Freight: Haul bulk goods over multiple trips (2-7 round trips). Good per-trip pay with a 14-day deadline. Credits earned from completed trips are kept even if the contract expires.',
         ],
       },
       {
@@ -230,7 +229,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
         heading: 'Cargo Scaling & Ship Progression',
         paragraphs: [
           "All cargo-hauling contracts scale the load with your [[ship-classes|ship's]] available cargo hold. Bigger ships fill their holds more per trip, earning proportionally more through cargo premiums. Upgrading to a larger ship class immediately increases income on all contracts and trade routes.",
-          'For multi-trip contracts that pay a lump sum on completion (such as supply contracts), the quest card shows the per-trip credit equivalent so you can compare profitability at a glance.',
+          'Quest cards show payment per trip, estimated fuel cost, and projected profit so you can compare profitability at a glance.',
         ],
       },
       {
