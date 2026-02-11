@@ -570,22 +570,23 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
       {
         heading: 'Hiring Cost',
         paragraphs: [
-          "Hire cost scales with the candidate's total skill level: 500 cr base + 50 cr per skill point. A green recruit with no skills costs 500 cr, while a veteran with 30 total skill points costs around 2,000 cr.",
+          "Hire cost scales polynomially with total skill — green recruits are cheap, but veterans and elite specialists demand real investment comparable to one or more trip's profit.",
         ],
         table: {
           headers: ['Candidate Type', 'Typical Skills', 'Approximate Cost'],
           rows: [
-            ['Green recruit', '0-5 total', '500-750 cr'],
-            ['Seasoned crew', '10-20 total', '1,000-1,500 cr'],
-            ['Veteran', '20-35 total', '1,500-2,250 cr'],
-            ['Elite specialist', '35-50 total', '2,250-3,000 cr'],
+            ['Green recruit', '0-5 total', '500-830 cr'],
+            ['Seasoned crew', '10-15 total', '1,800-3,100 cr'],
+            ['Veteran', '25-35 total', '7,000-13,500 cr'],
+            ['Elite specialist', '40-50 total', '16,000-24,000 cr'],
           ],
         },
       },
       {
         heading: 'Salary Scaling',
         paragraphs: [
-          'More skilled candidates demand higher [[crew-salaries|salaries]]. The salary multiplier is locked in at hire time — training crew after hiring does not increase their wage. This makes hiring cheap recruits and training them a cost-effective long-term strategy, while hiring pre-skilled veterans provides immediate capability at ongoing expense.',
+          'More skilled candidates demand significantly higher [[crew-salaries|salaries]]. A green recruit costs the base rate (48 cr/day), while a veteran might demand 150-250 cr/day. The salary multiplier is locked at hire time — training crew after hiring does not increase their wage.',
+          'This creates a core decision: hire cheap recruits and train them over days of real time (cost-effective but slow), or invest heavily in pre-skilled veterans for immediate capability at ongoing expense.',
         ],
       },
       {
@@ -633,8 +634,8 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
       {
         heading: 'Skill-Based Salary Scaling',
         paragraphs: [
-          "More skilled crew command higher wages. When [[crew-hiring|hired]], each crew member's salary multiplier is set based on their starting skills. A green recruit with no skills costs the base rate (48 cr/day), while a veteran with 30 total skill points costs around 70 cr/day.",
-          'The salary multiplier is locked in at hire time — training crew after hiring does not increase their wage. Hiring cheap recruits and training them is a cost-effective long-term strategy.',
+          "More skilled crew command significantly higher wages. When [[crew-hiring|hired]], each crew member's salary multiplier is set based on their starting skills. A green recruit costs the base rate (48 cr/day), while a veteran with 30 total skill points demands around 186 cr/day — nearly 4x the base rate.",
+          'The salary multiplier is locked at hire time — training crew after hiring does not increase their wage. A ship crewed with veterans can cost 500+ cr/day in salaries alone, making crew composition a serious economic decision.',
         ],
       },
       {

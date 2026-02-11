@@ -472,11 +472,11 @@ Crew members require regular payment for their services. Salaries are deducted e
 | Miner   | 0.1       | 48                   | Resource extraction specialist           |
 | Trader  | 0.1       | 48                   | Trade and commerce specialist            |
 
-**Salary Multiplier:** Each crew member has a `salaryMultiplier` set at hire time based on their starting skills (`1.0 + totalSkillPoints × 0.015`). Actual salary = base × multiplier. Green recruits cost the base rate; skilled veterans cost up to ~1.5× more. The multiplier does not change as crew train after being hired.
+**Salary Multiplier:** Each crew member has a `salaryMultiplier` set at hire time based on their starting skills (polynomial: `1.0 + 0.5 × (totalSkill/10)^1.6`). Actual salary = base × multiplier. Green recruits cost the base rate; skilled veterans can cost 3-7× more. The multiplier does not change as crew train after being hired.
 
 **Economic Pressure:**
 
-A typical 4-person crew of green recruits (captain + pilot + miner + trader) costs **0.3 credits/tick** or **144 credits/day**. Skilled hires increase this cost. This creates constant economic pressure to:
+A 4-person crew of green recruits costs **0.3 credits/tick** or **144 credits/day**. A crew of veterans can cost **500+ cr/day**. This creates constant economic pressure to:
 
 - Accept profitable contracts
 - Minimize idle flight time
@@ -524,21 +524,24 @@ A quality roll (squared random distribution) determines overall skill magnitude:
 - ~16% are veterans (primary 18-26)
 - ~13% are elite specialists (primary 26-35)
 
-**Hire Cost Formula:** **Base Cost (500 cr) + (Total Skill Points × 50 cr)**
+**Hire Cost Formula:** **Base Cost (500 cr) + 20 × totalSkill^1.8** (polynomial)
 
-- Green recruit (0-5 skill points): 500-750 cr
-- Seasoned crew (10-20 skill points): 1,000-1,500 cr
-- Veteran (20-35 skill points): 1,500-2,250 cr
-- Elite specialist (35-50 skill points): 2,250-3,000 cr
+- Green recruit (0-5 skill points): 500-830 cr
+- Seasoned crew (10-15 skill points): 1,800-3,100 cr
+- Veteran (25-35 skill points): 7,000-13,500 cr
+- Elite specialist (40-50 skill points): 16,000-24,000 cr
+
+These costs are tuned against trip income: a green recruit costs a fraction of one trip's profit, while an elite specialist costs several trips. This creates meaningful hiring decisions at every stage of the game.
 
 **Salary Scaling:**
 
 Each crew member has a salary multiplier set at hire time based on their starting skills:
 
-- Formula: `1.0 + totalSkillPoints × 0.015`
+- Formula: `1.0 + 0.5 × (totalSkill / 10)^1.6` (polynomial)
 - Green recruit: 1.0× (48 cr/day)
-- Seasoned (15 skill total): ~1.23× (~59 cr/day)
-- Veteran (30 skill total): ~1.45× (~70 cr/day)
+- Seasoned (15 skill total): ~2.0× (~95 cr/day)
+- Veteran (30 skill total): ~3.9× (~186 cr/day)
+- Elite (45 skill total): ~6.9× (~333 cr/day)
 - The multiplier is locked at hire time — training after hiring does not increase wages
 
 **Strategic Considerations:**

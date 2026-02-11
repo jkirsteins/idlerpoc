@@ -180,32 +180,64 @@ export function generateSkillsForRole(
 
 // ─── Hire Cost Calculation ─────────────────────────────────────────
 
-/** Per-skill-point addition to hire cost */
-const SKILL_COST_PER_POINT = 50;
+/**
+ * Cost scaling uses polynomial curves so green recruits stay affordable
+ * while veterans and elites demand real economic commitment.
+ *
+ * Trip income reference (from quest-economics-validation.md):
+ *   Station Keeper (Class I) Earth→Gateway: 5,900-9,200 cr/trip
+ *   Wayfarer (Class II) Earth→Gateway: 44,700-68,800 cr/trip
+ *
+ * Target hire cost curve:
+ *   Total skill  0:     500 cr (green — 10% of starting 5,000 cr)
+ *   Total skill  5:     830 cr (one early trip's profit)
+ *   Total skill 15:   3,100 cr (1-2 trips)
+ *   Total skill 30:   9,800 cr (a real investment)
+ *   Total skill 45:  21,000 cr (multiple trips, aspirational)
+ *
+ * Target salary curve (cr/day, base 48):
+ *   Total skill  0:    48 cr/day (baseline)
+ *   Total skill  5:    56 cr/day (barely noticeable)
+ *   Total skill 15:    95 cr/day (starting to add up)
+ *   Total skill 30:   186 cr/day (significant ongoing cost)
+ *   Total skill 45:   333 cr/day (luxury hire)
+ */
 
-/** Per-skill-point salary multiplier increase */
-const SALARY_SCALE_PER_POINT = 0.015;
+/** Hire cost = BASE + COST_SCALE × totalSkill^COST_EXPONENT */
+const COST_SCALE = 20;
+const COST_EXPONENT = 1.8;
+
+/** Salary multiplier = 1.0 + SALARY_SCALE × (totalSkill / SALARY_DIVISOR)^SALARY_EXPONENT */
+const SALARY_SCALE = 0.5;
+const SALARY_DIVISOR = 10;
+const SALARY_EXPONENT = 1.6;
 
 /**
  * Calculate hire cost from a candidate's skills.
- * More skilled crew demand higher signing bonuses.
+ * Uses polynomial scaling: cheap green recruits, expensive veterans.
  */
 export function calculateHireCost(
   skills: CrewSkills,
   baseCost: number
 ): number {
   const totalSkill = skills.piloting + skills.mining + skills.commerce;
-  return baseCost + Math.round(totalSkill * SKILL_COST_PER_POINT);
+  if (totalSkill <= 0) return baseCost;
+  return (
+    baseCost + Math.round(COST_SCALE * Math.pow(totalSkill, COST_EXPONENT))
+  );
 }
 
 /**
  * Calculate salary multiplier from a candidate's starting skills.
- * Skilled hires demand higher ongoing wages.
- * Returns 1.0 for untrained crew, scaling up with total skill.
+ * Polynomial curve: green crew at 1.0×, veterans at 3-4×, elite at 6-7×.
+ * Locked at hire time — training after hiring does not increase wages.
  */
 export function calculateSalaryMultiplier(skills: CrewSkills): number {
   const totalSkill = skills.piloting + skills.mining + skills.commerce;
-  return 1.0 + totalSkill * SALARY_SCALE_PER_POINT;
+  if (totalSkill <= 0) return 1.0;
+  return (
+    1.0 + SALARY_SCALE * Math.pow(totalSkill / SALARY_DIVISOR, SALARY_EXPONENT)
+  );
 }
 
 /**
