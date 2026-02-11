@@ -14,11 +14,7 @@ import type {
   OreId,
 } from './models';
 import { getActiveShip } from './models';
-import {
-  createNewGame,
-  generateHireableCrewByLocation,
-  createAdditionalShip,
-} from './gameFactory';
+import { createNewGame, createAdditionalShip } from './gameFactory';
 import { saveGame, loadGame, clearGame, importGame } from './storage';
 import { render, type GameState, type RendererCallbacks } from './ui/renderer';
 import type { WizardStep, WizardDraft } from './ui/wizard';
@@ -32,12 +28,10 @@ import { getLevelForXP } from './levelSystem';
 import { createRefuelDialog, getFuelPricePerKg } from './ui/refuelDialog';
 import {
   advanceToNextDayStart,
-  getDaysSinceEpoch,
   GAME_SECONDS_PER_DAY,
   GAME_SECONDS_PER_TICK,
   TICKS_PER_DAY,
 } from './timeSystem';
-import { generateAllLocationQuests } from './questGen';
 import {
   acceptQuest,
   pauseContract,
@@ -45,6 +39,7 @@ import {
   abandonContract,
   dockShipAtLocation,
   initContractExec,
+  regenerateQuestsIfNewDay,
 } from './contractExec';
 import { getSkillRank } from './skillRanks';
 import { assignShipToRoute, unassignShipFromRoute } from './routeAssignment';
@@ -938,42 +933,21 @@ const callbacks: RendererCallbacks = {
       'Advanced one day'
     );
 
-    // Regenerate quests for all locations
-    state.gameData.availableQuests = generateAllLocationQuests(
-      state.gameData.ships,
-      state.gameData.world
-    );
-    state.gameData.lastQuestRegenDay = getDaysSinceEpoch(
-      state.gameData.gameTime
-    );
+    // Regenerate quests & hireable crew for the new day
+    regenerateQuestsIfNewDay(state.gameData);
 
-    // Regenerate hireable crew only for stations with docked ships
-    const dockedIds: string[] = [];
+    // Warn about unpaid crew across all ships
     for (const s of state.gameData.ships) {
-      if (s.location.status === 'docked' && s.location.dockedAt) {
-        dockedIds.push(s.location.dockedAt);
-      }
-    }
-    state.gameData.hireableCrewByLocation = generateHireableCrewByLocation(
-      state.gameData.world,
-      dockedIds
-    );
-
-    // Check for unpaid crew across all ships
-    for (const s of state.gameData.ships) {
-      const unpaidCrew = s.crew.filter(
+      for (const crew of s.crew.filter(
         (c) => c.unpaidTicks > 0 && !c.isCaptain
-      );
-      if (unpaidCrew.length > 0) {
-        for (const crew of unpaidCrew) {
-          addLog(
-            state.gameData.log,
-            state.gameData.gameTime,
-            'crew_departed',
-            `${crew.name} has unpaid wages (${Math.ceil(crew.unpaidTicks / TICKS_PER_DAY)} days) and will depart if ship leaves port`,
-            s.name
-          );
-        }
+      )) {
+        addLog(
+          state.gameData.log,
+          state.gameData.gameTime,
+          'crew_departed',
+          `${crew.name} has unpaid wages (${Math.ceil(crew.unpaidTicks / TICKS_PER_DAY)} days) and will depart if ship leaves port`,
+          s.name
+        );
       }
     }
 
@@ -1887,6 +1861,9 @@ function processCatchUpBatch(): void {
   }
   activeCatchUp.ticksProcessed += processed;
 
+  // Regenerate quests & crew if a day boundary was crossed during the batch
+  regenerateQuestsIfNewDay(state.gameData);
+
   if (activeCatchUp.ticksProcessed >= activeCatchUp.totalTicks) {
     // Done — build report and show it
     const encounterResults = drainEncounterResults();
@@ -2019,6 +1996,10 @@ function processPendingTicks(): void {
       break;
     }
   }
+
+  // If a day boundary was crossed while all ships were docked, the
+  // in-flight arrival path never fires — regenerate quests & crew here.
+  regenerateQuestsIfNewDay(state.gameData);
 
   // On tick error, revert to last saved state so corrupted data never
   // persists. Advance the timestamp to avoid replaying the same failing ticks.

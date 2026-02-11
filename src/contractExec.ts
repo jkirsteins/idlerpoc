@@ -98,7 +98,7 @@ function getDockedLocationIds(gameData: GameData): string[] {
  * Uses the full fleet for payment calculation so the reference ship
  * isn't arbitrarily whichever ship triggered the day boundary.
  */
-function regenerateQuestsIfNewDay(gameData: GameData): void {
+export function regenerateQuestsIfNewDay(gameData: GameData): void {
   const currentDay = getDaysSinceEpoch(gameData.gameTime);
   if (currentDay > gameData.lastQuestRegenDay) {
     gameData.availableQuests = generateAllLocationQuests(
