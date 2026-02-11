@@ -253,18 +253,6 @@ function buildCatchUpReport(
     (e) => e.type === 'contract_complete'
   ).length;
 
-  // Collect arrival events with ship + location
-  const arrivals: { shipName: string; location: string }[] = [];
-  for (const entry of newLogs) {
-    if (entry.type === 'arrival' && entry.shipName) {
-      // Parse location from log message (format: "Arrived at <location>")
-      const match = entry.message.match(/Arrived at (.+)/);
-      if (match) {
-        arrivals.push({ shipName: entry.shipName, location: match[1] });
-      }
-    }
-  }
-
   // Collect notable log entries for the catch-up summary
   // (skill-ups, crew hires/departures, gravity warnings)
   const otherHighlightTypes: Set<string> = new Set([
@@ -365,7 +353,6 @@ function buildCatchUpReport(
     creditsDelta: Math.round(gameData.credits - prevCredits),
     tripsCompleted,
     contractsCompleted,
-    arrivals,
     shipReports: Array.from(shipReportMap.values()),
     logHighlights,
   };

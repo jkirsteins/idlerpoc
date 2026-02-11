@@ -81,22 +81,6 @@ export function renderCatchUpReport(
     progress.appendChild(contractLine);
   }
 
-  // Arrivals
-  if (report.arrivals.length > 0) {
-    // Deduplicate: show last arrival per ship
-    const lastArrivalByShip = new Map<string, string>();
-    for (const a of report.arrivals) {
-      lastArrivalByShip.set(a.shipName, a.location);
-    }
-    for (const [shipName, location] of lastArrivalByShip) {
-      const arrivalLine = document.createElement('div');
-      arrivalLine.className = 'catchup-progress-line';
-      arrivalLine.textContent = `${shipName} arrived at ${location}`;
-      arrivalLine.style.color = '#a0a0b0';
-      progress.appendChild(arrivalLine);
-    }
-  }
-
   // Log highlights (skill-ups, crew changes, etc.)
   const HIGHLIGHT_COLORS: Partial<Record<LogEntryType, string>> = {
     crew_level_up: '#4ade80',
