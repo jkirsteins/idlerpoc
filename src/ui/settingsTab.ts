@@ -8,6 +8,7 @@ export interface SettingsTabCallbacks {
     setting: keyof GameData['autoPauseSettings'],
     value: boolean
   ) => void;
+  onImportState?: (json: string) => void;
 }
 
 export function createSettingsTab(
@@ -215,6 +216,98 @@ export function createSettingsTab(
 
   container.appendChild(autoPauseSection);
 
+  // ── Reference to latest gameData for download ──
+  let latestGameData: GameData = gameData;
+
+  // ── Debug Section (static — download/upload state) ──
+  const debugSection = document.createElement('div');
+  debugSection.className = 'settings-section';
+  debugSection.style.marginTop = '2rem';
+
+  const debugTitle = document.createElement('h4');
+  debugTitle.style.marginBottom = '1rem';
+  debugTitle.style.color = '#4a9eff';
+
+  const debugTitleText = document.createElement('span');
+  debugTitleText.textContent = 'State Backup';
+  debugTitle.appendChild(debugTitleText);
+
+  const debugBadge = document.createElement('span');
+  debugBadge.textContent = 'DEBUG';
+  debugBadge.style.marginLeft = '0.5rem';
+  debugBadge.style.fontSize = '10px';
+  debugBadge.style.padding = '2px 6px';
+  debugBadge.style.borderRadius = '4px';
+  debugBadge.style.background = 'rgba(251, 191, 36, 0.2)';
+  debugBadge.style.color = '#fbbf24';
+  debugBadge.style.fontWeight = '600';
+  debugBadge.style.verticalAlign = 'middle';
+  debugTitle.appendChild(debugBadge);
+  debugSection.appendChild(debugTitle);
+
+  const debugDesc = document.createElement('p');
+  debugDesc.textContent =
+    'Download your game state as a JSON file for backup, or upload a previously saved file to restore.';
+  debugDesc.className = 'settings-description';
+  debugDesc.style.marginBottom = '1rem';
+  debugSection.appendChild(debugDesc);
+
+  const debugBtnRow = document.createElement('div');
+  debugBtnRow.style.display = 'flex';
+  debugBtnRow.style.gap = '0.75rem';
+  debugBtnRow.style.flexWrap = 'wrap';
+
+  const downloadBtn = document.createElement('button');
+  downloadBtn.textContent = 'Download State';
+  downloadBtn.addEventListener('click', () => {
+    const json = JSON.stringify(latestGameData, null, 2);
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `starship-save-${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  });
+  debugBtnRow.appendChild(downloadBtn);
+
+  const uploadBtn = document.createElement('button');
+  uploadBtn.textContent = 'Upload State';
+  uploadBtn.addEventListener('click', () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json,application/json';
+    input.addEventListener('change', () => {
+      const file = input.files?.[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        const text = reader.result as string;
+        if (
+          confirm(
+            'Are you sure you want to replace your current game state? ' +
+              'Your existing progress will be overwritten.'
+          )
+        ) {
+          callbacks.onImportState?.(text);
+        }
+      };
+      reader.readAsText(file);
+    });
+    input.click();
+  });
+  debugBtnRow.appendChild(uploadBtn);
+
+  debugSection.appendChild(debugBtnRow);
+
+  const importStatus = document.createElement('p');
+  importStatus.style.marginTop = '0.5rem';
+  importStatus.style.fontSize = '12px';
+  importStatus.style.display = 'none';
+  debugSection.appendChild(importStatus);
+
+  container.appendChild(debugSection);
+
   // ── Reset Section (static — never changes) ──
   const resetSection = document.createElement('div');
   resetSection.className = 'settings-section';
@@ -259,6 +352,8 @@ export function createSettingsTab(
   let prevAutoPauseOnLowFuel = false;
 
   function update(gameData: GameData): void {
+    latestGameData = gameData;
+
     // Lifetime credits
     const ltc = gameData.lifetimeCreditsEarned;
     if (ltc !== prevLifetimeCredits) {
