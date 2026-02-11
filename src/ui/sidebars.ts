@@ -9,8 +9,8 @@ import {
   getEffectiveHeatDissipation,
 } from '../equipment';
 import { getShipClass } from '../shipClasses';
-import { calculateShipSalaryPerTick } from '../crewRoles';
-import { formatGameDate, TICKS_PER_DAY } from '../timeSystem';
+import { formatGameDate } from '../timeSystem';
+import { calculateDailyLedger } from '../dailyLedger';
 import { getRoomDefinition } from '../rooms';
 import { renderStatBar } from './components/statBar';
 import { attachTooltip, formatPowerTooltip } from './components/tooltip';
@@ -434,18 +434,83 @@ export function createRightSidebar(gameData: GameData): Component {
   shipCrewLine.appendChild(shipCrewCount);
   crewInfo.appendChild(shipCrewLine);
 
-  // Crew cost line
-  const crewCostLine = document.createElement('div');
-  const crewCostLabelSpan = document.createElement('span');
-  crewCostLabelSpan.style.color = '#888';
-  crewCostLabelSpan.textContent = 'Crew Cost: ';
-  const crewCostPerDay = document.createElement('span');
-  crewCostLine.appendChild(crewCostLabelSpan);
-  crewCostLine.appendChild(crewCostPerDay);
-  crewInfo.appendChild(crewCostLine);
-
   crewSection.appendChild(crewInfo);
   sidebar.appendChild(crewSection);
+
+  // ── DAILY LEDGER SECTION ──
+  const ledgerSection = document.createElement('div');
+  ledgerSection.className = 'sidebar-section';
+
+  const ledgerLabel = document.createElement('h3');
+  ledgerLabel.textContent = 'Daily Ledger';
+  ledgerSection.appendChild(ledgerLabel);
+
+  const ledgerInfo = document.createElement('div');
+  ledgerInfo.style.fontSize = '12px';
+  ledgerInfo.style.lineHeight = '1.6';
+
+  // Income line
+  const incomeLine = document.createElement('div');
+  const incomeLabelSpan = document.createElement('span');
+  incomeLabelSpan.style.color = '#888';
+  incomeLabelSpan.textContent = 'Income: ';
+  const incomeValue = document.createElement('span');
+  incomeValue.style.color = '#4ade80';
+  incomeLine.appendChild(incomeLabelSpan);
+  incomeLine.appendChild(incomeValue);
+  ledgerInfo.appendChild(incomeLine);
+
+  // Crew cost line
+  const ledgerCrewLine = document.createElement('div');
+  const ledgerCrewLabelSpan = document.createElement('span');
+  ledgerCrewLabelSpan.style.color = '#888';
+  ledgerCrewLabelSpan.textContent = 'Crew: ';
+  const ledgerCrewValue = document.createElement('span');
+  ledgerCrewValue.style.color = '#ffa500';
+  ledgerCrewLine.appendChild(ledgerCrewLabelSpan);
+  ledgerCrewLine.appendChild(ledgerCrewValue);
+  ledgerInfo.appendChild(ledgerCrewLine);
+
+  // Fuel cost line
+  const ledgerFuelLine = document.createElement('div');
+  const ledgerFuelLabelSpan = document.createElement('span');
+  ledgerFuelLabelSpan.style.color = '#888';
+  ledgerFuelLabelSpan.textContent = 'Fuel: ';
+  const ledgerFuelValue = document.createElement('span');
+  ledgerFuelValue.style.color = '#ffa500';
+  ledgerFuelLine.appendChild(ledgerFuelLabelSpan);
+  ledgerFuelLine.appendChild(ledgerFuelValue);
+  ledgerInfo.appendChild(ledgerFuelLine);
+
+  // Separator
+  const ledgerSep = document.createElement('div');
+  ledgerSep.style.borderTop = '1px solid #444';
+  ledgerSep.style.margin = '4px 0';
+  ledgerInfo.appendChild(ledgerSep);
+
+  // Net line
+  const netLine = document.createElement('div');
+  const netLabelSpan = document.createElement('span');
+  netLabelSpan.style.color = '#888';
+  netLabelSpan.textContent = 'Net: ';
+  const netValue = document.createElement('span');
+  netValue.style.fontWeight = 'bold';
+  netLine.appendChild(netLabelSpan);
+  netLine.appendChild(netValue);
+  ledgerInfo.appendChild(netLine);
+
+  // Runway line
+  const runwayLine = document.createElement('div');
+  const runwayLabelSpan = document.createElement('span');
+  runwayLabelSpan.style.color = '#888';
+  runwayLabelSpan.textContent = 'Runway: ';
+  const runwayValue = document.createElement('span');
+  runwayLine.appendChild(runwayLabelSpan);
+  runwayLine.appendChild(runwayValue);
+  ledgerInfo.appendChild(runwayLine);
+
+  ledgerSection.appendChild(ledgerInfo);
+  sidebar.appendChild(ledgerSection);
 
   // ── ENGINE SECTION ──
   const engineSection = document.createElement('div');
@@ -558,12 +623,38 @@ export function createRightSidebar(gameData: GameData): Component {
     const maxCrew = shipClass?.maxCrew ?? '?';
     shipCrewCount.textContent = `${ship.crew.length}/${maxCrew}`;
 
-    let totalCrewCostPerTick = 0;
-    for (const s of gameData.ships) {
-      totalCrewCostPerTick += calculateShipSalaryPerTick(s);
+    // Daily ledger
+    const ledger = calculateDailyLedger(gameData);
+
+    if (ledger.incomeDays > 0) {
+      incomeValue.textContent = `+${Math.round(ledger.incomePerDay).toLocaleString()} cr/day`;
+    } else {
+      incomeValue.textContent = 'collecting data\u2026';
+      incomeValue.style.color = '#666';
     }
-    const totalCrewCostPerDayVal = totalCrewCostPerTick * TICKS_PER_DAY;
-    crewCostPerDay.textContent = `${totalCrewCostPerDayVal} cr/day`;
+
+    ledgerCrewValue.textContent = `-${Math.round(ledger.crewCostPerDay).toLocaleString()} cr/day`;
+    ledgerFuelValue.textContent = `-${Math.round(ledger.fuelCostPerDay).toLocaleString()} cr/day`;
+
+    const netRounded = Math.round(ledger.netPerDay);
+    const netSign = netRounded >= 0 ? '+' : '';
+    netValue.textContent = `${netSign}${netRounded.toLocaleString()} cr/day`;
+    netValue.style.color = netRounded >= 0 ? '#4ade80' : '#ff4444';
+
+    if (ledger.incomeDays === 0) {
+      runwayValue.textContent = 'collecting data\u2026';
+      runwayValue.style.color = '#666';
+    } else if (ledger.runwayDays !== null) {
+      runwayValue.textContent = `${ledger.runwayDays.toFixed(1)} days`;
+      runwayValue.style.color = ledger.runwayDays < 3 ? '#ff4444' : '#ffa500';
+    } else {
+      runwayValue.textContent = 'Stable';
+      runwayValue.style.color = '#4ade80';
+    }
+
+    // Dim the whole ledger section if no economic activity at all
+    ledgerSection.style.opacity =
+      ledger.totalExpensePerDay > 0 || ledger.incomePerDay > 0 ? '' : '0.4';
 
     // Engine
     engineInfo.textContent = engineDef.name;

@@ -62,6 +62,7 @@ import {
 import { sellOre, sellAllOre } from './miningSystem';
 import { assignMiningRoute, cancelMiningRoute } from './miningRoute';
 import { getEquipmentDefinition, canEquipInSlot } from './equipment';
+import { recordDailySnapshot } from './dailyLedger';
 
 const app = document.getElementById('app')!;
 
@@ -664,6 +665,7 @@ const callbacks: RendererCallbacks = {
 
     // Snap to exact day boundary (avoids rounding from integer tick count)
     state.gameData.gameTime = targetTime;
+    recordDailySnapshot(state.gameData);
 
     addLog(
       state.gameData.log,

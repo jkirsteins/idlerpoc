@@ -266,6 +266,7 @@ export function createTestGameData(
     lastTickTimestamp: Date.now(),
     lastQuestRegenDay: 0,
     hireableCrewByLocation: {},
+    dailyLedgerSnapshots: [],
     visitedLocations: ['earth'],
     isPaused: false,
     timeSpeed: 1,

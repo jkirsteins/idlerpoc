@@ -19,6 +19,7 @@ import {
 } from './routeAssignment';
 import { handleMiningRouteArrival } from './miningRoute';
 import { getFuelPricePerKg } from './ui/refuelDialog';
+import { recordDailySnapshot } from './dailyLedger';
 import { unassignCrewFromAllSlots, getCrewForJobType } from './jobSlots';
 import {
   awardMasteryXp,
@@ -101,6 +102,9 @@ function getDockedLocationIds(gameData: GameData): string[] {
 function regenerateQuestsIfNewDay(gameData: GameData): void {
   const currentDay = getDaysSinceEpoch(gameData.gameTime);
   if (currentDay > gameData.lastQuestRegenDay) {
+    // Record ledger snapshot at day boundary
+    recordDailySnapshot(gameData);
+
     gameData.availableQuests = generateAllLocationQuests(
       gameData.ships,
       gameData.world

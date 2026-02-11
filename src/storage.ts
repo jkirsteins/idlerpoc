@@ -369,6 +369,7 @@ export function loadGame(): GameData | null {
 
     // Additive backfills (no version bump needed)
     backfillMiningData(migrated);
+    backfillLedgerSnapshots(migrated);
 
     return migrated;
   } catch (e) {
@@ -504,12 +505,23 @@ export function importGame(json: string): GameData | null {
   }
 
   backfillMiningData(migrated);
+  backfillLedgerSnapshots(migrated);
 
   // Reset timestamp so the game doesn't try to catch up for offline time
   migrated.lastTickTimestamp = Date.now();
 
   saveGame(migrated);
   return migrated;
+}
+
+/**
+ * Additive backfill for daily ledger snapshots.
+ * No version bump needed — purely additive optional field.
+ */
+function backfillLedgerSnapshots(gameData: GameData): void {
+  if (!gameData.dailyLedgerSnapshots) {
+    gameData.dailyLedgerSnapshots = [];
+  }
 }
 
 export function clearGame(): void {
