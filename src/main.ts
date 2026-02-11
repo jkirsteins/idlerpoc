@@ -880,7 +880,7 @@ const callbacks: RendererCallbacks = {
 
     // Regenerate quests for all locations
     state.gameData.availableQuests = generateAllLocationQuests(
-      ship,
+      state.gameData.ships,
       state.gameData.world
     );
     state.gameData.lastQuestRegenDay = getDaysSinceEpoch(

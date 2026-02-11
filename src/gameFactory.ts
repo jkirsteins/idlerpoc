@@ -351,7 +351,7 @@ export function createNewGame(
   const world = generateWorld();
 
   // Generate initial quests for all locations
-  const availableQuests = generateAllLocationQuests(ship, world);
+  const availableQuests = generateAllLocationQuests([ship], world);
   const lastQuestRegenDay = 0;
 
   // Generate hireable crew for starting location
