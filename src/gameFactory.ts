@@ -99,15 +99,22 @@ function createEngineInstance(shipClassId: ShipClassId): EngineInstance {
 /**
  * Generate hireable crew candidates for a location.
  *
- * Candidate count is derived from location size (the same property that
- * drives daily quest count), so larger stations naturally attract more
- * crew.  A random roll of 0..size means small outposts (size 1) have a
- * 50 % chance of zero candidates while major hubs (size 5) almost
- * always offer several.
+ * Mirrors the quest system: location.size drives the candidate count.
+ * A separate daily "empty market" roll adds a chance that nobody is
+ * looking for work — the probability scales inversely with station
+ * size so major hubs (Earth, size 5) are rarely empty (~10%) while
+ * remote outposts (size 1) often have nobody (~50%).
  */
 export function generateHireableCrew(locationSize: number): CrewMember[] {
-  // 0 to locationSize candidates (inclusive) — mirrors quest count logic
-  const count = Math.floor(Math.random() * (locationSize + 1));
+  // Daily availability roll — chance the hiring market is dry.
+  // size 5: 10%, size 3: ~17%, size 2: 25%, size 1: 50%
+  const emptyChance = 1 / (locationSize * 2);
+  if (Math.random() < emptyChance) {
+    return [];
+  }
+
+  // When crew are available, 1 to locationSize candidates
+  const count = 1 + Math.floor(Math.random() * locationSize);
   const candidates: CrewMember[] = [];
 
   const availableRoles: CrewRole[] = ['pilot', 'miner', 'trader'];

@@ -506,8 +506,8 @@ When docked at stations with **'hire'** service (Earth, Forge Station, Freeport 
 
 **Hiring Mechanics:**
 
-- Daily candidate roster scales with station size (0 to `location.size` candidates)
-- Larger hubs (Earth, size 5) almost always have crew; small outposts may have none
+- Daily candidate roster scales with station size (1 to `location.size` candidates when available)
+- Daily "empty market" chance: ~10% at major hubs (size 5), ~50% at remote outposts (size 1)
 - Candidates refresh daily (same trigger as quest regeneration)
 - Each candidate has randomized skills, level, and role
 - Hire cost formula: **Base Cost (500 cr) + (Level × 200 cr)**
