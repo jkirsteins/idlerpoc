@@ -74,6 +74,7 @@ export interface RendererCallbacks {
   onDockAtNearestPort: () => void;
   onCancelPause: () => void;
   onRequestAbandon: () => void;
+  onFlightProfileChange: () => void;
   onResumeContract: () => void;
   onAbandonContract: () => void;
   onBuyFuel: () => void;
@@ -320,6 +321,7 @@ function mountPlayingLayout(
       onDockAtNearestPort: callbacks.onDockAtNearestPort,
       onCancelPause: callbacks.onCancelPause,
       onRequestAbandon: callbacks.onRequestAbandon,
+      onFlightProfileChange: callbacks.onFlightProfileChange,
       onResumeContract: callbacks.onResumeContract,
       onAbandonContract: callbacks.onAbandonContract,
       onBuyFuel: callbacks.onBuyFuel,
