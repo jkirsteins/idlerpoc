@@ -655,55 +655,26 @@ export function generatePersistentTradeRoutes(
 }
 
 /**
- * Pick the best reference ship for quest generation at a given location.
- *
- * Uses the ship with the highest operating costs (crew salary + fuel tank).
- * This ensures the cost-based payment floor is high enough that all ships
- * in the fleet will find the quest profitable.
- *
- * Falls back to the first ship if none can reach the location.
- */
-function pickReferenceShip(ships: Ship[]): Ship {
-  let bestShip: Ship | null = null;
-  let bestCost = -1;
-
-  for (const ship of ships) {
-    const salary = calculateShipSalaryPerTick(ship);
-    const shipClass = getShipClass(ship.classId);
-    const tankSize = shipClass
-      ? calculateFuelTankCapacity(
-          shipClass.cargoCapacity,
-          getEngineDefinition(ship.engine.definitionId)
-        )
-      : 0;
-    // Approximate operating cost weight: salary dominates for crew-heavy
-    // ships, tank size dominates for fuel-heavy ships.
-    const cost = salary + tankSize * 0.001;
-    if (cost > bestCost) {
-      bestCost = cost;
-      bestShip = ship;
-    }
-  }
-
-  return bestShip ?? ships[0];
-}
-
-/**
  * Generate quests for all locations in the world.
  * All non-trade-route quests are regenerated fresh each day.
  *
- * Accepts the full fleet so the reference ship for payment calculation
- * is chosen per-location based on highest operating costs.
+ * Uses the active ship for cargo/reachability/payment calculations so
+ * quests are always sized for the ship the player is currently flying.
  */
 export function generateAllLocationQuests(
   ships: Ship[],
-  world: World
+  world: World,
+  activeShipId?: string
 ): Record<string, Quest[]> {
+  const activeShip = ships.find((s) => s.id === activeShipId) ?? ships[0];
   const allQuests: Record<string, Quest[]> = {};
   for (const location of world.locations) {
-    const refShip = pickReferenceShip(ships);
-    const tradeRoutes = generatePersistentTradeRoutes(refShip, location, world);
-    const randomQuests = generateQuestsForLocation(refShip, location, world);
+    const tradeRoutes = generatePersistentTradeRoutes(
+      activeShip,
+      location,
+      world
+    );
+    const randomQuests = generateQuestsForLocation(activeShip, location, world);
     allQuests[location.id] = [...tradeRoutes, ...randomQuests];
   }
   return allQuests;

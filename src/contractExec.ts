@@ -110,7 +110,8 @@ export function regenerateQuestsIfNewDay(gameData: GameData): void {
 
     gameData.availableQuests = generateAllLocationQuests(
       gameData.ships,
-      gameData.world
+      gameData.world,
+      gameData.activeShipId
     );
     gameData.lastQuestRegenDay = currentDay;
 
