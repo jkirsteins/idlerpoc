@@ -58,9 +58,65 @@ export function createFleetTab(
   container.className = 'fleet-tab';
   container.style.padding = '1rem';
 
-  // Display-only area: map, panels, stats — rebuilt each tick (no interactive state to lose)
-  const dynamicArea = document.createElement('div');
-  container.appendChild(dynamicArea);
+  // --- Slot for fleet map (always visible, leaf helper swapped each tick) ---
+  const fleetMapSlot = document.createElement('div');
+  container.appendChild(fleetMapSlot);
+
+  // --- Multi-ship section (toggled via display) ---
+  const multiShipSection = document.createElement('div');
+  container.appendChild(multiShipSection);
+
+  // Fleet Panel — created once, updated in-place
+  const panelSection = document.createElement('div');
+  panelSection.style.marginBottom = '1.5rem';
+  const panelTitle = document.createElement('h3');
+  panelTitle.textContent = 'Your Fleet';
+  panelTitle.style.marginBottom = '0.75rem';
+  panelSection.appendChild(panelTitle);
+  const fleetPanelComp = createFleetPanel(gameData, {
+    onSelectShip: callbacks.onSelectShip,
+  });
+  panelSection.appendChild(fleetPanelComp.el);
+  multiShipSection.appendChild(panelSection);
+
+  // Slot for performance dashboard (leaf helper)
+  const dashboardSlot = document.createElement('div');
+  multiShipSection.appendChild(dashboardSlot);
+
+  // Slot for needs-attention queue (leaf helper)
+  const attentionSlot = document.createElement('div');
+  multiShipSection.appendChild(attentionSlot);
+
+  // Slot for ship comparison (leaf helper)
+  const comparisonSlot = document.createElement('div');
+  multiShipSection.appendChild(comparisonSlot);
+
+  // --- Single-ship section (toggled via display) ---
+  const singleShipSection = document.createElement('div');
+  container.appendChild(singleShipSection);
+
+  const welcomeSection = document.createElement('div');
+  welcomeSection.style.marginBottom = '1.5rem';
+  welcomeSection.style.padding = '1rem';
+  welcomeSection.style.background = 'rgba(0, 0, 0, 0.3)';
+  welcomeSection.style.border = '1px solid #444';
+  welcomeSection.style.borderRadius = '4px';
+  const welcomeTitle = document.createElement('h3');
+  welcomeTitle.textContent = 'Fleet Management';
+  welcomeTitle.style.marginBottom = '0.5rem';
+  welcomeSection.appendChild(welcomeTitle);
+  const welcomeMessage = document.createElement('p');
+  welcomeMessage.style.color = '#aaa';
+  welcomeMessage.style.fontSize = '0.9rem';
+  welcomeMessage.style.lineHeight = '1.6';
+  welcomeMessage.textContent =
+    'Welcome to Fleet Management! Expand your operations by purchasing additional ships. Each ship can operate independently, running separate contracts and exploring different regions of space.';
+  welcomeSection.appendChild(welcomeMessage);
+  singleShipSection.appendChild(welcomeSection);
+
+  // Slot for single ship card (leaf helper)
+  const singleCardSlot = document.createElement('div');
+  singleShipSection.appendChild(singleCardSlot);
 
   // Stable area: ship purchase inputs/buttons persist across ticks
   const purchaseComp = createShipPurchase(gameData, callbacks);
@@ -77,73 +133,45 @@ export function createFleetTab(
   dockedHint.textContent = '💡 Dock at a station to purchase additional ships.';
   container.appendChild(dockedHint);
 
+  /** Swap the single child of a slot div (leaf helper pattern). */
+  function swapSlot(slot: HTMLElement, newChild: HTMLElement): void {
+    if (slot.firstChild) slot.removeChild(slot.firstChild);
+    slot.appendChild(newChild);
+  }
+
   function update(gameData: GameData) {
-    // Rebuild display-only sections (no interactive elements)
-    dynamicArea.replaceChildren();
+    // Fleet map — always visible (leaf helper, swapped each tick)
+    swapSlot(fleetMapSlot, renderFleetMap(gameData, callbacks));
 
-    // Fleet Map (always show, even with 1 ship)
-    dynamicArea.appendChild(renderFleetMap(gameData, callbacks));
+    const isMultiShip = gameData.ships.length > 1;
+    multiShipSection.style.display = isMultiShip ? '' : 'none';
+    singleShipSection.style.display = isMultiShip ? 'none' : '';
 
-    // Show fleet panel and stats only if there are multiple ships
-    if (gameData.ships.length > 1) {
-      // Enhanced Fleet Panel
-      const panelSection = document.createElement('div');
-      panelSection.style.marginBottom = '1.5rem';
+    if (isMultiShip) {
+      // Update fleet panel in-place (mount-once component)
+      fleetPanelComp.update(gameData);
 
-      const panelTitle = document.createElement('h3');
-      panelTitle.textContent = 'Your Fleet';
-      panelTitle.style.marginBottom = '0.75rem';
-      panelSection.appendChild(panelTitle);
+      // Leaf helper slots
+      swapSlot(dashboardSlot, renderFleetPerformanceDashboard(gameData));
 
-      panelSection.appendChild(
-        createFleetPanel(gameData, { onSelectShip: callbacks.onSelectShip }).el
-      );
-
-      dynamicArea.appendChild(panelSection);
-
-      // Fleet Performance Dashboard (replaces generic stats)
-      dynamicArea.appendChild(renderFleetPerformanceDashboard(gameData));
-
-      // Needs Attention Queue
       const needsAttention = gameData.ships.filter((ship) => {
         const status = getShipStatus(ship);
         return status === 'critical' || status === 'warning';
       });
-
       if (needsAttention.length > 0) {
-        dynamicArea.appendChild(renderNeedsAttentionQueue(needsAttention));
+        swapSlot(attentionSlot, renderNeedsAttentionQueue(needsAttention));
+        attentionSlot.style.display = '';
+      } else {
+        attentionSlot.style.display = 'none';
       }
 
-      // Ship Comparison View with Enhanced Cards
-      dynamicArea.appendChild(
+      swapSlot(
+        comparisonSlot,
         renderEnhancedShipComparison(gameData, callbacks)
       );
-    } else {
-      // Single ship - show welcome message and ship card
-      const welcomeSection = document.createElement('div');
-      welcomeSection.style.marginBottom = '1.5rem';
-      welcomeSection.style.padding = '1rem';
-      welcomeSection.style.background = 'rgba(0, 0, 0, 0.3)';
-      welcomeSection.style.border = '1px solid #444';
-      welcomeSection.style.borderRadius = '4px';
-
-      const title = document.createElement('h3');
-      title.textContent = 'Fleet Management';
-      title.style.marginBottom = '0.5rem';
-      welcomeSection.appendChild(title);
-
-      const message = document.createElement('p');
-      message.style.color = '#aaa';
-      message.style.fontSize = '0.9rem';
-      message.style.lineHeight = '1.6';
-      message.textContent =
-        'Welcome to Fleet Management! Expand your operations by purchasing additional ships. Each ship can operate independently, running separate contracts and exploring different regions of space.';
-      welcomeSection.appendChild(message);
-
-      dynamicArea.appendChild(welcomeSection);
-
-      // Show the single ship card
-      dynamicArea.appendChild(
+    } else if (gameData.ships.length === 1) {
+      swapSlot(
+        singleCardSlot,
         renderEnhancedShipCard(gameData, gameData.ships[0], callbacks)
       );
     }
