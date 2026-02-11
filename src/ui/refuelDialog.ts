@@ -7,6 +7,7 @@
 import type { GameData, WorldLocation, Ship } from '../models';
 import { getActiveShip, getShipCommander } from '../models';
 import { formatFuelMass } from './fuelFormatting';
+import { formatCredits } from '../formatting';
 import { getCommerceFuelDiscount } from '../skillRanks';
 
 export interface RefuelDialogCallbacks {
@@ -301,10 +302,10 @@ export function createRefuelDialog(
     const totalCost = Math.round(fuelKg * pricePerKg);
     const canAfford = gameData.credits >= totalCost;
 
-    costValue.textContent = `${totalCost.toLocaleString()} cr`;
+    costValue.textContent = formatCredits(totalCost);
     costValue.style.color = canAfford ? '#4a90e2' : '#e94560';
 
-    creditsAvailable.textContent = `Available: ${gameData.credits.toLocaleString()} cr`;
+    creditsAvailable.textContent = `Available: ${formatCredits(gameData.credits)}`;
     creditsAvailable.style.color = canAfford ? '#888' : '#e94560';
 
     confirmBtn.disabled = !canAfford || fuelKg <= 0;

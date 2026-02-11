@@ -5,6 +5,8 @@ import { getRemainingOreCapacity } from './miningSystem';
 import { addLog } from './logSystem';
 import { formatMiningRouteName } from './utils';
 import { getFuelPricePerKg } from './ui/refuelDialog';
+import { formatFuelMass, calculateFuelPercentage } from './ui/fuelFormatting';
+import { formatCredits } from './formatting';
 
 /**
  * Mining Route System
@@ -101,7 +103,7 @@ export function cancelMiningRoute(gameData: GameData, ship: Ship): void {
     gameData.log,
     gameData.gameTime,
     'mining_route',
-    `Mining route ended: ${formatMiningRouteName(mineLoc?.name ?? '?', sellLoc?.name ?? '?')}. ${route.totalTrips} trips, ${route.totalCreditsEarned.toLocaleString()} cr earned.`,
+    `Mining route ended: ${formatMiningRouteName(mineLoc?.name ?? '?', sellLoc?.name ?? '?')}. ${route.totalTrips} trips, ${formatCredits(route.totalCreditsEarned)} earned.`,
     ship.name
   );
 
@@ -226,7 +228,7 @@ function handleSellArrival(
       gameData.log,
       gameData.gameTime,
       'mining_route',
-      `Auto-sold ore at ${sellLocation.name} for ${saleTotal.toLocaleString()} cr`,
+      `Auto-sold ore at ${sellLocation.name} for ${formatCredits(saleTotal)}`,
       ship.name
     );
   }
@@ -309,7 +311,7 @@ function autoRefuelForMiningRoute(
   ship: Ship,
   location: import('./models').WorldLocation
 ): void {
-  const fuelPct = (ship.fuelKg / ship.maxFuelKg) * 100;
+  const fuelPct = calculateFuelPercentage(ship.fuelKg, ship.maxFuelKg);
   if (fuelPct >= 30) return; // Only refuel below 30%
 
   const fuelNeededKg = ship.maxFuelKg - ship.fuelKg;
@@ -325,7 +327,7 @@ function autoRefuelForMiningRoute(
       gameData.log,
       gameData.gameTime,
       'refueled',
-      `Auto-refueled ${ship.name} at ${location.name}: ${Math.round(fuelNeededKg).toLocaleString()} kg (${fuelCost.toLocaleString()} cr)`,
+      `Auto-refueled ${ship.name} at ${location.name}: ${formatFuelMass(fuelNeededKg)} (${formatCredits(fuelCost)})`,
       ship.name
     );
   } else {
@@ -334,7 +336,7 @@ function autoRefuelForMiningRoute(
       gameData.log,
       gameData.gameTime,
       'mining_route',
-      `Mining route ended: insufficient credits for refuel (need ${fuelCost.toLocaleString()} cr, have ${gameData.credits.toLocaleString()} cr)`,
+      `Mining route ended: insufficient credits for refuel (need ${formatCredits(fuelCost)}, have ${formatCredits(gameData.credits)})`,
       ship.name
     );
     ship.miningRoute = null;

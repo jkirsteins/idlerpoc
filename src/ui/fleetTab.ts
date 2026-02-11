@@ -13,6 +13,12 @@ import {
 import { calculateTripFuelKg } from '../questGen';
 import { getDistanceBetween } from '../worldGen';
 import { createFleetPanel } from './fleetPanel';
+import {
+  formatCredits,
+  formatLargeNumber,
+  getRangeLabel,
+  formatMass,
+} from '../formatting';
 import { formatDualTime } from '../timeSystem';
 import {
   getShipStatus,
@@ -503,7 +509,7 @@ function renderFleetPerformanceDashboard(gameData: GameData): HTMLElement {
   const dailyNetColor = dailyNet >= 0 ? '#4ade80' : '#ff4444';
   const incomeText =
     ledger.incomeDays > 0
-      ? `+${Math.round(ledger.incomePerDay).toLocaleString()} cr/day`
+      ? `+${formatCredits(Math.round(ledger.incomePerDay))}/day`
       : 'collecting data\u2026';
   const incomeNote =
     ledger.incomeDays > 0
@@ -521,14 +527,14 @@ function renderFleetPerformanceDashboard(gameData: GameData): HTMLElement {
     <div style="padding: 0.75rem; background: rgba(0, 0, 0, 0.4); border-radius: 4px;">
       <div style="font-size: 0.85rem; color: #888; margin-bottom: 0.5rem;">FINANCIAL SUMMARY</div>
       <div style="display: flex; gap: 2rem; flex-wrap: wrap; margin-bottom: 0.5rem;">
-        <div><span style="color: #aaa;">Total Earned:</span> <span style="color: #4ade80; font-weight: bold;">${totalEarned.toLocaleString()} cr</span></div>
-        <div><span style="color: #aaa;">Operating Costs:</span> <span style="color: #ffa500;">${totalCosts.toLocaleString()} cr</span></div>
-        <div><span style="color: #aaa;">Net Profit:</span> <span style="color: ${netProfit >= 0 ? '#4ade80' : '#ff4444'}; font-weight: bold;">${netProfit >= 0 ? '+' : ''}${netProfit.toLocaleString()} cr</span> <span style="color: #888; font-size: 0.85rem;">(${profitMargin >= 0 ? '+' : ''}${profitMargin.toFixed(0)}% margin)</span></div>
+        <div><span style="color: #aaa;">Total Earned:</span> <span style="color: #4ade80; font-weight: bold;">${formatCredits(totalEarned)}</span></div>
+        <div><span style="color: #aaa;">Operating Costs:</span> <span style="color: #ffa500;">${formatCredits(totalCosts)}</span></div>
+        <div><span style="color: #aaa;">Net Profit:</span> <span style="color: ${netProfit >= 0 ? '#4ade80' : '#ff4444'}; font-weight: bold;">${netProfit >= 0 ? '+' : ''}${formatCredits(netProfit)}</span> <span style="color: #888; font-size: 0.85rem;">(${profitMargin >= 0 ? '+' : ''}${profitMargin.toFixed(0)}% margin)</span></div>
       </div>
       <div style="border-top: 1px solid #333; padding-top: 0.5rem; display: flex; gap: 2rem; flex-wrap: wrap;">
         <div><span style="color: #aaa;">Income:</span> <span style="color: #4ade80;">${incomeText}</span> ${incomeNote}</div>
-        <div><span style="color: #aaa;">Expenses:</span> <span style="color: #ffa500;">-${Math.round(ledger.totalExpensePerDay).toLocaleString()} cr/day</span> <span style="color: #666; font-size: 0.8rem;">(crew: ${Math.round(ledger.crewCostPerDay).toLocaleString()}, fuel: ${Math.round(ledger.fuelCostPerDay).toLocaleString()})</span></div>
-        <div><span style="color: #aaa;">Net Rate:</span> <span style="color: ${dailyNetColor}; font-weight: bold;">${dailyNetSign}${dailyNet.toLocaleString()} cr/day</span></div>
+        <div><span style="color: #aaa;">Expenses:</span> <span style="color: #ffa500;">-${formatCredits(Math.round(ledger.totalExpensePerDay))}/day</span> <span style="color: #666; font-size: 0.8rem;">(crew: ${Math.round(ledger.crewCostPerDay).toLocaleString()}, fuel: ${Math.round(ledger.fuelCostPerDay).toLocaleString()})</span></div>
+        <div><span style="color: #aaa;">Net Rate:</span> <span style="color: ${dailyNetColor}; font-weight: bold;">${dailyNetSign}${formatCredits(dailyNet)}/day</span></div>
         <div><span style="color: #aaa;">Runway:</span> ${runwayText}</div>
       </div>
     </div>
@@ -549,7 +555,7 @@ function renderFleetPerformanceDashboard(gameData: GameData): HTMLElement {
             return `
             <div style="margin-bottom: 0.25rem;">
               ${medal} <span style="font-weight: bold;">${sp.ship.name}:</span>
-              <span style="color: ${color};">${sp.perf.netProfit >= 0 ? '+' : ''}${sp.perf.netProfit.toLocaleString()} cr</span>
+              <span style="color: ${color};">${sp.perf.netProfit >= 0 ? '+' : ''}${formatCredits(sp.perf.netProfit)}</span>
               <span style="color: #888; font-size: 0.85rem;">(${sp.perf.creditsPerDay.toFixed(0)} cr/day, ${sp.perf.uptime.toFixed(0)}% uptime, ${sp.ship.metrics.contractsCompleted} contracts)</span>
               ${sp.perf.netProfit < 0 ? '<span style="color: #ffa500; margin-left: 8px;">⚠️ UNDERPERFORMING</span>' : ''}
             </div>
@@ -803,8 +809,8 @@ function renderEnhancedShipCard(
           : ''
       }
       <div style="font-size: 0.85rem; margin-bottom: 0.25rem;">
-        <span style="color: #aaa;">Earned:</span> <span style="color: #4ade80; font-weight: bold;">${ship.activeContract.creditsEarned.toLocaleString()} cr</span>
-        ${quest.paymentOnCompletion > 0 ? `<span style="color: #888;"> / ${quest.paymentOnCompletion.toLocaleString()} cr total</span>` : ''}
+        <span style="color: #aaa;">Earned:</span> <span style="color: #4ade80; font-weight: bold;">${formatCredits(ship.activeContract.creditsEarned)}</span>
+        ${quest.paymentOnCompletion > 0 ? `<span style="color: #888;"> / ${formatCredits(quest.paymentOnCompletion)} total</span>` : ''}
       </div>
     `;
 
@@ -850,13 +856,13 @@ function renderEnhancedShipCard(
   perfDiv.innerHTML = `
     <div style="font-weight: bold; margin-bottom: 0.5rem; color: #aaa;">📊 PERFORMANCE</div>
     <div style="margin-bottom: 0.25rem;">
-      <span style="color: #888;">Lifetime Earned:</span> <span style="color: #4ade80; font-weight: bold;">${ship.metrics.creditsEarned.toLocaleString()} cr</span>
+      <span style="color: #888;">Lifetime Earned:</span> <span style="color: #4ade80; font-weight: bold;">${formatCredits(ship.metrics.creditsEarned)}</span>
     </div>
     <div style="margin-bottom: 0.25rem;">
-      <span style="color: #888;">Operating Costs:</span> <span style="color: #ffa500;">${(ship.metrics.crewCostsPaid + ship.metrics.fuelCostsPaid + ship.metrics.repairCostsPaid).toLocaleString()} cr</span>
+      <span style="color: #888;">Operating Costs:</span> <span style="color: #ffa500;">${formatCredits(ship.metrics.crewCostsPaid + ship.metrics.fuelCostsPaid + ship.metrics.repairCostsPaid)}</span>
     </div>
     <div style="margin-bottom: 0.25rem;">
-      <span style="color: #888;">Net Profit:</span> <span style="color: ${profitColor}; font-weight: bold;">${performance.netProfit >= 0 ? '+' : ''}${performance.netProfit.toLocaleString()} cr</span>
+      <span style="color: #888;">Net Profit:</span> <span style="color: ${profitColor}; font-weight: bold;">${performance.netProfit >= 0 ? '+' : ''}${formatCredits(performance.netProfit)}</span>
     </div>
     <div style="margin-bottom: 0.25rem;">
       <span style="color: #888;">Efficiency:</span> ${performance.creditsPerDay.toFixed(0)} cr/day | ${performance.uptime.toFixed(0)}% uptime
@@ -1021,7 +1027,7 @@ function createShipPurchase(
     const priceDiv = document.createElement('div');
     priceDiv.style.color = '#4a9eff';
     priceDiv.style.fontWeight = 'bold';
-    priceDiv.textContent = `${shipClass.price.toLocaleString()} cr`;
+    priceDiv.textContent = formatCredits(shipClass.price);
     header.appendChild(priceDiv);
 
     card.appendChild(header);
@@ -1060,7 +1066,7 @@ function createShipPurchase(
         ? `${standardOnlySlots} standard + ${structuralSlots} structural`
         : `${shipClass.equipmentSlotDefs.length} slots`;
 
-    specs.innerHTML = `Crew: ${shipClass.maxCrew} | Cargo: ${availableCargoKg.toLocaleString()} kg | Equip: ${slotLabel}<br>Range: <span style="color: #4ade80; font-weight: bold;">${rangeFormatted} km</span> <span style="color: #aaa;">(${rangeLabel})</span>`;
+    specs.innerHTML = `Crew: ${shipClass.maxCrew} | Cargo: ${formatMass(availableCargoKg)} | Equip: ${slotLabel}<br>Range: <span style="color: #4ade80; font-weight: bold;">${rangeFormatted} km</span> <span style="color: #aaa;">(${rangeLabel})</span>`;
     specs.title = `Max range with default engine: ${maxRangeKm.toLocaleString()} km`;
     card.appendChild(specs);
 
@@ -1250,24 +1256,6 @@ function createShipPurchase(
 }
 
 // Helper functions
-
-function formatLargeNumber(num: number): string {
-  if (num >= 1_000_000) {
-    return (num / 1_000_000).toFixed(1) + 'M';
-  } else if (num >= 1_000) {
-    return (num / 1_000).toFixed(0) + 'K';
-  }
-  return num.toFixed(0);
-}
-
-function getRangeLabel(rangeKm: number): string {
-  if (rangeKm < 50_000) return 'LEO/MEO';
-  if (rangeKm < 1_000_000) return 'GEO/Cislunar';
-  if (rangeKm < 10_000_000) return 'Inner System';
-  if (rangeKm < 100_000_000) return 'Mars';
-  if (rangeKm < 500_000_000) return 'Jupiter';
-  return 'Outer System';
-}
 
 function getTierColor(tier: string): string {
   switch (tier) {

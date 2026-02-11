@@ -5,6 +5,7 @@ import {
   formatRealDuration,
   GAME_SECONDS_PER_TICK,
 } from '../timeSystem';
+import { formatCredits } from '../formatting';
 import { getGForce } from '../flightPhysics';
 import { getEngineDefinition } from '../engines';
 import {
@@ -264,7 +265,7 @@ export function createFlightStatusComponent(
       },
       abandon: {
         label: 'Abandon contract',
-        desc: `Ends contract on arrival. This trip will not be paid. You keep ${activeContract.creditsEarned.toLocaleString()} cr from completed trips.`,
+        desc: `Ends contract on arrival. This trip will not be paid. You keep ${formatCredits(activeContract.creditsEarned)} from completed trips.`,
         warn: hasRouteAssignment
           ? 'Your automated route assignment will also end.'
           : undefined,

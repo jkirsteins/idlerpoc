@@ -16,6 +16,7 @@ import { createStationTab } from './stationTab';
 import { createFleetPanel } from './fleetPanel';
 import { createNavigationView } from './navigationView';
 import { formatGameDate, GAME_SECONDS_PER_DAY } from '../timeSystem';
+import { formatCredits } from '../formatting';
 import { calculateDailyLedger } from '../dailyLedger';
 import {
   getShipPositionKm,
@@ -519,7 +520,7 @@ export function createTabbedView(
     const ledger = calculateDailyLedger(gameData);
     const netRounded = Math.round(ledger.netPerDay);
     const netSign = netRounded >= 0 ? '+' : '';
-    const netText = `${netSign}${netRounded.toLocaleString()} cr/day`;
+    const netText = `${netSign}${formatCredits(netRounded)}/day`;
     if (netValueSpan.textContent !== netText) {
       netValueSpan.textContent = netText;
       netValueSpan.style.color = netRounded >= 0 ? '#4ade80' : '#ff4444';

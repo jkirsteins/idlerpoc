@@ -11,6 +11,8 @@ import { generateId, formatTradeRouteName } from './utils';
 import { getDistanceBetween } from './worldGen';
 import { getFuelPricePerKg } from './ui/refuelDialog';
 import { gameSecondsToTicks } from './timeSystem';
+import { formatFuelMass, calculateFuelPercentage } from './ui/fuelFormatting';
+import { formatCredits } from './formatting';
 
 type AcceptQuestFn = (gameData: GameData, ship: Ship, quest: Quest) => void;
 
@@ -133,7 +135,7 @@ export function unassignShipFromRoute(gameData: GameData, ship: Ship): void {
     gameData.log,
     gameData.gameTime,
     'contract_abandoned',
-    `Ended automated route: ${formatTradeRouteName(originLoc?.name ?? '?', destLoc?.name ?? '?')}. Completed ${assignment.totalTripsCompleted} trips, earned ${assignment.creditsEarned.toLocaleString()} credits total.`,
+    `Ended automated route: ${formatTradeRouteName(originLoc?.name ?? '?', destLoc?.name ?? '?')}. Completed ${assignment.totalTripsCompleted} trips, earned ${formatCredits(assignment.creditsEarned)} total.`,
     ship.name
   );
 
@@ -161,7 +163,7 @@ export function checkAutoRefuel(
   }
 
   const threshold = ship.routeAssignment.autoRefuelThreshold;
-  const fuelPercentage = (ship.fuelKg / ship.maxFuelKg) * 100;
+  const fuelPercentage = calculateFuelPercentage(ship.fuelKg, ship.maxFuelKg);
 
   if (fuelPercentage < threshold) {
     // Calculate refuel amount and cost using location-based pricing
@@ -180,7 +182,7 @@ export function checkAutoRefuel(
         gameData.log,
         gameData.gameTime,
         'refueled',
-        `Auto-refueled ${ship.name} at ${location.name}: ${Math.round(fuelNeededKg).toLocaleString()} kg (${fuelCost.toLocaleString()} cr)`,
+        `Auto-refueled ${ship.name} at ${location.name}: ${formatFuelMass(fuelNeededKg)} (${formatCredits(fuelCost)})`,
         ship.name
       );
 
@@ -199,7 +201,7 @@ export function checkAutoRefuel(
         gameData.log,
         gameData.gameTime,
         'contract_abandoned',
-        `Route assignment ended at ${location.name}: insufficient credits for refuel (needed ${fuelCost}, have ${gameData.credits}). Route ${formatTradeRouteName(originLoc?.name ?? '?', destLoc?.name ?? '?')} completed ${assignment.totalTripsCompleted} trips, earned ${assignment.creditsEarned.toLocaleString()} credits.`,
+        `Route assignment ended at ${location.name}: insufficient credits for refuel (needed ${formatCredits(fuelCost)}, have ${formatCredits(gameData.credits)}). Route ${formatTradeRouteName(originLoc?.name ?? '?', destLoc?.name ?? '?')} completed ${assignment.totalTripsCompleted} trips, earned ${formatCredits(assignment.creditsEarned)}.`,
         ship.name
       );
 

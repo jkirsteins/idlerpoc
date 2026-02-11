@@ -10,6 +10,7 @@ import {
 } from '../equipment';
 import { getShipClass } from '../shipClasses';
 import { formatGameDate } from '../timeSystem';
+import { formatCredits } from '../formatting';
 import { calculateDailyLedger } from '../dailyLedger';
 import { getRoomDefinition } from '../rooms';
 import { renderStatBar } from './components/statBar';
@@ -627,18 +628,18 @@ export function createRightSidebar(gameData: GameData): Component {
     const ledger = calculateDailyLedger(gameData);
 
     if (ledger.incomeDays > 0) {
-      incomeValue.textContent = `+${Math.round(ledger.incomePerDay).toLocaleString()} cr/day`;
+      incomeValue.textContent = `+${formatCredits(Math.round(ledger.incomePerDay))}/day`;
     } else {
       incomeValue.textContent = 'collecting data\u2026';
       incomeValue.style.color = '#666';
     }
 
-    ledgerCrewValue.textContent = `-${Math.round(ledger.crewCostPerDay).toLocaleString()} cr/day`;
-    ledgerFuelValue.textContent = `-${Math.round(ledger.fuelCostPerDay).toLocaleString()} cr/day`;
+    ledgerCrewValue.textContent = `-${formatCredits(Math.round(ledger.crewCostPerDay))}/day`;
+    ledgerFuelValue.textContent = `-${formatCredits(Math.round(ledger.fuelCostPerDay))}/day`;
 
     const netRounded = Math.round(ledger.netPerDay);
     const netSign = netRounded >= 0 ? '+' : '';
-    netValue.textContent = `${netSign}${netRounded.toLocaleString()} cr/day`;
+    netValue.textContent = `${netSign}${formatCredits(netRounded)}/day`;
     netValue.style.color = netRounded >= 0 ? '#4ade80' : '#ff4444';
 
     if (ledger.incomeDays === 0) {

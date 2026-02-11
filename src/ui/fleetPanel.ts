@@ -5,8 +5,13 @@ import { computeMaxRange } from '../flightPhysics';
 import { formatDualTime } from '../timeSystem';
 import { getTradeRouteName } from '../utils';
 import type { Component } from './component';
-import { formatFuelMass, calculateFuelPercentage } from './fuelFormatting';
+import {
+  formatFuelMass,
+  calculateFuelPercentage,
+  getFuelColorHex,
+} from './fuelFormatting';
 import { getCommandCommerceBonus, getFleetAuraBonus } from '../captainBonus';
+import { formatLargeNumber } from '../formatting';
 
 export interface FleetPanelCallbacks {
   onSelectShip: (shipId: string) => void;
@@ -347,7 +352,8 @@ export function createFleetPanel(
 
     // Fuel
     const fuelPercentage = calculateFuelPercentage(ship.fuelKg, ship.maxFuelKg);
-    refs.fuelSpan.style.color = fuelPercentage < 20 ? '#ff4444' : '';
+    refs.fuelSpan.style.color =
+      fuelPercentage <= 20 ? getFuelColorHex(fuelPercentage) : '';
     const fuelText = `Fuel: ${formatFuelMass(ship.fuelKg)}`;
     if (refs.fuelSpan.textContent !== fuelText) {
       refs.fuelSpan.textContent = fuelText;
@@ -430,13 +436,4 @@ function getTierColor(tier: ShipClassTier): string {
     default:
       return '#fff';
   }
-}
-
-function formatLargeNumber(num: number): string {
-  if (num >= 1_000_000) {
-    return (num / 1_000_000).toFixed(1) + 'M';
-  } else if (num >= 1_000) {
-    return (num / 1_000).toFixed(0) + 'K';
-  }
-  return num.toFixed(0);
 }

@@ -8,6 +8,7 @@ import { calculateShipSalaryPerTick } from './crewRoles';
 import { getDistanceBetween } from './worldGen';
 import { TICKS_PER_DAY, GAME_SECONDS_PER_DAY } from './timeSystem';
 import { formatExposureDays } from './gravitySystem';
+import { formatFuelMass, calculateFuelPercentage } from './ui/fuelFormatting';
 
 // Average fuel price for profit estimates (matches questGen.ts FUEL_PRICE_PER_KG).
 // Actual station prices vary by location (1.6–5.0 cr/kg via getFuelPricePerKg).
@@ -85,11 +86,11 @@ export function getShipHealthAlerts(ship: Ship): ShipHealthAlert[] {
   const alerts: ShipHealthAlert[] = [];
 
   // Critical: No fuel
-  const fuelPercent = (ship.fuelKg / ship.maxFuelKg) * 100;
+  const fuelPercent = calculateFuelPercentage(ship.fuelKg, ship.maxFuelKg);
   if (fuelPercent < 10) {
     alerts.push({
       severity: 'critical',
-      message: `Fuel critically low: ${Math.round(fuelPercent)}% (${Math.round(ship.fuelKg).toLocaleString()} kg)`,
+      message: `Fuel critically low: ${Math.round(fuelPercent)}% (${formatFuelMass(ship.fuelKg)})`,
       action: 'Refuel immediately',
     });
   }
@@ -109,7 +110,7 @@ export function getShipHealthAlerts(ship: Ship): ShipHealthAlert[] {
   if (fuelPercent >= 10 && fuelPercent < 30) {
     alerts.push({
       severity: 'warning',
-      message: `Fuel low: ${Math.round(fuelPercent)}% (${Math.round(ship.fuelKg).toLocaleString()} kg)`,
+      message: `Fuel low: ${Math.round(fuelPercent)}% (${formatFuelMass(ship.fuelKg)})`,
       action: 'Refuel soon',
     });
   }
@@ -208,8 +209,7 @@ export function getShipPerformance(ship: Ship): ShipPerformance {
  * Get contextual fuel information
  */
 export function getFuelContext(ship: Ship, gameData: GameData): string {
-  const fuelPercent = (ship.fuelKg / ship.maxFuelKg) * 100;
-  const fuelKg = Math.round(ship.fuelKg).toLocaleString();
+  const fuelPercent = calculateFuelPercentage(ship.fuelKg, ship.maxFuelKg);
 
   // Find nearest location for reference
   let nearestDist = Infinity;
@@ -235,10 +235,10 @@ export function getFuelContext(ship: Ship, gameData: GameData): string {
   if (nearestName && nearestDist < Infinity) {
     const fuelNeededKg = calculateOneLegFuelKg(ship, nearestDist);
     const trips = fuelNeededKg > 0 ? ship.fuelKg / fuelNeededKg : Infinity;
-    return `${Math.round(fuelPercent)}% (${fuelKg} kg, ${trips.toFixed(1)} trips to ${nearestName})`;
+    return `${Math.round(fuelPercent)}% (${formatFuelMass(ship.fuelKg)}, ${trips.toFixed(1)} trips to ${nearestName})`;
   }
 
-  return `${Math.round(fuelPercent)}% (${fuelKg} kg)`;
+  return `${Math.round(fuelPercent)}% (${formatFuelMass(ship.fuelKg)})`;
 }
 
 /**
