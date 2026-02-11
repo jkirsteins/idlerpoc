@@ -36,7 +36,7 @@ import {
   calculateFuelPercentage,
   getFuelColorClass,
 } from './fuelFormatting';
-import { renderFlightStrip } from './flightStatus';
+import { createFlightStatusComponent } from './flightStatus';
 import {
   getRoomJobSlots,
   getRoomCrewCount,
@@ -62,6 +62,9 @@ export interface ShipTabCallbacks {
   onBuyFuel: () => void;
   onStartTrip: (destinationId: string) => void;
   onBuyShip?: (classId: string, shipName: string) => void;
+  onDockAtNearestPort: () => void;
+  onCancelPause: () => void;
+  onRequestAbandon: () => void;
 }
 
 /** Snapshot the props the ship tab renders so we can shallow-compare. */
@@ -189,8 +192,12 @@ export function createShipTab(
   const heatBarSlot = document.createElement('div');
   const containmentBarSlot = document.createElement('div');
 
-  // ── Flight strip slot ──
-  const flightStripSlot = document.createElement('div');
+  // ── Flight status component (includes flight info + station action radio) ──
+  const flightStatusComponent = createFlightStatusComponent(gameData, {
+    onContinue: () => callbacks.onCancelPause(),
+    onPause: () => callbacks.onDockAtNearestPort(),
+    onAbandon: () => callbacks.onRequestAbandon(),
+  });
 
   // ── Ship stats panel slot ──
   const shipStatsPanelSlot = document.createElement('div');
@@ -239,7 +246,7 @@ export function createShipTab(
     radiationBarSlot,
     heatBarSlot,
     containmentBarSlot,
-    flightStripSlot,
+    flightStatusComponent.el,
     shipStatsPanelSlot,
     jobSlotsGrid,
     gravityStatusSlot,
@@ -898,13 +905,8 @@ export function createShipTab(
       containmentBarSlot.removeChild(containmentBarSlot.firstChild);
     containmentBarSlot.appendChild(renderContainmentBar(gameData));
 
-    // ── Flight strip (leaf helper via slot) ──
-    if (flightStripSlot.firstChild)
-      flightStripSlot.removeChild(flightStripSlot.firstChild);
-    if (ship.location.status === 'in_flight') {
-      const strip = renderFlightStrip(gameData);
-      if (strip) flightStripSlot.appendChild(strip);
-    }
+    // ── Flight status component (handles its own visibility) ──
+    flightStatusComponent.update(gameData);
 
     // ── Ship stats panel (leaf helper via slot) ──
     if (shipStatsPanelSlot.firstChild)

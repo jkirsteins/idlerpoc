@@ -21,7 +21,7 @@ import type { Component } from './component';
 import { formatFuelMass, calculateFuelPercentage } from './fuelFormatting';
 import { getDistanceBetween, canShipAccessLocation } from '../worldGen';
 import { getFuelPricePerKg } from './refuelDialog';
-import { renderFlightStatus } from './flightStatus';
+import { createFlightStatusComponent } from './flightStatus';
 import { getOreDefinition, canMineOre } from '../oreTypes';
 import { getCrewForJobType } from '../jobSlots';
 import { getBestShipMiningEquipment } from '../equipment';
@@ -44,9 +44,6 @@ export interface WorkTabCallbacks {
   onStartMiningRoute: (sellLocationId: string) => void;
   onCancelMiningRoute: () => void;
 }
-
-// Radio-group selection values
-type ActiveAction = 'continue' | 'pause' | 'abandon';
 
 // ─── Quest Card Refs ──────────────────────────────────────────
 interface QuestCardRefs {
@@ -170,123 +167,18 @@ export function createWorkTab(
     callbacks.onFlightProfileChange();
   });
 
-  // ── Persistent radio group — created once, updated in-place ────
-  type RadioCardRefs = {
-    card: HTMLLabelElement;
-    radio: HTMLInputElement;
-    labelEl: HTMLElement;
-    descEl: HTMLElement;
-    warnEl: HTMLElement;
-  };
+  // Persistent flight status component — created once, survives updates.
+  // Includes flight info + station action radio buttons.
+  const flightStatusComponent = createFlightStatusComponent(gameData, {
+    onContinue: () => callbacks.onCancelPause(),
+    onPause: () => callbacks.onDockAtNearestPort(),
+    onAbandon: () => callbacks.onRequestAbandon(),
+  });
+
   let prevPhase: 'none' | 'active' | 'paused' = 'none';
   // Two-step confirm state for the paused view's abandon button (docked context)
   let pausedAbandonPending = false;
   let pausedAbandonTimer: ReturnType<typeof setTimeout> | null = null;
-
-  const radioGroupEl = document.createElement('div');
-  radioGroupEl.className = 'action-radio-group';
-  radioGroupEl.style.display = 'none';
-  const radioCardRefs = new Map<ActiveAction, RadioCardRefs>();
-
-  for (const value of ['continue', 'pause', 'abandon'] as ActiveAction[]) {
-    const card = document.createElement('label');
-    card.className = 'action-radio-card action-radio-card--default';
-
-    const radio = document.createElement('input');
-    radio.type = 'radio';
-    radio.name = 'active-action';
-    radio.value = value;
-    radio.addEventListener('change', () => handleRadioSelect(value));
-    card.appendChild(radio);
-
-    const textWrap = document.createElement('div');
-    textWrap.className = 'action-radio-text';
-
-    const labelEl = document.createElement('div');
-    labelEl.className = 'action-radio-label';
-    textWrap.appendChild(labelEl);
-
-    const descEl = document.createElement('div');
-    descEl.className = 'action-radio-desc';
-    textWrap.appendChild(descEl);
-
-    const warnEl = document.createElement('div');
-    warnEl.className = 'action-radio-warn';
-    warnEl.style.display = 'none';
-    textWrap.appendChild(warnEl);
-
-    card.appendChild(textWrap);
-    radioGroupEl.appendChild(card);
-    radioCardRefs.set(value, { card, radio, labelEl, descEl, warnEl });
-  }
-
-  function handleRadioSelect(action: ActiveAction) {
-    if (action === 'continue') {
-      callbacks.onCancelPause();
-    } else if (action === 'pause') {
-      callbacks.onDockAtNearestPort();
-    } else if (action === 'abandon') {
-      callbacks.onRequestAbandon();
-    }
-  }
-
-  function updateRadioGroup(ship: Ship) {
-    const activeContract = ship.activeContract;
-    if (!activeContract) return;
-
-    // Derive selection entirely from game state
-    const selectedAction: ActiveAction = activeContract.abandonRequested
-      ? 'abandon'
-      : activeContract.paused
-        ? 'pause'
-        : 'continue';
-
-    const hasRouteAssignment = !!ship.routeAssignment;
-
-    const optionData: Record<
-      ActiveAction,
-      { label: string; desc: string; warn?: string; style: string }
-    > = {
-      continue: {
-        label: 'Continue flying',
-        desc: 'Ship continues to destination. No changes.',
-        style: 'default',
-      },
-      pause: {
-        label: 'Pause & dock on arrival',
-        desc: 'Contract pauses when you arrive. You keep all earnings. Resume anytime.',
-        style: 'caution',
-      },
-      abandon: {
-        label: 'Abandon contract',
-        desc: `Ends contract on arrival. This trip will not be paid. You keep ${activeContract.creditsEarned.toLocaleString()} cr from completed trips.`,
-        warn: hasRouteAssignment
-          ? 'Your automated route assignment will also end.'
-          : undefined,
-        style: 'danger',
-      },
-    };
-
-    for (const [action, refs] of radioCardRefs) {
-      const data = optionData[action];
-      const isSelected = selectedAction === action;
-
-      refs.radio.checked = isSelected;
-
-      refs.card.className = `action-radio-card action-radio-card--${data.style}`;
-      if (isSelected) refs.card.classList.add('action-radio-card--selected');
-
-      refs.labelEl.textContent = data.label;
-      refs.descEl.textContent = data.desc;
-
-      if (data.warn) {
-        refs.warnEl.textContent = data.warn;
-        refs.warnEl.style.display = '';
-      } else {
-        refs.warnEl.style.display = 'none';
-      }
-    }
-  }
 
   // ── Create all three phase containers once ──────────────────
   const noContractRefs = createNoContractContent();
@@ -305,7 +197,7 @@ export function createWorkTab(
   pausedContractRefs.container.style.display = 'none';
 
   container.appendChild(contentArea);
-  container.appendChild(radioGroupEl);
+  container.appendChild(flightStatusComponent.el);
 
   // Quest card pools for reconciliation
   const tradeQuestCards = new Map<string, QuestCardRefs>();
@@ -1611,7 +1503,6 @@ export function createWorkTab(
     updateRouteAssignmentRefs(refs.routeAssignment, gd);
 
     const quest = activeContract.quest;
-    const flight = ship.activeFlightPlan;
 
     // Contract summary
     refs.summaryTitle.textContent = quest.title;
@@ -1658,12 +1549,6 @@ export function createWorkTab(
       refs.pauseHint.style.display = 'none';
     }
 
-    // Flight status (leaf helper — transient, replace contents of slot)
-    refs.flightStatusSlot.textContent = '';
-    if (flight) {
-      refs.flightStatusSlot.appendChild(renderFlightStatus(flight, gd, ship));
-    }
-
     // Fuel gauge
     refs.fuelLabel.textContent = `Fuel: ${formatFuelMass(ship.fuelKg)}`;
     const fuelPercentage = calculateFuelPercentage(ship.fuelKg, ship.maxFuelKg);
@@ -1701,12 +1586,6 @@ export function createWorkTab(
     }
 
     refs.earned.textContent = `Earned so far: ${activeContract.creditsEarned.toLocaleString()} credits`;
-
-    // Flight status (leaf helper — transient)
-    refs.flightStatusSlot.textContent = '';
-    if (stillInFlight) {
-      refs.flightStatusSlot.appendChild(renderFlightStatus(flight, gd, ship));
-    }
 
     // Abandon button state
     updatePausedAbandonButton();
@@ -1749,24 +1628,25 @@ export function createWorkTab(
     pausedContractRefs.container.style.display =
       curPhase === 'paused' ? '' : 'none';
 
+    // Update the consolidated flight status component (handles its own
+    // visibility: shows flight info when in flight, radio buttons when
+    // there's an active contract in flight)
+    flightStatusComponent.update(gameData);
+
     if (curPhase === 'none') {
       updateNoContractPhase(gameData);
-      radioGroupEl.style.display = 'none';
       // Remove profile control from other locations if needed
       if (profileControl.el.parentNode === activeContractRefs.container) {
         profileControl.el.remove();
       }
     } else if (curPhase === 'active') {
       updateActiveContractPhase(gameData);
-      radioGroupEl.style.display = '';
-      updateRadioGroup(ship);
 
-      // Flight profile slider below radio options
+      // Flight profile slider below flight status component
       updateFlightProfileControl(profileControl, ship);
-      radioGroupEl.after(profileControl.el);
+      flightStatusComponent.el.after(profileControl.el);
     } else if (curPhase === 'paused') {
       updatePausedContractPhase(gameData);
-      radioGroupEl.style.display = 'none';
 
       // Show flight profile slider for adjusting before resume
       updateFlightProfileControl(profileControl, ship);

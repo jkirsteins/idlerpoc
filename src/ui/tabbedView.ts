@@ -357,6 +357,9 @@ export function createTabbedView(
           onBuyFuel: callbacks.onBuyFuel,
           onStartTrip: callbacks.onStartTrip,
           onBuyShip: callbacks.onBuyShip,
+          onDockAtNearestPort: callbacks.onDockAtNearestPort,
+          onCancelPause: callbacks.onCancelPause,
+          onRequestAbandon: callbacks.onRequestAbandon,
         });
       case 'station':
         return createStationTab(gameData, callbacks);
