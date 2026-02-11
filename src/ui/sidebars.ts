@@ -20,6 +20,7 @@ import {
   calculateFuelPercentage,
   getFuelColorClass,
 } from './fuelFormatting';
+import { isHelmManned } from '../jobSlots';
 
 interface SidebarCallbacks {
   onBuyFuel?: () => void;
@@ -39,71 +40,167 @@ export function createLeftSidebar(
   const sidebar = document.createElement('div');
   sidebar.className = 'left-sidebar';
 
-  function rebuild(gameData: GameData) {
-    sidebar.replaceChildren();
+  // ── TIME CONTROLS SECTION ──
+  const timeControlsSection = document.createElement('div');
+  timeControlsSection.className = 'sidebar-section time-controls';
+  timeControlsSection.style.borderBottom = '1px solid #444';
+  timeControlsSection.style.paddingBottom = '12px';
+  timeControlsSection.style.marginBottom = '16px';
 
-    // TIME CONTROLS SECTION (at TOP)
-    const timeControlsSection = document.createElement('div');
-    timeControlsSection.className = 'sidebar-section time-controls';
-    timeControlsSection.style.borderBottom = '1px solid #444';
-    timeControlsSection.style.paddingBottom = '12px';
-    timeControlsSection.style.marginBottom = '16px';
+  const timeDisplay = document.createElement('div');
+  timeDisplay.style.fontSize = '13px';
+  timeDisplay.style.color = '#4a9eff';
+  timeDisplay.style.marginBottom = '8px';
+  timeDisplay.style.fontWeight = 'bold';
+  timeControlsSection.appendChild(timeDisplay);
 
-    // Game time display
-    const timeDisplay = document.createElement('div');
-    timeDisplay.style.fontSize = '13px';
-    timeDisplay.style.color = '#4a9eff';
-    timeDisplay.style.marginBottom = '8px';
-    timeDisplay.style.fontWeight = 'bold';
-    timeDisplay.textContent = formatGameDate(gameData.gameTime);
-    timeControlsSection.appendChild(timeDisplay);
+  const playPauseBtn = document.createElement('button');
+  playPauseBtn.className = 'time-control-btn play-pause';
+  playPauseBtn.style.width = '100%';
+  playPauseBtn.style.marginBottom = '8px';
+  // Stable child elements for the play/pause button content
+  const playPauseIcon = document.createTextNode('');
+  const playPauseLabel = document.createElement('span');
+  playPauseBtn.appendChild(playPauseIcon);
+  playPauseBtn.appendChild(document.createTextNode(' '));
+  playPauseBtn.appendChild(playPauseLabel);
+  playPauseBtn.addEventListener('click', () => {
+    if (callbacks.onTogglePause) callbacks.onTogglePause();
+  });
+  timeControlsSection.appendChild(playPauseBtn);
 
-    // Play/Pause Toggle Button
-    const playPauseBtn = document.createElement('button');
-    playPauseBtn.className = 'time-control-btn play-pause';
-    playPauseBtn.innerHTML = gameData.isPaused
-      ? '▶ <span>Resume</span>'
-      : '⏸ <span>Pause</span>';
-    playPauseBtn.style.width = '100%';
-    playPauseBtn.style.marginBottom = '8px';
-    playPauseBtn.addEventListener('click', () => {
-      if (callbacks.onTogglePause) callbacks.onTogglePause();
-    });
-    timeControlsSection.appendChild(playPauseBtn);
+  sidebar.appendChild(timeControlsSection);
 
-    // Speed controls hidden from player UI (keyboard shortcuts 1/2/5 still work for dev testing)
-    sidebar.appendChild(timeControlsSection);
+  // ── CREDITS SECTION ──
+  const creditsSection = document.createElement('div');
+  creditsSection.className = 'sidebar-section';
 
-    // Credits section
-    const creditsSection = document.createElement('div');
-    creditsSection.className = 'sidebar-section';
+  const creditsLabel = document.createElement('h3');
+  creditsLabel.textContent = 'Credits';
+  creditsSection.appendChild(creditsLabel);
 
-    const creditsLabel = document.createElement('h3');
-    creditsLabel.textContent = 'Credits';
-    creditsSection.appendChild(creditsLabel);
+  const creditsValue = document.createElement('div');
+  creditsValue.style.fontSize = '24px';
+  creditsValue.style.fontWeight = 'bold';
+  creditsValue.style.color = '#4a9eff';
+  creditsSection.appendChild(creditsValue);
 
-    const creditsValue = document.createElement('div');
-    creditsValue.style.fontSize = '24px';
-    creditsValue.style.fontWeight = 'bold';
-    creditsValue.style.color = '#4a9eff';
-    creditsValue.textContent = Math.round(gameData.credits).toLocaleString();
-    creditsSection.appendChild(creditsValue);
+  sidebar.appendChild(creditsSection);
 
-    sidebar.appendChild(creditsSection);
+  // ── LOCATION SECTION ──
+  const locationSection = document.createElement('div');
+  locationSection.className = 'sidebar-section';
 
-    // Location section
-    const locationSection = document.createElement('div');
-    locationSection.className = 'sidebar-section';
+  const locationLabel = document.createElement('h3');
+  locationLabel.textContent = 'Location';
+  locationSection.appendChild(locationLabel);
 
-    const locationLabel = document.createElement('h3');
-    locationLabel.textContent = 'Location';
-    locationSection.appendChild(locationLabel);
+  const locationValue = document.createElement('div');
+  locationValue.style.fontSize = '14px';
+  locationValue.style.color = '#eee';
+  locationSection.appendChild(locationValue);
 
+  sidebar.appendChild(locationSection);
+
+  // ── FUEL SECTION ──
+  const fuelSection = document.createElement('div');
+  fuelSection.className = 'sidebar-section';
+
+  const fuelLabel = document.createElement('h3');
+  fuelLabel.textContent = 'Fuel';
+  fuelSection.appendChild(fuelLabel);
+
+  const fuelBarSlot = document.createElement('div');
+  fuelSection.appendChild(fuelBarSlot);
+
+  sidebar.appendChild(fuelSection);
+
+  // ── POWER SECTION ──
+  const powerSection = document.createElement('div');
+  powerSection.className = 'sidebar-section';
+
+  const powerLabel = document.createElement('h3');
+  powerLabel.textContent = 'Power';
+  powerSection.appendChild(powerLabel);
+
+  const powerBarSlot = document.createElement('div');
+  powerSection.appendChild(powerBarSlot);
+
+  sidebar.appendChild(powerSection);
+
+  // ── QUICK ACTIONS SECTION ──
+  const actionsSection = document.createElement('div');
+  actionsSection.className = 'sidebar-section';
+
+  const actionsLabel = document.createElement('h3');
+  actionsLabel.textContent = 'Quick Actions';
+  actionsSection.appendChild(actionsLabel);
+
+  // Navigation button
+  const navBtn = document.createElement('button');
+  navBtn.textContent = '\u{1F5FA}\uFE0F Navigate';
+  navBtn.className = 'small-button';
+  navBtn.style.width = '100%';
+  navBtn.style.marginBottom = '8px';
+  navBtn.addEventListener('click', () => {
+    if (callbacks.onTabChange) callbacks.onTabChange('nav');
+  });
+  actionsSection.appendChild(navBtn);
+
+  // Refuel button
+  const refuelBtn = document.createElement('button');
+  refuelBtn.textContent = 'Refuel';
+  refuelBtn.className = 'small-button';
+  refuelBtn.style.width = '100%';
+  refuelBtn.style.marginBottom = '8px';
+  refuelBtn.addEventListener('click', () => {
+    if (callbacks.onBuyFuel) callbacks.onBuyFuel();
+  });
+  actionsSection.appendChild(refuelBtn);
+
+  // Undock button
+  const undockBtn = document.createElement('button');
+  undockBtn.textContent = 'Undock';
+  undockBtn.className = 'small-button';
+  undockBtn.style.width = '100%';
+  undockBtn.style.marginBottom = '8px';
+  undockBtn.addEventListener('click', () => {
+    if (callbacks.onUndock) callbacks.onUndock();
+  });
+  actionsSection.appendChild(undockBtn);
+
+  // Dock button
+  const dockBtn = document.createElement('button');
+  dockBtn.className = 'small-button';
+  dockBtn.style.width = '100%';
+  dockBtn.style.marginBottom = '8px';
+  dockBtn.addEventListener('click', () => {
+    if (callbacks.onDock) callbacks.onDock();
+  });
+  actionsSection.appendChild(dockBtn);
+
+  sidebar.appendChild(actionsSection);
+
+  // ── UPDATE FUNCTION ──
+  function update(gameData: GameData): void {
     const ship = getActiveShip(gameData);
-    const locationValue = document.createElement('div');
-    locationValue.style.fontSize = '14px';
-    locationValue.style.color = '#eee';
 
+    // Time display
+    timeDisplay.textContent = formatGameDate(gameData.gameTime);
+
+    // Play/Pause button
+    if (gameData.isPaused) {
+      playPauseIcon.textContent = '\u25B6';
+      playPauseLabel.textContent = 'Resume';
+    } else {
+      playPauseIcon.textContent = '\u23F8';
+      playPauseLabel.textContent = 'Pause';
+    }
+
+    // Credits
+    creditsValue.textContent = Math.round(gameData.credits).toLocaleString();
+
+    // Location
     if (ship.location.status === 'in_flight' && ship.activeFlightPlan) {
       const origin = gameData.world.locations.find(
         (l) => l.id === ship.activeFlightPlan!.origin
@@ -111,7 +208,7 @@ export function createLeftSidebar(
       const destination = gameData.world.locations.find(
         (l) => l.id === ship.activeFlightPlan!.destination
       );
-      locationValue.textContent = `${origin?.name || '?'} → ${destination?.name || '?'}`;
+      locationValue.textContent = `${origin?.name || '?'} \u2192 ${destination?.name || '?'}`;
     } else if (
       ship.location.status === 'orbiting' &&
       ship.location.orbitingAt
@@ -128,38 +225,19 @@ export function createLeftSidebar(
     } else {
       locationValue.textContent = 'In Space';
     }
-    locationSection.appendChild(locationValue);
 
-    sidebar.appendChild(locationSection);
-
-    // Fuel section
-    const fuelSection = document.createElement('div');
-    fuelSection.className = 'sidebar-section';
-
-    const fuelLabel = document.createElement('h3');
-    fuelLabel.textContent = 'Fuel';
-    fuelSection.appendChild(fuelLabel);
-
+    // Fuel bar
     const fuelPercentage = calculateFuelPercentage(ship.fuelKg, ship.maxFuelKg);
-    fuelSection.appendChild(
-      renderStatBar({
-        label: formatFuelMass(ship.fuelKg),
-        percentage: fuelPercentage,
-        colorClass: getFuelColorClass(fuelPercentage),
-        mode: 'compact',
-      })
-    );
+    const newFuelBar = renderStatBar({
+      label: formatFuelMass(ship.fuelKg),
+      percentage: fuelPercentage,
+      colorClass: getFuelColorClass(fuelPercentage),
+      mode: 'compact',
+    });
+    if (fuelBarSlot.firstChild) fuelBarSlot.removeChild(fuelBarSlot.firstChild);
+    fuelBarSlot.appendChild(newFuelBar);
 
-    sidebar.appendChild(fuelSection);
-
-    // Power section
-    const powerSection = document.createElement('div');
-    powerSection.className = 'sidebar-section';
-
-    const powerLabel = document.createElement('h3');
-    powerLabel.textContent = 'Power';
-    powerSection.appendChild(powerLabel);
-
+    // Power bar
     const powerStatus = computePowerStatus(ship);
     const powerValueLabel =
       powerStatus.totalOutput > 0
@@ -208,24 +286,20 @@ export function createLeftSidebar(
       drawItems
     );
 
-    // Show full capacity when power is available, with draw as overlay
     const basePercentage =
       powerStatus.powerSource === 'berth' ||
       powerStatus.powerSource === 'drives'
         ? 100
         : 0;
 
-    // Determine overlay color based on power draw
     let overlayColorClass = 'bar-warning';
     if (powerStatus.isOverloaded) {
       overlayColorClass = 'bar-danger';
     }
 
-    // powerStatus.percentage is (draw/output)*100
-    // Overlay should show this drawn percentage
     const drawnPercentage = powerStatus.percentage;
 
-    const powerBar = renderStatBar({
+    const newPowerBar = renderStatBar({
       label: powerValueLabel,
       percentage: basePercentage,
       colorClass: 'bar-good',
@@ -239,274 +313,304 @@ export function createLeftSidebar(
           : undefined,
     });
 
-    // Attach custom tooltip
-    attachTooltip(powerBar, {
+    attachTooltip(newPowerBar, {
       content: tooltipContent,
       followMouse: false,
     });
 
-    powerSection.appendChild(powerBar);
+    if (powerBarSlot.firstChild)
+      powerBarSlot.removeChild(powerBarSlot.firstChild);
+    powerBarSlot.appendChild(newPowerBar);
 
-    sidebar.appendChild(powerSection);
+    // Quick actions visibility
+    const isDocked = ship.location.status === 'docked';
+    const isOrbiting = ship.location.status === 'orbiting';
+    const isInFlight = ship.location.status === 'in_flight';
 
-    // Quick actions section
-    const actionsSection = document.createElement('div');
-    actionsSection.className = 'sidebar-section';
+    // Nav button: show when docked or orbiting
+    const showNav = !!(callbacks.onTabChange && (isDocked || isOrbiting));
+    navBtn.style.display = showNav ? '' : 'none';
 
-    const actionsLabel = document.createElement('h3');
-    actionsLabel.textContent = 'Quick Actions';
-    actionsSection.appendChild(actionsLabel);
-
-    let hasActions = false;
-
-    // Navigation button (when docked or orbiting)
-    if (
-      callbacks.onTabChange &&
-      (ship.location.status === 'docked' || ship.location.status === 'orbiting')
-    ) {
-      const navBtn = document.createElement('button');
-      navBtn.textContent = '🗺️ Navigate';
-      navBtn.className = 'small-button';
-      navBtn.style.width = '100%';
-      navBtn.style.marginBottom = '8px';
-      navBtn.addEventListener('click', () => callbacks.onTabChange!('nav'));
-      actionsSection.appendChild(navBtn);
-      hasActions = true;
-    }
-
-    // Refuel button (when docked and not full)
-    if (
+    // Refuel button: show when docked and not full
+    const showRefuel = !!(
       callbacks.onBuyFuel &&
-      ship.location.status === 'docked' &&
+      isDocked &&
       ship.fuelKg < ship.maxFuelKg
-    ) {
-      const refuelBtn = document.createElement('button');
-      refuelBtn.textContent = 'Refuel';
-      refuelBtn.className = 'small-button';
-      refuelBtn.style.width = '100%';
-      refuelBtn.style.marginBottom = '8px';
-      refuelBtn.addEventListener('click', callbacks.onBuyFuel);
-      actionsSection.appendChild(refuelBtn);
-      hasActions = true;
+    );
+    refuelBtn.style.display = showRefuel ? '' : 'none';
+
+    // Undock button: show when docked, disable when helm unmanned
+    const showUndock = !!(callbacks.onUndock && isDocked);
+    undockBtn.style.display = showUndock ? '' : 'none';
+    if (showUndock) {
+      const helmOk = isHelmManned(ship);
+      undockBtn.disabled = !helmOk;
+      undockBtn.title = helmOk
+        ? ''
+        : 'Helm is unmanned — assign crew to the helm before undocking';
     }
 
-    // Undock button (when docked)
-    if (callbacks.onUndock && ship.location.status === 'docked') {
-      const undockBtn = document.createElement('button');
-      undockBtn.textContent = 'Undock';
-      undockBtn.className = 'small-button';
-      undockBtn.style.width = '100%';
-      undockBtn.style.marginBottom = '8px';
-      undockBtn.addEventListener('click', callbacks.onUndock);
-      actionsSection.appendChild(undockBtn);
-      hasActions = true;
-    }
+    // Dock button: show when in flight or orbiting
+    const showDock = !!(callbacks.onDock && (isInFlight || isOrbiting));
+    dockBtn.style.display = showDock ? '' : 'none';
+    dockBtn.textContent = isOrbiting ? 'Dock' : 'Dock at Nearest Port';
 
-    // Dock button (when in flight or orbiting)
-    if (
-      callbacks.onDock &&
-      (ship.location.status === 'in_flight' ||
-        ship.location.status === 'orbiting')
-    ) {
-      const dockBtn = document.createElement('button');
-      dockBtn.textContent =
-        ship.location.status === 'orbiting' ? 'Dock' : 'Dock at Nearest Port';
-      dockBtn.className = 'small-button';
-      dockBtn.style.width = '100%';
-      dockBtn.style.marginBottom = '8px';
-      dockBtn.addEventListener('click', callbacks.onDock);
-      actionsSection.appendChild(dockBtn);
-      hasActions = true;
-    }
-
-    if (hasActions) {
-      sidebar.appendChild(actionsSection);
-    }
+    // Show/hide whole actions section
+    const hasActions = showNav || showRefuel || showUndock || showDock;
+    actionsSection.style.display = hasActions ? '' : 'none';
   }
 
-  rebuild(gameData);
-  return { el: sidebar, update: rebuild };
+  // Initial render
+  update(gameData);
+  return { el: sidebar, update };
 }
 
 export function createRightSidebar(gameData: GameData): Component {
   const sidebar = document.createElement('div');
   sidebar.className = 'right-sidebar';
 
-  function rebuild(gameData: GameData) {
-    sidebar.replaceChildren();
+  // ── DATE SECTION ──
+  const dateSection = document.createElement('div');
+  dateSection.className = 'sidebar-section';
+  dateSection.style.fontSize = '13px';
+  dateSection.style.color = '#4a9eff';
+  dateSection.style.fontWeight = 'bold';
+  dateSection.style.textAlign = 'center';
+  dateSection.style.padding = '8px 0';
+  sidebar.appendChild(dateSection);
+
+  // ── SHIP INFO SECTION ──
+  const shipInfoSection = document.createElement('div');
+  shipInfoSection.className = 'sidebar-section';
+
+  const shipNameEl = document.createElement('div');
+  shipNameEl.style.fontSize = '16px';
+  shipNameEl.style.fontWeight = 'bold';
+  shipNameEl.style.color = '#e94560';
+  shipNameEl.style.marginBottom = '4px';
+  shipInfoSection.appendChild(shipNameEl);
+
+  const shipClassInfo = document.createElement('div');
+  shipClassInfo.style.fontSize = '11px';
+  shipClassInfo.style.color = '#888';
+  shipInfoSection.appendChild(shipClassInfo);
+
+  sidebar.appendChild(shipInfoSection);
+
+  // ── CAPTAIN SECTION ──
+  const captainSection = document.createElement('div');
+  captainSection.className = 'sidebar-section';
+
+  const captainLabel = document.createElement('h3');
+  captainLabel.textContent = 'Captain';
+  captainSection.appendChild(captainLabel);
+
+  const captainNameEl = document.createElement('div');
+  captainNameEl.style.fontSize = '13px';
+  captainNameEl.style.color = '#eee';
+  captainSection.appendChild(captainNameEl);
+
+  sidebar.appendChild(captainSection);
+
+  // ── CREW SECTION ──
+  const crewSection = document.createElement('div');
+  crewSection.className = 'sidebar-section';
+
+  const crewLabel = document.createElement('h3');
+  crewLabel.textContent = 'Crew';
+  crewSection.appendChild(crewLabel);
+
+  const crewInfo = document.createElement('div');
+  crewInfo.style.fontSize = '12px';
+  crewInfo.style.lineHeight = '1.6';
+
+  // Ship crew line
+  const shipCrewLine = document.createElement('div');
+  const shipCrewLabelSpan = document.createElement('span');
+  shipCrewLabelSpan.style.color = '#888';
+  shipCrewLabelSpan.textContent = 'This Ship: ';
+  const shipCrewCount = document.createElement('span');
+  shipCrewLine.appendChild(shipCrewLabelSpan);
+  shipCrewLine.appendChild(shipCrewCount);
+  crewInfo.appendChild(shipCrewLine);
+
+  // Crew cost line
+  const crewCostLine = document.createElement('div');
+  const crewCostLabelSpan = document.createElement('span');
+  crewCostLabelSpan.style.color = '#888';
+  crewCostLabelSpan.textContent = 'Crew Cost: ';
+  const crewCostPerDay = document.createElement('span');
+  crewCostLine.appendChild(crewCostLabelSpan);
+  crewCostLine.appendChild(crewCostPerDay);
+  crewInfo.appendChild(crewCostLine);
+
+  crewSection.appendChild(crewInfo);
+  sidebar.appendChild(crewSection);
+
+  // ── ENGINE SECTION ──
+  const engineSection = document.createElement('div');
+  engineSection.className = 'sidebar-section';
+
+  const engineLabel = document.createElement('h3');
+  engineLabel.textContent = 'Engine';
+  engineSection.appendChild(engineLabel);
+
+  const engineInfo = document.createElement('div');
+  engineInfo.style.fontSize = '12px';
+  engineSection.appendChild(engineInfo);
+
+  sidebar.appendChild(engineSection);
+
+  // ── TORCH SYSTEMS SECTION ──
+  const torchSection = document.createElement('div');
+  torchSection.className = 'sidebar-section';
+
+  const torchLabel = document.createElement('h3');
+  torchLabel.textContent = 'Torch Systems';
+  torchSection.appendChild(torchLabel);
+
+  // Radiation
+  const radiationDiv = document.createElement('div');
+  radiationDiv.className = 'sidebar-item';
+
+  const radiationTitle = document.createElement('div');
+  radiationTitle.style.fontSize = '11px';
+  radiationTitle.style.marginBottom = '4px';
+  radiationTitle.textContent = 'Radiation';
+  radiationDiv.appendChild(radiationTitle);
+
+  const radiationBarSlot = document.createElement('div');
+  radiationDiv.appendChild(radiationBarSlot);
+
+  torchSection.appendChild(radiationDiv);
+
+  // Heat
+  const heatDiv = document.createElement('div');
+  heatDiv.className = 'sidebar-item';
+
+  const heatTitle = document.createElement('div');
+  heatTitle.style.fontSize = '11px';
+  heatTitle.style.marginBottom = '4px';
+  heatTitle.textContent = 'Heat';
+  heatDiv.appendChild(heatTitle);
+
+  const heatBarSlot = document.createElement('div');
+  heatDiv.appendChild(heatBarSlot);
+
+  torchSection.appendChild(heatDiv);
+
+  sidebar.appendChild(torchSection);
+
+  // ── ACTIVE QUEST SECTION ──
+  const questSection = document.createElement('div');
+  questSection.className = 'sidebar-section';
+
+  const questLabel = document.createElement('h3');
+  questLabel.textContent = 'Active Quest';
+  questSection.appendChild(questLabel);
+
+  const questInfo = document.createElement('div');
+  questInfo.style.fontSize = '12px';
+  questInfo.style.lineHeight = '1.6';
+
+  const questTitle = document.createElement('div');
+  questTitle.style.fontWeight = 'bold';
+  questTitle.style.marginBottom = '4px';
+  questInfo.appendChild(questTitle);
+
+  const questRewardLine = document.createElement('div');
+  const questRewardLabelSpan = document.createElement('span');
+  questRewardLabelSpan.style.color = '#888';
+  questRewardLabelSpan.textContent = 'Reward: ';
+  const questRewardValue = document.createElement('span');
+  questRewardLine.appendChild(questRewardLabelSpan);
+  questRewardLine.appendChild(questRewardValue);
+  questInfo.appendChild(questRewardLine);
+
+  questSection.appendChild(questInfo);
+
+  sidebar.appendChild(questSection);
+
+  // ── UPDATE FUNCTION ──
+  function update(gameData: GameData): void {
     const ship = getActiveShip(gameData);
     const engineDef = getEngineDefinition(ship.engine.definitionId);
     const shipClass = getShipClass(ship.classId);
 
-    // Date section
-    const dateSection = document.createElement('div');
-    dateSection.className = 'sidebar-section';
-    dateSection.style.fontSize = '13px';
-    dateSection.style.color = '#4a9eff';
-    dateSection.style.fontWeight = 'bold';
-    dateSection.style.textAlign = 'center';
-    dateSection.style.padding = '8px 0';
+    // Date
     dateSection.textContent = formatGameDate(gameData.gameTime);
-    sidebar.appendChild(dateSection);
 
-    // Ship info section
-    const shipInfoSection = document.createElement('div');
-    shipInfoSection.className = 'sidebar-section';
-
-    const shipName = document.createElement('div');
-    shipName.style.fontSize = '16px';
-    shipName.style.fontWeight = 'bold';
-    shipName.style.color = '#e94560';
-    shipName.style.marginBottom = '4px';
-    shipName.textContent = ship.name;
-    shipInfoSection.appendChild(shipName);
-
-    const shipClassInfo = document.createElement('div');
-    shipClassInfo.style.fontSize = '11px';
-    shipClassInfo.style.color = '#888';
+    // Ship info
+    shipNameEl.textContent = ship.name;
     shipClassInfo.textContent = shipClass?.name || ship.classId;
-    shipInfoSection.appendChild(shipClassInfo);
 
-    sidebar.appendChild(shipInfoSection);
-
-    // Captain section
+    // Captain
     const captain = ship.crew.find((c) => c.role === 'captain');
     if (captain) {
-      const captainSection = document.createElement('div');
-      captainSection.className = 'sidebar-section';
-
-      const captainLabel = document.createElement('h3');
-      captainLabel.textContent = 'Captain';
-      captainSection.appendChild(captainLabel);
-
-      const captainName = document.createElement('div');
-      captainName.style.fontSize = '13px';
-      captainName.style.color = '#eee';
-      captainName.textContent = captain.name;
-      captainSection.appendChild(captainName);
-
-      sidebar.appendChild(captainSection);
+      captainNameEl.textContent = captain.name;
+      captainSection.style.opacity = '';
+    } else {
+      captainNameEl.textContent = 'None';
+      captainSection.style.opacity = '0.4';
     }
 
-    // Crew section
-    const crewSection = document.createElement('div');
-    crewSection.className = 'sidebar-section';
-
-    const crewLabel = document.createElement('h3');
-    crewLabel.textContent = 'Crew';
-    crewSection.appendChild(crewLabel);
-
+    // Crew
     const maxCrew = shipClass?.maxCrew ?? '?';
-    const crewInfo = document.createElement('div');
-    crewInfo.style.fontSize = '12px';
-    crewInfo.style.lineHeight = '1.6';
+    shipCrewCount.textContent = `${ship.crew.length}/${maxCrew}`;
 
-    // Calculate fleet-wide crew cost per tick
     let totalCrewCostPerTick = 0;
     for (const s of gameData.ships) {
       totalCrewCostPerTick += calculateShipSalaryPerTick(s);
     }
-    const totalCrewCostPerDay = totalCrewCostPerTick * TICKS_PER_DAY;
+    const totalCrewCostPerDayVal = totalCrewCostPerTick * TICKS_PER_DAY;
+    crewCostPerDay.textContent = `${totalCrewCostPerDayVal} cr/day`;
 
-    crewInfo.innerHTML = `
-    <div><span style="color: #888;">This Ship:</span> ${ship.crew.length}/${maxCrew}</div>
-    <div><span style="color: #888;">Crew Cost:</span> ${totalCrewCostPerDay} cr/day</div>
-  `;
-    crewSection.appendChild(crewInfo);
-
-    sidebar.appendChild(crewSection);
-
-    // Engine section
-    const engineSection = document.createElement('div');
-    engineSection.className = 'sidebar-section';
-
-    const engineLabel = document.createElement('h3');
-    engineLabel.textContent = 'Engine';
-    engineSection.appendChild(engineLabel);
-
-    const engineInfo = document.createElement('div');
-    engineInfo.style.fontSize = '12px';
+    // Engine
     engineInfo.textContent = engineDef.name;
-    engineSection.appendChild(engineInfo);
 
-    sidebar.appendChild(engineSection);
+    // Radiation bar
+    const radiationData = getRadiationData(gameData);
+    if (radiationBarSlot.firstChild)
+      radiationBarSlot.removeChild(radiationBarSlot.firstChild);
+    radiationBarSlot.appendChild(
+      renderStatBar({
+        label: radiationData.label,
+        percentage: radiationData.percentage,
+        colorClass: radiationData.colorClass,
+        mode: 'compact',
+      })
+    );
 
-    // Torch systems section (always shown for discoverability)
-    const torchSection = document.createElement('div');
-    torchSection.className = 'sidebar-section';
+    // Heat bar
+    const heatData = getHeatData(gameData);
+    if (heatBarSlot.firstChild) heatBarSlot.removeChild(heatBarSlot.firstChild);
+    heatBarSlot.appendChild(
+      renderStatBar({
+        label: heatData.label,
+        percentage: heatData.percentage,
+        colorClass: heatData.colorClass,
+        mode: 'compact',
+      })
+    );
 
-    const torchLabel = document.createElement('h3');
-    torchLabel.textContent = 'Torch Systems';
-    torchSection.appendChild(torchLabel);
-
-    {
-      const radiationDiv = document.createElement('div');
-      radiationDiv.className = 'sidebar-item';
-      radiationDiv.innerHTML =
-        '<div style="font-size: 11px; margin-bottom: 4px;">Radiation</div>';
-
-      const radiationData = getRadiationData(gameData);
-      radiationDiv.appendChild(
-        renderStatBar({
-          label: radiationData.label,
-          percentage: radiationData.percentage,
-          colorClass: radiationData.colorClass,
-          mode: 'compact',
-        })
-      );
-
-      torchSection.appendChild(radiationDiv);
-    }
-
-    {
-      const heatDiv = document.createElement('div');
-      heatDiv.className = 'sidebar-item';
-      heatDiv.innerHTML =
-        '<div style="font-size: 11px; margin-bottom: 4px;">Heat</div>';
-
-      const heatData = getHeatData(gameData);
-      heatDiv.appendChild(
-        renderStatBar({
-          label: heatData.label,
-          percentage: heatData.percentage,
-          colorClass: heatData.colorClass,
-          mode: 'compact',
-        })
-      );
-
-      torchSection.appendChild(heatDiv);
-    }
-
-    sidebar.appendChild(torchSection);
-
-    // Active quest section
+    // Active quest
     if (ship.activeContract) {
-      const questSection = document.createElement('div');
-      questSection.className = 'sidebar-section';
-
-      const questLabel = document.createElement('h3');
-      questLabel.textContent = 'Active Quest';
-      questSection.appendChild(questLabel);
-
-      const questInfo = document.createElement('div');
-      questInfo.style.fontSize = '12px';
-      questInfo.style.lineHeight = '1.6';
-
       const contract = ship.activeContract;
       const totalPayment =
         contract.quest.paymentPerTrip + contract.quest.paymentOnCompletion;
-      questInfo.innerHTML = `
-      <div style="font-weight: bold; margin-bottom: 4px;">${contract.quest.title}</div>
-      <div><span style="color: #888;">Reward:</span> ${totalPayment.toLocaleString()}</div>
-    `;
-      questSection.appendChild(questInfo);
-
-      sidebar.appendChild(questSection);
+      questTitle.textContent = contract.quest.title;
+      questRewardValue.textContent = totalPayment.toLocaleString();
+      questSection.style.opacity = '';
+    } else {
+      questTitle.textContent = 'No active quest';
+      questRewardValue.textContent = '—';
+      questSection.style.opacity = '0.4';
     }
   }
 
-  rebuild(gameData);
-  return { el: sidebar, update: rebuild };
+  // Initial render
+  update(gameData);
+  return { el: sidebar, update };
 }
 
 // Helper functions

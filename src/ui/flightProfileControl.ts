@@ -25,7 +25,8 @@ export interface FlightProfileControl {
 }
 
 export function createFlightProfileControl(
-  gameData: GameData
+  gameData: GameData,
+  onChange?: () => void
 ): FlightProfileControl {
   // Mutable reference — updated by updateFlightProfileControl each tick
   // so the slider always mutates the *current* active ship even after
@@ -82,6 +83,10 @@ export function createFlightProfileControl(
     const fraction = parseInt(slider.value) / 100;
     currentShip.flightProfileBurnFraction = fraction;
     label.textContent = `${slider.value}% — ${getProfileLabel(fraction)}`;
+  });
+  // Fires on release — triggers flight recalculation when mid-flight
+  slider.addEventListener('change', () => {
+    if (onChange) onChange();
   });
   sliderRow.appendChild(slider);
 

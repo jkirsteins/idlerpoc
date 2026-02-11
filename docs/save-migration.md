@@ -45,3 +45,4 @@ Saves that predate the fleet architecture (no `ships` array, no `activeShipId`, 
 | 0       | Implicit. Fleet architecture saves with no `saveVersion` field. Backfills time system, ship metrics, oxygen, flight profile, and visited locations. |
 | 1       | First explicit version. Identical shape to migrated v0 but with `saveVersion: 1` stamped on save.                                                   |
 | 2       | Skill revamp: 7 skills → 3 (piloting, mining, commerce), 8 roles → 4, mastery system, oreCargo, world regeneration with mining destinations.        |
+| 3       | Crew service records: adds `hiredAt`, `boardedShipAt`, and optional `hiredLocation` to all crew members. Existing crew backfilled with epoch (0).   |

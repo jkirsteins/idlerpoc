@@ -238,6 +238,9 @@ export interface CrewMember {
   zeroGExposure: number; // cumulative game-seconds in zero-g
   specialization?: SkillSpecialization; // locked-in skill specialization
   mastery: Record<SkillId, SkillMasteryState>; // per-skill mastery state
+  hiredAt: number; // gameTime when hired (0 = game start / captain)
+  boardedShipAt: number; // gameTime when joined current ship
+  hiredLocation?: string; // location ID where recruited (undefined for captain)
 }
 
 export interface Room {
@@ -525,5 +528,21 @@ export function getActiveShip(gameData: GameData): Ship {
   return (
     gameData.ships.find((s) => s.id === gameData.activeShipId) ??
     gameData.ships[0]
+  );
+}
+
+/**
+ * Get the commanding officer of a ship for commerce purposes.
+ * Returns the player character if aboard, otherwise the crew member
+ * with the highest commerce skill (the acting captain).
+ */
+export function getShipCommander(ship: Ship): CrewMember | undefined {
+  return (
+    ship.crew.find((c) => c.isCaptain) ??
+    ship.crew.reduce<CrewMember | undefined>(
+      (best, c) =>
+        !best || c.skills.commerce > best.skills.commerce ? c : best,
+      undefined
+    )
   );
 }

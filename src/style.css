@@ -115,6 +115,12 @@ body {
   gap: 20px;
 }
 
+.main-content {
+  min-width: 0;
+  max-height: calc(100vh - 100px);
+  overflow-y: auto;
+}
+
 /* Sidebar styling */
 .left-sidebar,
 .right-sidebar {
@@ -522,7 +528,6 @@ button.small-button:hover {
   border: 2px solid #0f3460;
   border-radius: 8px;
   padding: 12px;
-  text-align: center;
   transition: border-color 0.2s;
   display: flex;
   flex-direction: column;
@@ -550,11 +555,13 @@ button.small-button:hover {
 
 .room-icon {
   font-size: 28px;
+  text-align: center;
 }
 
 .room-name {
   font-weight: 600;
   font-size: 13px;
+  text-align: center;
 }
 
 .room-power-badge {
@@ -564,6 +571,7 @@ button.small-button:hover {
   padding: 2px 6px;
   border-radius: 3px;
   font-weight: 500;
+  text-align: center;
 }
 
 .room-automated {
@@ -571,6 +579,7 @@ button.small-button:hover {
   color: #4caf50;
   font-weight: 500;
   margin: 4px 0;
+  text-align: center;
 }
 
 .room-cargo-capacity {
@@ -582,6 +591,7 @@ button.small-button:hover {
   font-size: 12px;
   color: #888;
   font-weight: 500;
+  text-align: center;
 }
 
 .room-crew-list {
@@ -1012,7 +1022,7 @@ button.small-button:hover {
 
 .equipment-item {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 12px;
   padding: 12px;
   background: rgba(255, 255, 255, 0.03);
@@ -2605,10 +2615,17 @@ button:disabled:hover {
   margin-bottom: 0.5rem;
 }
 
+.fleet-panel-title {
+  font-size: 0.9rem;
+  font-weight: bold;
+  margin-bottom: 0.5rem;
+  color: #aaa;
+}
+
 .fleet-row {
   display: flex;
-  align-items: center;
-  gap: 1rem;
+  align-items: flex-start;
+  gap: 0.5rem;
   padding: 0.5rem;
   border-radius: 4px;
   cursor: pointer;
@@ -2628,6 +2645,85 @@ button:disabled:hover {
 
 .fleet-row:not(.active):hover {
   background: rgba(255, 255, 255, 0.05);
+}
+
+.fleet-row-indicator {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  margin-top: 5px;
+}
+
+.fleet-row-content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.fleet-row-top {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.fleet-row-tier {
+  font-size: 0.75rem;
+  font-weight: bold;
+  opacity: 0.8;
+}
+
+.fleet-row-name {
+  font-weight: bold;
+}
+
+.fleet-row-activity {
+  font-size: 0.75rem;
+  padding: 1px 6px;
+  border-radius: 3px;
+  border: 1px solid;
+  white-space: nowrap;
+}
+
+.fleet-row-bottom {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  color: #aaa;
+  font-size: 0.8rem;
+}
+
+.fleet-row-location {
+  margin-right: auto;
+}
+
+.fleet-row-stat {
+  white-space: nowrap;
+}
+
+.fleet-row-minibar {
+  display: inline-block;
+  width: 60px;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+  vertical-align: middle;
+  margin-right: 4px;
+  overflow: hidden;
+}
+
+.fleet-row-minibar-fill {
+  display: block;
+  height: 100%;
+  background: #4a9eff;
+}
+
+.fleet-row-flight-pct {
+  font-size: 0.8rem;
 }
 
 /* Fleet management section */
@@ -3523,7 +3619,9 @@ button:disabled:hover {
   /* Prevent any child from exceeding viewport */
   .main-content {
     min-width: 0;
+    max-height: none;
     overflow-x: hidden;
+    overflow-y: visible;
   }
 
   /* Gamepedia: stack sidebar above content */
@@ -3717,11 +3815,23 @@ button:disabled:hover {
     max-height: 400px;
   }
 
-  /* Fleet rows: tighter */
+  /* Fleet rows: tighter on mobile */
   .fleet-row {
-    gap: 0.5rem;
     padding: 0.4rem;
     font-size: 0.8rem;
+  }
+
+  .fleet-row-bottom {
+    gap: 0.4rem;
+    font-size: 0.7rem;
+  }
+
+  .fleet-row-activity {
+    font-size: 0.65rem;
+  }
+
+  .fleet-row-minibar {
+    width: 40px;
   }
 
   /* Version badge: smaller */

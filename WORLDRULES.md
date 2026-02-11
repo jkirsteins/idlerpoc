@@ -636,7 +636,7 @@ Every skill maps to a role archetype. The current implementation uses 3 skills:
 
 ### Special Cases
 
-**Captain**: Always the player character, regardless of skill distribution. The captain leads through position, not necessarily superior skills.
+**Captain**: Always the player character, regardless of skill distribution. The captain leads through position, not necessarily superior skills. The captain can transfer between ships in the fleet — when absent, the crew member with the highest commerce skill acts as commanding officer for trade bonuses.
 
 **Role Assignment**: When generating or leveling crew:
 

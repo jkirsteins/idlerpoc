@@ -56,6 +56,8 @@ export interface TabbedViewCallbacks {
   onSpecializeCrew?: (crewId: string, skillId: SkillId) => void;
   onSellOre: (oreId: OreId, quantity: number) => void;
   onSellAllOre: () => void;
+  onFlightProfileChange: () => void;
   onStartMiningRoute: (sellLocationId: string) => void;
   onCancelMiningRoute: () => void;
+  onImportState?: (json: string) => void;
 }

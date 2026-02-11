@@ -1,4 +1,4 @@
-import type { GameData, Quest, Ship } from '../models';
+import type { GameData, Quest, Ship, WorldLocation } from '../models';
 import { getActiveShip } from '../models';
 import {
   formatDuration,
@@ -21,7 +21,7 @@ import type { Component } from './component';
 import { formatFuelMass, calculateFuelPercentage } from './fuelFormatting';
 import { getDistanceBetween, canShipAccessLocation } from '../worldGen';
 import { getFuelPricePerKg } from './refuelDialog';
-import { renderFlightStatus } from './flightStatus';
+import { createFlightStatusComponent } from './flightStatus';
 import { getOreDefinition, canMineOre } from '../oreTypes';
 import { getCrewForJobType } from '../jobSlots';
 import { getBestShipMiningEquipment } from '../equipment';
@@ -40,12 +40,120 @@ export interface WorkTabCallbacks {
   onRequestAbandon: () => void;
   onResumeContract: () => void;
   onAbandonContract: () => void;
+  onFlightProfileChange: () => void;
   onStartMiningRoute: (sellLocationId: string) => void;
   onCancelMiningRoute: () => void;
 }
 
-// Radio-group selection values
-type ActiveAction = 'continue' | 'pause' | 'abandon';
+// ─── Quest Card Refs ──────────────────────────────────────────
+interface QuestCardRefs {
+  card: HTMLDivElement;
+  title: HTMLDivElement;
+  description: HTMLDivElement;
+  details: HTMLDivElement;
+  destInfo: HTMLDivElement;
+  distanceInfo: HTMLDivElement;
+  cargoInfo: HTMLDivElement;
+  totalCargoInfo: HTMLDivElement;
+  tripsInfo: HTMLDivElement;
+  fuelInfo: HTMLDivElement;
+  timeInfo: HTMLDivElement;
+  crewCostInfo: HTMLDivElement;
+  fuelCostInfo: HTMLDivElement;
+  profitInfo: HTMLDivElement;
+  riskLine: HTMLDivElement;
+  riskBadgeSlot: HTMLDivElement;
+  payment: HTMLDivElement;
+  buttonContainer: HTMLDivElement;
+  acceptBtn: HTMLButtonElement;
+  assignBtn: HTMLButtonElement;
+  reasonDiv: HTMLDivElement;
+}
+
+// ─── Mining Status Refs ───────────────────────────────────────
+interface MiningStatusRefs {
+  panel: HTMLDivElement;
+  title: HTMLSpanElement;
+  statusBadge: HTMLSpanElement;
+  undockPrompt: HTMLDivElement;
+  oresSection: HTMLDivElement;
+  oresLabel: HTMLDivElement;
+  oreTagsContainer: HTMLDivElement;
+  minersSection: HTMLDivElement;
+  cargoSection: HTMLDivElement;
+  breakdownSection: HTMLDivElement;
+  routeSection: HTMLDivElement;
+  // Active route refs
+  activeRouteContainer: HTMLDivElement;
+  activeRouteLabel: HTMLSpanElement;
+  activeRouteCancelBtn: HTMLButtonElement;
+  activeRouteStats: HTMLDivElement;
+  // Setup route refs
+  setupRouteContainer: HTMLDivElement;
+  setupRouteLabel: HTMLDivElement;
+  noTradeMsg: HTMLDivElement;
+  setupRow: HTMLDivElement;
+  miningRouteSelect: HTMLSelectElement;
+  startRouteBtn: HTMLButtonElement;
+  setupHint: HTMLDivElement;
+}
+
+// ─── Route Assignment Info Refs ───────────────────────────────
+interface RouteAssignmentRefs {
+  container: HTMLDivElement;
+  header: HTMLDivElement;
+  routeInfo: HTMLDivElement;
+  unassignBtn: HTMLButtonElement;
+}
+
+// ─── Active Contract Refs ─────────────────────────────────────
+interface ActiveContractRefs {
+  container: HTMLDivElement;
+  routeAssignment: RouteAssignmentRefs;
+  summaryTitle: HTMLHeadingElement;
+  progress: HTMLDivElement;
+  leg: HTMLDivElement;
+  paymentInfo: HTMLDivElement;
+  earned: HTMLDivElement;
+  abandonHint: HTMLDivElement;
+  pauseHint: HTMLDivElement;
+  flightStatusSlot: HTMLDivElement;
+  fuelGauge: HTMLDivElement;
+  fuelLabel: HTMLDivElement;
+  fuelFill: HTMLDivElement;
+}
+
+// ─── Paused Contract Refs ─────────────────────────────────────
+interface PausedContractRefs {
+  container: HTMLDivElement;
+  routeAssignment: RouteAssignmentRefs;
+  summaryTitle: HTMLHeadingElement;
+  pausedBadge: HTMLSpanElement;
+  pauseHint: HTMLDivElement;
+  progress: HTMLDivElement;
+  earned: HTMLDivElement;
+  flightStatusSlot: HTMLDivElement;
+  resumeBtn: HTMLButtonElement;
+  abandonBtn: HTMLButtonElement;
+  abandonHint: HTMLDivElement;
+}
+
+// ─── No Contract (Available Work) Refs ────────────────────────
+interface NoContractRefs {
+  container: HTMLDivElement;
+  heading: HTMLHeadingElement;
+  shipContext: HTMLDivElement;
+  shipContextName: HTMLSpanElement;
+  tradeSection: HTMLDivElement;
+  tradeHeading: HTMLHeadingElement;
+  tradeDesc: HTMLParagraphElement;
+  tradeCardsContainer: HTMLDivElement;
+  contractSection: HTMLDivElement;
+  contractHeading: HTMLHeadingElement;
+  noQuestsMsg: HTMLParagraphElement;
+  contractCardsContainer: HTMLDivElement;
+  miningSlot: HTMLDivElement;
+}
 
 export function createWorkTab(
   gameData: GameData,
@@ -54,134 +162,1445 @@ export function createWorkTab(
   const container = document.createElement('div');
   container.className = 'work-tab';
 
-  // Persistent flight profile slider — created once, survives rebuilds
-  const profileControl = createFlightProfileControl(gameData);
+  // Persistent flight profile slider — created once, survives updates
+  const profileControl = createFlightProfileControl(gameData, () => {
+    callbacks.onFlightProfileChange();
+  });
 
-  // ── Content area — rebuilt each tick (non-interactive) ──────────
-  const contentArea = document.createElement('div');
+  // Persistent flight status component — created once, survives updates.
+  // Includes flight info + station action radio buttons.
+  const flightStatusComponent = createFlightStatusComponent(gameData, {
+    onContinue: () => callbacks.onCancelPause(),
+    onPause: () => callbacks.onDockAtNearestPort(),
+    onAbandon: () => callbacks.onRequestAbandon(),
+  });
 
-  // ── Persistent radio group — created once, updated in-place ────
-  type RadioCardRefs = {
-    card: HTMLLabelElement;
-    radio: HTMLInputElement;
-    labelEl: HTMLElement;
-    descEl: HTMLElement;
-    warnEl: HTMLElement;
-  };
   let prevPhase: 'none' | 'active' | 'paused' = 'none';
   // Two-step confirm state for the paused view's abandon button (docked context)
   let pausedAbandonPending = false;
   let pausedAbandonTimer: ReturnType<typeof setTimeout> | null = null;
 
-  const radioGroupEl = document.createElement('div');
-  radioGroupEl.className = 'action-radio-group';
-  radioGroupEl.style.display = 'none';
-  const radioCardRefs = new Map<ActiveAction, RadioCardRefs>();
+  // ── Create all three phase containers once ──────────────────
+  const noContractRefs = createNoContractContent();
+  const activeContractRefs = createActiveContractContent();
+  const pausedContractRefs = createPausedContractContent();
 
-  for (const value of ['continue', 'pause', 'abandon'] as ActiveAction[]) {
-    const card = document.createElement('label');
-    card.className = 'action-radio-card action-radio-card--default';
+  // Content area holds the three phase containers
+  const contentArea = document.createElement('div');
+  contentArea.appendChild(noContractRefs.container);
+  contentArea.appendChild(activeContractRefs.container);
+  contentArea.appendChild(pausedContractRefs.container);
 
-    const radio = document.createElement('input');
-    radio.type = 'radio';
-    radio.name = 'active-action';
-    radio.value = value;
-    radio.addEventListener('change', () => handleRadioSelect(value));
-    card.appendChild(radio);
-
-    const textWrap = document.createElement('div');
-    textWrap.className = 'action-radio-text';
-
-    const labelEl = document.createElement('div');
-    labelEl.className = 'action-radio-label';
-    textWrap.appendChild(labelEl);
-
-    const descEl = document.createElement('div');
-    descEl.className = 'action-radio-desc';
-    textWrap.appendChild(descEl);
-
-    const warnEl = document.createElement('div');
-    warnEl.className = 'action-radio-warn';
-    warnEl.style.display = 'none';
-    textWrap.appendChild(warnEl);
-
-    card.appendChild(textWrap);
-    radioGroupEl.appendChild(card);
-    radioCardRefs.set(value, { card, radio, labelEl, descEl, warnEl });
-  }
+  // Hide all initially
+  noContractRefs.container.style.display = 'none';
+  activeContractRefs.container.style.display = 'none';
+  pausedContractRefs.container.style.display = 'none';
 
   container.appendChild(contentArea);
-  container.appendChild(radioGroupEl);
+  container.appendChild(flightStatusComponent.el);
 
-  function handleRadioSelect(action: ActiveAction) {
-    if (action === 'continue') {
-      callbacks.onCancelPause();
-    } else if (action === 'pause') {
-      callbacks.onDockAtNearestPort();
-    } else if (action === 'abandon') {
-      callbacks.onRequestAbandon();
+  // Quest card pools for reconciliation
+  const tradeQuestCards = new Map<string, QuestCardRefs>();
+  const regularQuestCards = new Map<string, QuestCardRefs>();
+
+  // Mining status panel refs (created lazily, but only once)
+  let miningRefs: MiningStatusRefs | null = null;
+  // Map of ore tag elements for reconciliation
+  const oreTagMap = new Map<string, HTMLSpanElement>();
+  // Map of miner line elements for reconciliation
+  const minerLineMap = new Map<string, HTMLDivElement>();
+  // Map of ore cargo breakdown lines
+  const oreCargoLineMap = new Map<string, HTMLDivElement>();
+  // Map of mining route select options
+  const miningSelectOptionMap = new Map<string, HTMLOptionElement>();
+
+  // ── Factory: No Contract Content ────────────────────────────
+  function createNoContractContent(): NoContractRefs {
+    const cont = document.createElement('div');
+    cont.className = 'available-work';
+
+    const heading = document.createElement('h3');
+    heading.textContent = 'Available Work';
+    cont.appendChild(heading);
+
+    const shipContext = document.createElement('div');
+    shipContext.style.marginBottom = '0.75rem';
+    shipContext.style.padding = '0.5rem';
+    shipContext.style.background = 'rgba(74, 158, 255, 0.1)';
+    shipContext.style.border = '1px solid #4a9eff';
+    shipContext.style.borderRadius = '4px';
+    shipContext.style.fontSize = '0.9rem';
+
+    const assignLabel = document.createElement('span');
+    assignLabel.style.color = '#aaa';
+    assignLabel.textContent = 'Assigning to: ';
+    shipContext.appendChild(assignLabel);
+
+    const shipContextName = document.createElement('span');
+    shipContextName.style.color = '#4a9eff';
+    shipContextName.style.fontWeight = 'bold';
+    shipContext.appendChild(shipContextName);
+    cont.appendChild(shipContext);
+
+    // Mining status slot (positioned before work listings)
+    const miningSlot = document.createElement('div');
+    cont.appendChild(miningSlot);
+
+    // Trade Routes section
+    const tradeSection = document.createElement('div');
+    tradeSection.className = 'trade-routes-section';
+    tradeSection.style.display = 'none';
+
+    const tradeHeading = document.createElement('h4');
+    tradeHeading.textContent = 'Trade Routes';
+    tradeHeading.style.color = '#4a9eff';
+    tradeHeading.style.marginBottom = '0.25rem';
+    tradeSection.appendChild(tradeHeading);
+
+    const tradeDesc = document.createElement('p');
+    tradeDesc.style.color = '#888';
+    tradeDesc.style.fontSize = '0.85rem';
+    tradeDesc.style.marginTop = '0';
+    tradeDesc.style.marginBottom = '0.75rem';
+    tradeDesc.textContent =
+      "Permanent trade routes representing this location's economic activity. Pay scales with distance and route danger.";
+    tradeSection.appendChild(tradeDesc);
+
+    const tradeCardsContainer = document.createElement('div');
+    tradeSection.appendChild(tradeCardsContainer);
+    cont.appendChild(tradeSection);
+
+    // Regular contracts section
+    const contractSection = document.createElement('div');
+    contractSection.className = 'contracts-section';
+
+    const contractHeading = document.createElement('h4');
+    contractHeading.textContent = 'Available Contracts';
+    contractHeading.style.marginBottom = '0.5rem';
+    contractHeading.style.display = 'none';
+    contractSection.appendChild(contractHeading);
+
+    const noQuestsMsg = document.createElement('p');
+    noQuestsMsg.className = 'no-quests';
+    noQuestsMsg.textContent = 'No work available. Try advancing the day.';
+    noQuestsMsg.style.display = 'none';
+    contractSection.appendChild(noQuestsMsg);
+
+    const contractCardsContainer = document.createElement('div');
+    contractSection.appendChild(contractCardsContainer);
+    cont.appendChild(contractSection);
+
+    return {
+      container: cont,
+      heading,
+      shipContext,
+      shipContextName,
+      tradeSection,
+      tradeHeading,
+      tradeDesc,
+      tradeCardsContainer,
+      contractSection,
+      contractHeading,
+      noQuestsMsg,
+      contractCardsContainer,
+      miningSlot,
+    };
+  }
+
+  // ── Factory: Route Assignment Info ──────────────────────────
+  function createRouteAssignmentRefs(): RouteAssignmentRefs {
+    const cont = document.createElement('div');
+    cont.className = 'route-assignment-info';
+    cont.style.padding = '12px';
+    cont.style.marginBottom = '12px';
+    cont.style.border = '2px solid #4a90e2';
+    cont.style.borderRadius = '4px';
+    cont.style.backgroundColor = 'rgba(74, 144, 226, 0.1)';
+    cont.style.display = 'none';
+
+    const header = document.createElement('div');
+    header.style.fontSize = '14px';
+    header.style.fontWeight = 'bold';
+    header.style.color = '#4a90e2';
+    header.style.marginBottom = '8px';
+    header.textContent = '\u{1F504} Automated Route Assignment';
+    cont.appendChild(header);
+
+    const routeInfo = document.createElement('div');
+    routeInfo.style.fontSize = '12px';
+    routeInfo.style.marginBottom = '8px';
+    cont.appendChild(routeInfo);
+
+    const actions = document.createElement('div');
+    actions.style.marginTop = '8px';
+
+    const unassignBtn = document.createElement('button');
+    unassignBtn.className = 'abandon-button';
+    unassignBtn.textContent = 'End Route Assignment';
+    unassignBtn.addEventListener('click', () => callbacks.onUnassignRoute());
+    actions.appendChild(unassignBtn);
+    cont.appendChild(actions);
+
+    return { container: cont, header, routeInfo, unassignBtn };
+  }
+
+  function updateRouteAssignmentRefs(
+    refs: RouteAssignmentRefs,
+    gd: GameData
+  ): void {
+    const ship = getActiveShip(gd);
+    const assignment = ship.routeAssignment;
+
+    if (!assignment) {
+      refs.container.style.display = 'none';
+      return;
+    }
+
+    refs.container.style.display = '';
+
+    const originLoc = gd.world.locations.find(
+      (l) => l.id === assignment.originId
+    );
+    const destLoc = gd.world.locations.find(
+      (l) => l.id === assignment.destinationId
+    );
+
+    const infoHtml = `
+    <div><strong>Route:</strong> ${originLoc?.name || 'Unknown'} \u2194 ${destLoc?.name || 'Unknown'}</div>
+    <div><strong>Trips Completed:</strong> ${assignment.totalTripsCompleted}</div>
+    <div><strong>Credits Earned:</strong> ${assignment.creditsEarned.toLocaleString()}</div>
+    <div><strong>Auto-Refuel:</strong> ${assignment.autoRefuel ? `Enabled (< ${assignment.autoRefuelThreshold}%)` : 'Disabled'}</div>
+  `;
+    refs.routeInfo.innerHTML = infoHtml;
+  }
+
+  // ── Factory: Active Contract Content ────────────────────────
+  function createActiveContractContent(): ActiveContractRefs {
+    const cont = document.createElement('div');
+    cont.className = 'active-contract';
+
+    const routeAssignment = createRouteAssignmentRefs();
+    cont.appendChild(routeAssignment.container);
+
+    // Contract summary
+    const summary = document.createElement('div');
+    summary.className = 'contract-summary';
+
+    const summaryTitle = document.createElement('h3');
+    summary.appendChild(summaryTitle);
+
+    const progress = document.createElement('div');
+    progress.className = 'contract-progress';
+    summary.appendChild(progress);
+
+    const leg = document.createElement('div');
+    leg.className = 'contract-leg';
+    summary.appendChild(leg);
+
+    const paymentInfo = document.createElement('div');
+    paymentInfo.className = 'contract-payment-hint';
+    summary.appendChild(paymentInfo);
+
+    const earned = document.createElement('div');
+    earned.className = 'contract-earned';
+    summary.appendChild(earned);
+
+    cont.appendChild(summary);
+
+    // Status hints
+    const abandonHint = document.createElement('div');
+    abandonHint.className = 'contract-pause-hint';
+    abandonHint.textContent =
+      'Contract will be abandoned on arrival. Change selection below to cancel.';
+    abandonHint.style.display = 'none';
+    cont.appendChild(abandonHint);
+
+    const pauseHint = document.createElement('div');
+    pauseHint.className = 'contract-pause-hint';
+    pauseHint.textContent =
+      'Ship will dock on arrival. Change selection below to cancel.';
+    pauseHint.style.display = 'none';
+    cont.appendChild(pauseHint);
+
+    // Flight status slot
+    const flightStatusSlot = document.createElement('div');
+    cont.appendChild(flightStatusSlot);
+
+    // Fuel gauge
+    const fuelGauge = document.createElement('div');
+    fuelGauge.className = 'fuel-gauge';
+
+    const fuelLabel = document.createElement('div');
+    fuelGauge.appendChild(fuelLabel);
+
+    const fuelBar = document.createElement('div');
+    fuelBar.className = 'fuel-bar';
+    const fuelFill = document.createElement('div');
+    fuelFill.className = 'fuel-fill';
+    fuelBar.appendChild(fuelFill);
+    fuelGauge.appendChild(fuelBar);
+
+    cont.appendChild(fuelGauge);
+
+    return {
+      container: cont,
+      routeAssignment,
+      summaryTitle,
+      progress,
+      leg,
+      paymentInfo,
+      earned,
+      abandonHint,
+      pauseHint,
+      flightStatusSlot,
+      fuelGauge,
+      fuelLabel,
+      fuelFill,
+    };
+  }
+
+  // ── Factory: Paused Contract Content ────────────────────────
+  function createPausedContractContent(): PausedContractRefs {
+    const cont = document.createElement('div');
+    cont.className = 'paused-contract';
+
+    const routeAssignment = createRouteAssignmentRefs();
+    cont.appendChild(routeAssignment.container);
+
+    // Contract summary
+    const summary = document.createElement('div');
+    summary.className = 'contract-summary';
+
+    const summaryTitle = document.createElement('h3');
+    summary.appendChild(summaryTitle);
+
+    const pausedBadge = document.createElement('span');
+    pausedBadge.className = 'paused-badge';
+    pausedBadge.textContent = 'PAUSED';
+    summary.appendChild(pausedBadge);
+
+    const pauseHint = document.createElement('div');
+    pauseHint.className = 'contract-pause-hint';
+    summary.appendChild(pauseHint);
+
+    const progress = document.createElement('div');
+    progress.className = 'contract-progress';
+    summary.appendChild(progress);
+
+    const earned = document.createElement('div');
+    earned.className = 'contract-earned';
+    summary.appendChild(earned);
+
+    cont.appendChild(summary);
+
+    // Flight status slot
+    const flightStatusSlot = document.createElement('div');
+    cont.appendChild(flightStatusSlot);
+
+    // Action buttons
+    const actions = document.createElement('div');
+    actions.className = 'paused-action-buttons';
+
+    const resumeBtn = document.createElement('button');
+    resumeBtn.className = 'action-confirm-btn action-confirm-btn--primary';
+    resumeBtn.textContent = 'Resume contract';
+    resumeBtn.addEventListener('click', () => {
+      pausedAbandonPending = false;
+      callbacks.onResumeContract();
+    });
+    actions.appendChild(resumeBtn);
+
+    const abandonBtn = document.createElement('button');
+    abandonBtn.className = 'action-confirm-btn action-confirm-btn--danger';
+    abandonBtn.textContent = 'Abandon contract';
+    abandonBtn.addEventListener('click', () => {
+      if (!pausedAbandonPending) {
+        pausedAbandonPending = true;
+        if (pausedAbandonTimer) clearTimeout(pausedAbandonTimer);
+        pausedAbandonTimer = setTimeout(() => {
+          pausedAbandonPending = false;
+          // Next tick will update the button state
+        }, 4000);
+        // Update button immediately
+        updatePausedAbandonButton();
+      } else {
+        pausedAbandonPending = false;
+        callbacks.onAbandonContract();
+      }
+    });
+    actions.appendChild(abandonBtn);
+
+    const abandonHint = document.createElement('div');
+    abandonHint.className = 'action-button-hint';
+    actions.appendChild(abandonHint);
+
+    cont.appendChild(actions);
+
+    return {
+      container: cont,
+      routeAssignment,
+      summaryTitle,
+      pausedBadge,
+      pauseHint,
+      progress,
+      earned,
+      flightStatusSlot,
+      resumeBtn,
+      abandonBtn,
+      abandonHint,
+    };
+  }
+
+  function updatePausedAbandonButton(): void {
+    const refs = pausedContractRefs;
+    if (pausedAbandonPending) {
+      refs.abandonBtn.textContent = 'Are you sure? Click again to abandon';
+      refs.abandonBtn.className =
+        'action-confirm-btn action-confirm-btn--danger-hot';
+    } else {
+      refs.abandonBtn.textContent = 'Abandon contract';
+      refs.abandonBtn.className =
+        'action-confirm-btn action-confirm-btn--danger';
     }
   }
 
-  function updateRadioGroup(ship: Ship) {
-    const activeContract = ship.activeContract;
-    if (!activeContract) return;
+  // ── Factory: Mining Status Panel ────────────────────────────
+  function createMiningStatusRefs(): MiningStatusRefs {
+    const panel = document.createElement('div');
+    panel.className = 'mining-status-panel';
+    panel.style.cssText = `
+      margin-bottom: 1rem;
+      padding: 0.75rem;
+      background: rgba(255, 165, 0, 0.08);
+      border: 1px solid #b87333;
+      border-radius: 4px;
+    `;
 
-    // Derive selection entirely from game state
-    const selectedAction: ActiveAction = activeContract.abandonRequested
-      ? 'abandon'
-      : activeContract.paused
-        ? 'pause'
-        : 'continue';
+    // Header
+    const header = document.createElement('div');
+    header.style.cssText =
+      'display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;';
+    const title = document.createElement('span');
+    title.style.cssText = 'font-weight: bold; font-size: 1rem; color: #ffa500;';
+    header.appendChild(title);
 
-    const hasRouteAssignment = !!ship.routeAssignment;
+    const statusBadge = document.createElement('span');
+    statusBadge.style.cssText =
+      'font-size: 0.8rem; padding: 2px 8px; border-radius: 3px;';
+    header.appendChild(statusBadge);
+    panel.appendChild(header);
 
-    const optionData: Record<
-      ActiveAction,
-      { label: string; desc: string; warn?: string; style: string }
-    > = {
-      continue: {
-        label: 'Continue flying',
-        desc: 'Ship continues to destination. No changes.',
-        style: 'default',
-      },
-      pause: {
-        label: 'Pause & dock on arrival',
-        desc: 'Contract pauses when you arrive. You keep all earnings. Resume anytime.',
-        style: 'caution',
-      },
-      abandon: {
-        label: 'Abandon contract',
-        desc: `Ends contract on arrival. This trip will not be paid. You keep ${activeContract.creditsEarned.toLocaleString()} cr from completed trips.`,
-        warn: hasRouteAssignment
-          ? 'Your automated route assignment will also end.'
-          : undefined,
-        style: 'danger',
-      },
+    // Undock prompt
+    const undockPrompt = document.createElement('div');
+    undockPrompt.style.cssText =
+      'padding: 0.5rem; margin-bottom: 0.5rem; background: rgba(74,158,255,0.1); border: 1px solid #4a9eff; border-radius: 4px; font-size: 0.85rem; color: #4a9eff;';
+    undockPrompt.textContent =
+      'Undock to enter orbit and begin mining operations. Mining equipment operates while orbiting.';
+    undockPrompt.style.display = 'none';
+    panel.appendChild(undockPrompt);
+
+    // Available ores
+    const oresSection = document.createElement('div');
+    oresSection.style.cssText = 'margin-bottom: 0.5rem;';
+    const oresLabel = document.createElement('div');
+    oresLabel.style.cssText =
+      'font-size: 0.85rem; color: #aaa; margin-bottom: 0.25rem;';
+    oresLabel.textContent = 'Available Ores:';
+    oresSection.appendChild(oresLabel);
+
+    const oreTagsContainer = document.createElement('div');
+    oresSection.appendChild(oreTagsContainer);
+    panel.appendChild(oresSection);
+
+    // Miners section
+    const minersSection = document.createElement('div');
+    minersSection.style.cssText = 'margin-bottom: 0.5rem; font-size: 0.85rem;';
+    panel.appendChild(minersSection);
+
+    // Cargo section
+    const cargoSection = document.createElement('div');
+    cargoSection.style.cssText = 'font-size: 0.85rem; color: #aaa;';
+    panel.appendChild(cargoSection);
+
+    // Ore cargo breakdown
+    const breakdownSection = document.createElement('div');
+    breakdownSection.style.cssText =
+      'margin-top: 0.35rem; font-size: 0.8rem; color: #888;';
+    panel.appendChild(breakdownSection);
+
+    // Mining route controls
+    const routeSection = document.createElement('div');
+    routeSection.style.cssText =
+      'margin-top: 0.75rem; padding-top: 0.5rem; border-top: 1px solid #444;';
+
+    // Active route sub-container
+    const activeRouteContainer = document.createElement('div');
+    activeRouteContainer.style.display = 'none';
+
+    const activeRouteHeader = document.createElement('div');
+    activeRouteHeader.style.cssText =
+      'display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;';
+
+    const activeRouteLabel = document.createElement('span');
+    activeRouteLabel.style.cssText = 'font-size: 0.85rem; color: #4caf50;';
+    activeRouteHeader.appendChild(activeRouteLabel);
+
+    const activeRouteCancelBtn = document.createElement('button');
+    activeRouteCancelBtn.textContent = 'Cancel Route';
+    activeRouteCancelBtn.style.cssText =
+      'font-size: 0.75rem; padding: 2px 8px;';
+    activeRouteCancelBtn.addEventListener('click', () =>
+      callbacks.onCancelMiningRoute()
+    );
+    activeRouteHeader.appendChild(activeRouteCancelBtn);
+    activeRouteContainer.appendChild(activeRouteHeader);
+
+    const activeRouteStats = document.createElement('div');
+    activeRouteStats.style.cssText = 'font-size: 0.8rem; color: #888;';
+    activeRouteContainer.appendChild(activeRouteStats);
+    routeSection.appendChild(activeRouteContainer);
+
+    // Setup route sub-container
+    const setupRouteContainer = document.createElement('div');
+    setupRouteContainer.style.display = 'none';
+
+    const setupRouteLabel = document.createElement('div');
+    setupRouteLabel.style.cssText =
+      'font-size: 0.85rem; color: #aaa; margin-bottom: 0.35rem;';
+    setupRouteLabel.textContent = '\u{1F504} Auto-Sell Route (idle mining)';
+    setupRouteContainer.appendChild(setupRouteLabel);
+
+    const noTradeMsg = document.createElement('div');
+    noTradeMsg.style.cssText = 'font-size: 0.8rem; color: #888;';
+    noTradeMsg.textContent =
+      'No reachable trade stations available for auto-sell.';
+    noTradeMsg.style.display = 'none';
+    setupRouteContainer.appendChild(noTradeMsg);
+
+    const setupRow = document.createElement('div');
+    setupRow.style.cssText =
+      'display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;';
+
+    const miningRouteSelect = document.createElement('select');
+    miningRouteSelect.style.cssText =
+      'font-size: 0.8rem; padding: 3px 6px; background: #1a1a2e; color: #eee; border: 1px solid #444; border-radius: 3px;';
+    setupRow.appendChild(miningRouteSelect);
+
+    const startRouteBtn = document.createElement('button');
+    startRouteBtn.textContent = 'Start Route';
+    startRouteBtn.style.cssText = 'font-size: 0.8rem; padding: 3px 10px;';
+    startRouteBtn.addEventListener('click', () =>
+      callbacks.onStartMiningRoute(miningRouteSelect.value)
+    );
+    setupRow.appendChild(startRouteBtn);
+    setupRouteContainer.appendChild(setupRow);
+
+    const setupHint = document.createElement('div');
+    setupHint.style.cssText =
+      'font-size: 0.75rem; color: #666; margin-top: 0.25rem;';
+    setupHint.textContent =
+      'When cargo fills, ship auto-flies to sell ore, refuels, then returns to mine.';
+    setupRouteContainer.appendChild(setupHint);
+    routeSection.appendChild(setupRouteContainer);
+
+    panel.appendChild(routeSection);
+
+    return {
+      panel,
+      title,
+      statusBadge,
+      undockPrompt,
+      oresSection,
+      oresLabel,
+      oreTagsContainer,
+      minersSection,
+      cargoSection,
+      breakdownSection,
+      routeSection,
+      activeRouteContainer,
+      activeRouteLabel,
+      activeRouteCancelBtn,
+      activeRouteStats,
+      setupRouteContainer,
+      setupRouteLabel,
+      noTradeMsg,
+      setupRow,
+      miningRouteSelect,
+      startRouteBtn,
+      setupHint,
     };
+  }
 
-    for (const [action, refs] of radioCardRefs) {
-      const data = optionData[action];
-      const isSelected = selectedAction === action;
+  // ── Factory: Quest Card ─────────────────────────────────────
+  function createQuestCardRefs(quest: Quest, gd: GameData): QuestCardRefs {
+    const card = document.createElement('div');
+    card.className = 'quest-card';
 
-      refs.radio.checked = isSelected;
+    const title = document.createElement('div');
+    title.className = 'quest-title';
+    card.appendChild(title);
 
-      refs.card.className = `action-radio-card action-radio-card--${data.style}`;
-      if (isSelected) refs.card.classList.add('action-radio-card--selected');
+    const description = document.createElement('div');
+    description.className = 'quest-description';
+    card.appendChild(description);
 
-      refs.labelEl.textContent = data.label;
-      refs.descEl.textContent = data.desc;
+    const details = document.createElement('div');
+    details.className = 'quest-details';
 
-      if (data.warn) {
-        refs.warnEl.textContent = data.warn;
-        refs.warnEl.style.display = '';
+    const destInfo = document.createElement('div');
+    details.appendChild(destInfo);
+
+    const distanceInfo = document.createElement('div');
+    details.appendChild(distanceInfo);
+
+    const cargoInfo = document.createElement('div');
+    details.appendChild(cargoInfo);
+
+    const totalCargoInfo = document.createElement('div');
+    details.appendChild(totalCargoInfo);
+
+    const tripsInfo = document.createElement('div');
+    details.appendChild(tripsInfo);
+
+    const fuelInfo = document.createElement('div');
+    details.appendChild(fuelInfo);
+
+    const timeInfo = document.createElement('div');
+    details.appendChild(timeInfo);
+
+    const crewCostInfo = document.createElement('div');
+    crewCostInfo.style.color = '#ffa500';
+    details.appendChild(crewCostInfo);
+
+    const fuelCostInfo = document.createElement('div');
+    fuelCostInfo.style.color = '#ffa500';
+    details.appendChild(fuelCostInfo);
+
+    const profitInfo = document.createElement('div');
+    profitInfo.style.cssText = 'font-weight: bold; margin-top: 4px;';
+    details.appendChild(profitInfo);
+
+    // Risk line
+    const riskLine = document.createElement('div');
+    riskLine.style.display = 'flex';
+    riskLine.style.alignItems = 'center';
+    riskLine.style.gap = '8px';
+    riskLine.style.marginTop = '4px';
+
+    const riskLabel = document.createElement('span');
+    riskLabel.textContent = 'Route Risk:';
+    riskLine.appendChild(riskLabel);
+
+    const riskBadgeSlot = document.createElement('div');
+    riskBadgeSlot.style.display = 'inline-block';
+    riskLine.appendChild(riskBadgeSlot);
+    details.appendChild(riskLine);
+
+    card.appendChild(details);
+
+    // Payment
+    const payment = document.createElement('div');
+    payment.className = 'quest-payment';
+    card.appendChild(payment);
+
+    // Button container
+    const buttonContainer = document.createElement('div');
+    buttonContainer.className = 'quest-buttons';
+    buttonContainer.style.display = 'flex';
+    buttonContainer.style.gap = '8px';
+
+    const acceptBtn = document.createElement('button');
+    acceptBtn.className = 'accept-quest-button';
+    acceptBtn.textContent = 'Accept';
+    acceptBtn.addEventListener('click', () =>
+      callbacks.onAcceptQuest(quest.id)
+    );
+    buttonContainer.appendChild(acceptBtn);
+
+    const assignBtn = document.createElement('button');
+    assignBtn.className = 'assign-route-button';
+    assignBtn.textContent = 'Assign Route';
+    assignBtn.style.backgroundColor = '#4a90e2';
+    assignBtn.addEventListener('click', () =>
+      callbacks.onAssignRoute(quest.id)
+    );
+    buttonContainer.appendChild(assignBtn);
+
+    card.appendChild(buttonContainer);
+
+    // Reason div (for when quest can't be accepted)
+    const reasonDiv = document.createElement('div');
+    reasonDiv.className = 'quest-reason';
+    card.appendChild(reasonDiv);
+
+    // Initial population
+    updateQuestCardRefs(
+      {
+        card,
+        title,
+        description,
+        details,
+        destInfo,
+        distanceInfo,
+        cargoInfo,
+        totalCargoInfo,
+        tripsInfo,
+        fuelInfo,
+        timeInfo,
+        crewCostInfo,
+        fuelCostInfo,
+        profitInfo,
+        riskLine,
+        riskBadgeSlot,
+        payment,
+        buttonContainer,
+        acceptBtn,
+        assignBtn,
+        reasonDiv,
+      },
+      quest,
+      gd
+    );
+
+    return {
+      card,
+      title,
+      description,
+      details,
+      destInfo,
+      distanceInfo,
+      cargoInfo,
+      totalCargoInfo,
+      tripsInfo,
+      fuelInfo,
+      timeInfo,
+      crewCostInfo,
+      fuelCostInfo,
+      profitInfo,
+      riskLine,
+      riskBadgeSlot,
+      payment,
+      buttonContainer,
+      acceptBtn,
+      assignBtn,
+      reasonDiv,
+    };
+  }
+
+  function updateQuestCardRefs(
+    refs: QuestCardRefs,
+    quest: Quest,
+    gd: GameData
+  ): void {
+    const ship = getActiveShip(gd);
+    const destination = gd.world.locations.find(
+      (l) => l.id === quest.destination
+    );
+    const origin = gd.world.locations.find((l) => l.id === quest.origin);
+    const { canAccept, reason } = canAcceptQuest(ship, quest);
+
+    // Card disabled state
+    if (!canAccept) {
+      refs.card.classList.add('disabled');
+    } else {
+      refs.card.classList.remove('disabled');
+    }
+
+    refs.title.textContent = quest.title;
+    refs.description.textContent = quest.description;
+
+    // Destination
+    if (destination) {
+      refs.destInfo.textContent = `Destination: ${destination.name}`;
+      refs.destInfo.style.display = '';
+    } else {
+      refs.destInfo.style.display = 'none';
+    }
+
+    // Distance
+    if (origin && destination) {
+      const distance = Math.abs(
+        origin.distanceFromEarth - destination.distanceFromEarth
+      );
+      refs.distanceInfo.textContent = `Distance: ${distance.toLocaleString()} km`;
+      refs.distanceInfo.style.display = '';
+    } else {
+      refs.distanceInfo.style.display = 'none';
+    }
+
+    // Cargo
+    if (quest.cargoRequired > 0) {
+      refs.cargoInfo.textContent = `Cargo: ${quest.cargoRequired.toLocaleString()} kg`;
+      refs.cargoInfo.style.display = '';
+    } else {
+      refs.cargoInfo.style.display = 'none';
+    }
+
+    // Total cargo
+    if (quest.totalCargoRequired > 0) {
+      refs.totalCargoInfo.textContent = `Total cargo: ${quest.totalCargoRequired.toLocaleString()} kg`;
+      refs.totalCargoInfo.style.display = '';
+    } else {
+      refs.totalCargoInfo.style.display = 'none';
+    }
+
+    // Trips
+    if (quest.tripsRequired > 0) {
+      refs.tripsInfo.textContent = `Trips: ${quest.tripsRequired}`;
+      refs.tripsInfo.style.display = '';
+    } else if (quest.tripsRequired === -1) {
+      refs.tripsInfo.textContent = 'Trips: Unlimited';
+      refs.tripsInfo.style.display = '';
+    } else {
+      refs.tripsInfo.style.display = 'none';
+    }
+
+    // Recalculate fuel and time based on flight profile
+    const burnFraction = ship.flightProfileBurnFraction ?? 1.0;
+    const distanceKm =
+      origin && destination ? getDistanceBetween(origin, destination) : 0;
+
+    // Profile-aware fuel estimate (round trip)
+    const profileFuelKg =
+      distanceKm > 0
+        ? calculateTripFuelKg(ship, distanceKm, burnFraction) * 2
+        : quest.estimatedFuelPerTrip;
+
+    // Profile-aware time estimate (round trip in game seconds)
+    const profileTimeSecs =
+      distanceKm > 0
+        ? estimateTripTime(ship, distanceKm, burnFraction) * 2
+        : quest.estimatedTripTicks * GAME_SECONDS_PER_TICK;
+    const profileTimeTicks = gameSecondsToTicks(profileTimeSecs);
+
+    refs.fuelInfo.textContent = `Fuel: ~${formatFuelMass(profileFuelKg)} per trip`;
+    refs.timeInfo.textContent = `Time: ~${formatDuration(profileTimeSecs)} per trip`;
+
+    // Costs
+    const crewSalaryPerTick = calculateShipSalaryPerTick(ship);
+    const tripCrewCost = Math.round(crewSalaryPerTick * profileTimeTicks);
+
+    const currentLocation = gd.world.locations.find(
+      (l) => l.id === (ship.location.dockedAt || ship.location.orbitingAt)
+    );
+    const fuelPricePerKg = currentLocation
+      ? getFuelPricePerKg(currentLocation, ship)
+      : 2.0;
+    const tripFuelCost = Math.round(profileFuelKg * fuelPricePerKg);
+
+    if (tripCrewCost > 0) {
+      refs.crewCostInfo.textContent = `Crew Salaries: ~${tripCrewCost.toLocaleString()} cr per trip`;
+      refs.crewCostInfo.style.display = '';
+    } else {
+      refs.crewCostInfo.style.display = 'none';
+    }
+
+    refs.fuelCostInfo.textContent = `Fuel Cost: ~${tripFuelCost.toLocaleString()} cr per trip`;
+
+    // Profit
+    const tripPayment =
+      quest.paymentPerTrip > 0
+        ? quest.paymentPerTrip
+        : quest.paymentOnCompletion;
+    const totalCost = tripCrewCost + tripFuelCost;
+    const profit = tripPayment - totalCost;
+
+    refs.profitInfo.style.color = profit >= 0 ? '#4caf50' : '#e94560';
+    refs.profitInfo.textContent = `Est. Profit: ${profit >= 0 ? '+' : ''}${profit.toLocaleString()} cr per trip`;
+
+    // Route risk
+    if (origin && destination) {
+      const routeRisk = estimateRouteRisk(origin, destination, ship, gd.world);
+      const threatLevel = getThreatLevel(routeRisk);
+      const narrative = getThreatNarrative(threatLevel);
+
+      // Replace badge in slot (leaf helper — transient)
+      refs.riskBadgeSlot.textContent = '';
+      refs.riskBadgeSlot.appendChild(renderThreatBadge(threatLevel, narrative));
+      refs.riskLine.style.display = 'flex';
+    } else {
+      refs.riskLine.style.display = 'none';
+    }
+
+    // Payment
+    if (quest.paymentPerTrip > 0) {
+      refs.payment.textContent = `Payment: ${quest.paymentPerTrip.toLocaleString()} credits/trip`;
+    } else {
+      refs.payment.textContent = `Payment: ${quest.paymentOnCompletion.toLocaleString()} credits on completion`;
+    }
+
+    // Buttons vs reason
+    if (canAccept) {
+      refs.buttonContainer.style.display = 'flex';
+      refs.reasonDiv.style.display = 'none';
+      // Show assign button only for standing freight and trade routes
+      refs.assignBtn.style.display =
+        quest.type === 'standing_freight' || quest.type === 'trade_route'
+          ? ''
+          : 'none';
+    } else {
+      refs.buttonContainer.style.display = 'none';
+      if (reason) {
+        refs.reasonDiv.textContent = reason;
+        refs.reasonDiv.style.display = '';
       } else {
-        refs.warnEl.style.display = 'none';
+        refs.reasonDiv.style.display = 'none';
       }
     }
   }
 
-  function rebuild(gameData: GameData) {
+  // ── Update: No Contract Phase ───────────────────────────────
+  function updateNoContractPhase(gd: GameData): void {
+    const ship = getActiveShip(gd);
+    const location = ship.location.dockedAt || ship.location.orbitingAt;
+
+    if (
+      !location ||
+      (ship.location.status !== 'docked' && ship.location.status !== 'orbiting')
+    ) {
+      // Nothing to show — hide content but keep phase visible for structure
+      noContractRefs.heading.textContent = 'Available Work';
+      noContractRefs.shipContext.style.display = 'none';
+      noContractRefs.tradeSection.style.display = 'none';
+      noContractRefs.contractSection.style.display = 'none';
+      noContractRefs.miningSlot.style.display = 'none';
+      // Remove profile control if it was placed here
+      if (profileControl.el.parentNode === noContractRefs.container) {
+        profileControl.el.remove();
+      }
+      return;
+    }
+
+    const locationData = gd.world.locations.find((l) => l.id === location);
+    if (!locationData) {
+      noContractRefs.shipContext.style.display = 'none';
+      noContractRefs.tradeSection.style.display = 'none';
+      noContractRefs.contractSection.style.display = 'none';
+      noContractRefs.miningSlot.style.display = 'none';
+      return;
+    }
+
+    // Show flight profile slider at top of no-contract content
+    updateFlightProfileControl(profileControl, ship);
+    // Insert before the heading if not already there
+    if (profileControl.el.parentNode !== noContractRefs.container) {
+      noContractRefs.container.insertBefore(
+        profileControl.el,
+        noContractRefs.container.firstChild
+      );
+    }
+
+    // Mining status
+    if (locationData.services.includes('mine')) {
+      noContractRefs.miningSlot.style.display = '';
+      updateMiningStatus(gd, ship, locationData);
+    } else {
+      noContractRefs.miningSlot.style.display = 'none';
+    }
+
+    // Heading
+    noContractRefs.heading.textContent = `Available Work at ${locationData.name}`;
+
+    // Ship context
+    noContractRefs.shipContext.style.display = '';
+    noContractRefs.shipContextName.textContent = ship.name;
+
+    // Get quests
+    const availableQuests = gd.availableQuests[location] || [];
+    const tradeRoutes = availableQuests.filter((q) => q.type === 'trade_route');
+    const regularQuests = availableQuests.filter(
+      (q) => q.type !== 'trade_route'
+    );
+
+    // Trade routes section
+    if (tradeRoutes.length > 0) {
+      noContractRefs.tradeSection.style.display = '';
+
+      // Sort: acceptable first
+      const sortedTrade = [...tradeRoutes].sort((a, b) => {
+        const aOk = canAcceptQuest(ship, a).canAccept;
+        const bOk = canAcceptQuest(ship, b).canAccept;
+        if (aOk && !bOk) return -1;
+        if (!aOk && bOk) return 1;
+        return 0;
+      });
+
+      // Reconcile trade quest cards
+      reconcileQuestCards(
+        tradeQuestCards,
+        noContractRefs.tradeCardsContainer,
+        sortedTrade,
+        gd
+      );
+    } else {
+      noContractRefs.tradeSection.style.display = 'none';
+      // Clean up stale cards
+      for (const [id, refs] of tradeQuestCards) {
+        refs.card.remove();
+        tradeQuestCards.delete(id);
+      }
+    }
+
+    // Regular contracts section
+    noContractRefs.contractSection.style.display = '';
+
+    // Show/hide heading based on whether both sections exist
+    noContractRefs.contractHeading.style.display =
+      tradeRoutes.length > 0 && regularQuests.length > 0 ? '' : 'none';
+
+    if (regularQuests.length === 0 && tradeRoutes.length === 0) {
+      noContractRefs.noQuestsMsg.style.display = '';
+      // Clean up stale cards
+      for (const [id, refs] of regularQuestCards) {
+        refs.card.remove();
+        regularQuestCards.delete(id);
+      }
+    } else {
+      noContractRefs.noQuestsMsg.style.display = 'none';
+
+      if (regularQuests.length > 0) {
+        const sortedQuests = [...regularQuests].sort((a, b) => {
+          const aAcceptable = canAcceptQuest(ship, a).canAccept;
+          const bAcceptable = canAcceptQuest(ship, b).canAccept;
+          if (aAcceptable && !bAcceptable) return -1;
+          if (!aAcceptable && bAcceptable) return 1;
+          return 0;
+        });
+
+        reconcileQuestCards(
+          regularQuestCards,
+          noContractRefs.contractCardsContainer,
+          sortedQuests,
+          gd
+        );
+      } else {
+        // No regular quests but trade routes exist — clean up
+        for (const [id, refs] of regularQuestCards) {
+          refs.card.remove();
+          regularQuestCards.delete(id);
+        }
+      }
+    }
+  }
+
+  /** Reconcile a Map of quest card refs with the current quest list. */
+  function reconcileQuestCards(
+    cardMap: Map<string, QuestCardRefs>,
+    parentEl: HTMLElement,
+    quests: Quest[],
+    gd: GameData
+  ): void {
+    const currentIds = new Set<string>();
+
+    for (const quest of quests) {
+      currentIds.add(quest.id);
+
+      let refs = cardMap.get(quest.id);
+      if (!refs) {
+        // New quest — create card
+        refs = createQuestCardRefs(quest, gd);
+        cardMap.set(quest.id, refs);
+        parentEl.appendChild(refs.card);
+      } else {
+        // Existing quest — update in place
+        updateQuestCardRefs(refs, quest, gd);
+      }
+    }
+
+    // Remove cards for quests no longer present
+    for (const [id, refs] of cardMap) {
+      if (!currentIds.has(id)) {
+        refs.card.remove();
+        cardMap.delete(id);
+      }
+    }
+
+    // Ensure correct order
+    for (const quest of quests) {
+      const refs = cardMap.get(quest.id);
+      if (refs) {
+        parentEl.appendChild(refs.card);
+      }
+    }
+  }
+
+  // ── Update: Mining Status ───────────────────────────────────
+  function updateMiningStatus(
+    gd: GameData,
+    ship: Ship,
+    location: WorldLocation
+  ): void {
+    if (!miningRefs) {
+      miningRefs = createMiningStatusRefs();
+      noContractRefs.miningSlot.appendChild(miningRefs.panel);
+    }
+
+    const refs = miningRefs;
+
+    refs.title.textContent = `\u26CF\uFE0F Mining at ${location.name}`;
+
+    // Status badge
+    const isDocked = ship.location.status === 'docked';
+    const miners = getCrewForJobType(ship, 'mining_ops');
+    const shipMiningEquip = getBestShipMiningEquipment(ship);
+    const hasActiveMiner = shipMiningEquip !== undefined && miners.length > 0;
+
+    if (isDocked) {
+      refs.statusBadge.style.cssText =
+        'font-size: 0.8rem; padding: 2px 8px; border-radius: 3px; background: rgba(74,158,255,0.15); color: #4a9eff; border: 1px solid #4a9eff;';
+      refs.statusBadge.textContent = 'DOCKED';
+    } else if (hasActiveMiner && getRemainingOreCapacity(ship) > 0) {
+      refs.statusBadge.style.cssText =
+        'font-size: 0.8rem; padding: 2px 8px; border-radius: 3px; background: rgba(76,175,80,0.2); color: #4caf50; border: 1px solid #4caf50;';
+      refs.statusBadge.textContent = 'ACTIVE';
+    } else if (hasActiveMiner) {
+      refs.statusBadge.style.cssText =
+        'font-size: 0.8rem; padding: 2px 8px; border-radius: 3px; background: rgba(233,69,96,0.2); color: #e94560; border: 1px solid #e94560;';
+      refs.statusBadge.textContent = 'CARGO FULL';
+    } else {
+      refs.statusBadge.style.cssText =
+        'font-size: 0.8rem; padding: 2px 8px; border-radius: 3px; background: rgba(255,165,0,0.15); color: #ffa500; border: 1px solid #b87333;';
+      refs.statusBadge.textContent = 'IDLE';
+    }
+
+    // Undock prompt
+    refs.undockPrompt.style.display = isDocked ? '' : 'none';
+
+    // Available ores — reconcile tags
+    const availableOres = location.availableOres ?? [];
+    const currentOreIds = new Set<string>();
+
+    for (const oreId of availableOres) {
+      currentOreIds.add(oreId);
+      const ore = getOreDefinition(oreId);
+      const someMinerCanMine = miners.some((m) =>
+        canMineOre(m.skills.mining, oreId)
+      );
+
+      let tag = oreTagMap.get(oreId);
+      if (!tag) {
+        tag = document.createElement('span');
+        tag.style.cssText = `
+          display: inline-block; margin: 2px 4px 2px 0; padding: 2px 8px;
+          border-radius: 3px; font-size: 0.8rem;
+          background: rgba(255,165,0,0.15); border: 1px solid #665533;
+        `;
+        oreTagMap.set(oreId, tag);
+        refs.oreTagsContainer.appendChild(tag);
+      }
+
+      if (!someMinerCanMine) {
+        tag.style.opacity = '0.5';
+        tag.title = `Requires Mining ${ore.miningLevelRequired}`;
+        tag.textContent = `${ore.icon} ${ore.name} (${ore.baseValue} cr) [Mining ${ore.miningLevelRequired}]`;
+      } else {
+        tag.style.opacity = '1';
+        tag.title = '';
+        tag.textContent = `${ore.icon} ${ore.name} (${ore.baseValue} cr)`;
+      }
+    }
+
+    // Remove tags for ores no longer available
+    for (const [id, tag] of oreTagMap) {
+      if (!currentOreIds.has(id)) {
+        tag.remove();
+        oreTagMap.delete(id);
+      }
+    }
+
+    // Miners section — reconcile
+    refs.minersSection.textContent = '';
+    minerLineMap.clear();
+
+    if (miners.length === 0) {
+      const noMiners = document.createElement('div');
+      noMiners.style.color = '#e94560';
+      noMiners.textContent =
+        'No crew assigned to Mining Ops. Assign crew in the Ship tab.';
+      refs.minersSection.appendChild(noMiners);
+    } else if (!shipMiningEquip) {
+      const noEquip = document.createElement('div');
+      noEquip.style.color = '#e94560';
+      noEquip.textContent =
+        'No mining equipment installed on ship. Purchase at a station store.';
+      refs.minersSection.appendChild(noEquip);
+    } else {
+      // Show ship equipment info
+      const equipInfo = document.createElement('div');
+      equipInfo.style.cssText =
+        'margin-bottom: 4px; color: #6c6; font-size: 0.8rem;';
+      let equipText = `Ship Equipment: ${shipMiningEquip.name} (${shipMiningEquip.miningRate}x)`;
+      if (
+        shipMiningEquip.miningLevelRequired &&
+        shipMiningEquip.miningLevelRequired > 0
+      ) {
+        equipText += ` \u00B7 Requires Mining ${shipMiningEquip.miningLevelRequired}`;
+      }
+      equipInfo.textContent = equipText;
+      refs.minersSection.appendChild(equipInfo);
+
+      for (const miner of miners) {
+        const minerLine = document.createElement('div');
+        minerLine.style.cssText = 'margin-bottom: 2px; color: #ccc;';
+        const miningSkill = Math.floor(miner.skills.mining);
+
+        if (miningSkill < (shipMiningEquip.miningLevelRequired ?? 0)) {
+          minerLine.style.color = '#ffa500';
+          minerLine.textContent = `${miner.name} (Mining ${miningSkill}) \u2014 Skill too low to operate equipment`;
+        } else {
+          const bestOre = availableOres
+            .map((id) => getOreDefinition(id))
+            .filter((o) => miningSkill >= o.miningLevelRequired)
+            .sort((a, b) => b.baseValue - a.baseValue)[0];
+
+          minerLine.textContent = `${miner.name} (Mining ${miningSkill})`;
+          if (bestOre) {
+            minerLine.textContent += ` \u2192 ${bestOre.icon} ${bestOre.name}`;
+          }
+        }
+        refs.minersSection.appendChild(minerLine);
+        minerLineMap.set(miner.id, minerLine);
+      }
+    }
+
+    // Cargo status
+    const oreWeight = getOreCargoWeight(ship);
+    const remaining = getRemainingOreCapacity(ship);
+    const totalOreUnits = ship.oreCargo.reduce(
+      (sum, item) => sum + item.quantity,
+      0
+    );
+
+    let cargoText = `Ore Cargo: ${totalOreUnits} units (${Math.round(oreWeight).toLocaleString()} kg)`;
+    if (remaining <= 0) {
+      cargoText += ' \u2014 FULL';
+      refs.cargoSection.style.color = '#e94560';
+    } else {
+      cargoText += ` \u2014 ${Math.round(remaining).toLocaleString()} kg remaining`;
+      refs.cargoSection.style.color = '#aaa';
+    }
+    refs.cargoSection.textContent = cargoText;
+
+    // Ore cargo breakdown — reconcile
+    const currentOreCargoIds = new Set<string>();
+    refs.breakdownSection.textContent = '';
+    oreCargoLineMap.clear();
+
+    if (ship.oreCargo.length > 0) {
+      refs.breakdownSection.style.display = '';
+      for (const item of ship.oreCargo) {
+        currentOreCargoIds.add(item.oreId);
+        const ore = getOreDefinition(item.oreId);
+        const line = document.createElement('div');
+        line.textContent = `  ${ore.icon} ${ore.name}: ${item.quantity} units`;
+        refs.breakdownSection.appendChild(line);
+        oreCargoLineMap.set(item.oreId, line);
+      }
+    } else {
+      refs.breakdownSection.style.display = 'none';
+    }
+
+    // Mining route controls
+    if (ship.miningRoute) {
+      refs.activeRouteContainer.style.display = '';
+      refs.setupRouteContainer.style.display = 'none';
+
+      const route = ship.miningRoute;
+      const sellLoc = gd.world.locations.find(
+        (l) => l.id === route.sellLocationId
+      );
+
+      refs.activeRouteLabel.textContent = `\u{1F504} Auto-sell route \u2192 ${sellLoc?.name ?? 'Unknown'}`;
+      refs.activeRouteStats.textContent = `Trips: ${route.totalTrips} \u00B7 Earned: ${route.totalCreditsEarned.toLocaleString()} cr \u00B7 Status: ${route.status}`;
+    } else {
+      refs.activeRouteContainer.style.display = 'none';
+      refs.setupRouteContainer.style.display = '';
+
+      // Find reachable trade locations
+      const tradeLocations = gd.world.locations.filter(
+        (l) =>
+          l.id !== location.id &&
+          l.services.includes('trade') &&
+          canShipAccessLocation(ship, l)
+      );
+
+      if (tradeLocations.length === 0) {
+        refs.noTradeMsg.style.display = '';
+        refs.setupRow.style.display = 'none';
+        refs.setupHint.style.display = 'none';
+      } else {
+        refs.noTradeMsg.style.display = 'none';
+        refs.setupRow.style.display = 'flex';
+        refs.setupHint.style.display = '';
+
+        // Sort by distance (nearest first)
+        const sorted = tradeLocations
+          .map((loc) => ({
+            loc,
+            dist: getDistanceBetween(location, loc),
+          }))
+          .sort((a, b) => a.dist - b.dist);
+
+        // Reconcile select options
+        const currentLocIds = new Set<string>();
+        for (const { loc, dist } of sorted) {
+          currentLocIds.add(loc.id);
+
+          const distLabel =
+            dist < 1e9
+              ? `${(dist / 1e6).toFixed(0)} Mm`
+              : `${(dist / 1e9).toFixed(1)} Gm`;
+          const priceHint =
+            loc.type === 'planet'
+              ? '1.1\u00D7'
+              : loc.type === 'space_station'
+                ? '1.0\u00D7'
+                : loc.type === 'orbital'
+                  ? '0.85\u00D7'
+                  : loc.type === 'moon'
+                    ? '0.9\u00D7'
+                    : '0.8\u00D7';
+          const optText = `${loc.name} (${distLabel}, ${priceHint} price)`;
+
+          let opt = miningSelectOptionMap.get(loc.id);
+          if (!opt) {
+            opt = document.createElement('option');
+            opt.value = loc.id;
+            miningSelectOptionMap.set(loc.id, opt);
+            refs.miningRouteSelect.appendChild(opt);
+          }
+          opt.textContent = optText;
+        }
+
+        // Remove options no longer reachable
+        for (const [id, opt] of miningSelectOptionMap) {
+          if (!currentLocIds.has(id)) {
+            opt.remove();
+            miningSelectOptionMap.delete(id);
+          }
+        }
+
+        // Ensure correct order
+        for (const { loc } of sorted) {
+          const opt = miningSelectOptionMap.get(loc.id);
+          if (opt) {
+            refs.miningRouteSelect.appendChild(opt);
+          }
+        }
+      }
+    }
+  }
+
+  // ── Update: Active Contract Phase ───────────────────────────
+  function updateActiveContractPhase(gd: GameData): void {
+    const ship = getActiveShip(gd);
+    const activeContract = ship.activeContract;
+    const refs = activeContractRefs;
+
+    if (!activeContract) return;
+
+    // Route assignment
+    updateRouteAssignmentRefs(refs.routeAssignment, gd);
+
+    const quest = activeContract.quest;
+
+    // Contract summary
+    refs.summaryTitle.textContent = quest.title;
+
+    if (quest.tripsRequired === -1) {
+      refs.progress.textContent = `Trips completed: ${activeContract.tripsCompleted} (Unlimited)`;
+    } else if (quest.type === 'supply') {
+      refs.progress.textContent = `Cargo delivered: ${activeContract.cargoDelivered.toLocaleString()} / ${quest.totalCargoRequired.toLocaleString()} kg`;
+    } else {
+      refs.progress.textContent = `Trip ${activeContract.tripsCompleted + 1}/${quest.tripsRequired}`;
+    }
+
+    refs.leg.textContent =
+      activeContract.leg === 'outbound' ? 'Leg: Outbound' : 'Leg: Inbound';
+
+    // Payment info
+    if (quest.paymentPerTrip > 0) {
+      refs.paymentInfo.textContent =
+        activeContract.leg === 'outbound'
+          ? `Next payment: ${quest.paymentPerTrip.toLocaleString()} cr on inbound arrival`
+          : `Next payment: ${quest.paymentPerTrip.toLocaleString()} cr on arrival`;
+    } else if (quest.paymentOnCompletion > 0) {
+      refs.paymentInfo.textContent = `Completion bonus: ${quest.paymentOnCompletion.toLocaleString()} cr`;
+    } else {
+      refs.paymentInfo.textContent = '';
+    }
+
+    refs.earned.textContent = `Earned so far: ${activeContract.creditsEarned.toLocaleString()} credits`;
+
+    // Status hints
+    if (ship.location.status === 'in_flight') {
+      if (activeContract.abandonRequested) {
+        refs.abandonHint.style.display = '';
+        refs.pauseHint.style.display = 'none';
+      } else if (activeContract.paused) {
+        refs.abandonHint.style.display = 'none';
+        refs.pauseHint.style.display = '';
+      } else {
+        refs.abandonHint.style.display = 'none';
+        refs.pauseHint.style.display = 'none';
+      }
+    } else {
+      refs.abandonHint.style.display = 'none';
+      refs.pauseHint.style.display = 'none';
+    }
+
+    // Fuel gauge
+    refs.fuelLabel.textContent = `Fuel: ${formatFuelMass(ship.fuelKg)}`;
+    const fuelPercentage = calculateFuelPercentage(ship.fuelKg, ship.maxFuelKg);
+    refs.fuelFill.style.width = `${fuelPercentage}%`;
+  }
+
+  // ── Update: Paused Contract Phase ───────────────────────────
+  function updatePausedContractPhase(gd: GameData): void {
+    const ship = getActiveShip(gd);
+    const activeContract = ship.activeContract;
+    const refs = pausedContractRefs;
+
+    if (!activeContract) return;
+
+    // Route assignment
+    updateRouteAssignmentRefs(refs.routeAssignment, gd);
+
+    const quest = activeContract.quest;
+    const flight = ship.activeFlightPlan;
+    const stillInFlight = ship.location.status === 'in_flight' && !!flight;
+
+    // Contract summary
+    refs.summaryTitle.textContent = quest.title;
+
+    refs.pauseHint.textContent = stillInFlight
+      ? 'Ship will dock on arrival. Resume to continue earning.'
+      : 'Docked mid-route \u2014 resume to continue earning.';
+
+    if (quest.tripsRequired === -1) {
+      refs.progress.textContent = `Trips completed: ${activeContract.tripsCompleted} (Unlimited)`;
+    } else if (quest.type === 'supply') {
+      refs.progress.textContent = `Cargo delivered: ${activeContract.cargoDelivered.toLocaleString()} / ${quest.totalCargoRequired.toLocaleString()} kg`;
+    } else {
+      refs.progress.textContent = `Trip ${activeContract.tripsCompleted + 1}/${quest.tripsRequired}`;
+    }
+
+    refs.earned.textContent = `Earned so far: ${activeContract.creditsEarned.toLocaleString()} credits`;
+
+    // Abandon button state
+    updatePausedAbandonButton();
+
+    // Abandon hint
+    const hasRouteAssignment = !!ship.routeAssignment;
+    let hintText = `Abandon ends contract permanently. You keep ${activeContract.creditsEarned.toLocaleString()} cr from completed trips.`;
+    if (hasRouteAssignment) {
+      hintText += ' Your automated route assignment will also end.';
+    }
+    refs.abandonHint.textContent = hintText;
+  }
+
+  // ── Main update function ────────────────────────────────────
+  function update(gameData: GameData): void {
     const ship = getActiveShip(gameData);
     const activeContract = ship.activeContract;
 
@@ -202,1000 +1621,42 @@ export function createWorkTab(
       prevPhase = curPhase;
     }
 
-    // Content area: rebuild freely (non-interactive)
-    contentArea.replaceChildren();
+    // Toggle phase containers
+    noContractRefs.container.style.display = curPhase === 'none' ? '' : 'none';
+    activeContractRefs.container.style.display =
+      curPhase === 'active' ? '' : 'none';
+    pausedContractRefs.container.style.display =
+      curPhase === 'paused' ? '' : 'none';
+
+    // Update the consolidated flight status component (handles its own
+    // visibility: shows flight info when in flight, radio buttons when
+    // there's an active contract in flight)
+    flightStatusComponent.update(gameData);
 
     if (curPhase === 'none') {
-      if (
-        (ship.location.status === 'docked' ||
-          ship.location.status === 'orbiting') &&
-        !activeContract
-      ) {
-        updateFlightProfileControl(profileControl, ship);
-        contentArea.appendChild(profileControl.el);
-
-        const mineLocationId =
-          ship.location.orbitingAt ?? ship.location.dockedAt;
-        const mineLocation = mineLocationId
-          ? gameData.world.locations.find((l) => l.id === mineLocationId)
-          : null;
-        if (mineLocation?.services.includes('mine')) {
-          contentArea.appendChild(
-            renderMiningStatus(gameData, ship, mineLocation, callbacks)
-          );
-        }
-
-        contentArea.appendChild(renderAvailableWork(gameData, callbacks));
+      updateNoContractPhase(gameData);
+      // Remove profile control from other locations if needed
+      if (profileControl.el.parentNode === activeContractRefs.container) {
+        profileControl.el.remove();
       }
-      radioGroupEl.style.display = 'none';
     } else if (curPhase === 'active') {
-      contentArea.appendChild(renderActiveContractContent(gameData, callbacks));
-      radioGroupEl.style.display = '';
-      updateRadioGroup(ship);
+      updateActiveContractPhase(gameData);
+
+      // Flight profile slider below flight status component
+      updateFlightProfileControl(profileControl, ship);
+      flightStatusComponent.el.after(profileControl.el);
     } else if (curPhase === 'paused') {
-      contentArea.appendChild(
-        renderPausedContract(gameData, callbacks, pausedAbandonPending, {
-          onResume() {
-            pausedAbandonPending = false;
-            callbacks.onResumeContract();
-          },
-          onAbandon() {
-            if (!pausedAbandonPending) {
-              pausedAbandonPending = true;
-              if (pausedAbandonTimer) clearTimeout(pausedAbandonTimer);
-              pausedAbandonTimer = setTimeout(() => {
-                pausedAbandonPending = false;
-                rebuild(gameData);
-              }, 4000);
-              rebuild(gameData);
-            } else {
-              pausedAbandonPending = false;
-              callbacks.onAbandonContract();
-            }
-          },
-        })
-      );
-      radioGroupEl.style.display = 'none';
-    }
-  }
-
-  rebuild(gameData);
-  return { el: container, update: rebuild };
-}
-
-function renderAvailableWork(
-  gameData: GameData,
-  callbacks: WorkTabCallbacks
-): HTMLElement {
-  const container = document.createElement('div');
-  container.className = 'available-work';
-
-  const ship = getActiveShip(gameData);
-  const location = ship.location.dockedAt || ship.location.orbitingAt;
-
-  console.log('Work tab - location:', location);
-  console.log('Work tab - ship status:', ship.location.status);
-
-  if (!location) {
-    console.error('Work tab - NO LOCATION, returning empty');
-    return container;
-  }
-
-  console.log('Work tab - world.locations:', gameData.world.locations);
-  console.log('Work tab - looking for location id:', location);
-  console.log(
-    'Work tab - location ids in world:',
-    gameData.world.locations.map((l) => l.id)
-  );
-
-  const locationData = gameData.world.locations.find((l) => l.id === location);
-  console.log('Work tab - locationData:', locationData);
-
-  if (!locationData) {
-    console.error('Work tab - LOCATION DATA NOT FOUND, returning empty');
-    return container;
-  }
-
-  // Get quests for this location
-  const availableQuests = gameData.availableQuests[location] || [];
-  console.log('Work tab - availableQuests for location:', availableQuests);
-
-  // Split into trade routes and regular contracts
-  const tradeRoutes = availableQuests.filter((q) => q.type === 'trade_route');
-  const regularQuests = availableQuests.filter((q) => q.type !== 'trade_route');
-
-  // Header
-  const heading = document.createElement('h3');
-  heading.textContent = `Available Work at ${locationData.name}`;
-  console.log('Work tab - Adding heading:', heading.textContent);
-  container.appendChild(heading);
-
-  // Ship context
-  const shipContext = document.createElement('div');
-  shipContext.style.marginBottom = '0.75rem';
-  shipContext.style.padding = '0.5rem';
-  shipContext.style.background = 'rgba(74, 158, 255, 0.1)';
-  shipContext.style.border = '1px solid #4a9eff';
-  shipContext.style.borderRadius = '4px';
-  shipContext.style.fontSize = '0.9rem';
-  shipContext.innerHTML = `<span style="color: #aaa;">Assigning to:</span> <span style="color: #4a9eff; font-weight: bold;">${ship.name}</span>`;
-  container.appendChild(shipContext);
-
-  // Trade Routes section (permanent work)
-  if (tradeRoutes.length > 0) {
-    const tradeSection = document.createElement('div');
-    tradeSection.className = 'trade-routes-section';
-
-    const tradeHeading = document.createElement('h4');
-    tradeHeading.textContent = 'Trade Routes';
-    tradeHeading.style.color = '#4a9eff';
-    tradeHeading.style.marginBottom = '0.25rem';
-    tradeSection.appendChild(tradeHeading);
-
-    const tradeDesc = document.createElement('p');
-    tradeDesc.style.color = '#888';
-    tradeDesc.style.fontSize = '0.85rem';
-    tradeDesc.style.marginTop = '0';
-    tradeDesc.style.marginBottom = '0.75rem';
-    tradeDesc.textContent =
-      "Permanent trade routes representing this location's economic activity. Pay scales with distance and route danger.";
-    tradeSection.appendChild(tradeDesc);
-
-    // Sort: acceptable first
-    const sortedTrade = [...tradeRoutes].sort((a, b) => {
-      const aOk = canAcceptQuest(ship, a).canAccept;
-      const bOk = canAcceptQuest(ship, b).canAccept;
-      if (aOk && !bOk) return -1;
-      if (!aOk && bOk) return 1;
-      return 0;
-    });
-
-    for (const quest of sortedTrade) {
-      tradeSection.appendChild(renderQuestCard(gameData, quest, callbacks));
-    }
-
-    container.appendChild(tradeSection);
-  }
-
-  // Regular contracts section
-  const contractSection = document.createElement('div');
-  contractSection.className = 'contracts-section';
-
-  if (tradeRoutes.length > 0 && regularQuests.length > 0) {
-    const contractHeading = document.createElement('h4');
-    contractHeading.textContent = 'Available Contracts';
-    contractHeading.style.marginBottom = '0.5rem';
-    contractSection.appendChild(contractHeading);
-  }
-
-  if (regularQuests.length === 0 && tradeRoutes.length === 0) {
-    const noQuests = document.createElement('p');
-    noQuests.className = 'no-quests';
-    noQuests.textContent = 'No work available. Try advancing the day.';
-    contractSection.appendChild(noQuests);
-  } else if (regularQuests.length > 0) {
-    // Sort quests: acceptable ones first, then unacceptable ones
-    const sortedQuests = [...regularQuests].sort((a, b) => {
-      const aAcceptable = canAcceptQuest(ship, a).canAccept;
-      const bAcceptable = canAcceptQuest(ship, b).canAccept;
-
-      // Acceptable quests come first (true > false gives descending order)
-      if (aAcceptable && !bAcceptable) return -1;
-      if (!aAcceptable && bAcceptable) return 1;
-      return 0;
-    });
-
-    for (const quest of sortedQuests) {
-      contractSection.appendChild(renderQuestCard(gameData, quest, callbacks));
-    }
-  }
-
-  container.appendChild(contractSection);
-
-  return container;
-}
-
-function renderQuestCard(
-  gameData: GameData,
-  quest: Quest,
-  callbacks: WorkTabCallbacks
-): HTMLElement {
-  const card = document.createElement('div');
-  card.className = 'quest-card';
-
-  const ship = getActiveShip(gameData);
-  const destination = gameData.world.locations.find(
-    (l) => l.id === quest.destination
-  );
-  const { canAccept, reason } = canAcceptQuest(ship, quest);
-
-  if (!canAccept) {
-    card.classList.add('disabled');
-  }
-
-  // Title
-  const title = document.createElement('div');
-  title.className = 'quest-title';
-  title.textContent = quest.title;
-  card.appendChild(title);
-
-  // Description
-  const description = document.createElement('div');
-  description.className = 'quest-description';
-  description.textContent = quest.description;
-  card.appendChild(description);
-
-  // Details
-  const details = document.createElement('div');
-  details.className = 'quest-details';
-
-  if (destination) {
-    const destInfo = document.createElement('div');
-    destInfo.textContent = `Destination: ${destination.name}`;
-    details.appendChild(destInfo);
-  }
-
-  const distanceInfo = document.createElement('div');
-  const origin = gameData.world.locations.find((l) => l.id === quest.origin);
-  if (origin && destination) {
-    const distance = Math.abs(
-      origin.distanceFromEarth - destination.distanceFromEarth
-    );
-    distanceInfo.textContent = `Distance: ${distance.toLocaleString()} km`;
-    details.appendChild(distanceInfo);
-  }
-
-  if (quest.cargoRequired > 0) {
-    const cargoInfo = document.createElement('div');
-    cargoInfo.textContent = `Cargo: ${quest.cargoRequired.toLocaleString()} kg`;
-    details.appendChild(cargoInfo);
-  }
-
-  if (quest.totalCargoRequired > 0) {
-    const totalCargoInfo = document.createElement('div');
-    totalCargoInfo.textContent = `Total cargo: ${quest.totalCargoRequired.toLocaleString()} kg`;
-    details.appendChild(totalCargoInfo);
-  }
-
-  if (quest.tripsRequired > 0) {
-    const tripsInfo = document.createElement('div');
-    tripsInfo.textContent = `Trips: ${quest.tripsRequired}`;
-    details.appendChild(tripsInfo);
-  } else if (quest.tripsRequired === -1) {
-    const tripsInfo = document.createElement('div');
-    tripsInfo.textContent = 'Trips: Unlimited';
-    details.appendChild(tripsInfo);
-  }
-
-  // Recalculate fuel and time based on flight profile
-  const burnFraction = ship.flightProfileBurnFraction ?? 1.0;
-  const distanceKm =
-    origin && destination ? getDistanceBetween(origin, destination) : 0;
-
-  // Profile-aware fuel estimate (round trip)
-  const profileFuelKg =
-    distanceKm > 0
-      ? calculateTripFuelKg(ship, distanceKm, burnFraction) * 2
-      : quest.estimatedFuelPerTrip;
-
-  // Profile-aware time estimate (round trip in game seconds)
-  const profileTimeSecs =
-    distanceKm > 0
-      ? estimateTripTime(ship, distanceKm, burnFraction) * 2
-      : quest.estimatedTripTicks * GAME_SECONDS_PER_TICK;
-  const profileTimeTicks = gameSecondsToTicks(profileTimeSecs);
-
-  const fuelInfo = document.createElement('div');
-  fuelInfo.textContent = `Fuel: ~${formatFuelMass(profileFuelKg)} per trip`;
-  details.appendChild(fuelInfo);
-
-  const timeInfo = document.createElement('div');
-  timeInfo.textContent = `Time: ~${formatDuration(profileTimeSecs)} per trip`;
-  details.appendChild(timeInfo);
-
-  // Calculate costs and profit
-  const crewSalaryPerTick = calculateShipSalaryPerTick(ship);
-  const tripCrewCost = Math.round(crewSalaryPerTick * profileTimeTicks);
-
-  // Fuel cost in credits (using local station price)
-  const currentLocation = gameData.world.locations.find(
-    (l) => l.id === (ship.location.dockedAt || ship.location.orbitingAt)
-  );
-  const fuelPricePerKg = currentLocation
-    ? getFuelPricePerKg(currentLocation, ship)
-    : 2.0;
-  const tripFuelCost = Math.round(profileFuelKg * fuelPricePerKg);
-
-  if (tripCrewCost > 0) {
-    const crewCostInfo = document.createElement('div');
-    crewCostInfo.textContent = `Crew Salaries: ~${tripCrewCost.toLocaleString()} cr per trip`;
-    crewCostInfo.style.color = '#ffa500';
-    details.appendChild(crewCostInfo);
-  }
-
-  const fuelCostInfo = document.createElement('div');
-  fuelCostInfo.textContent = `Fuel Cost: ~${tripFuelCost.toLocaleString()} cr per trip`;
-  fuelCostInfo.style.color = '#ffa500';
-  details.appendChild(fuelCostInfo);
-
-  // Profit/loss estimate
-  const tripPayment =
-    quest.paymentPerTrip > 0 ? quest.paymentPerTrip : quest.paymentOnCompletion;
-  const totalCost = tripCrewCost + tripFuelCost;
-  const profit = tripPayment - totalCost;
-
-  const profitInfo = document.createElement('div');
-  profitInfo.style.cssText = `font-weight: bold; margin-top: 4px; color: ${profit >= 0 ? '#4caf50' : '#e94560'};`;
-  profitInfo.textContent = `Est. Profit: ${profit >= 0 ? '+' : ''}${profit.toLocaleString()} cr per trip`;
-  details.appendChild(profitInfo);
-
-  // Route risk threat badge
-  if (origin && destination) {
-    const routeRisk = estimateRouteRisk(
-      origin,
-      destination,
-      ship,
-      gameData.world
-    );
-    const threatLevel = getThreatLevel(routeRisk);
-    const narrative = getThreatNarrative(threatLevel);
-
-    const riskLine = document.createElement('div');
-    riskLine.style.display = 'flex';
-    riskLine.style.alignItems = 'center';
-    riskLine.style.gap = '8px';
-    riskLine.style.marginTop = '4px';
-
-    const riskLabel = document.createElement('span');
-    riskLabel.textContent = 'Route Risk:';
-    riskLine.appendChild(riskLabel);
-
-    riskLine.appendChild(renderThreatBadge(threatLevel, narrative));
-    details.appendChild(riskLine);
-  }
-
-  card.appendChild(details);
-
-  // Payment
-  const payment = document.createElement('div');
-  payment.className = 'quest-payment';
-
-  if (quest.paymentPerTrip > 0) {
-    payment.textContent = `Payment: ${quest.paymentPerTrip.toLocaleString()} credits/trip`;
-  } else {
-    payment.textContent = `Payment: ${quest.paymentOnCompletion.toLocaleString()} credits on completion`;
-  }
-
-  card.appendChild(payment);
-
-  // Accept button or reason
-  if (canAccept) {
-    const buttonContainer = document.createElement('div');
-    buttonContainer.className = 'quest-buttons';
-    buttonContainer.style.display = 'flex';
-    buttonContainer.style.gap = '8px';
-
-    const acceptBtn = document.createElement('button');
-    acceptBtn.className = 'accept-quest-button';
-    acceptBtn.textContent = 'Accept';
-    acceptBtn.addEventListener('click', () =>
-      callbacks.onAcceptQuest(quest.id)
-    );
-    buttonContainer.appendChild(acceptBtn);
-
-    // Add "Assign Route" button for standing freight and trade routes
-    if (quest.type === 'standing_freight' || quest.type === 'trade_route') {
-      const assignBtn = document.createElement('button');
-      assignBtn.className = 'assign-route-button';
-      assignBtn.textContent = 'Assign Route';
-      assignBtn.style.backgroundColor = '#4a90e2';
-      assignBtn.addEventListener('click', () =>
-        callbacks.onAssignRoute(quest.id)
-      );
-      buttonContainer.appendChild(assignBtn);
-    }
-
-    card.appendChild(buttonContainer);
-  } else if (reason) {
-    const reasonDiv = document.createElement('div');
-    reasonDiv.className = 'quest-reason';
-    reasonDiv.textContent = reason;
-    card.appendChild(reasonDiv);
-  }
-
-  return card;
-}
-
-/** Renders the non-interactive content above the radio group for an active contract. */
-function renderActiveContractContent(
-  gameData: GameData,
-  callbacks: WorkTabCallbacks
-): HTMLElement {
-  const container = document.createElement('div');
-  container.className = 'active-contract';
-
-  const ship = getActiveShip(gameData);
-  const activeContract = ship.activeContract;
-
-  if (!activeContract) {
-    return container;
-  }
-
-  // Show route assignment info if ship is on automated route
-  if (ship.routeAssignment) {
-    container.appendChild(renderRouteAssignmentInfo(gameData, callbacks));
-  }
-
-  const quest = activeContract.quest;
-  const flight = ship.activeFlightPlan;
-
-  // Contract summary
-  const summary = document.createElement('div');
-  summary.className = 'contract-summary';
-
-  const title = document.createElement('h3');
-  title.textContent = quest.title;
-  summary.appendChild(title);
-
-  const progress = document.createElement('div');
-  progress.className = 'contract-progress';
-
-  if (quest.tripsRequired === -1) {
-    progress.textContent = `Trips completed: ${activeContract.tripsCompleted} (Unlimited)`;
-  } else if (quest.type === 'supply') {
-    progress.textContent = `Cargo delivered: ${activeContract.cargoDelivered.toLocaleString()} / ${quest.totalCargoRequired.toLocaleString()} kg`;
-  } else {
-    progress.textContent = `Trip ${activeContract.tripsCompleted + 1}/${quest.tripsRequired}`;
-  }
-
-  summary.appendChild(progress);
-
-  const leg = document.createElement('div');
-  leg.className = 'contract-leg';
-  leg.textContent =
-    activeContract.leg === 'outbound' ? 'Leg: Outbound' : 'Leg: Inbound';
-  summary.appendChild(leg);
-
-  // Payment info for current trip
-  const paymentInfo = document.createElement('div');
-  paymentInfo.className = 'contract-payment-hint';
-  if (quest.paymentPerTrip > 0) {
-    paymentInfo.textContent =
-      activeContract.leg === 'outbound'
-        ? `Next payment: ${quest.paymentPerTrip.toLocaleString()} cr on inbound arrival`
-        : `Next payment: ${quest.paymentPerTrip.toLocaleString()} cr on arrival`;
-  } else if (quest.paymentOnCompletion > 0) {
-    paymentInfo.textContent = `Completion bonus: ${quest.paymentOnCompletion.toLocaleString()} cr`;
-  }
-  summary.appendChild(paymentInfo);
-
-  const earned = document.createElement('div');
-  earned.className = 'contract-earned';
-  earned.textContent = `Earned so far: ${activeContract.creditsEarned.toLocaleString()} credits`;
-  summary.appendChild(earned);
-
-  container.appendChild(summary);
-
-  // Status hint when a deferred action is pending
-  if (ship.location.status === 'in_flight') {
-    if (activeContract.abandonRequested) {
-      const hint = document.createElement('div');
-      hint.className = 'contract-pause-hint';
-      hint.textContent =
-        'Contract will be abandoned on arrival. Change selection below to cancel.';
-      container.appendChild(hint);
-    } else if (activeContract.paused) {
-      const hint = document.createElement('div');
-      hint.className = 'contract-pause-hint';
-      hint.textContent =
-        'Ship will dock on arrival. Change selection below to cancel.';
-      container.appendChild(hint);
-    }
-  }
-
-  // Flight status
-  if (flight) {
-    container.appendChild(renderFlightStatus(flight, gameData, ship));
-  }
-
-  // Fuel gauge
-  const fuelGauge = document.createElement('div');
-  fuelGauge.className = 'fuel-gauge';
-  const fuelLabel = document.createElement('div');
-  fuelLabel.textContent = `Fuel: ${formatFuelMass(ship.fuelKg)}`;
-  fuelGauge.appendChild(fuelLabel);
-
-  const fuelBar = document.createElement('div');
-  fuelBar.className = 'fuel-bar';
-  const fuelFill = document.createElement('div');
-  fuelFill.className = 'fuel-fill';
-  const fuelPercentage = calculateFuelPercentage(ship.fuelKg, ship.maxFuelKg);
-  fuelFill.style.width = `${fuelPercentage}%`;
-  fuelBar.appendChild(fuelFill);
-  fuelGauge.appendChild(fuelBar);
-
-  container.appendChild(fuelGauge);
-
-  return container;
-}
-
-interface PausedActionCallbacks {
-  onResume(): void;
-  onAbandon(): void;
-}
-
-function renderPausedContract(
-  gameData: GameData,
-  callbacks: WorkTabCallbacks,
-  abandonConfirmPending: boolean,
-  actionCbs: PausedActionCallbacks
-): HTMLElement {
-  const container = document.createElement('div');
-  container.className = 'paused-contract';
-
-  const ship = getActiveShip(gameData);
-  const activeContract = ship.activeContract;
-
-  if (!activeContract) {
-    return container;
-  }
-
-  // Show route assignment info if ship is on automated route
-  if (ship.routeAssignment) {
-    container.appendChild(renderRouteAssignmentInfo(gameData, callbacks));
-  }
-
-  const quest = activeContract.quest;
-
-  // Contract summary
-  const summary = document.createElement('div');
-  summary.className = 'contract-summary';
-
-  const title = document.createElement('h3');
-  title.textContent = quest.title;
-  summary.appendChild(title);
-
-  const pausedBadge = document.createElement('span');
-  pausedBadge.className = 'paused-badge';
-  pausedBadge.textContent = 'PAUSED';
-  summary.appendChild(pausedBadge);
-
-  // Context-aware reassurance message
-  const flight = ship.activeFlightPlan;
-  const stillInFlight = ship.location.status === 'in_flight' && flight;
-  const pauseHint = document.createElement('div');
-  pauseHint.className = 'contract-pause-hint';
-  pauseHint.textContent = stillInFlight
-    ? 'Ship will dock on arrival. Resume to continue earning.'
-    : 'Docked mid-route — resume to continue earning.';
-  summary.appendChild(pauseHint);
-
-  const progress = document.createElement('div');
-  progress.className = 'contract-progress';
-
-  if (quest.tripsRequired === -1) {
-    progress.textContent = `Trips completed: ${activeContract.tripsCompleted} (Unlimited)`;
-  } else if (quest.type === 'supply') {
-    progress.textContent = `Cargo delivered: ${activeContract.cargoDelivered.toLocaleString()} / ${quest.totalCargoRequired.toLocaleString()} kg`;
-  } else {
-    progress.textContent = `Trip ${activeContract.tripsCompleted + 1}/${quest.tripsRequired}`;
-  }
-
-  summary.appendChild(progress);
-
-  const earned = document.createElement('div');
-  earned.className = 'contract-earned';
-  earned.textContent = `Earned so far: ${activeContract.creditsEarned.toLocaleString()} credits`;
-  summary.appendChild(earned);
-
-  container.appendChild(summary);
-
-  // Flight status (visible when ship is still en route to dock)
-  if (stillInFlight) {
-    container.appendChild(renderFlightStatus(flight, gameData, ship));
-  }
-
-  // ─── Action Buttons ───────────────────────────────────────────
-  const actions = document.createElement('div');
-  actions.className = 'paused-action-buttons';
-
-  // Resume button (primary)
-  const resumeBtn = document.createElement('button');
-  resumeBtn.className = 'action-confirm-btn action-confirm-btn--primary';
-  resumeBtn.textContent = 'Resume contract';
-  resumeBtn.addEventListener('click', () => actionCbs.onResume());
-  actions.appendChild(resumeBtn);
-
-  // Abandon button (danger, two-step)
-  const hasRouteAssignment = !!ship.routeAssignment;
-  const abandonBtn = document.createElement('button');
-  abandonBtn.className = 'action-confirm-btn';
-
-  if (abandonConfirmPending) {
-    abandonBtn.textContent = 'Are you sure? Click again to abandon';
-    abandonBtn.classList.add('action-confirm-btn--danger-hot');
-  } else {
-    abandonBtn.textContent = 'Abandon contract';
-    abandonBtn.classList.add('action-confirm-btn--danger');
-  }
-  abandonBtn.addEventListener('click', () => actionCbs.onAbandon());
-  actions.appendChild(abandonBtn);
-
-  // Consequence text below buttons
-  const abandonHint = document.createElement('div');
-  abandonHint.className = 'action-button-hint';
-  let hintText = `Abandon ends contract permanently. You keep ${activeContract.creditsEarned.toLocaleString()} cr from completed trips.`;
-  if (hasRouteAssignment) {
-    hintText += ' Your automated route assignment will also end.';
-  }
-  abandonHint.textContent = hintText;
-  actions.appendChild(abandonHint);
-
-  container.appendChild(actions);
-
-  return container;
-}
-
-function renderRouteAssignmentInfo(
-  gameData: GameData,
-  callbacks: WorkTabCallbacks
-): HTMLElement {
-  const container = document.createElement('div');
-  container.className = 'route-assignment-info';
-  container.style.padding = '12px';
-  container.style.marginBottom = '12px';
-  container.style.border = '2px solid #4a90e2';
-  container.style.borderRadius = '4px';
-  container.style.backgroundColor = 'rgba(74, 144, 226, 0.1)';
-
-  const ship = getActiveShip(gameData);
-  const assignment = ship.routeAssignment;
-
-  if (!assignment) return container;
-
-  const originLoc = gameData.world.locations.find(
-    (l) => l.id === assignment.originId
-  );
-  const destLoc = gameData.world.locations.find(
-    (l) => l.id === assignment.destinationId
-  );
-
-  // Header
-  const header = document.createElement('div');
-  header.style.fontSize = '14px';
-  header.style.fontWeight = 'bold';
-  header.style.color = '#4a90e2';
-  header.style.marginBottom = '8px';
-  header.textContent = '🔄 Automated Route Assignment';
-  container.appendChild(header);
-
-  // Route info
-  const routeInfo = document.createElement('div');
-  routeInfo.style.fontSize = '12px';
-  routeInfo.style.marginBottom = '8px';
-  routeInfo.innerHTML = `
-    <div><strong>Route:</strong> ${originLoc?.name || 'Unknown'} ↔ ${destLoc?.name || 'Unknown'}</div>
-    <div><strong>Trips Completed:</strong> ${assignment.totalTripsCompleted}</div>
-    <div><strong>Credits Earned:</strong> ${assignment.creditsEarned.toLocaleString()}</div>
-    <div><strong>Auto-Refuel:</strong> ${assignment.autoRefuel ? `Enabled (< ${assignment.autoRefuelThreshold}%)` : 'Disabled'}</div>
-  `;
-  container.appendChild(routeInfo);
-
-  // End assignment button
-  const actions = document.createElement('div');
-  actions.style.marginTop = '8px';
-
-  const unassignBtn = document.createElement('button');
-  unassignBtn.className = 'abandon-button';
-  unassignBtn.textContent = 'End Route Assignment';
-  unassignBtn.addEventListener('click', () => callbacks.onUnassignRoute());
-  actions.appendChild(unassignBtn);
-
-  container.appendChild(actions);
-
-  return container;
-}
-
-// ─── Mining Status Panel ────────────────────────────────────────
-
-function renderMiningStatus(
-  gameData: GameData,
-  ship: Ship,
-  location: import('../models').WorldLocation,
-  callbacks: WorkTabCallbacks
-): HTMLElement {
-  const panel = document.createElement('div');
-  panel.className = 'mining-status-panel';
-  panel.style.cssText = `
-    margin-bottom: 1rem;
-    padding: 0.75rem;
-    background: rgba(255, 165, 0, 0.08);
-    border: 1px solid #b87333;
-    border-radius: 4px;
-  `;
-
-  // Header
-  const header = document.createElement('div');
-  header.style.cssText =
-    'display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;';
-  const title = document.createElement('span');
-  title.style.cssText = 'font-weight: bold; font-size: 1rem; color: #ffa500;';
-  title.textContent = `⛏️ Mining at ${location.name}`;
-  header.appendChild(title);
-
-  // Active/inactive status badge
-  const isDocked = ship.location.status === 'docked';
-  const miners = getCrewForJobType(ship, 'mining_ops');
-  const shipMiningEquip = getBestShipMiningEquipment(ship);
-  const hasActiveMiner = shipMiningEquip !== undefined && miners.length > 0;
-  const statusBadge = document.createElement('span');
-  if (isDocked) {
-    statusBadge.style.cssText =
-      'font-size: 0.8rem; padding: 2px 8px; border-radius: 3px; background: rgba(74,158,255,0.15); color: #4a9eff; border: 1px solid #4a9eff;';
-    statusBadge.textContent = 'DOCKED';
-  } else if (hasActiveMiner && getRemainingOreCapacity(ship) > 0) {
-    statusBadge.style.cssText =
-      'font-size: 0.8rem; padding: 2px 8px; border-radius: 3px; background: rgba(76,175,80,0.2); color: #4caf50; border: 1px solid #4caf50;';
-    statusBadge.textContent = 'ACTIVE';
-  } else if (hasActiveMiner) {
-    statusBadge.style.cssText =
-      'font-size: 0.8rem; padding: 2px 8px; border-radius: 3px; background: rgba(233,69,96,0.2); color: #e94560; border: 1px solid #e94560;';
-    statusBadge.textContent = 'CARGO FULL';
-  } else {
-    statusBadge.style.cssText =
-      'font-size: 0.8rem; padding: 2px 8px; border-radius: 3px; background: rgba(255,165,0,0.15); color: #ffa500; border: 1px solid #b87333;';
-    statusBadge.textContent = 'IDLE';
-  }
-  header.appendChild(statusBadge);
-  panel.appendChild(header);
-
-  // Undock prompt when docked at a mining location
-  if (isDocked) {
-    const undockPrompt = document.createElement('div');
-    undockPrompt.style.cssText =
-      'padding: 0.5rem; margin-bottom: 0.5rem; background: rgba(74,158,255,0.1); border: 1px solid #4a9eff; border-radius: 4px; font-size: 0.85rem; color: #4a9eff;';
-    undockPrompt.textContent =
-      'Undock to enter orbit and begin mining operations. Mining equipment operates while orbiting.';
-    panel.appendChild(undockPrompt);
-  }
-
-  // Available ores at this location
-  const oresSection = document.createElement('div');
-  oresSection.style.cssText = 'margin-bottom: 0.5rem;';
-  const oresLabel = document.createElement('div');
-  oresLabel.style.cssText =
-    'font-size: 0.85rem; color: #aaa; margin-bottom: 0.25rem;';
-  oresLabel.textContent = 'Available Ores:';
-  oresSection.appendChild(oresLabel);
-
-  const availableOres = location.availableOres ?? [];
-  for (const oreId of availableOres) {
-    const ore = getOreDefinition(oreId);
-    const oreTag = document.createElement('span');
-    oreTag.style.cssText = `
-      display: inline-block; margin: 2px 4px 2px 0; padding: 2px 8px;
-      border-radius: 3px; font-size: 0.8rem;
-      background: rgba(255,165,0,0.15); border: 1px solid #665533;
-    `;
-    // Check if any miner can mine this ore
-    const someMinerCanMine = miners.some((m) =>
-      canMineOre(m.skills.mining, oreId)
-    );
-    if (!someMinerCanMine) {
-      oreTag.style.opacity = '0.5';
-      oreTag.title = `Requires Mining ${ore.miningLevelRequired}`;
-    }
-    oreTag.textContent = `${ore.icon} ${ore.name} (${ore.baseValue} cr)`;
-    if (!someMinerCanMine) {
-      oreTag.textContent += ` [Mining ${ore.miningLevelRequired}]`;
-    }
-    oresSection.appendChild(oreTag);
-  }
-  panel.appendChild(oresSection);
-
-  // Miners status
-  const minersSection = document.createElement('div');
-  minersSection.style.cssText = 'margin-bottom: 0.5rem; font-size: 0.85rem;';
-
-  if (miners.length === 0) {
-    const noMiners = document.createElement('div');
-    noMiners.style.color = '#e94560';
-    noMiners.textContent =
-      'No crew assigned to Mining Ops. Assign crew in the Ship tab.';
-    minersSection.appendChild(noMiners);
-  } else if (!shipMiningEquip) {
-    const noEquip = document.createElement('div');
-    noEquip.style.color = '#e94560';
-    noEquip.textContent =
-      'No mining equipment installed on ship. Purchase at a station store.';
-    minersSection.appendChild(noEquip);
-  } else {
-    // Show ship equipment info
-    const equipInfo = document.createElement('div');
-    equipInfo.style.cssText =
-      'margin-bottom: 4px; color: #6c6; font-size: 0.8rem;';
-    equipInfo.textContent = `Ship Equipment: ${shipMiningEquip.name} (${shipMiningEquip.miningRate}x)`;
-    if (
-      shipMiningEquip.miningLevelRequired &&
-      shipMiningEquip.miningLevelRequired > 0
-    ) {
-      equipInfo.textContent += ` · Requires Mining ${shipMiningEquip.miningLevelRequired}`;
-    }
-    minersSection.appendChild(equipInfo);
-
-    for (const miner of miners) {
-      const minerLine = document.createElement('div');
-      minerLine.style.cssText = 'margin-bottom: 2px; color: #ccc;';
-      const miningSkill = Math.floor(miner.skills.mining);
-
-      if (miningSkill < (shipMiningEquip.miningLevelRequired ?? 0)) {
-        minerLine.style.color = '#ffa500';
-        minerLine.textContent = `${miner.name} (Mining ${miningSkill}) — Skill too low to operate equipment`;
-      } else {
-        const bestOre = availableOres
-          .map((id) => getOreDefinition(id))
-          .filter((o) => miningSkill >= o.miningLevelRequired)
-          .sort((a, b) => b.baseValue - a.baseValue)[0];
-
-        minerLine.textContent = `${miner.name} (Mining ${miningSkill})`;
-        if (bestOre) {
-          minerLine.textContent += ` → ${bestOre.icon} ${bestOre.name}`;
-        }
+      updatePausedContractPhase(gameData);
+
+      // Show flight profile slider for adjusting before resume
+      updateFlightProfileControl(profileControl, ship);
+      if (profileControl.el.parentNode !== pausedContractRefs.container) {
+        pausedContractRefs.container.appendChild(profileControl.el);
       }
-      minersSection.appendChild(minerLine);
     }
   }
-  panel.appendChild(minersSection);
 
-  // Cargo status
-  const cargoSection = document.createElement('div');
-  cargoSection.style.cssText = 'font-size: 0.85rem; color: #aaa;';
-
-  const oreWeight = getOreCargoWeight(ship);
-  const remaining = getRemainingOreCapacity(ship);
-  const totalOreUnits = ship.oreCargo.reduce(
-    (sum, item) => sum + item.quantity,
-    0
-  );
-
-  let cargoText = `Ore Cargo: ${totalOreUnits} units (${Math.round(oreWeight).toLocaleString()} kg)`;
-  if (remaining <= 0) {
-    cargoText += ' — FULL';
-    cargoSection.style.color = '#e94560';
-  } else {
-    cargoText += ` — ${Math.round(remaining).toLocaleString()} kg remaining`;
-  }
-  cargoSection.textContent = cargoText;
-  panel.appendChild(cargoSection);
-
-  // Ore cargo breakdown
-  if (ship.oreCargo.length > 0) {
-    const breakdown = document.createElement('div');
-    breakdown.style.cssText =
-      'margin-top: 0.35rem; font-size: 0.8rem; color: #888;';
-    for (const item of ship.oreCargo) {
-      const ore = getOreDefinition(item.oreId);
-      const line = document.createElement('div');
-      line.textContent = `  ${ore.icon} ${ore.name}: ${item.quantity} units`;
-      breakdown.appendChild(line);
-    }
-    panel.appendChild(breakdown);
-  }
-
-  // ─── Mining Route Controls ──────────────────────────────────
-  const routeSection = document.createElement('div');
-  routeSection.style.cssText =
-    'margin-top: 0.75rem; padding-top: 0.5rem; border-top: 1px solid #444;';
-
-  if (ship.miningRoute) {
-    // Active route status
-    const route = ship.miningRoute;
-    const sellLoc = gameData.world.locations.find(
-      (l) => l.id === route.sellLocationId
-    );
-
-    const routeHeader = document.createElement('div');
-    routeHeader.style.cssText =
-      'display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;';
-
-    const routeLabel = document.createElement('span');
-    routeLabel.style.cssText = 'font-size: 0.85rem; color: #4caf50;';
-    routeLabel.textContent = `🔄 Auto-sell route → ${sellLoc?.name ?? 'Unknown'}`;
-    routeHeader.appendChild(routeLabel);
-
-    const cancelBtn = document.createElement('button');
-    cancelBtn.textContent = 'Cancel Route';
-    cancelBtn.style.cssText = 'font-size: 0.75rem; padding: 2px 8px;';
-    cancelBtn.addEventListener('click', () => callbacks.onCancelMiningRoute());
-    routeHeader.appendChild(cancelBtn);
-
-    routeSection.appendChild(routeHeader);
-
-    const routeStats = document.createElement('div');
-    routeStats.style.cssText = 'font-size: 0.8rem; color: #888;';
-    routeStats.textContent = `Trips: ${route.totalTrips} · Earned: ${route.totalCreditsEarned.toLocaleString()} cr · Status: ${route.status}`;
-    routeSection.appendChild(routeStats);
-  } else {
-    // Set up route — show sell destination picker
-    const routeLabel = document.createElement('div');
-    routeLabel.style.cssText =
-      'font-size: 0.85rem; color: #aaa; margin-bottom: 0.35rem;';
-    routeLabel.textContent = '🔄 Auto-Sell Route (idle mining)';
-    routeSection.appendChild(routeLabel);
-
-    // Find reachable trade locations
-    const tradeLocations = gameData.world.locations.filter(
-      (l) =>
-        l.id !== location.id &&
-        l.services.includes('trade') &&
-        canShipAccessLocation(ship, l)
-    );
-
-    if (tradeLocations.length === 0) {
-      const noTrade = document.createElement('div');
-      noTrade.style.cssText = 'font-size: 0.8rem; color: #888;';
-      noTrade.textContent =
-        'No reachable trade stations available for auto-sell.';
-      routeSection.appendChild(noTrade);
-    } else {
-      const row = document.createElement('div');
-      row.style.cssText =
-        'display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;';
-
-      const select = document.createElement('select');
-      select.style.cssText =
-        'font-size: 0.8rem; padding: 3px 6px; background: #1a1a2e; color: #eee; border: 1px solid #444; border-radius: 3px;';
-
-      // Sort by distance (nearest first)
-      const sorted = tradeLocations
-        .map((loc) => ({
-          loc,
-          dist: getDistanceBetween(location, loc),
-        }))
-        .sort((a, b) => a.dist - b.dist);
-
-      for (const { loc, dist } of sorted) {
-        const opt = document.createElement('option');
-        opt.value = loc.id;
-        const distLabel =
-          dist < 1e9
-            ? `${(dist / 1e6).toFixed(0)} Mm`
-            : `${(dist / 1e9).toFixed(1)} Gm`;
-        // Show location type price multiplier hint
-        const priceHint =
-          loc.type === 'planet'
-            ? '1.1×'
-            : loc.type === 'space_station'
-              ? '1.0×'
-              : loc.type === 'orbital'
-                ? '0.85×'
-                : loc.type === 'moon'
-                  ? '0.9×'
-                  : '0.8×';
-        opt.textContent = `${loc.name} (${distLabel}, ${priceHint} price)`;
-        select.appendChild(opt);
-      }
-      row.appendChild(select);
-
-      const startBtn = document.createElement('button');
-      startBtn.textContent = 'Start Route';
-      startBtn.style.cssText = 'font-size: 0.8rem; padding: 3px 10px;';
-      startBtn.addEventListener('click', () =>
-        callbacks.onStartMiningRoute(select.value)
-      );
-      row.appendChild(startBtn);
-
-      routeSection.appendChild(row);
-
-      const hint = document.createElement('div');
-      hint.style.cssText =
-        'font-size: 0.75rem; color: #666; margin-top: 0.25rem;';
-      hint.textContent =
-        'When cargo fills, ship auto-flies to sell ore, refuels, then returns to mine.';
-      routeSection.appendChild(hint);
-    }
-  }
-  panel.appendChild(routeSection);
-
-  return panel;
+  // Initial render
+  update(gameData);
+  return { el: container, update };
 }

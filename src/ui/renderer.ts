@@ -74,6 +74,7 @@ export interface RendererCallbacks {
   onDockAtNearestPort: () => void;
   onCancelPause: () => void;
   onRequestAbandon: () => void;
+  onFlightProfileChange: () => void;
   onResumeContract: () => void;
   onAbandonContract: () => void;
   onBuyFuel: () => void;
@@ -98,6 +99,7 @@ export interface RendererCallbacks {
   onStartMiningRoute: (sellLocationId: string) => void;
   onCancelMiningRoute: () => void;
   onDismissCatchUp: () => void;
+  onImportState?: (json: string) => void;
 }
 
 // ── Mounted playing layout ─────────────────────────────────────────
@@ -320,6 +322,7 @@ function mountPlayingLayout(
       onDockAtNearestPort: callbacks.onDockAtNearestPort,
       onCancelPause: callbacks.onCancelPause,
       onRequestAbandon: callbacks.onRequestAbandon,
+      onFlightProfileChange: callbacks.onFlightProfileChange,
       onResumeContract: callbacks.onResumeContract,
       onAbandonContract: callbacks.onAbandonContract,
       onBuyFuel: callbacks.onBuyFuel,
@@ -335,6 +338,7 @@ function mountPlayingLayout(
       onSellAllOre: callbacks.onSellAllOre,
       onStartMiningRoute: callbacks.onStartMiningRoute,
       onCancelMiningRoute: callbacks.onCancelMiningRoute,
+      onImportState: callbacks.onImportState,
     },
     state.selectedCrewId
   );

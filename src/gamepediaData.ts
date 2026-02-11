@@ -119,7 +119,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
       {
         heading: 'Commerce Skill Bonus',
         paragraphs: [
-          'As your captain develops the [[commerce-skill|Commerce]] skill through trade operations, you earn quest payment bonuses (up to +20%) and fuel discounts (up to -20%).',
+          "Each ship's commanding officer (the captain if aboard, otherwise the crew member with the highest [[commerce-skill|Commerce]] skill) provides quest payment bonuses (up to +20%) and fuel discounts (up to -20%) for that ship.",
         ],
       },
     ],
@@ -221,6 +221,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
           'You can only have one active contract per ship at a time. While in flight you can choose to continue, pause and dock on arrival, or abandon the contract.',
           'Pausing a contract preserves all progress — resume anytime from the docked state. Abandoning a contract ends it permanently, but you keep credits earned from completed trips. The current in-progress trip will not be paid.',
           'Quest cards show estimated fuel cost, trip time, [[crew-salaries|crew salary]] cost, and projected profit/loss based on your current [[flight-physics|flight profile]].',
+          'Accepting a contract requires the [[job-slots|helm]] to be manned — make sure you have crew assigned to the helm before browsing the job board.',
         ],
       },
     ],
@@ -254,7 +255,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
       {
         heading: 'Layer 2: Item Mastery (0-99 per item)',
         paragraphs: [
-          'Each skill has specific items that can be mastered individually. Mastery builds through repeated use and provides familiarity bonuses. Piloting route mastery XP is awarded to the helm crew on every flight arrival. Commerce trade route mastery XP is awarded to the captain on every completed trip.',
+          "Each skill has specific items that can be mastered individually. Mastery builds through repeated use and provides familiarity bonuses. Piloting route mastery XP is awarded to the helm crew on every flight arrival. Commerce trade route mastery XP is awarded to the ship's commanding officer on every completed trip.",
         ],
         table: {
           headers: ['Skill', 'Mastery Type', 'Effect'],
@@ -442,15 +443,15 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
       {
         paragraphs: [
           'Commerce is one of the three core [[skill-system|skills]], focused on trade and economic mastery. Crew assigned to trader [[job-slots|job slots]] train commerce passively during flight.',
-          'The captain and first officer (senior non-captain crew member) earn additional commerce XP when [[contracts|contracts]] complete, creating a feedback loop where trade experience improves future profitability.',
+          "The ship's commanding officer and first officer (next-best commerce crew member) earn additional commerce XP when [[contracts|contracts]] complete, creating a feedback loop where trade experience improves future profitability.",
         ],
       },
       {
         heading: 'Training',
         paragraphs: [
           'Commerce trains through trader job slot assignment like other skills. Additionally, completing [[contracts|trade route contracts]] provides bonus commerce XP.',
-          'Captain earns: 1.0 + 0.5 per trip completed in the contract.',
-          "First officer earns half the captain's amount.",
+          'Ship commander earns: 1.0 + 0.5 per trip completed in the contract.',
+          "First officer earns half the commander's amount.",
           'Trade route [[mastery-system|mastery]] develops separately through repeated runs on the same routes, providing familiarity bonuses.',
         ],
       },
@@ -486,7 +487,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
       {
         paragraphs: [
           "A crew member's role is determined by their highest [[skill-system|skill]], representing their primary expertise. Roles are not manually assigned — they shift dynamically if skill distribution changes.",
-          'The captain is always the player character regardless of skills.',
+          'The captain is always the player character regardless of skills. The captain can be transferred between ships you own — when absent from a ship, the crew member with the highest commerce skill acts as commanding officer for trade bonuses.',
         ],
       },
       {
@@ -521,7 +522,12 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
         ],
       },
     ],
-    relatedArticles: ['skill-system', 'job-slots', 'crew-hiring'],
+    relatedArticles: [
+      'skill-system',
+      'job-slots',
+      'crew-hiring',
+      'crew-profiles',
+    ],
   },
 
   {
@@ -566,6 +572,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
     relatedArticles: [
       'crew-roles',
       'crew-salaries',
+      'crew-profiles',
       'credits-economy',
       'station-services',
     ],
@@ -612,6 +619,36 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
   },
 
   {
+    id: 'crew-profiles',
+    title: 'Crew Profiles',
+    category: 'Crew',
+    summary:
+      'Service records, ranked titles, and biographical information for each crew member.',
+    sections: [
+      {
+        paragraphs: [
+          'Each crew member has a service record that tracks their history with the company. Open the Crew tab and select a crew member to view their profile.',
+        ],
+      },
+      {
+        heading: 'Ranked Title',
+        paragraphs: [
+          'A crew member\'s title combines their [[skill-system|skill rank]] with their [[crew-roles|role]]. For example, a pilot with Competent-level piloting is titled "Competent Pilot". Titles update automatically as skills improve through [[job-slots|job training]].',
+          'The captain is always shown as "Owner-Operator" regardless of skill level.',
+        ],
+      },
+      {
+        heading: 'Service Record',
+        paragraphs: [
+          "The service record shows the crew member's current [[job-slots|job assignment]], how long they have been aboard their current ship, and their total time with the company.",
+          'When crew are [[crew-hiring|hired]], the recruitment location is recorded. Transferring crew between ships updates their ship tenure while preserving their company tenure.',
+        ],
+      },
+    ],
+    relatedArticles: ['crew-roles', 'crew-hiring', 'skill-system', 'job-slots'],
+  },
+
+  {
     id: 'job-slots',
     title: 'Rooms & Job Slots',
     category: 'Crew',
@@ -627,7 +664,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
         heading: 'How It Works',
         paragraphs: [
           'The bridge generates Helm and Comms slots. The engine room generates Drive Ops. The mining bay generates Mining Ops. [[ship-equipment|Ship equipment]] can generate additional slots (e.g. nav scanner creates Scan Ops, point defense creates Targeting).',
-          'Helm is the only required job — without a helm crew member, the ship coasts with no active control.',
+          'Helm is the only required job — without a helm crew member, the ship cannot undock or accept [[contracts|contracts]]. Assign crew to the helm before departing.',
         ],
       },
       {
@@ -723,7 +760,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
         heading: 'Ship Class Access',
         paragraphs: [
           'Higher-class ships require higher [[skill-system|piloting]] skill from the helm crew member. Class II requires Piloting 25 (Competent), Class III requires Piloting 50 (Able).',
-          'Ships are also unlocked by lifetime [[credits-economy|credits]] earned — a progression mechanic visible in Settings.',
+          'Ships are also unlocked by lifetime [[credits-economy|credits]] earned — progress bars on each ship card in the Fleet tab and in Settings show how close you are to unlocking the next tier.',
         ],
       },
     ],
@@ -823,7 +860,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
           'Each ship has a flight profile slider (Economy to Max Speed) that controls the burn fraction of the delta-v budget.',
           'Economy: More coasting, less fuel, longer trip, more [[zero-g-exposure|zero-g exposure]].',
           'Max Speed: Maximum burns, more fuel, shorter trip, less zero-g but more fuel cost.',
-          'The slider is available on the Work tab and the [[navigation|Navigation Chart]]. Adjusting it on either tab updates travel time and fuel estimates in real time.',
+          'The slider is available on the Work tab and the [[navigation|Navigation Chart]], including during active flight. Adjusting it recalculates the current trajectory immediately — the ship replans its burn-coast-burn profile from its present position.',
         ],
       },
       {

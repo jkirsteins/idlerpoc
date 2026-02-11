@@ -17,6 +17,7 @@
  */
 
 import type { Ship, GameData, OreId, WorldLocation } from './models';
+import { getShipCommander } from './models';
 import { getOreDefinition, type OreDefinition } from './oreTypes';
 import { getEquipmentDefinition, type EquipmentDefinition } from './equipment';
 import { getCrewForJobType } from './jobSlots';
@@ -354,8 +355,8 @@ export function sellOre(
   gameData.lifetimeCreditsEarned += totalCredits;
   ship.metrics.creditsEarned += totalCredits;
 
-  // Award commerce mastery XP to captain and best trader
-  const captain = ship.crew.find((c) => c.isCaptain);
+  // Award commerce mastery XP to ship commander (captain or acting CO)
+  const captain = getShipCommander(ship);
   if (captain?.mastery?.commerce) {
     const tradeKey = `ore_sale_${location.id}`;
     awardMasteryXp(

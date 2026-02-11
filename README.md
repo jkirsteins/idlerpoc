@@ -14,6 +14,7 @@ npm run dev
 - **Captain as Playable Character**: You start solo — just a captain at the helm. Hire crew as you progress
 - **Ship Creation**: Choose your captain name, ship name, and starting ship class
 - **Ship Classes**: 7 ship classes from orbital tenders to fusion torch ships (Class I-III) (see `src/shipClasses.ts`)
+- **Fleet Panel**: Always-visible header panel showing every ship's activity (contracts, trade routes, mining, idle), location, fuel, crew, equipment, and range. Click to switch active ship
 - **Tabbed Interface**: Switch between Ship, Station, Crew, Work, Nav, Fleet, Log, Guide, and Settings tabs
 - **Station Tab**: Consolidated interface for all docked-station services — fuel depot, ore exchange, hiring office, and station store. Randomized atmospheric flavor text per location type, service badges, and location descriptions
 - **Docking & Undocking**: Transition between docked (station power) and in-flight (engine power)
@@ -44,6 +45,7 @@ npm run dev
   - Crew salaries paid per tick
   - Unpaid crew depart at next station
   - Hire new crew at stations with hiring services
+  - **Crew profiles** with ranked titles (e.g. "Competent Pilot"), service records showing ship tenure, company tenure, current assignment, and recruitment origin
 - **Mining System**:
   - Orbit locations with `mine` service to extract ore (crew in mining_ops slots operate ship-mounted mining equipment from the mining bay)
   - 8 ore types from Iron (common, 5 cr) to Exotic Matter (rare, 200 cr) — mining skill level gates access
@@ -135,7 +137,7 @@ npm run dev
 - **Resource Tracking**: Monitor credits, fuel, oxygen, crew count, crew costs per tick, and power consumption
 - **Equipment Trading**: Buy and sell crew equipment at stations with trade services (50% sell value)
 - **In-Game Encyclopedia (Gamepedia)**: Searchable guide explaining all game mechanics — skills, zero-g exposure, flight physics, encounters, and more. Inspired by Civilization's Civilopedia with category filtering, cross-linked articles, and a "See Also" section for discovery
-- **Live UI Architecture**: All tabs use mount-once/update-on-tick pattern — tab components are created once and kept alive, receiving live updates every tick even when hidden. Switching tabs is instant with no stale data. Shared flight status strip appears on both Ship and Work tabs during flight.
+- **Live UI Architecture**: All tabs use mount-once/update-on-tick pattern — tab components are created once and kept alive, receiving live updates every tick even when hidden. Switching tabs is instant with no stale data. Shared flight status component (flight info + station-arrival action controls) appears on both Ship and Work tabs during flight.
 - **Responsive Design**: Mobile-friendly layout with collapsible sidebar drawer, compact status bar, scrollable tabs, and adaptive grids for phone/tablet screens
 - **Real-time Simulation**: Elapsed-time tick system that catches up based on real time passed — works across browser throttling, background tabs, and phone sleep. Catch-up report modal shown for long absences
 - **Save Data Migration**: Versioned save format with automatic migration pipeline — existing saves upgrade gracefully when the data shape changes (see `docs/save-migration.md`)

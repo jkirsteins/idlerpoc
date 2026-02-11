@@ -18,7 +18,7 @@ import {
   generateHireableCrewByLocation,
   createAdditionalShip,
 } from './gameFactory';
-import { saveGame, loadGame, clearGame } from './storage';
+import { saveGame, loadGame, clearGame, importGame } from './storage';
 import { render, type GameState, type RendererCallbacks } from './ui/renderer';
 import type { WizardStep, WizardDraft } from './ui/wizard';
 import {
@@ -544,6 +544,18 @@ const callbacks: RendererCallbacks = {
     renderApp();
   },
 
+  onImportState: (json: string) => {
+    const gameData = importGame(json);
+    if (!gameData) {
+      alert(
+        'Failed to import save file. The file may be invalid or corrupted.'
+      );
+      return;
+    }
+    state = { phase: 'playing', gameData, activeTab: 'settings' };
+    renderApp();
+  },
+
   onAutoPauseSettingChange: (setting, value) => {
     if (state.phase !== 'playing') return;
     state.gameData.autoPauseSettings[setting] = value;
@@ -954,6 +966,43 @@ const callbacks: RendererCallbacks = {
     renderApp();
   },
 
+  onFlightProfileChange: () => {
+    if (state.phase !== 'playing') return;
+    const ship = getActiveShip(state.gameData);
+    if (ship.location.status !== 'in_flight' || !ship.activeFlightPlan) {
+      // Not in flight — slider just updates ship.flightProfileBurnFraction
+      // which will be used on the next flight start. No redirect needed.
+      saveGame(state.gameData);
+      renderApp();
+      return;
+    }
+
+    // Recalculate current flight with the new burn fraction
+    void Promise.all([
+      import('./flightPhysics'),
+      import('./encounterSystem'),
+    ]).then(([{ redirectShipFlight }, { getShipPositionKm }]) => {
+      if (state.phase !== 'playing') return;
+
+      const currentKm = getShipPositionKm(ship, state.gameData.world);
+      const dest = state.gameData.world.locations.find(
+        (l) => l.id === ship.activeFlightPlan?.destination
+      );
+      if (!dest) return;
+
+      redirectShipFlight(
+        ship,
+        currentKm,
+        dest,
+        ship.activeFlightPlan?.dockOnArrival ?? false,
+        ship.flightProfileBurnFraction
+      );
+
+      saveGame(state.gameData);
+      renderApp();
+    });
+  },
+
   onResumeContract: () => {
     if (state.phase !== 'playing') return;
     const ship = getActiveShip(state.gameData);
@@ -1175,6 +1224,11 @@ const callbacks: RendererCallbacks = {
     if (state.gameData.credits < crew.hireCost) return;
 
     state.gameData.credits -= crew.hireCost;
+
+    // Set service record timestamps and origin
+    crew.hiredAt = state.gameData.gameTime;
+    crew.boardedShipAt = state.gameData.gameTime;
+    crew.hiredLocation = dockedAt;
 
     ship.crew.push(crew);
 
@@ -1412,9 +1466,6 @@ const callbacks: RendererCallbacks = {
 
     const crew = fromShip.crew[crewIndex];
 
-    // Cannot transfer captain
-    if (crew.isCaptain) return;
-
     // Cannot leave ship with 0 crew if it has an active contract
     if (fromShip.crew.length <= 1 && fromShip.activeContract) return;
 
@@ -1424,7 +1475,8 @@ const callbacks: RendererCallbacks = {
     // Remove from any job slots on source ship
     unassignCrewFromAllSlots(fromShip, crewId);
 
-    // Add to target ship
+    // Add to target ship — update service timestamp
+    crew.boardedShipAt = state.gameData.gameTime;
     toShip.crew.push(crew);
 
     addLog(
