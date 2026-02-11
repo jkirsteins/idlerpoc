@@ -182,12 +182,15 @@ export function getShipPerformance(ship: Ship): ShipPerformance {
     totalTicks > 0 ? (ship.metrics.totalFlightTicks / totalTicks) * 100 : 0;
 
   const creditsPerDay =
-    totalTicks > 0
-      ? (ship.metrics.creditsEarned / totalTicks) * TICKS_PER_DAY
+    ship.metrics.totalFlightTicks > 0
+      ? (ship.metrics.creditsEarned / ship.metrics.totalFlightTicks) *
+        TICKS_PER_DAY
       : 0;
 
   const efficiency =
-    totalTicks > 0 ? ship.metrics.creditsEarned / totalTicks : 0;
+    ship.metrics.totalFlightTicks > 0
+      ? ship.metrics.creditsEarned / ship.metrics.totalFlightTicks
+      : 0;
 
   return {
     netProfit,

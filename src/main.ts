@@ -954,6 +954,43 @@ const callbacks: RendererCallbacks = {
     renderApp();
   },
 
+  onFlightProfileChange: () => {
+    if (state.phase !== 'playing') return;
+    const ship = getActiveShip(state.gameData);
+    if (ship.location.status !== 'in_flight' || !ship.activeFlightPlan) {
+      // Not in flight — slider just updates ship.flightProfileBurnFraction
+      // which will be used on the next flight start. No redirect needed.
+      saveGame(state.gameData);
+      renderApp();
+      return;
+    }
+
+    // Recalculate current flight with the new burn fraction
+    void Promise.all([
+      import('./flightPhysics'),
+      import('./encounterSystem'),
+    ]).then(([{ redirectShipFlight }, { getShipPositionKm }]) => {
+      if (state.phase !== 'playing') return;
+
+      const currentKm = getShipPositionKm(ship, state.gameData.world);
+      const dest = state.gameData.world.locations.find(
+        (l) => l.id === ship.activeFlightPlan?.destination
+      );
+      if (!dest) return;
+
+      redirectShipFlight(
+        ship,
+        currentKm,
+        dest,
+        ship.activeFlightPlan?.dockOnArrival ?? false,
+        ship.flightProfileBurnFraction
+      );
+
+      saveGame(state.gameData);
+      renderApp();
+    });
+  },
+
   onResumeContract: () => {
     if (state.phase !== 'playing') return;
     const ship = getActiveShip(state.gameData);

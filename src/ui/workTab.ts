@@ -40,6 +40,7 @@ export interface WorkTabCallbacks {
   onRequestAbandon: () => void;
   onResumeContract: () => void;
   onAbandonContract: () => void;
+  onFlightProfileChange: () => void;
   onStartMiningRoute: (sellLocationId: string) => void;
   onCancelMiningRoute: () => void;
 }
@@ -55,7 +56,9 @@ export function createWorkTab(
   container.className = 'work-tab';
 
   // Persistent flight profile slider — created once, survives rebuilds
-  const profileControl = createFlightProfileControl(gameData);
+  const profileControl = createFlightProfileControl(gameData, () => {
+    callbacks.onFlightProfileChange();
+  });
 
   // ── Content area — rebuilt each tick (non-interactive) ──────────
   const contentArea = document.createElement('div');
@@ -226,12 +229,21 @@ export function createWorkTab(
         }
 
         contentArea.appendChild(renderAvailableWork(gameData, callbacks));
+      } else {
+        // Ensure slider is removed if it was mounted in the container
+        if (profileControl.el.parentNode === container) {
+          profileControl.el.remove();
+        }
       }
       radioGroupEl.style.display = 'none';
     } else if (curPhase === 'active') {
       contentArea.appendChild(renderActiveContractContent(gameData, callbacks));
       radioGroupEl.style.display = '';
       updateRadioGroup(ship);
+
+      // Flight profile slider below radio options
+      updateFlightProfileControl(profileControl, ship);
+      radioGroupEl.after(profileControl.el);
     } else if (curPhase === 'paused') {
       contentArea.appendChild(
         renderPausedContract(gameData, callbacks, pausedAbandonPending, {
@@ -255,6 +267,9 @@ export function createWorkTab(
           },
         })
       );
+      // Show flight profile slider for adjusting before resume
+      updateFlightProfileControl(profileControl, ship);
+      contentArea.appendChild(profileControl.el);
       radioGroupEl.style.display = 'none';
     }
   }

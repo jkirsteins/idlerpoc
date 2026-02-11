@@ -165,6 +165,7 @@ export function createTabbedView(
           onRequestAbandon: callbacks.onRequestAbandon,
           onResumeContract: callbacks.onResumeContract,
           onAbandonContract: callbacks.onAbandonContract,
+          onFlightProfileChange: callbacks.onFlightProfileChange,
           onStartMiningRoute: callbacks.onStartMiningRoute,
           onCancelMiningRoute: callbacks.onCancelMiningRoute,
         });
