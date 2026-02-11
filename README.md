@@ -154,6 +154,18 @@ npm run dev
   - 3-skill mastery system with per-item progression and mastery pool checkpoints (see `docs/skill-revamp-design.md`)
   - 11 world locations including 3 near-Earth mining destinations
 
+## Code Quality
+
+ESLint enforces code complexity guardrails to stop the bleeding — thresholds are set just above current maximums so existing code passes as-is, but new code can't make things worse. Tighten over time.
+
+| Rule                     | Threshold | Purpose                      |
+| ------------------------ | --------- | ---------------------------- |
+| `complexity`             | 110       | Cyclomatic complexity per fn |
+| `max-lines`              | 2150      | Lines per file               |
+| `max-lines-per-function` | 1510      | Lines per function           |
+| `max-depth`              | 9         | Nesting depth                |
+| `max-params`             | 7         | Parameters per function      |
+
 ## Scripts
 
 | Command                | Description               |
