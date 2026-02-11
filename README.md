@@ -44,6 +44,7 @@ npm run dev
   - Crew salaries paid per tick during flight
   - Unpaid crew depart at next station
   - Hire new crew at stations with hiring services
+  - **Crew profiles** with ranked titles (e.g. "Competent Pilot"), service records showing ship tenure, company tenure, current assignment, and recruitment origin
 - **Mining System**:
   - Orbit locations with `mine` service to extract ore (crew in mining_ops slots operate ship-mounted mining equipment from the mining bay)
   - 8 ore types from Iron (common, 5 cr) to Exotic Matter (rare, 200 cr) — mining skill level gates access

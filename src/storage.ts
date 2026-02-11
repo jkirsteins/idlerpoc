@@ -13,7 +13,7 @@ const BACKUP_KEY = 'spaceship_game_data_backup';
  *
  * See docs/save-migration.md for the full migration architecture.
  */
-export const CURRENT_SAVE_VERSION = 2;
+export const CURRENT_SAVE_VERSION = 3;
 
 /** Whether the last save attempt failed (used for UI warnings). */
 let _lastSaveFailed = false;
@@ -209,6 +209,51 @@ const migrations: Record<number, MigrationFn> = {
     data.world = generateWorld() as unknown as RawSave;
 
     data.saveVersion = 2;
+    return data;
+  },
+
+  /**
+   * v2 → v3: Crew service record fields.
+   * - Add hiredAt (gameTime when hired) to all crew
+   * - Add boardedShipAt (gameTime when joined current ship) to all crew
+   * - hiredLocation left undefined for existing crew (unknown origin)
+   */
+  2: (data: RawSave): RawSave => {
+    const ships = data.ships as Array<Record<string, unknown>> | undefined;
+    if (ships) {
+      for (const ship of ships) {
+        const crew = ship.crew as Array<Record<string, unknown>> | undefined;
+        if (crew) {
+          for (const member of crew) {
+            if (member.hiredAt === undefined) {
+              member.hiredAt = 0; // Assume game epoch for existing crew
+            }
+            if (member.boardedShipAt === undefined) {
+              member.boardedShipAt = 0; // Assume game epoch for existing crew
+            }
+          }
+        }
+      }
+    }
+
+    // Also backfill hireable crew pools
+    const pools = data.hireableCrewByLocation as
+      | Record<string, Array<Record<string, unknown>>>
+      | undefined;
+    if (pools) {
+      for (const locationId of Object.keys(pools)) {
+        for (const member of pools[locationId]) {
+          if (member.hiredAt === undefined) {
+            member.hiredAt = 0;
+          }
+          if (member.boardedShipAt === undefined) {
+            member.boardedShipAt = 0;
+          }
+        }
+      }
+    }
+
+    data.saveVersion = 3;
     return data;
   },
 };

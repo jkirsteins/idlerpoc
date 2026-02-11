@@ -1213,6 +1213,11 @@ const callbacks: RendererCallbacks = {
 
     state.gameData.credits -= crew.hireCost;
 
+    // Set service record timestamps and origin
+    crew.hiredAt = state.gameData.gameTime;
+    crew.boardedShipAt = state.gameData.gameTime;
+    crew.hiredLocation = dockedAt;
+
     ship.crew.push(crew);
 
     const index = locationCrew.indexOf(crew);
@@ -1458,7 +1463,8 @@ const callbacks: RendererCallbacks = {
     // Remove from any job slots on source ship
     unassignCrewFromAllSlots(fromShip, crewId);
 
-    // Add to target ship
+    // Add to target ship — update service timestamp
+    crew.boardedShipAt = state.gameData.gameTime;
     toShip.crew.push(crew);
 
     addLog(

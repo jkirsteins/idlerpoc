@@ -48,6 +48,8 @@ export function createTestCrew(
     hireCost: 500,
     zeroGExposure: 0,
     mastery: createInitialMastery(),
+    hiredAt: 0,
+    boardedShipAt: 0,
     ...overrides,
   };
 }

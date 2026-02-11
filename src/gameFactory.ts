@@ -69,6 +69,8 @@ function createCrewMember(
     hireCost,
     zeroGExposure: 0,
     mastery: createInitialMastery(),
+    hiredAt: 0, // Set to actual gameTime when hired; 0 = game epoch for captain
+    boardedShipAt: 0, // Set to actual gameTime when assigned to a ship
   };
 }
 

@@ -14,7 +14,11 @@ import { canShipAccessLocation } from '../worldGen';
 import type { TabbedViewCallbacks } from './types';
 import { getCrewEquipmentDefinition } from '../crewEquipment';
 import { getLevelForXP } from '../levelSystem';
-import { getCrewRoleDefinition } from '../crewRoles';
+import {
+  getCrewRoleDefinition,
+  getCrewRoleName,
+  getPrimarySkillForRole,
+} from '../crewRoles';
 import {
   getGravityDegradationLevel,
   getStrengthMultiplier,
@@ -24,7 +28,7 @@ import {
   getNextThreshold,
   estimateRecoveryTime,
 } from '../gravitySystem';
-import { TICKS_PER_DAY, formatDualTime } from '../timeSystem';
+import { TICKS_PER_DAY, formatDualTime, formatGameDate } from '../timeSystem';
 import { getEngineDefinition } from '../engines';
 import { getEquipmentDefinition } from '../equipment';
 import { calculateTickTraining } from '../skillProgression';
@@ -161,10 +165,11 @@ function snapshotCrewProps(
     cargoCount: ship.cargo.length,
     credits: gameData.credits,
     shipsCount: gameData.ships.length,
+    gameTime: gameData.gameTime,
     crew: ship.crew
       .map(
         (c) =>
-          `${c.id},${c.health},${c.morale},${c.level},${c.xp},${c.unpaidTicks},${c.zeroGExposure},${c.equipment.length}`
+          `${c.id},${c.health},${c.morale},${c.level},${c.xp},${c.unpaidTicks},${c.zeroGExposure},${c.equipment.length},${c.hiredAt},${c.boardedShipAt}`
       )
       .join(';'),
     crewSkills: ship.crew
@@ -938,7 +943,18 @@ export function createCrewTab(
         : 'crew-list-item';
 
     refs.nameDiv.textContent = crew.isCaptain ? `CPT ${crew.name}` : crew.name;
-    refs.roleDiv.textContent = crew.role.replace('_', ' ');
+    if (crew.isCaptain) {
+      refs.roleDiv.textContent = 'Owner-Operator';
+    } else {
+      const primarySkill = getPrimarySkillForRole(crew.role);
+      const rankName = primarySkill
+        ? getSkillRank(Math.floor(crew.skills[primarySkill])).name
+        : '';
+      const roleName = getCrewRoleName(crew.role);
+      refs.roleDiv.textContent = rankName
+        ? `${rankName} ${roleName}`
+        : roleName;
+    }
     refs.levelDiv.textContent = `Level ${crew.level}`;
 
     if (crew.unpaidTicks > 0 && !crew.isCaptain) {
@@ -991,6 +1007,34 @@ export function createCrewTab(
   headerSection.appendChild(detailRole);
 
   detailPanel.appendChild(headerSection);
+
+  // ── Service record section ──
+  const serviceSection = document.createElement('div');
+  serviceSection.className = 'crew-service-record';
+  serviceSection.style.padding = '0.75rem';
+  serviceSection.style.marginBottom = '1rem';
+  serviceSection.style.background = 'rgba(255,255,255,0.03)';
+  serviceSection.style.border = '1px solid rgba(255,255,255,0.08)';
+  serviceSection.style.borderRadius = '4px';
+  serviceSection.style.fontSize = '0.9rem';
+  serviceSection.style.lineHeight = '1.6';
+  serviceSection.style.color = '#aaa';
+
+  const serviceAssignment = document.createElement('div');
+  serviceAssignment.style.color = '#ccc';
+  serviceSection.appendChild(serviceAssignment);
+
+  const serviceShipTenure = document.createElement('div');
+  serviceSection.appendChild(serviceShipTenure);
+
+  const serviceCompanyTenure = document.createElement('div');
+  serviceSection.appendChild(serviceCompanyTenure);
+
+  const serviceOrigin = document.createElement('div');
+  serviceOrigin.style.color = '#888';
+  serviceSection.appendChild(serviceOrigin);
+
+  detailPanel.appendChild(serviceSection);
 
   // ── Transfer crew section ──
   const transferSection = document.createElement('div');
@@ -1513,7 +1557,65 @@ export function createCrewTab(
     } else {
       captainBadge.style.display = 'none';
     }
-    detailRole.textContent = crew.role.replace('_', ' ').toUpperCase();
+    // Show ranked title: e.g. "COMPETENT PILOT" or "OWNER-OPERATOR"
+    if (crew.isCaptain) {
+      detailRole.textContent = 'OWNER-OPERATOR';
+    } else {
+      const primarySkill = getPrimarySkillForRole(crew.role);
+      const rankName = primarySkill
+        ? getSkillRank(Math.floor(crew.skills[primarySkill])).name
+        : '';
+      const roleName = getCrewRoleName(crew.role);
+      detailRole.textContent = rankName
+        ? `${rankName} ${roleName}`.toUpperCase()
+        : roleName.toUpperCase();
+    }
+
+    // ── Service record ──
+    const jobSlotForService = getCrewJobSlot(ship, crew.id);
+    if (jobSlotForService) {
+      const jobDef = getJobSlotDefinition(jobSlotForService.type);
+      const jobName = jobDef?.name ?? jobSlotForService.type;
+      serviceAssignment.textContent = `Assigned to ${jobName} aboard ${ship.name}`;
+    } else if (ship.location.status === 'docked') {
+      serviceAssignment.textContent = `Stationed aboard ${ship.name}`;
+    } else {
+      serviceAssignment.textContent = `Aboard ${ship.name}`;
+    }
+
+    const shipTenure = gameData.gameTime - crew.boardedShipAt;
+    serviceShipTenure.textContent =
+      shipTenure > 0
+        ? `Aboard since ${formatGameDate(crew.boardedShipAt)} — ${formatDualTime(shipTenure)}`
+        : `Aboard since ${formatGameDate(crew.boardedShipAt)}`;
+
+    if (crew.hiredAt !== crew.boardedShipAt) {
+      const companyTenure = gameData.gameTime - crew.hiredAt;
+      serviceCompanyTenure.textContent =
+        companyTenure > 0
+          ? `With the company since ${formatGameDate(crew.hiredAt)} — ${formatDualTime(companyTenure)}`
+          : `With the company since ${formatGameDate(crew.hiredAt)}`;
+      serviceCompanyTenure.style.display = '';
+    } else {
+      serviceCompanyTenure.style.display = 'none';
+    }
+
+    if (crew.isCaptain) {
+      serviceOrigin.textContent = 'Company founder';
+      serviceOrigin.style.fontStyle = 'italic';
+      serviceOrigin.style.display = '';
+    } else if (crew.hiredLocation) {
+      const location = gameData.world.locations.find(
+        (l) => l.id === crew.hiredLocation
+      );
+      serviceOrigin.textContent = location
+        ? `Recruited at ${location.name}`
+        : '';
+      serviceOrigin.style.fontStyle = '';
+      serviceOrigin.style.display = location ? '' : 'none';
+    } else {
+      serviceOrigin.style.display = 'none';
+    }
 
     // ── Transfer section ──
     const showTransfer =
