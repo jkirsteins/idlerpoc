@@ -27,6 +27,7 @@ import {
   getThreatLevel,
 } from '../encounterSystem';
 import { formatFuelMass, calculateFuelPercentage } from './fuelFormatting';
+import { isHelmManned } from '../jobSlots';
 
 // Track credits for delta display
 let previousCredits: number | null = null;
@@ -610,8 +611,16 @@ export function createTabbedView(
     }
 
     // ── Action buttons (show/hide) ───────────────────────────────────
-    // Undock button (only when docked)
-    undockBtn.style.display = ship.location.status === 'docked' ? '' : 'none';
+    // Undock button (only when docked, disabled when helm unmanned)
+    const isDocked = ship.location.status === 'docked';
+    undockBtn.style.display = isDocked ? '' : 'none';
+    if (isDocked) {
+      const helmOk = isHelmManned(ship);
+      undockBtn.disabled = !helmOk;
+      undockBtn.title = helmOk
+        ? ''
+        : 'Helm is unmanned — assign crew to the helm before undocking';
+    }
 
     // Buy Fuel button (when docked at refuel station with fuel < 100%)
     let showRefuel = false;

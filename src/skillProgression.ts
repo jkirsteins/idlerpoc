@@ -5,6 +5,7 @@ import type {
   JobSlotType,
   LogEntry,
 } from './models';
+import { getShipCommander } from './models';
 import { getPrimarySkillForRole } from './crewRoles';
 import { addLog } from './logSystem';
 import { getCrewJobSlot, getJobSlotDefinition } from './jobSlots';
@@ -272,15 +273,15 @@ export function awardEventSkillGains(
         grantSkill(crew, primarySkill ?? 'piloting', gain);
       }
 
-      // Captain and first officer (highest loyalty non-captain) earn commerce from trade
+      // Ship commander and first officer earn commerce from trade
       const commerceGain = 1.0 + 0.5 * event.tripsCompleted;
-      const captain = ship.crew.find((c) => c.isCaptain);
-      if (captain) {
-        grantSkill(captain, 'commerce', commerceGain);
+      const commander = getShipCommander(ship);
+      if (commander) {
+        grantSkill(commander, 'commerce', commerceGain);
       }
-      // First officer = non-captain crew with highest commerce
+      // First officer = next-best commerce crew after commander
       const firstOfficer = ship.crew
-        .filter((c) => !c.isCaptain)
+        .filter((c) => c.id !== commander?.id)
         .sort((a, b) => b.skills.commerce - a.skills.commerce)[0];
       if (firstOfficer) {
         grantSkill(firstOfficer, 'commerce', commerceGain * 0.5);

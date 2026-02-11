@@ -1,4 +1,5 @@
 import type { Quest, Ship, WorldLocation, World } from './models';
+import { getShipCommander } from './models';
 import { getShipClass } from './shipClasses';
 import { getDistanceBetween, canShipAccessLocation } from './worldGen';
 import {
@@ -14,7 +15,7 @@ import { gameSecondsToTicks, GAME_SECONDS_PER_TICK } from './timeSystem';
 import { getEngineDefinition } from './engines';
 import { calculateShipSalaryPerTick } from './crewRoles';
 import { calculatePositionDanger } from './encounterSystem';
-import { getCrewForJobType } from './jobSlots';
+import { getCrewForJobType, isHelmManned } from './jobSlots';
 import { getCommercePaymentBonus } from './skillRanks';
 
 // Fuel pricing constant for payment calculations (credits per kg)
@@ -200,8 +201,8 @@ function calculateCrewSkillBonus(ship: Ship): number {
  * Commerce is trained by completing trade routes and provides better pay.
  */
 function getShipCommerceBonus(ship: Ship): number {
-  const captain = ship.crew.find((c) => c.isCaptain);
-  const commerceSkill = captain?.skills.commerce ?? 0;
+  const commander = getShipCommander(ship);
+  const commerceSkill = commander?.skills.commerce ?? 0;
   return getCommercePaymentBonus(commerceSkill);
 }
 
@@ -785,6 +786,15 @@ export function canAcceptQuest(
   ship: Ship,
   quest: Quest
 ): { canAccept: boolean; reason?: string } {
+  // Helm must be manned to depart on a contract
+  if (!isHelmManned(ship)) {
+    return {
+      canAccept: false,
+      reason:
+        'Helm is unmanned — assign crew to the helm before accepting contracts',
+    };
+  }
+
   const shipClass = getShipClass(ship.classId);
   if (!shipClass) {
     return { canAccept: false, reason: 'Unknown ship class' };

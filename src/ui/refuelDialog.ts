@@ -5,7 +5,7 @@
  */
 
 import type { GameData, WorldLocation, Ship } from '../models';
-import { getActiveShip } from '../models';
+import { getActiveShip, getShipCommander } from '../models';
 import { formatFuelMass } from './fuelFormatting';
 import { getCommerceFuelDiscount } from '../skillRanks';
 
@@ -49,11 +49,11 @@ export function getFuelPricePerKg(
 
   let price = basePricePerKg * locationMultiplier;
 
-  // Commerce discount from captain's trading experience
+  // Commerce discount from ship commander's trading experience
   if (ship) {
-    const captain = ship.crew.find((c) => c.isCaptain);
-    if (captain) {
-      const discount = getCommerceFuelDiscount(captain.skills.commerce);
+    const commander = getShipCommander(ship);
+    if (commander) {
+      const discount = getCommerceFuelDiscount(commander.skills.commerce);
       price *= 1 - discount;
     }
   }

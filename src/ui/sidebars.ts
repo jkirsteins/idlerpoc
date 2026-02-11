@@ -20,6 +20,7 @@ import {
   calculateFuelPercentage,
   getFuelColorClass,
 } from './fuelFormatting';
+import { isHelmManned } from '../jobSlots';
 
 interface SidebarCallbacks {
   onBuyFuel?: () => void;
@@ -338,9 +339,16 @@ export function createLeftSidebar(
     );
     refuelBtn.style.display = showRefuel ? '' : 'none';
 
-    // Undock button: show when docked
+    // Undock button: show when docked, disable when helm unmanned
     const showUndock = !!(callbacks.onUndock && isDocked);
     undockBtn.style.display = showUndock ? '' : 'none';
+    if (showUndock) {
+      const helmOk = isHelmManned(ship);
+      undockBtn.disabled = !helmOk;
+      undockBtn.title = helmOk
+        ? ''
+        : 'Helm is unmanned — assign crew to the helm before undocking';
+    }
 
     // Dock button: show when in flight or orbiting
     const showDock = !!(callbacks.onDock && (isInFlight || isOrbiting));
