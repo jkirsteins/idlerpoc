@@ -1511,8 +1511,6 @@ export function createWorkTab(
 
     if (quest.tripsRequired === -1) {
       refs.progress.textContent = `Trips completed: ${activeContract.tripsCompleted} (Unlimited)`;
-    } else if (quest.type === 'supply') {
-      refs.progress.textContent = `Cargo delivered: ${activeContract.cargoDelivered.toLocaleString()} / ${quest.totalCargoRequired.toLocaleString()} kg`;
     } else {
       refs.progress.textContent = `Trip ${activeContract.tripsCompleted + 1}/${quest.tripsRequired}`;
     }
@@ -1581,8 +1579,6 @@ export function createWorkTab(
 
     if (quest.tripsRequired === -1) {
       refs.progress.textContent = `Trips completed: ${activeContract.tripsCompleted} (Unlimited)`;
-    } else if (quest.type === 'supply') {
-      refs.progress.textContent = `Cargo delivered: ${activeContract.cargoDelivered.toLocaleString()} / ${quest.totalCargoRequired.toLocaleString()} kg`;
     } else {
       refs.progress.textContent = `Trip ${activeContract.tripsCompleted + 1}/${quest.tripsRequired}`;
     }
