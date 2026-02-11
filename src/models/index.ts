@@ -472,9 +472,7 @@ export interface Toast {
   expiresAt: number; // timestamp when toast should be removed
 }
 
-export interface CatchUpShipReport {
-  shipId: string;
-  shipName: string;
+export interface CatchUpEncounterStats {
   evaded: number;
   negotiated: number;
   victories: number;
@@ -484,16 +482,25 @@ export interface CatchUpShipReport {
   avgHealthLost: number;
 }
 
+export type CatchUpShipActivity =
+  | { type: 'trade_route'; routeName: string; tripsCompleted: number }
+  | { type: 'completed_trips'; tripsCompleted: number; arrivedAt?: string }
+  | { type: 'en_route'; destination: string }
+  | { type: 'idle'; location: string };
+
+export interface CatchUpShipSummary {
+  shipId: string;
+  shipName: string;
+  activity: CatchUpShipActivity;
+  encounters?: CatchUpEncounterStats;
+}
+
 export interface CatchUpReport {
   totalTicks: number;
   elapsedRealSeconds: number; // actual real-world seconds that passed
   creditsDelta: number; // net credits change during catch-up
-  tripsCompleted: number; // non-trade-route trip completions
   contractsCompleted: number; // total contract completions across fleet
-  routeTripSummaries: { shipName: string; trips: number; routeName: string }[];
-  arrivals: { shipName: string; location: string }[]; // non-trade-route ships that arrived
-  enRouteShips: { shipName: string; destination: string }[]; // ships still in flight
-  shipReports: CatchUpShipReport[]; // encounter details (may be empty)
+  shipSummaries: CatchUpShipSummary[]; // per-ship consolidated summaries
   logHighlights: LogEntry[]; // notable log entries (skill-ups, etc.) from the idle period
 }
 

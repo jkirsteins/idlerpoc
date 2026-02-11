@@ -5,7 +5,8 @@ import type {
   GameData,
   CrewEquipmentId,
   CatchUpReport,
-  CatchUpShipReport,
+  CatchUpEncounterStats,
+  CatchUpShipSummary,
   Toast,
   EncounterResult,
   SkillId,
@@ -172,18 +173,15 @@ function buildCatchUpReport(
   prevCredits: number,
   prevGameTime: number
 ): CatchUpReport {
-  // --- Encounter ship reports ---
-  const shipReportMap = new Map<string, CatchUpShipReport>();
+  // --- Encounter stats per ship ---
+  const encounterMap = new Map<string, CatchUpEncounterStats>();
 
   for (const result of encounterResults) {
-    const ship = gameData.ships.find((s) => s.id === result.shipId);
-    if (!ship) continue;
+    if (!gameData.ships.find((s) => s.id === result.shipId)) continue;
 
-    let report = shipReportMap.get(result.shipId);
-    if (!report) {
-      report = {
-        shipId: result.shipId,
-        shipName: ship.name,
+    let stats = encounterMap.get(result.shipId);
+    if (!stats) {
+      stats = {
         evaded: 0,
         negotiated: 0,
         victories: 0,
@@ -192,53 +190,40 @@ function buildCatchUpReport(
         creditsDelta: 0,
         avgHealthLost: 0,
       };
-      shipReportMap.set(result.shipId, report);
+      encounterMap.set(result.shipId, stats);
     }
+
+    const addHealthLoss = (hl: Record<string, number> | undefined) => {
+      if (!hl) return;
+      const losses = Object.values(hl);
+      if (losses.length > 0)
+        stats.avgHealthLost +=
+          losses.reduce((a, b) => a + b, 0) / losses.length;
+    };
 
     switch (result.type) {
       case 'evaded':
-        report.evaded++;
+        stats.evaded++;
         break;
       case 'negotiated':
-        report.negotiated++;
-        report.creditsDelta -= result.creditsLost || 0;
+        stats.negotiated++;
+        stats.creditsDelta -= result.creditsLost || 0;
         break;
       case 'victory':
-        report.victories++;
-        report.creditsDelta += result.creditsGained || 0;
+        stats.victories++;
+        stats.creditsDelta += result.creditsGained || 0;
         break;
       case 'harassment':
-        report.harassments++;
-        if (result.healthLost) {
-          const losses = Object.values(result.healthLost);
-          const avgLoss =
-            losses.length > 0
-              ? losses.reduce((a, b) => a + b, 0) / losses.length
-              : 0;
-          report.avgHealthLost += avgLoss;
-        }
+        stats.harassments++;
+        addHealthLoss(result.healthLost);
         break;
       case 'boarding':
-        report.creditsDelta -= result.creditsLost || 0;
-        if (result.healthLost) {
-          const losses = Object.values(result.healthLost);
-          const avgLoss =
-            losses.length > 0
-              ? losses.reduce((a, b) => a + b, 0) / losses.length
-              : 0;
-          report.avgHealthLost += avgLoss;
-        }
+        stats.creditsDelta -= result.creditsLost || 0;
+        addHealthLoss(result.healthLost);
         break;
       case 'fled':
-        report.fled++;
-        if (result.healthLost) {
-          const losses = Object.values(result.healthLost);
-          const avgLoss =
-            losses.length > 0
-              ? losses.reduce((a, b) => a + b, 0) / losses.length
-              : 0;
-          report.avgHealthLost += avgLoss;
-        }
+        stats.fled++;
+        addHealthLoss(result.healthLost);
         break;
     }
   }
@@ -250,87 +235,100 @@ function buildCatchUpReport(
     (e) => e.type === 'contract_complete'
   ).length;
 
-  // Build a set of ships currently on trade routes (by name)
-  const tradeRouteShipNames = new Set<string>();
-  // Map ship name → route display name for trade route ships
-  const shipRouteNames = new Map<string, string>();
+  // Count trips per ship — both 'trip_complete' and 'payment' entries represent trip completions
+  const tripsByShip = new Map<string, number>();
+  for (const entry of newLogs) {
+    if (
+      (entry.type === 'trip_complete' || entry.type === 'payment') &&
+      entry.shipName
+    ) {
+      tripsByShip.set(
+        entry.shipName,
+        (tripsByShip.get(entry.shipName) ?? 0) + 1
+      );
+    }
+  }
+
+  // Track last arrival per non-trade-route ship
+  const lastArrivalByShip = new Map<string, string>();
+  for (const entry of newLogs) {
+    if (entry.type === 'arrival' && entry.shipName) {
+      const match = entry.message.match(/Arrived at (.+)/);
+      if (match) {
+        lastArrivalByShip.set(entry.shipName, match[1]);
+      }
+    }
+  }
+
+  // --- Build one summary per ship ---
+  const shipSummaries: CatchUpShipSummary[] = [];
+
   for (const ship of gameData.ships) {
+    const trips = tripsByShip.get(ship.name) ?? 0;
+    const encounters = encounterMap.get(ship.id);
+
+    let activity: CatchUpShipSummary['activity'];
+
     if (ship.routeAssignment) {
-      tradeRouteShipNames.add(ship.name);
+      // Trade route ship — show route name and trip count
       const origin = gameData.world.locations.find(
         (l) => l.id === ship.routeAssignment!.originId
       );
       const dest = gameData.world.locations.find(
         (l) => l.id === ship.routeAssignment!.destinationId
       );
-      shipRouteNames.set(
-        ship.name,
-        `${origin?.name ?? ship.routeAssignment.originId} ↔ ${dest?.name ?? ship.routeAssignment.destinationId}`
-      );
-    }
-  }
-
-  // Count trips per ship — both 'trip_complete' and 'payment' entries represent trip completions
-  const tripsByShip = new Map<string, number>();
-  for (const entry of newLogs) {
-    if ((entry.type === 'trip_complete' || entry.type === 'payment') && entry.shipName) {
-      tripsByShip.set(entry.shipName, (tripsByShip.get(entry.shipName) ?? 0) + 1);
-    }
-  }
-
-  // Trade route trip summaries (ships on routes)
-  const routeTripSummaries: { shipName: string; trips: number; routeName: string }[] = [];
-  let nonRouteTrips = 0;
-  for (const [shipName, trips] of tripsByShip) {
-    if (tradeRouteShipNames.has(shipName)) {
-      routeTripSummaries.push({
-        shipName,
-        trips,
-        routeName: shipRouteNames.get(shipName) ?? 'Unknown Route',
-      });
-    } else {
-      nonRouteTrips += trips;
-    }
-  }
-
-  // Arrivals for non-trade-route ships only
-  const arrivals: { shipName: string; location: string }[] = [];
-  for (const entry of newLogs) {
-    if (entry.type === 'arrival' && entry.shipName && !tradeRouteShipNames.has(entry.shipName)) {
-      const match = entry.message.match(/Arrived at (.+)/);
-      if (match) {
-        arrivals.push({ shipName: entry.shipName, location: match[1] });
-      }
-    }
-  }
-  // Deduplicate: keep last arrival per ship
-  const lastArrivalByShip = new Map<string, string>();
-  for (const a of arrivals) {
-    lastArrivalByShip.set(a.shipName, a.location);
-  }
-  const dedupedArrivals = Array.from(lastArrivalByShip, ([shipName, location]) => ({
-    shipName,
-    location,
-  }));
-
-  // Ships still en route (in flight after catch-up)
-  const enRouteShips: { shipName: string; destination: string }[] = [];
-  for (const ship of gameData.ships) {
-    if (ship.location.status === 'in_flight' && ship.activeFlightPlan) {
-      // Skip trade route ships — their status is covered by routeTripSummaries
-      if (tradeRouteShipNames.has(ship.name)) continue;
+      const routeName = `${origin?.name ?? ship.routeAssignment.originId} ↔ ${dest?.name ?? ship.routeAssignment.destinationId}`;
+      activity = { type: 'trade_route', routeName, tripsCompleted: trips };
+    } else if (trips > 0) {
+      // Non-route ship that completed trips — show count and last arrival
+      activity = {
+        type: 'completed_trips',
+        tripsCompleted: trips,
+        arrivedAt: lastArrivalByShip.get(ship.name),
+      };
+    } else if (ship.location.status === 'in_flight' && ship.activeFlightPlan) {
+      // Ship still in flight
       const destLoc = gameData.world.locations.find(
         (l) => l.id === ship.activeFlightPlan!.destination
       );
-      enRouteShips.push({
-        shipName: ship.name,
+      activity = {
+        type: 'en_route',
         destination: destLoc?.name ?? ship.activeFlightPlan.destination,
-      });
+      };
+    } else {
+      // Idle / docked or orbiting
+      const locId = ship.location.dockedAt ?? ship.location.orbitingAt;
+      const loc = locId
+        ? gameData.world.locations.find((l) => l.id === locId)
+        : undefined;
+      activity = { type: 'idle', location: loc?.name ?? locId ?? 'Unknown' };
     }
+
+    // Skip idle ships with no encounters — they did nothing interesting
+    if (activity.type === 'idle' && !encounters) continue;
+
+    shipSummaries.push({
+      shipId: ship.id,
+      shipName: ship.name,
+      activity,
+      encounters,
+    });
   }
 
-  // Collect notable log entries for the catch-up summary
-  // (skill-ups, crew hires/departures, gravity warnings)
+  // Sort: trade routes first, then active ships, then en-route, then idle-with-encounters
+  const activityOrder: Record<string, number> = {
+    trade_route: 0,
+    completed_trips: 1,
+    en_route: 2,
+    idle: 3,
+  };
+  shipSummaries.sort(
+    (a, b) =>
+      (activityOrder[a.activity.type] ?? 9) -
+      (activityOrder[b.activity.type] ?? 9)
+  );
+
+  // --- Collect notable log entries (skill-ups, crew hires/departures, gravity warnings) ---
   const otherHighlightTypes: Set<string> = new Set([
     'crew_hired',
     'crew_departed',
@@ -427,12 +425,8 @@ function buildCatchUpReport(
     totalTicks,
     elapsedRealSeconds,
     creditsDelta: Math.round(gameData.credits - prevCredits),
-    tripsCompleted: nonRouteTrips,
     contractsCompleted,
-    routeTripSummaries,
-    arrivals: dedupedArrivals,
-    enRouteShips,
-    shipReports: Array.from(shipReportMap.values()),
+    shipSummaries,
     logHighlights,
   };
 }
