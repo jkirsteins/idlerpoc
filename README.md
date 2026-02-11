@@ -72,6 +72,8 @@ npm run dev
   - **Persistent trade routes** at every location with trade service — permanent, automatable, modest-but-steady background income
   - Trade route pay scales with distance, route danger, and location economic power
   - Trade goods derived from location type (planets export manufactured goods, stations export tech components, etc.)
+  - **Cargo scales with ship capacity**: all contract types fill the ship's hold proportionally — bigger ships earn more per trip through cargo premiums, making ship upgrades immediately rewarding
+  - Quest cards show per-trip payment breakdown for multi-trip lump-sum contracts
   - Quest generation based on location size and ship capabilities
   - Automatic flight execution with multi-leg trips
   - Payment per trip or on completion

@@ -227,6 +227,13 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
         ],
       },
       {
+        heading: 'Cargo Scaling & Ship Progression',
+        paragraphs: [
+          "All cargo-hauling contracts scale the load with your [[ship-classes|ship's]] available cargo hold. Bigger ships fill their holds more per trip, earning proportionally more through cargo premiums. Upgrading to a larger ship class immediately increases income on all contracts and trade routes.",
+          'For multi-trip contracts that pay a lump sum on completion (such as supply contracts), the quest card shows the per-trip credit equivalent so you can compare profitability at a glance.',
+        ],
+      },
+      {
         heading: 'Contract Management',
         paragraphs: [
           'You can only have one active contract per ship at a time. While in flight you can choose to continue, pause and dock on arrival, or abandon the contract.',

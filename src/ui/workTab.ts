@@ -997,11 +997,13 @@ export function createWorkTab(
 
     refs.fuelCostInfo.textContent = `Fuel Cost: ~${tripFuelCost.toLocaleString()} cr per trip`;
 
-    // Profit
+    // For lump-sum multi-trip contracts, divide by trips for per-trip comparison
     const tripPayment =
       quest.paymentPerTrip > 0
         ? quest.paymentPerTrip
-        : quest.paymentOnCompletion;
+        : quest.tripsRequired > 1
+          ? Math.round(quest.paymentOnCompletion / quest.tripsRequired)
+          : quest.paymentOnCompletion;
     const totalCost = tripCrewCost + tripFuelCost;
     const profit = tripPayment - totalCost;
 
@@ -1022,9 +1024,11 @@ export function createWorkTab(
       refs.riskLine.style.display = 'none';
     }
 
-    // Payment
+    // Payment — show per-trip breakdown for multi-trip lump-sum contracts
     if (quest.paymentPerTrip > 0) {
       refs.payment.textContent = `Payment: ${quest.paymentPerTrip.toLocaleString()} credits/trip`;
+    } else if (quest.tripsRequired > 1) {
+      refs.payment.textContent = `Payment: ${quest.paymentOnCompletion.toLocaleString()} cr on completion (${tripPayment.toLocaleString()} cr/trip)`;
     } else {
       refs.payment.textContent = `Payment: ${quest.paymentOnCompletion.toLocaleString()} credits on completion`;
     }
