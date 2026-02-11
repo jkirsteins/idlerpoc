@@ -5,6 +5,7 @@ import type {
   Quest,
   WorldLocation,
 } from './models';
+import { getShipCommander } from './models';
 import { startShipFlight } from './flightPhysics';
 import { addLog } from './logSystem';
 import { generateAllLocationQuests } from './questGen';
@@ -212,7 +213,7 @@ function awardCommerceRouteMastery(
   originId: string,
   destId: string
 ): void {
-  const captain = ship.crew.find((c) => c.isCaptain);
+  const captain = getShipCommander(ship);
   if (!captain) return;
   const key = tradeRouteMasteryKey(originId, destId);
   const totalRoutes = countRoutePairs(gameData);
