@@ -1412,9 +1412,6 @@ const callbacks: RendererCallbacks = {
 
     const crew = fromShip.crew[crewIndex];
 
-    // Cannot transfer captain
-    if (crew.isCaptain) return;
-
     // Cannot leave ship with 0 crew if it has an active contract
     if (fromShip.crew.length <= 1 && fromShip.activeContract) return;
 

@@ -119,7 +119,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
       {
         heading: 'Commerce Skill Bonus',
         paragraphs: [
-          'As your captain develops the [[commerce-skill|Commerce]] skill through trade operations, you earn quest payment bonuses (up to +20%) and fuel discounts (up to -20%).',
+          "Each ship's commanding officer (the captain if aboard, otherwise the crew member with the highest [[commerce-skill|Commerce]] skill) provides quest payment bonuses (up to +20%) and fuel discounts (up to -20%) for that ship.",
         ],
       },
     ],
@@ -254,7 +254,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
       {
         heading: 'Layer 2: Item Mastery (0-99 per item)',
         paragraphs: [
-          'Each skill has specific items that can be mastered individually. Mastery builds through repeated use and provides familiarity bonuses. Piloting route mastery XP is awarded to the helm crew on every flight arrival. Commerce trade route mastery XP is awarded to the captain on every completed trip.',
+          "Each skill has specific items that can be mastered individually. Mastery builds through repeated use and provides familiarity bonuses. Piloting route mastery XP is awarded to the helm crew on every flight arrival. Commerce trade route mastery XP is awarded to the ship's commanding officer on every completed trip.",
         ],
         table: {
           headers: ['Skill', 'Mastery Type', 'Effect'],
@@ -432,15 +432,15 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
       {
         paragraphs: [
           'Commerce is one of the three core [[skill-system|skills]], focused on trade and economic mastery. Crew assigned to trader [[job-slots|job slots]] train commerce passively during flight.',
-          'The captain and first officer (senior non-captain crew member) earn additional commerce XP when [[contracts|contracts]] complete, creating a feedback loop where trade experience improves future profitability.',
+          "The ship's commanding officer and first officer (next-best commerce crew member) earn additional commerce XP when [[contracts|contracts]] complete, creating a feedback loop where trade experience improves future profitability.",
         ],
       },
       {
         heading: 'Training',
         paragraphs: [
           'Commerce trains through trader job slot assignment like other skills. Additionally, completing [[contracts|trade route contracts]] provides bonus commerce XP.',
-          'Captain earns: 1.0 + 0.5 per trip completed in the contract.',
-          "First officer earns half the captain's amount.",
+          'Ship commander earns: 1.0 + 0.5 per trip completed in the contract.',
+          "First officer earns half the commander's amount.",
           'Trade route [[mastery-system|mastery]] develops separately through repeated runs on the same routes, providing familiarity bonuses.',
         ],
       },
@@ -476,7 +476,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
       {
         paragraphs: [
           "A crew member's role is determined by their highest [[skill-system|skill]], representing their primary expertise. Roles are not manually assigned — they shift dynamically if skill distribution changes.",
-          'The captain is always the player character regardless of skills.',
+          'The captain is always the player character regardless of skills. The captain can be transferred between ships you own — when absent from a ship, the crew member with the highest commerce skill acts as commanding officer for trade bonuses.',
         ],
       },
       {

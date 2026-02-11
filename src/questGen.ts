@@ -1,4 +1,5 @@
 import type { Quest, Ship, WorldLocation, World } from './models';
+import { getShipCommander } from './models';
 import { getShipClass } from './shipClasses';
 import { getDistanceBetween, canShipAccessLocation } from './worldGen';
 import {
@@ -200,8 +201,8 @@ function calculateCrewSkillBonus(ship: Ship): number {
  * Commerce is trained by completing trade routes and provides better pay.
  */
 function getShipCommerceBonus(ship: Ship): number {
-  const captain = ship.crew.find((c) => c.isCaptain);
-  const commerceSkill = captain?.skills.commerce ?? 0;
+  const commander = getShipCommander(ship);
+  const commerceSkill = commander?.skills.commerce ?? 0;
   return getCommercePaymentBonus(commerceSkill);
 }
 

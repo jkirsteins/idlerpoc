@@ -643,7 +643,7 @@ Every skill must map to a role archetype:
 
 ### Special Cases
 
-**Captain**: Always the player character, regardless of skill distribution. The captain leads through position, not necessarily superior skills.
+**Captain**: Always the player character, regardless of skill distribution. The captain leads through position, not necessarily superior skills. The captain can transfer between ships in the fleet — when absent, the crew member with the highest commerce skill acts as commanding officer for trade bonuses.
 
 **Role Assignment**: When generating or leveling crew:
 
@@ -666,7 +666,7 @@ This ensures roles are meaningful at creation but allows growth and specializati
 - Skills scale 1-100 with 10 named ranks (Untrained → Master)
 - Training is passive via job slot assignment with diminishing returns
 - Specialization available at skill 50: +50% training in chosen skill, -25% in others
-- Commerce (7th skill): trained by captain/first officer completing trade routes, improves pay and fuel pricing
+- Commerce (7th skill): trained by ship commander/first officer completing trade routes, improves pay and fuel pricing
 - Piloting skill gates ship class access (Class II: 25, Class III: 50, Class IV: 75, Class V: 95)
 - Crew can shift roles by developing different skills (though rare)
 - See `docs/skill-system.md` for full details
