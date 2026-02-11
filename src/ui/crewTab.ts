@@ -15,9 +15,9 @@ import type { TabbedViewCallbacks } from './types';
 import { getCrewEquipmentDefinition } from '../crewEquipment';
 import { getLevelForXP } from '../levelSystem';
 import {
-  getCrewRoleDefinition,
   getCrewRoleName,
   getPrimarySkillForRole,
+  getCrewSalaryPerTick,
 } from '../crewRoles';
 import {
   getGravityDegradationLevel,
@@ -1664,13 +1664,13 @@ export function createCrewTab(
     healthValue.textContent = `${crew.health}/100`;
     attackValue.textContent = `${calculateAttackScore(crew)}`;
 
-    const roleDef = getCrewRoleDefinition(crew.role);
-    if (roleDef) {
+    const crewSalaryPerTick = getCrewSalaryPerTick(crew);
+    if (crewSalaryPerTick > 0) {
       salaryRow.style.display = '';
-      salaryValue.textContent =
-        roleDef.salary > 0
-          ? `${(roleDef.salary * TICKS_PER_DAY).toFixed(0)} cr/day`
-          : 'None (Captain)';
+      salaryValue.textContent = `${(crewSalaryPerTick * TICKS_PER_DAY).toFixed(0)} cr/day`;
+    } else if (crew.isCaptain) {
+      salaryRow.style.display = '';
+      salaryValue.textContent = 'None (Captain)';
     } else {
       salaryRow.style.display = 'none';
     }

@@ -30,7 +30,7 @@ npm run dev
   - Ship equipment generates additional slots (nav scanner → Scan Ops, point defense → Targeting)
   - Ship-wide repair slots accept multiple engineers generating repair points
   - Direct skill training: jobs train crew skills with power-law diminishing returns (no XP intermediary)
-  - All crew start at zero skills — progression comes entirely from training and events
+  - Captain starts at zero skills; hired crew arrive with archetype-weighted starting skills (quality varies)
   - Skill 5 in ~5 real minutes, skill 50 in ~5 real days (captain at helm baseline)
   - **3 skills** (Piloting, Mining, Commerce) with Melvor Idle-inspired mastery system
   - **Three-layer progression**: Skill Level (gates access), Item Mastery (per-route/ore/trade efficiency), Mastery Pool (skill-wide checkpoint bonuses at 10/25/50/95%)
@@ -42,9 +42,9 @@ npm run dev
   - Passive slots (Patient, Rest) benefit crew without training skills
   - Helm is the only required job — no helm crew means the ship coasts
   - Auto-assign crew to best-fit slots based on skill affinity
-  - Crew salaries paid per tick
+  - Crew salaries paid per tick, scaled by individual salary multiplier (skilled hires cost more)
   - Unpaid crew depart at next station
-  - Hire new crew at stations with hiring services — daily candidate roster scales with station size; smaller outposts may have no candidates on a given day
+  - Hire new crew at stations with hiring services — each candidate has an archetype (Pilot/Miner/Trader) with randomized skill distribution; hire cost and salary scale with total skills; candidate quality varies from green recruits to rare elite veterans
   - **Crew profiles** with ranked titles (e.g. "Competent Pilot"), service records showing ship tenure, company tenure, current assignment, and recruitment origin
 - **Mining System**:
   - Orbit locations with `mine` service to extract ore (crew in mining_ops slots operate ship-mounted mining equipment from the mining bay)

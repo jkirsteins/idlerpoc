@@ -546,7 +546,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
     title: 'Crew Hiring',
     category: 'Crew',
     summary:
-      'Recruiting new crew at stations, costs, and candidate generation.',
+      'Recruiting new crew at stations, archetypes, costs, and candidate generation.',
     sections: [
       {
         paragraphs: [
@@ -554,29 +554,44 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
         ],
       },
       {
-        heading: 'Mechanics',
+        heading: 'Candidate Generation',
         paragraphs: [
           "Each day, a new roster of candidates is generated at every hiring station. The number of available candidates depends on the station's size — major hubs like Earth typically offer 1-5 candidates, while smaller outposts may have none at all.",
           'There is a small chance that nobody is looking for work on a given day — about 10% at major hubs, rising to 50% at remote outposts. Advance to the next day to see a fresh roster.',
-          'Each candidate has randomized [[skill-system|skills]], level, and [[crew-roles|role]].',
+        ],
+      },
+      {
+        heading: 'Archetypes & Skills',
+        paragraphs: [
+          'Every candidate has a [[crew-roles|role]] archetype — [[crew-roles|Pilot]], [[crew-roles|Miner]], or [[crew-roles|Trader]] — that determines their [[skill-system|skill]] distribution. A pilot has strong piloting with some commerce; a miner has strong mining with some piloting; a trader has strong commerce with some piloting.',
+          'Candidate quality varies widely. Most candidates are green recruits with low skills, but occasionally a seasoned veteran will appear. Larger stations attract slightly better candidates on average.',
         ],
       },
       {
         heading: 'Hiring Cost',
-        paragraphs: ['Base cost: 500 credits + (Level x 200 credits).'],
+        paragraphs: [
+          "Hire cost scales with the candidate's total skill level: 500 cr base + 50 cr per skill point. A green recruit with no skills costs 500 cr, while a veteran with 30 total skill points costs around 2,000 cr.",
+        ],
         table: {
-          headers: ['Crew Level', 'Approximate Cost'],
+          headers: ['Candidate Type', 'Typical Skills', 'Approximate Cost'],
           rows: [
-            ['Level 1', '~700 credits'],
-            ['Level 3', '~1,100 credits'],
-            ['Level 5', '~1,500 credits'],
+            ['Green recruit', '0-5 total', '500-750 cr'],
+            ['Seasoned crew', '10-20 total', '1,000-1,500 cr'],
+            ['Veteran', '20-35 total', '1,500-2,250 cr'],
+            ['Elite specialist', '35-50 total', '2,250-3,000 cr'],
           ],
         },
       },
       {
+        heading: 'Salary Scaling',
+        paragraphs: [
+          'More skilled candidates demand higher [[crew-salaries|salaries]]. The salary multiplier is locked in at hire time — training crew after hiring does not increase their wage. This makes hiring cheap recruits and training them a cost-effective long-term strategy, while hiring pre-skilled veterans provides immediate capability at ongoing expense.',
+        ],
+      },
+      {
         heading: 'Strategy',
         paragraphs: [
-          'Higher-level crew cost more but start with better [[skill-system|skills]]. Larger crews increase [[crew-salaries|salary]] costs but reduce dependency on any one person.',
+          'Hiring decisions balance upfront cost, ongoing salary, and training time. A green recruit is cheap to hire and maintain but needs time to develop skills. A veteran hits the ground running but costs more to hire and demands higher wages.',
           'If crew leave due to unpaid wages, you may need emergency hiring at the next port.',
         ],
       },
@@ -594,7 +609,8 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
     id: 'crew-salaries',
     title: 'Crew Salaries',
     category: 'Crew',
-    summary: 'Salary rates by role, payment timing, and unpaid crew.',
+    summary:
+      'Salary rates by role, payment timing, skill-based scaling, and unpaid crew.',
     sections: [
       {
         paragraphs: [
@@ -602,10 +618,10 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
         ],
       },
       {
-        heading: 'Salary Rates',
-        paragraphs: [''],
+        heading: 'Base Salary Rates',
+        paragraphs: ['All non-captain roles share the same base salary rate:'],
         table: {
-          headers: ['Role', 'Per Day', 'Justification'],
+          headers: ['Role', 'Base Per Day', 'Notes'],
           rows: [
             ['Captain', '0 cr', 'Owner-operator, earns from ship profits'],
             ['[[crew-roles|Pilot]]', '48 cr', 'Essential bridge crew'],
@@ -613,6 +629,13 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
             ['[[crew-roles|Trader]]', '48 cr', 'Trade and commerce specialist'],
           ],
         },
+      },
+      {
+        heading: 'Skill-Based Salary Scaling',
+        paragraphs: [
+          "More skilled crew command higher wages. When [[crew-hiring|hired]], each crew member's salary multiplier is set based on their starting skills. A green recruit with no skills costs the base rate (48 cr/day), while a veteran with 30 total skill points costs around 70 cr/day.",
+          'The salary multiplier is locked in at hire time — training crew after hiring does not increase their wage. Hiring cheap recruits and training them is a cost-effective long-term strategy.',
+        ],
       },
       {
         heading: 'Payment Failure',

@@ -8,7 +8,7 @@ import {
 } from './flightPhysics';
 import { completeLeg } from './contractExec';
 import { GAME_SECONDS_PER_TICK } from './timeSystem';
-import { getCrewRoleDefinition } from './crewRoles';
+import { getCrewSalaryPerTick } from './crewRoles';
 import {
   getEquipmentDefinition,
   getEffectiveRadiationShielding,
@@ -97,11 +97,9 @@ export function deductFleetSalaries(
   for (const ship of gameData.ships) {
     let shipSalaryPerTick = 0;
     for (const crew of ship.crew) {
-      const roleDef = getCrewRoleDefinition(crew.role);
-      if (roleDef) {
-        shipSalaryPerTick += roleDef.salary;
-        totalFleetSalaryPerTick += roleDef.salary;
-      }
+      const crewSalary = getCrewSalaryPerTick(crew);
+      shipSalaryPerTick += crewSalary;
+      totalFleetSalaryPerTick += crewSalary;
     }
     shipSalaries.set(ship.id, shipSalaryPerTick);
   }
@@ -139,7 +137,7 @@ export function deductFleetSalaries(
         [];
       for (const ship of gameData.ships) {
         for (const crew of ship.crew) {
-          const salary = getCrewRoleDefinition(crew.role)?.salary || 0;
+          const salary = getCrewSalaryPerTick(crew);
           if (salary > 0) {
             allCrew.push({ crew, salary });
           }
