@@ -200,19 +200,22 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
         ],
       },
       {
-        heading: 'Contract Types',
+        heading: 'Active Contracts (High Pay)',
         paragraphs: [
-          'Delivery: Transport specific cargo to a destination. One-time payment on completion.',
-          'Passenger: Ferry passengers between locations. Higher pay but time-sensitive.',
-          'Freight: Haul bulk goods. Pay per trip, scales with cargo capacity.',
-          'Supply: Provide specific materials to a location. Often higher pay for harder-to-reach destinations.',
+          'Finite contracts pay significantly more than automated routes — the reward for paying attention. They expire and refresh daily, so watch the job board for lucrative opportunities.',
+          'Passenger: Ferry passengers between locations. Highest pay of any contract type but tightest deadline (3 days). Requires crew quarters.',
+          'Delivery: Transport specific cargo to a destination. High one-time payment on completion. 7-day deadline.',
+          'Supply: Deliver large quantities of materials over multiple trips. Very high lump-sum payment on completion. 30-day deadline.',
+          'Freight: Haul bulk goods over multiple trips. Good per-trip pay with a 14-day deadline.',
         ],
       },
       {
-        heading: 'Standing Freight Routes',
+        heading: 'Passive Routes (Steady Pay)',
         paragraphs: [
-          'Every location with trade services offers permanent standing freight routes to all its trading partners. These never expire and provide reliable recurring income.',
-          'Standing freight payment scales with distance, route danger, and location economic power. Trade goods are determined by [[navigation|location]] type: planets export manufactured goods, stations export tech components.',
+          'Standing freight and trade routes never expire and can be automated — set a ship on a route and forget about it. The trade-off is lower pay per trip compared to active contracts.',
+          'Standing Freight: Randomly generated ongoing freight runs. Modest per-trip pay but infinite trips and fully automatable.',
+          'Trade Routes: Permanent routes between all trading partners at every trade hub. The most reliable income source — always available, always profitable, but the lowest pay per trip. Trade goods are determined by [[navigation|location]] type.',
+          'Trade route payment scales with distance, route danger, and location economic power. [[commerce-skill|Commerce skill]] bonuses apply to all contract types but yield the biggest absolute gains on high-paying active contracts.',
         ],
       },
       {

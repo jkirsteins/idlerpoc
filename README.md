@@ -66,12 +66,13 @@ npm run dev
   - Redirect replots a fresh burn-coast-burn trajectory from the ship's interpolated position (not available during contracts or mining routes)
 - **Quest & Contract System**:
   - Accept delivery, passenger, freight, supply, and standing freight contracts
-  - **Persistent trade routes** at every location with trade service — permanent work lines to all trading partners
+  - **Active vs passive income**: Finite contracts (delivery, passenger) pay ~2-3x more than automated trade routes — rewarding attentive play while keeping idle income reliable (see `docs/quest-reward-balancing.md`)
+  - **Persistent trade routes** at every location with trade service — permanent, automatable, modest-but-steady background income
   - Trade route pay scales with distance, route danger, and location economic power
   - Trade goods derived from location type (planets export manufactured goods, stations export tech components, etc.)
   - Quest generation based on location size and ship capabilities
   - Automatic flight execution with multi-leg trips
-  - Payment per trip or on completion (rebalanced based on trip duration)
+  - Payment per trip or on completion
   - Contract pause/resume functionality
   - Crew salary costs displayed on quest cards
 - **Time System**:

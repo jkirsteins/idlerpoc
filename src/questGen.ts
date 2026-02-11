@@ -306,7 +306,7 @@ function generateDeliveryQuest(
     : 1000;
   const cargoKg = Math.round(Math.min(1000 + Math.random() * 9000, maxCargo));
 
-  const payment = calculatePayment(ship, distanceKm, cargoKg);
+  const payment = Math.round(calculatePayment(ship, distanceKm, cargoKg) * 1.5); // Active premium: finite quest, 7d expiry
   const estimatedTime = estimateTripTime(ship, distanceKm);
   const fuelKgRequired = calculateTripFuelKg(ship, distanceKm);
 
@@ -340,7 +340,7 @@ function generatePassengerQuest(
   const passengerName =
     PASSENGER_NAMES[Math.floor(Math.random() * PASSENGER_NAMES.length)];
 
-  const payment = calculatePayment(ship, distanceKm);
+  const payment = Math.round(calculatePayment(ship, distanceKm) * 2.0); // Highest active premium: tightest deadline (3d), quarters required
   const estimatedTime = estimateTripTime(ship, distanceKm);
   const fuelKgRequired = calculateTripFuelKg(ship, distanceKm);
 
@@ -385,8 +385,8 @@ function generateFreightQuest(
   const trips = Math.floor(2 + Math.random() * 4); // 2-5 trips
 
   const paymentPerTrip = Math.round(
-    calculatePayment(ship, distanceKm, cargoKg) * 0.8
-  ); // 80% of one-off rate
+    calculatePayment(ship, distanceKm, cargoKg) * 1.2
+  ); // Semi-active premium: multi-trip with 14d expiry
   const estimatedTime = estimateTripTime(ship, distanceKm);
   const fuelKgRequired = calculateTripFuelKg(ship, distanceKm);
 
@@ -428,8 +428,8 @@ function generateSupplyQuest(
   const cargoPerTrip = Math.min(availableCargoSupply * 0.8, 10000); // Use 80% of available cargo
 
   const payment = Math.round(
-    calculatePayment(ship, distanceKm, totalCargoKg) * 1.5
-  ); // 150% bonus for bulk
+    calculatePayment(ship, distanceKm, totalCargoKg) * 2.5
+  ); // High commitment premium: large bulk contract, 30d expiry, lump sum
   const estimatedTime = estimateTripTime(ship, distanceKm);
   const fuelKgRequired = calculateTripFuelKg(ship, distanceKm);
 
@@ -470,8 +470,8 @@ function generateStandingFreightQuest(
     : 1000;
   const cargoKg = Math.round(Math.min(1000 + Math.random() * 9000, maxCargoSF));
   const paymentPerTrip = Math.round(
-    calculatePayment(ship, distanceKm, cargoKg) * 0.7
-  ); // 70% of one-off rate
+    calculatePayment(ship, distanceKm, cargoKg) * 0.5
+  ); // Passive discount: infinite trips, automatable — low but reliable per-trip
   const estimatedTime = estimateTripTime(ship, distanceKm);
   const fuelKgRequired = calculateTripFuelKg(ship, distanceKm);
 
@@ -586,8 +586,9 @@ function calculateTradeRoutePayment(
   const fuelCost = fuelKgRequired * 2 * FUEL_PRICE_PER_KG; // Round trip in kg
   const totalCost = crewCost + fuelCost;
 
-  // Fixed at 150% of operating costs (no randomness unlike regular quests)
-  const costFloor = totalCost * 1.5;
+  // Fixed at 120% of operating costs (no randomness unlike regular quests)
+  // Trade routes are the baseline passive income — always profitable but modest
+  const costFloor = totalCost * 1.2;
 
   // 2. Distance bonus for long hauls
   let distanceBonus = 0;

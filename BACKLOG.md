@@ -34,7 +34,7 @@ This file tracks deferred features and known gaps that are not currently priorit
 - **Fuel Efficiency Upgrades**: Engine modifications to reduce fuel consumption (e.g., "Optimized Nozzles" equipment).
 - **Alternative Propellant Support**: Chemical bipropellant vs monopropellant, ion drives, etc. Needs fuel type system per engine.
 - **Hub Station Route Bonuses**: +10% payment for multi-leg routes using major stations as waypoints. Rewards emergent route planning.
-- **Standing Freight Distance Multiplier**: Increase standing freight pay multiplier for long routes (0.7x → 0.9x). See `docs/quest-economics-validation.md`.
+- **Standing Freight Distance Multiplier**: Scale standing freight pay multiplier by route distance (0.5x short → 0.7x long). See `docs/quest-reward-balancing.md` and `docs/quest-economics-validation.md`.
 
 ## Ship Equipment Variety (Build Differentiation)
 
