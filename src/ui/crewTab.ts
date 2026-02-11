@@ -89,7 +89,7 @@ function getMasteryItemLabel(
     const locB = world.locations.find((l) => l.id === parts[1]);
     const nameA = locA?.name ?? parts[0];
     const nameB = locB?.name ?? parts[1];
-    return `${nameA} → ${nameB}`;
+    return `${nameA} ↔ ${nameB}`;
   }
   return itemId;
 }
