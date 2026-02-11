@@ -242,9 +242,6 @@ export function buildCatchUpReport(
       };
     }
 
-    // Skip idle ships with no encounters and no contract — they did nothing interesting
-    if (activity.type === 'idle' && !encounters && !contractInfo) continue;
-
     shipSummaries.push({
       shipId: ship.id,
       shipName: ship.name,
@@ -359,14 +356,42 @@ export function buildCatchUpReport(
     });
   }
 
-  const logHighlights = [...aggregatedSkillUps, ...otherHighlights];
+  const allHighlights = [...aggregatedSkillUps, ...otherHighlights];
+
+  // Group crew highlights by ship — attach to matching ship summaries
+  const shipNameIndex = new Map<string, CatchUpShipSummary>();
+  for (const summary of shipSummaries) {
+    shipNameIndex.set(summary.shipName, summary);
+  }
+
+  const logHighlights: LogEntry[] = [];
+  for (const entry of allHighlights) {
+    const matchedShip = entry.shipName
+      ? shipNameIndex.get(entry.shipName)
+      : undefined;
+    if (matchedShip) {
+      if (!matchedShip.crewHighlights) matchedShip.crewHighlights = [];
+      matchedShip.crewHighlights.push(entry);
+    } else {
+      logHighlights.push(entry);
+    }
+  }
+
+  // Filter out idle ships that had nothing interesting (no encounters, contract, or crew events)
+  const filteredSummaries = shipSummaries.filter(
+    (s) =>
+      s.activity.type !== 'idle' ||
+      s.encounters ||
+      s.contractInfo ||
+      (s.crewHighlights && s.crewHighlights.length > 0)
+  );
 
   return {
     totalTicks,
     elapsedRealSeconds,
     creditsDelta: Math.round(gameData.credits - prevCredits),
     contractsCompleted,
-    shipSummaries,
+    shipSummaries: filteredSummaries,
     logHighlights,
   };
 }
