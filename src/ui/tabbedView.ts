@@ -15,12 +15,8 @@ import { createGamepediaTab } from './gamepediaTab';
 import { createStationTab } from './stationTab';
 import { createFleetPanel } from './fleetPanel';
 import { createNavigationView } from './navigationView';
-import {
-  formatGameDate,
-  TICKS_PER_DAY,
-  GAME_SECONDS_PER_DAY,
-} from '../timeSystem';
-import { calculateShipSalaryPerTick } from '../crewRoles';
+import { formatGameDate, GAME_SECONDS_PER_DAY } from '../timeSystem';
+import { calculateDailyLedger } from '../dailyLedger';
 import {
   getShipPositionKm,
   calculatePositionDanger,
@@ -167,18 +163,25 @@ export function createTabbedView(
   crewDiv.appendChild(crewValueSpan);
   statsDiv.appendChild(crewDiv);
 
-  // Crew cost per day
-  const crewCostDiv = document.createElement('div');
-  const crewCostLabel = document.createElement('span');
-  crewCostLabel.style.color = '#888';
-  crewCostLabel.textContent = 'Crew Cost:';
-  const crewCostValueSpan = document.createElement('span');
-  crewCostValueSpan.style.color = '#ffa500';
-  crewCostValueSpan.style.fontWeight = 'bold';
-  crewCostDiv.appendChild(crewCostLabel);
-  crewCostDiv.appendChild(document.createTextNode(' '));
-  crewCostDiv.appendChild(crewCostValueSpan);
-  statsDiv.appendChild(crewCostDiv);
+  // Net income per day
+  const netDiv = document.createElement('div');
+  const netLabel = document.createElement('span');
+  netLabel.style.color = '#888';
+  netLabel.textContent = 'Net:';
+  const netValueSpan = document.createElement('span');
+  netValueSpan.style.fontWeight = 'bold';
+  netDiv.appendChild(netLabel);
+  netDiv.appendChild(document.createTextNode(' '));
+  netDiv.appendChild(netValueSpan);
+
+  // Runway indicator (inline, after net)
+  const runwaySpan = document.createElement('span');
+  runwaySpan.style.color = '#888';
+  runwaySpan.style.marginLeft = '8px';
+  runwaySpan.style.fontSize = '0.85em';
+  netDiv.appendChild(runwaySpan);
+
+  statsDiv.appendChild(netDiv);
 
   statusBar.appendChild(statsDiv);
 
@@ -512,17 +515,31 @@ export function createTabbedView(
       crewValueSpan.textContent = crewText;
     }
 
-    // Crew cost per day (fleet-wide)
-    let totalCrewCost = 0;
-    for (const s of gameData.ships) {
-      totalCrewCost += calculateShipSalaryPerTick(s);
+    // Daily ledger: net income & runway
+    const ledger = calculateDailyLedger(gameData);
+    const netRounded = Math.round(ledger.netPerDay);
+    const netSign = netRounded >= 0 ? '+' : '';
+    const netText = `${netSign}${netRounded.toLocaleString()} cr/day`;
+    if (netValueSpan.textContent !== netText) {
+      netValueSpan.textContent = netText;
+      netValueSpan.style.color = netRounded >= 0 ? '#4ade80' : '#ff4444';
     }
 
-    const costText = `${(totalCrewCost * TICKS_PER_DAY).toFixed(0)} cr/day`;
-    if (crewCostValueSpan.textContent !== costText) {
-      crewCostValueSpan.textContent = costText;
+    let runwayText = '';
+    if (ledger.incomeDays === 0) {
+      runwayText = '(collecting data\u2026)';
+    } else if (ledger.runwayDays !== null) {
+      runwayText = `Runway: ${ledger.runwayDays.toFixed(1)}d`;
     }
-    crewCostDiv.style.opacity = totalCrewCost > 0 ? '' : '0.4';
+    if (runwaySpan.textContent !== runwayText) {
+      runwaySpan.textContent = runwayText;
+      runwaySpan.style.color =
+        ledger.runwayDays !== null && ledger.runwayDays < 3
+          ? '#ff4444'
+          : '#888';
+    }
+    netDiv.style.opacity =
+      ledger.totalExpensePerDay > 0 || ledger.incomePerDay > 0 ? '' : '0.4';
 
     // ── Status text ──────────────────────────────────────────────────
     if (ship.location.status === 'docked') {

@@ -122,6 +122,15 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
           "Each ship's commanding officer (the captain if aboard, otherwise the crew member with the highest [[commerce-skill|Commerce]] skill) provides quest payment bonuses (up to +20%) and fuel discounts (up to -20%) for that ship.",
         ],
       },
+      {
+        heading: 'Daily Ledger',
+        paragraphs: [
+          'The Daily Ledger shows your fleet-wide financial health at a glance. It appears in the left sidebar, the header status bar, and the Fleet Performance Dashboard.',
+          'Income is calculated as a rolling average over the past 7 game days. This smooths out the lumpy nature of contract payments and ore sales into a meaningful daily rate. The average begins populating after your first full day of play.',
+          'Expenses are projected deterministically from your current fleet configuration: [[crew-salaries|crew salaries]] (fixed daily cost based on crew composition) and estimated fuel costs (based on active [[contracts|trade routes]], [[mining-system|mining routes]], and contracts).',
+          'Net rate is income minus expenses. A positive net rate means your credits are growing; a negative rate means you are losing money. If your net rate is negative, the Runway indicator shows how many days your current credits will last at the current burn rate. Use this to plan ahead — accept new contracts, adjust routes, or cut crew before funds run out.',
+        ],
+      },
     ],
     relatedArticles: [
       'contracts',

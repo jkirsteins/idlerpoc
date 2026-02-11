@@ -18,6 +18,7 @@ import {
   getMissingCrewRoles,
   type ShipStatus,
 } from '../fleetAnalytics';
+import { calculateDailyLedger } from '../dailyLedger';
 import type { Component } from './component';
 import {
   formatFuelMass,
@@ -478,14 +479,39 @@ function renderFleetPerformanceDashboard(gameData: GameData): HTMLElement {
   dashboardContent.style.gap = '1rem';
 
   // Financial Summary
+  const ledger = calculateDailyLedger(gameData);
+  const dailyNet = Math.round(ledger.netPerDay);
+  const dailyNetSign = dailyNet >= 0 ? '+' : '';
+  const dailyNetColor = dailyNet >= 0 ? '#4ade80' : '#ff4444';
+  const incomeText =
+    ledger.incomeDays > 0
+      ? `+${Math.round(ledger.incomePerDay).toLocaleString()} cr/day`
+      : 'collecting data\u2026';
+  const incomeNote =
+    ledger.incomeDays > 0
+      ? `<span style="color: #666; font-size: 0.8rem;">(${ledger.incomeDays}d avg)</span>`
+      : '';
+  const runwayText =
+    ledger.incomeDays === 0
+      ? '<span style="color: #666;">collecting data\u2026</span>'
+      : ledger.runwayDays !== null
+        ? `<span style="color: ${ledger.runwayDays < 3 ? '#ff4444' : '#ffa500'};">${ledger.runwayDays.toFixed(1)} days</span>`
+        : '<span style="color: #4ade80;">Stable</span>';
+
   const financialRow = document.createElement('div');
   financialRow.innerHTML = `
     <div style="padding: 0.75rem; background: rgba(0, 0, 0, 0.4); border-radius: 4px;">
-      <div style="font-size: 0.85rem; color: #888; margin-bottom: 0.5rem;">💰 FINANCIAL SUMMARY</div>
-      <div style="display: flex; gap: 2rem; flex-wrap: wrap;">
+      <div style="font-size: 0.85rem; color: #888; margin-bottom: 0.5rem;">FINANCIAL SUMMARY</div>
+      <div style="display: flex; gap: 2rem; flex-wrap: wrap; margin-bottom: 0.5rem;">
         <div><span style="color: #aaa;">Total Earned:</span> <span style="color: #4ade80; font-weight: bold;">${totalEarned.toLocaleString()} cr</span></div>
         <div><span style="color: #aaa;">Operating Costs:</span> <span style="color: #ffa500;">${totalCosts.toLocaleString()} cr</span></div>
         <div><span style="color: #aaa;">Net Profit:</span> <span style="color: ${netProfit >= 0 ? '#4ade80' : '#ff4444'}; font-weight: bold;">${netProfit >= 0 ? '+' : ''}${netProfit.toLocaleString()} cr</span> <span style="color: #888; font-size: 0.85rem;">(${profitMargin >= 0 ? '+' : ''}${profitMargin.toFixed(0)}% margin)</span></div>
+      </div>
+      <div style="border-top: 1px solid #333; padding-top: 0.5rem; display: flex; gap: 2rem; flex-wrap: wrap;">
+        <div><span style="color: #aaa;">Income:</span> <span style="color: #4ade80;">${incomeText}</span> ${incomeNote}</div>
+        <div><span style="color: #aaa;">Expenses:</span> <span style="color: #ffa500;">-${Math.round(ledger.totalExpensePerDay).toLocaleString()} cr/day</span> <span style="color: #666; font-size: 0.8rem;">(crew: ${Math.round(ledger.crewCostPerDay).toLocaleString()}, fuel: ${Math.round(ledger.fuelCostPerDay).toLocaleString()})</span></div>
+        <div><span style="color: #aaa;">Net Rate:</span> <span style="color: ${dailyNetColor}; font-weight: bold;">${dailyNetSign}${dailyNet.toLocaleString()} cr/day</span></div>
+        <div><span style="color: #aaa;">Runway:</span> ${runwayText}</div>
       </div>
     </div>
   `;

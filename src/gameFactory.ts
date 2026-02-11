@@ -373,6 +373,7 @@ export function createNewGame(
     lastTickTimestamp: Date.now(),
     lastQuestRegenDay,
     hireableCrewByLocation,
+    dailyLedgerSnapshots: [],
     visitedLocations: ['earth'], // Player starts docked at Earth
     // Time system state
     isPaused: false,

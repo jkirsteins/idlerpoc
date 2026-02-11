@@ -504,12 +504,19 @@ export interface CatchUpReport {
   logHighlights: LogEntry[]; // notable log entries (skill-ups, etc.) from the idle period
 }
 
+/** Snapshot of lifetime earnings at the end of a game day, for rolling income averages. */
+export interface DailyLedgerSnapshot {
+  gameDay: number;
+  lifetimeCreditsEarned: number;
+}
+
 export interface GameData {
   saveVersion: number; // migration version — see docs/save-migration.md
   ships: Ship[];
   activeShipId: string;
   credits: number;
   lifetimeCreditsEarned: number;
+  dailyLedgerSnapshots: DailyLedgerSnapshot[];
   world: World;
   createdAt: number;
   gameTime: number; // elapsed game-seconds since epoch

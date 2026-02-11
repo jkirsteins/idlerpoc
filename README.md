@@ -136,7 +136,8 @@ npm run dev
   - Catch-up report modal summarizing encounters that occurred while away
   - Encounter cooldown prevents rapid consecutive encounters per ship
 - **Event Log**: Rolling log of the most recent 200 events (departures, arrivals, payments, contract completions, encounters); older entries pruned automatically
-- **Resource Tracking**: Monitor credits, fuel, oxygen, crew count, crew costs per tick, and power consumption
+- **Resource Tracking**: Monitor credits, fuel, oxygen, crew count, and power consumption
+- **Daily Ledger**: Fleet-wide financial overview with 7-day rolling income average, projected crew/fuel expenses per day, net income rate, and runway indicator. Appears in header bar, left sidebar, and Fleet Performance Dashboard
 - **Equipment Trading**: Buy and sell crew equipment at stations with trade services (50% sell value)
 - **In-Game Encyclopedia (Gamepedia)**: Searchable guide explaining all game mechanics — skills, zero-g exposure, flight physics, encounters, and more. Inspired by Civilization's Civilopedia with category filtering, cross-linked articles, and a "See Also" section for discovery
 - **Live UI Architecture**: All tabs use mount-once/update-on-tick pattern — tab components are created once and kept alive, receiving live updates every tick even when hidden. Switching tabs is instant with no stale data. Shared flight status component (flight info + station-arrival action controls) appears on both Ship and Work tabs during flight.
@@ -161,7 +162,7 @@ ESLint enforces code complexity guardrails to stop the bleeding — thresholds a
 | Rule                     | Threshold | Purpose                      |
 | ------------------------ | --------- | ---------------------------- |
 | `complexity`             | 110       | Cyclomatic complexity per fn |
-| `max-lines`              | 2150      | Lines per file               |
+| `max-lines`              | 2175      | Lines per file               |
 | `max-lines-per-function` | 1510      | Lines per function           |
 | `max-depth`              | 9         | Nesting depth                |
 | `max-params`             | 7         | Parameters per function      |
