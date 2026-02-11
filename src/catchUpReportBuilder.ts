@@ -9,33 +9,18 @@ import type {
   LogEntry,
   RouteSnapshot,
 } from './models';
+import { getTradeRouteName, getMiningRouteName } from './utils';
 
 /** Snapshot each ship's automated route assignment before catch-up ticks run. */
 export function snapshotRoutes(gameData: GameData): Map<string, RouteSnapshot> {
   const snapshots = new Map<string, RouteSnapshot>();
   for (const ship of gameData.ships) {
     if (ship.routeAssignment) {
-      const origin = gameData.world.locations.find(
-        (l) => l.id === ship.routeAssignment!.originId
-      );
-      const dest = gameData.world.locations.find(
-        (l) => l.id === ship.routeAssignment!.destinationId
-      );
-      snapshots.set(ship.id, {
-        type: 'trade',
-        routeName: `${origin?.name ?? ship.routeAssignment.originId} ↔ ${dest?.name ?? ship.routeAssignment.destinationId}`,
-      });
+      const routeName = getTradeRouteName(ship, gameData)!;
+      snapshots.set(ship.id, { type: 'trade', routeName });
     } else if (ship.miningRoute) {
-      const mine = gameData.world.locations.find(
-        (l) => l.id === ship.miningRoute!.mineLocationId
-      );
-      const sell = gameData.world.locations.find(
-        (l) => l.id === ship.miningRoute!.sellLocationId
-      );
-      snapshots.set(ship.id, {
-        type: 'mining',
-        routeName: `${mine?.name ?? ship.miningRoute.mineLocationId} → ${sell?.name ?? ship.miningRoute.sellLocationId}`,
-      });
+      const routeName = getMiningRouteName(ship, gameData)!;
+      snapshots.set(ship.id, { type: 'mining', routeName });
     }
   }
   return snapshots;
@@ -194,30 +179,12 @@ export function buildCatchUpReport(
     if (snapshot?.type === 'trade' || ship.routeAssignment) {
       // Trade route ship — use snapshot route name (survives route cancellation during catch-up)
       const routeName =
-        snapshot?.routeName ??
-        (() => {
-          const origin = gameData.world.locations.find(
-            (l) => l.id === ship.routeAssignment!.originId
-          );
-          const dest = gameData.world.locations.find(
-            (l) => l.id === ship.routeAssignment!.destinationId
-          );
-          return `${origin?.name ?? ship.routeAssignment!.originId} ↔ ${dest?.name ?? ship.routeAssignment!.destinationId}`;
-        })();
+        snapshot?.routeName ?? getTradeRouteName(ship, gameData)!;
       activity = { type: 'trade_route', routeName, tripsCompleted: trips };
     } else if (snapshot?.type === 'mining' || ship.miningRoute) {
       // Mining route ship — count mining trips from log entries
       const routeName =
-        snapshot?.routeName ??
-        (() => {
-          const mine = gameData.world.locations.find(
-            (l) => l.id === ship.miningRoute!.mineLocationId
-          );
-          const sell = gameData.world.locations.find(
-            (l) => l.id === ship.miningRoute!.sellLocationId
-          );
-          return `${mine?.name ?? ship.miningRoute!.mineLocationId} → ${sell?.name ?? ship.miningRoute!.sellLocationId}`;
-        })();
+        snapshot?.routeName ?? getMiningRouteName(ship, gameData)!;
       const miningTrips = miningTripsByShip.get(ship.name) ?? 0;
       activity = {
         type: 'mining_route',

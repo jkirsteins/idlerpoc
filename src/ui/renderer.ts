@@ -168,6 +168,21 @@ export function render(
     return;
   }
 
+  // Catch-up report is already displayed — it's static content, no update needed.
+  // Detected by hasCatchUpReport being set but progress refs absent (progress bar
+  // sets them; report does not). Without this, every tick falls through to the
+  // slow path and recreates the report modal from scratch.
+  if (
+    state.phase === 'playing' &&
+    state.catchUpReport &&
+    mounted !== null &&
+    mounted.hasCatchUpReport &&
+    !mounted.catchUpProgressText &&
+    container.contains(mounted.wrapper)
+  ) {
+    return;
+  }
+
   // Slow path: full rebuild (phase change, first mount, catch-up modal)
   container.innerHTML = '';
   mounted = null;

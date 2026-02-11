@@ -3,6 +3,7 @@ import { startShipFlight } from './flightPhysics';
 import { sellAllOre } from './miningSystem';
 import { getRemainingOreCapacity } from './miningSystem';
 import { addLog } from './logSystem';
+import { formatMiningRouteName } from './utils';
 import { getFuelPricePerKg } from './ui/refuelDialog';
 
 /**
@@ -100,7 +101,7 @@ export function cancelMiningRoute(gameData: GameData, ship: Ship): void {
     gameData.log,
     gameData.gameTime,
     'mining_route',
-    `Mining route ended: ${mineLoc?.name} ↔ ${sellLoc?.name}. ${route.totalTrips} trips, ${route.totalCreditsEarned.toLocaleString()} cr earned.`,
+    `Mining route ended: ${formatMiningRouteName(mineLoc?.name ?? '?', sellLoc?.name ?? '?')}. ${route.totalTrips} trips, ${route.totalCreditsEarned.toLocaleString()} cr earned.`,
     ship.name
   );
 

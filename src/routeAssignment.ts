@@ -7,7 +7,7 @@ import {
   estimateTripTime,
 } from './questGen';
 import { addLog } from './logSystem';
-import { generateId } from './utils';
+import { generateId, formatTradeRouteName } from './utils';
 import { getDistanceBetween } from './worldGen';
 import { getFuelPricePerKg } from './ui/refuelDialog';
 import { gameSecondsToTicks } from './timeSystem';
@@ -104,7 +104,7 @@ export function assignShipToRoute(
     gameData.log,
     gameData.gameTime,
     'contract_accepted',
-    `Assigned to automated route: ${originLoc?.name} ↔ ${destLoc?.name}`,
+    `Assigned to automated route: ${formatTradeRouteName(originLoc?.name ?? '?', destLoc?.name ?? '?')}`,
     ship.name
   );
 
@@ -133,7 +133,7 @@ export function unassignShipFromRoute(gameData: GameData, ship: Ship): void {
     gameData.log,
     gameData.gameTime,
     'contract_abandoned',
-    `Ended automated route: ${originLoc?.name} ↔ ${destLoc?.name}. Completed ${assignment.totalTripsCompleted} trips, earned ${assignment.creditsEarned.toLocaleString()} credits total.`,
+    `Ended automated route: ${formatTradeRouteName(originLoc?.name ?? '?', destLoc?.name ?? '?')}. Completed ${assignment.totalTripsCompleted} trips, earned ${assignment.creditsEarned.toLocaleString()} credits total.`,
     ship.name
   );
 
@@ -199,7 +199,7 @@ export function checkAutoRefuel(
         gameData.log,
         gameData.gameTime,
         'contract_abandoned',
-        `Route assignment ended at ${location.name}: insufficient credits for refuel (needed ${fuelCost}, have ${gameData.credits}). Route ${originLoc?.name} ↔ ${destLoc?.name} completed ${assignment.totalTripsCompleted} trips, earned ${assignment.creditsEarned.toLocaleString()} credits.`,
+        `Route assignment ended at ${location.name}: insufficient credits for refuel (needed ${fuelCost}, have ${gameData.credits}). Route ${formatTradeRouteName(originLoc?.name ?? '?', destLoc?.name ?? '?')} completed ${assignment.totalTripsCompleted} trips, earned ${assignment.creditsEarned.toLocaleString()} credits.`,
         ship.name
       );
 
@@ -265,7 +265,7 @@ export function autoRestartRouteTrip(
   const nextQuest: Quest = {
     id: generateId(),
     type: 'trade_route',
-    title: `Freight: ${originLoc.name} → ${destLoc.name}`,
+    title: `Freight: ${formatTradeRouteName(originLoc.name, destLoc.name)}`,
     description: `Automated freight route`,
     origin: assignment.originId,
     destination: assignment.destinationId,
@@ -286,7 +286,7 @@ export function autoRestartRouteTrip(
     gameData.log,
     gameData.gameTime,
     'departure',
-    `Continuing automated route: ${originLoc.name} → ${destLoc.name} (trip ${assignment.totalTripsCompleted + 1})`,
+    `Continuing automated route: ${formatTradeRouteName(originLoc.name, destLoc.name)} (trip ${assignment.totalTripsCompleted + 1})`,
     ship.name
   );
 
