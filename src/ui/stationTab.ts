@@ -577,7 +577,8 @@ export function createStationTab(
 
   const hiringEmpty = document.createElement('div');
   hiringEmpty.style.cssText = 'color: #888; font-size: 0.85rem;';
-  hiringEmpty.textContent = 'No candidates available for hire at this station.';
+  hiringEmpty.textContent =
+    'Registry terminals show no active contracts. New crew rotations arrive with the next cycle — check back tomorrow.';
   hiringSection.appendChild(hiringEmpty);
 
   const candidatesContainer = document.createElement('div');
