@@ -2697,21 +2697,31 @@ button:disabled:hover {
 }
 
 .fleet-row-location {
-  margin-right: auto;
+  flex: 1;
+  min-width: 0;
+  text-align: left;
 }
 
 .fleet-row-stat {
   white-space: nowrap;
+  text-align: right;
+}
+
+.fleet-row-flight {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
 }
 
 .fleet-row-minibar {
-  display: inline-block;
+  display: block;
   width: 60px;
   height: 6px;
   background: rgba(255, 255, 255, 0.1);
   border-radius: 3px;
-  vertical-align: middle;
-  margin-right: 4px;
+  margin-left: auto;
+  flex-shrink: 0;
   overflow: hidden;
 }
 
@@ -2723,6 +2733,8 @@ button:disabled:hover {
 
 .fleet-row-flight-pct {
   font-size: 0.8rem;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 /* Fleet management section */
