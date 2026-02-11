@@ -115,6 +115,12 @@ body {
   gap: 20px;
 }
 
+.main-content {
+  min-width: 0;
+  max-height: calc(100vh - 100px);
+  overflow-y: auto;
+}
+
 /* Sidebar styling */
 .left-sidebar,
 .right-sidebar {
@@ -3523,7 +3529,9 @@ button:disabled:hover {
   /* Prevent any child from exceeding viewport */
   .main-content {
     min-width: 0;
+    max-height: none;
     overflow-x: hidden;
+    overflow-y: visible;
   }
 
   /* Gamepedia: stack sidebar above content */

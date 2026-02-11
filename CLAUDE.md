@@ -23,6 +23,21 @@ UI components follow a **mount-once / update-on-tick** pattern (see `src/ui/comp
 - `renderer.ts` is the top-level orchestrator. During the `playing` phase it mounts once and patches in-place on subsequent ticks. Full DOM rebuilds only happen on phase transitions (no_game ↔ creating ↔ playing) or structural changes (catch-up report modal).
 - Leaf helpers (statBar, tooltip, threatBadge) and transient UI (toasts, catch-up modal, wizard) may remain as plain `render*()` functions returning `HTMLElement` since they are not persisted across ticks.
 
+# Responsive Layout & Overflow
+
+The game uses a **3-column grid** (left sidebar | main content | right sidebar). All three columns must be independently scrollable:
+
+- **Sidebars** and **`.main-content`** share `max-height: calc(100vh - 100px); overflow-y: auto;` so each column scrolls within its own container rather than pushing the whole page.
+- On **mobile** (≤ 900px) sidebars are hidden and the grid collapses to a single column — `max-height` is removed from `.main-content` so the page scrolls naturally.
+- On **tablet** (≤ 1200px) the right sidebar is hidden and the grid becomes 2-column.
+
+When creating new tab views or adding content to existing tabs:
+
+- **Never assume the parent will scroll for you.** Each view must work within the constrained main-content height. For tall content, add `overflow-y: auto` with a `max-height` on the inner panel.
+- **Add `min-width: 0`** to any flex/grid child that could overflow horizontally (prevents grid blowout).
+- **Test at all three breakpoints** (desktop >1200px, tablet ≤1200px, mobile ≤900px) to verify no content overflows its container.
+- **Never set a fixed pixel height** on scrollable containers — always use viewport-relative units (`calc(100vh - ...)`) so the layout adapts to screen size.
+
 # UI Discoverability
 
 **Always show UI indicators, never conditionally hide them.** Every game system that has a UI indicator (status bars, gauges, panels) must be rendered at all times, even when the system is inactive or the current ship/equipment doesn't engage with it. Hidden controls hide the existence of features from players. Showing an indicator in a "neutral" or "N/A" state encourages players to explore how to interact with systems they haven't encountered yet. Use disabled/dimmed/zero states instead of removing elements from the DOM.
