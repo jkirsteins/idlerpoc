@@ -56,7 +56,6 @@ import {
   getGravityDegradationLevel,
 } from './gravitySystem';
 import { getShipClass } from './shipClasses';
-import { generateAllLocationQuests } from './questGen';
 import {
   isHelmManned,
   unassignCrewFromAllSlots,
@@ -1179,19 +1178,7 @@ const callbacks: RendererCallbacks = {
     const ship = state.gameData.ships.find((s) => s.id === shipId);
     if (!ship) return;
 
-    const previousShipId = state.gameData.activeShipId;
     state.gameData.activeShipId = shipId;
-
-    // Regenerate quests when switching ships so cargo requirements,
-    // reachability, and payments match the newly active ship's capacity.
-    if (previousShipId !== shipId) {
-      state.gameData.availableQuests = generateAllLocationQuests(
-        state.gameData.ships,
-        state.gameData.world,
-        shipId
-      );
-    }
-
     saveGame(state.gameData);
     renderApp();
   },

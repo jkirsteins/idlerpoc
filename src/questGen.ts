@@ -23,6 +23,19 @@ import { formatMass } from './formatting';
 const FUEL_PRICE_PER_KG_FALLBACK = 2.0;
 
 /**
+ * Derive a stable 0–1 fraction from a string (e.g. quest ID).
+ * Used to produce deterministic "random" values that are stable across
+ * re-renders while still varying per quest.
+ */
+function stableHashFraction(str: string): number {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = ((hash << 5) - hash + str.charCodeAt(i)) | 0;
+  }
+  return ((hash & 0x7fffffff) % 10000) / 10000;
+}
+
+/**
  * Helper: Calculate fuel mass required for a one-way trip in kg
  *
  * Uses the same flight profile logic as initializeFlight():
@@ -126,7 +139,8 @@ function calculatePayment(
   distanceKm: number,
   cargoKg: number = 0,
   origin?: WorldLocation,
-  destination?: WorldLocation
+  destination?: WorldLocation,
+  costFloorFactor?: number
 ): number {
   // 1. Estimate operating costs for round trip
   const tripTimeSecs = estimateTripTime(ship, distanceKm);
@@ -151,7 +165,7 @@ function calculatePayment(
   const totalCost = crewCost + fuelCost;
 
   // 2. Cost floor: 130-200% of operating costs
-  const costFloor = totalCost * (1.3 + Math.random() * 0.7);
+  const costFloor = totalCost * (costFloorFactor ?? 1.3 + Math.random() * 0.7);
 
   // 3. Cargo premium
   let cargoPremium = 1;
@@ -306,66 +320,46 @@ function isDestinationReachable(
 }
 
 /**
- * Generate a delivery quest
+ * Generate a delivery quest template (ship-independent).
+ * Cargo fraction and payment are resolved per-ship via resolveQuestForShip().
  */
 function generateDeliveryQuest(
-  ship: Ship,
   origin: WorldLocation,
   destination: WorldLocation
 ): Quest {
-  const distanceKm = getDistanceBetween(origin, destination);
   const cargoType = CARGO_TYPES[Math.floor(Math.random() * CARGO_TYPES.length)];
-
-  // Cargo scales with ship capacity: 30-80% of available hold
-  const shipClass = getShipClass(ship.classId);
-  const maxCargo = shipClass
-    ? Math.floor(calculateAvailableCargoCapacity(shipClass.cargoCapacity) * 0.8)
-    : 1000;
-  const cargoKg = Math.round(
-    Math.max(1000, maxCargo * (0.3 + Math.random() * 0.5))
-  );
-
-  const payment = Math.round(
-    calculatePayment(ship, distanceKm, cargoKg, origin, destination) * 1.5
-  ); // Active premium: finite quest, 7d expiry
-  const estimatedTime = estimateTripTime(ship, distanceKm);
-  const fuelKgRequired = calculateTripFuelKg(ship, distanceKm);
+  const cargoFraction = 0.3 + Math.random() * 0.5; // 30-80% of available hold
 
   return {
     id: generateId(),
     type: 'delivery',
     title: `Deliver ${cargoType}`,
-    description: `Deliver ${formatMass(cargoKg)} of ${cargoType} to ${destination.name}`,
+    description: `Deliver ${cargoType} to ${destination.name}`,
     origin: origin.id,
     destination: destination.id,
-    cargoRequired: cargoKg,
+    cargoRequired: 0,
     totalCargoRequired: 0,
     tripsRequired: 1,
     paymentPerTrip: 0,
-    paymentOnCompletion: payment,
+    paymentOnCompletion: 0,
     expiresAfterDays: 7,
-    estimatedFuelPerTrip: fuelKgRequired * 2, // Round trip in kg
-    estimatedTripTicks: gameSecondsToTicks(estimatedTime * 2),
+    estimatedFuelPerTrip: 0,
+    estimatedTripTicks: 0,
+    cargoFraction,
+    cargoTypeName: cargoType,
   };
 }
 
 /**
- * Generate a passenger quest
+ * Generate a passenger quest template (ship-independent).
+ * Payment is resolved per-ship via resolveQuestForShip().
  */
 function generatePassengerQuest(
-  ship: Ship,
   origin: WorldLocation,
   destination: WorldLocation
 ): Quest {
-  const distanceKm = getDistanceBetween(origin, destination);
   const passengerName =
     PASSENGER_NAMES[Math.floor(Math.random() * PASSENGER_NAMES.length)];
-
-  const payment = Math.round(
-    calculatePayment(ship, distanceKm, 0, origin, destination) * 2.0
-  ); // Highest active premium: tightest deadline (3d), quarters required
-  const estimatedTime = estimateTripTime(ship, distanceKm);
-  const fuelKgRequired = calculateTripFuelKg(ship, distanceKm);
 
   return {
     id: generateId(),
@@ -378,57 +372,43 @@ function generatePassengerQuest(
     totalCargoRequired: 0,
     tripsRequired: 1,
     paymentPerTrip: 0,
-    paymentOnCompletion: payment,
+    paymentOnCompletion: 0,
     expiresAfterDays: 3,
-    estimatedFuelPerTrip: fuelKgRequired * 2, // Round trip in kg
-    estimatedTripTicks: gameSecondsToTicks(estimatedTime * 2),
+    estimatedFuelPerTrip: 0,
+    estimatedTripTicks: 0,
+    cargoFraction: 0,
   };
 }
 
 /**
- * Generate a freight quest
+ * Generate a freight quest template (ship-independent).
+ * Cargo fraction and payment are resolved per-ship via resolveQuestForShip().
  */
 function generateFreightQuest(
-  ship: Ship,
   origin: WorldLocation,
   destination: WorldLocation
 ): Quest {
-  const distanceKm = getDistanceBetween(origin, destination);
   const cargoType = CARGO_TYPES[Math.floor(Math.random() * CARGO_TYPES.length)];
-
-  // Cargo scales with ship capacity: 50-80% of available hold (freight loads heavy)
-  const shipClassFreight = getShipClass(ship.classId);
-  const maxCargoFreight = shipClassFreight
-    ? Math.floor(
-        calculateAvailableCargoCapacity(shipClassFreight.cargoCapacity) * 0.8
-      )
-    : 1000;
-  const cargoKg = Math.round(
-    Math.max(1000, maxCargoFreight * (0.5 + Math.random() * 0.3))
-  );
+  const cargoFraction = 0.5 + Math.random() * 0.3; // 50-80% of available hold
   const trips = Math.floor(2 + Math.random() * 6); // 2-7 trips
-
-  const paymentPerTrip = Math.round(
-    calculatePayment(ship, distanceKm, cargoKg, origin, destination) * 1.25
-  ); // Semi-active premium: multi-trip with 14d expiry
-  const estimatedTime = estimateTripTime(ship, distanceKm);
-  const fuelKgRequired = calculateTripFuelKg(ship, distanceKm);
 
   return {
     id: generateId(),
     type: 'freight',
     title: `Freight contract: ${trips} trips`,
-    description: `Haul ${formatMass(cargoKg)} of ${cargoType} from ${origin.name} to ${destination.name}, ${trips} trips total`,
+    description: `Haul ${cargoType} from ${origin.name} to ${destination.name}, ${trips} trips total`,
     origin: origin.id,
     destination: destination.id,
-    cargoRequired: cargoKg,
+    cargoRequired: 0,
     totalCargoRequired: 0,
     tripsRequired: trips,
-    paymentPerTrip,
+    paymentPerTrip: 0,
     paymentOnCompletion: 0,
     expiresAfterDays: 14,
-    estimatedFuelPerTrip: fuelKgRequired * 2, // Round trip in kg
-    estimatedTripTicks: gameSecondsToTicks(estimatedTime * 2),
+    estimatedFuelPerTrip: 0,
+    estimatedTripTicks: 0,
+    cargoFraction,
+    cargoTypeName: cargoType,
   };
 }
 
@@ -587,17 +567,16 @@ export function calculateTradeRouteCargo(
 }
 
 /**
- * Generate persistent trade route quests for a location.
+ * Generate persistent trade route quest templates for a location.
  *
  * Creates one standing trade route to each valid trading partner.
- * These are always available and represent the location's permanent
- * economic activity and trade connections.
+ * Destinations include any partner accessible by ANY ship in the fleet.
+ * Cargo/payment are resolved per-ship via resolveQuestForShip().
  *
  * Trade routes only exist between locations with 'trade' service.
- * Cargo amount scales with origin location's economic power (size).
  */
 export function generatePersistentTradeRoutes(
-  ship: Ship,
+  ships: Ship[],
   location: WorldLocation,
   world: World
 ): Quest[] {
@@ -608,46 +587,35 @@ export function generatePersistentTradeRoutes(
 
   const routes: Quest[] = [];
 
-  // Trade route to every other accessible location with trade service
+  // Trade route to every accessible location with trade service.
+  // Include destinations reachable by ANY ship in the fleet.
   const tradePartners = world.locations.filter(
     (l) =>
       l.id !== location.id &&
       l.services.includes('trade') &&
-      canShipAccessLocation(ship, l)
+      ships.some((s) => canShipAccessLocation(s, l))
   );
 
   for (const partner of tradePartners) {
-    const distanceKm = getDistanceBetween(location, partner);
     const tradeGood = getTradeGood(location, partner);
-
-    const cargoKg = calculateTradeRouteCargo(ship, location);
-
-    const paymentPerTrip = calculateTradeRoutePayment(
-      ship,
-      location,
-      partner,
-      world,
-      cargoKg
-    );
-
-    const estimatedTime = estimateTripTime(ship, distanceKm);
-    const fuelKgRequired = calculateTripFuelKg(ship, distanceKm);
 
     routes.push({
       id: `trade_${location.id}_${partner.id}`,
       type: 'trade_route',
       title: `Trade: ${location.name} → ${partner.name}`,
-      description: `Haul ${formatMass(cargoKg)} of ${tradeGood} to ${partner.name}. Permanent trade route.`,
+      description: `Haul ${tradeGood} to ${partner.name}. Permanent trade route.`,
       origin: location.id,
       destination: partner.id,
-      cargoRequired: cargoKg,
+      cargoRequired: 0,
       totalCargoRequired: 0,
       tripsRequired: -1, // Unlimited
-      paymentPerTrip,
+      paymentPerTrip: 0,
       paymentOnCompletion: 0,
       expiresAfterDays: 0, // Never expires
-      estimatedFuelPerTrip: fuelKgRequired * 2, // Round trip in kg
-      estimatedTripTicks: gameSecondsToTicks(estimatedTime * 2),
+      estimatedFuelPerTrip: 0,
+      estimatedTripTicks: 0,
+      cargoFraction: 0.8, // Trade routes fill 80% of available hold
+      cargoTypeName: tradeGood,
     });
   }
 
@@ -655,46 +623,44 @@ export function generatePersistentTradeRoutes(
 }
 
 /**
- * Generate quests for all locations in the world.
+ * Generate quest templates for all locations in the world.
  * All non-trade-route quests are regenerated fresh each day.
  *
- * Uses the active ship for cargo/reachability/payment calculations so
- * quests are always sized for the ship the player is currently flying.
+ * Quests are ship-independent templates — cargo, payment, fuel, and time
+ * are resolved per-ship at display/acceptance time via resolveQuestForShip().
+ * Destinations include any location reachable by ANY ship in the fleet.
  */
 export function generateAllLocationQuests(
   ships: Ship[],
-  world: World,
-  activeShipId?: string
+  world: World
 ): Record<string, Quest[]> {
-  const activeShip = ships.find((s) => s.id === activeShipId) ?? ships[0];
   const allQuests: Record<string, Quest[]> = {};
   for (const location of world.locations) {
-    const tradeRoutes = generatePersistentTradeRoutes(
-      activeShip,
-      location,
-      world
-    );
-    const randomQuests = generateQuestsForLocation(activeShip, location, world);
+    const tradeRoutes = generatePersistentTradeRoutes(ships, location, world);
+    const randomQuests = generateQuestsForLocation(ships, location, world);
     allQuests[location.id] = [...tradeRoutes, ...randomQuests];
   }
   return allQuests;
 }
 
 /**
- * Generate quests for a location
+ * Generate quest templates for a location (ship-independent).
+ * Destinations include any location reachable by ANY ship in the fleet.
  */
 export function generateQuestsForLocation(
-  ship: Ship,
+  ships: Ship[],
   location: WorldLocation,
   world: World
 ): Quest[] {
   const quests: Quest[] = [];
   const count = location.size;
 
-  // Get all reachable destinations from this location
+  // Include destinations reachable by ANY ship in the fleet.
+  // canAcceptQuest validates per-ship reachability at acceptance time.
   const reachableDestinations = world.locations.filter(
     (dest) =>
-      dest.id !== location.id && isDestinationReachable(ship, location, dest)
+      dest.id !== location.id &&
+      ships.some((s) => isDestinationReachable(s, location, dest))
   );
 
   if (reachableDestinations.length === 0) {
@@ -714,16 +680,16 @@ export function generateQuestsForLocation(
     let quest: Quest;
     switch (questType) {
       case 'delivery':
-        quest = generateDeliveryQuest(ship, location, destination);
+        quest = generateDeliveryQuest(location, destination);
         break;
       case 'passenger':
-        quest = generatePassengerQuest(ship, location, destination);
+        quest = generatePassengerQuest(location, destination);
         break;
       case 'freight':
-        quest = generateFreightQuest(ship, location, destination);
+        quest = generateFreightQuest(location, destination);
         break;
       default:
-        quest = generateDeliveryQuest(ship, location, destination);
+        quest = generateDeliveryQuest(location, destination);
     }
 
     quests.push(quest);
@@ -733,12 +699,136 @@ export function generateQuestsForLocation(
 }
 
 /**
+ * Resolve a quest template into concrete values for a specific ship.
+ *
+ * Quests are generated as ship-independent templates (cargoFraction instead
+ * of absolute kg, no payment/fuel/time). This function computes all
+ * ship-dependent values so the quest can be displayed or accepted.
+ *
+ * For legacy quests without cargoFraction (e.g. frozen ActiveContract
+ * snapshots from old saves), returns the quest unchanged.
+ */
+export function resolveQuestForShip(
+  quest: Quest,
+  ship: Ship,
+  world: World
+): Quest {
+  // Legacy fallback: quests without cargoFraction have pre-baked values
+  if (quest.cargoFraction == null) return quest;
+
+  const shipClass = getShipClass(ship.classId);
+  const availableCargo = shipClass
+    ? calculateAvailableCargoCapacity(shipClass.cargoCapacity)
+    : 1000;
+  const maxCargo = Math.floor(availableCargo * 0.8);
+  const cargoRequired =
+    quest.cargoFraction > 0
+      ? Math.round(Math.max(1000, maxCargo * quest.cargoFraction))
+      : 0;
+
+  const originLoc = world.locations.find((l) => l.id === quest.origin);
+  const destLoc = world.locations.find((l) => l.id === quest.destination);
+  if (!originLoc || !destLoc) return quest;
+
+  const distanceKm = getDistanceBetween(originLoc, destLoc);
+
+  // Stable cost floor factor derived from quest ID (deterministic per quest)
+  const costFloorFactor = 1.3 + stableHashFraction(quest.id) * 0.7;
+
+  // Compute payment based on quest type
+  let paymentOnCompletion = 0;
+  let paymentPerTrip = 0;
+  switch (quest.type) {
+    case 'delivery':
+      paymentOnCompletion = Math.round(
+        calculatePayment(
+          ship,
+          distanceKm,
+          cargoRequired,
+          originLoc,
+          destLoc,
+          costFloorFactor
+        ) * 1.5
+      );
+      break;
+    case 'passenger':
+      paymentOnCompletion = Math.round(
+        calculatePayment(
+          ship,
+          distanceKm,
+          0,
+          originLoc,
+          destLoc,
+          costFloorFactor
+        ) * 2.0
+      );
+      break;
+    case 'freight':
+      paymentPerTrip = Math.round(
+        calculatePayment(
+          ship,
+          distanceKm,
+          cargoRequired,
+          originLoc,
+          destLoc,
+          costFloorFactor
+        ) * 1.25
+      );
+      break;
+    case 'trade_route':
+      paymentPerTrip = calculateTradeRoutePayment(
+        ship,
+        originLoc,
+        destLoc,
+        world,
+        cargoRequired
+      );
+      break;
+  }
+
+  // Compute fuel and time using ship's flight profile
+  const burnFraction = ship.flightProfileBurnFraction;
+  const fuelKg = calculateTripFuelKg(ship, distanceKm, burnFraction);
+  const tripTime = estimateTripTime(ship, distanceKm, burnFraction);
+
+  // Generate description with resolved cargo amount
+  let description = quest.description;
+  if (quest.cargoTypeName && cargoRequired > 0) {
+    switch (quest.type) {
+      case 'delivery':
+        description = `Deliver ${formatMass(cargoRequired)} of ${quest.cargoTypeName} to ${destLoc.name}`;
+        break;
+      case 'freight':
+        description = `Haul ${formatMass(cargoRequired)} of ${quest.cargoTypeName} from ${originLoc.name} to ${destLoc.name}, ${quest.tripsRequired} trips total`;
+        break;
+      case 'trade_route':
+        description = `Haul ${formatMass(cargoRequired)} of ${quest.cargoTypeName} to ${destLoc.name}. Permanent trade route.`;
+        break;
+      case 'passenger':
+        // Passengers have cargoFraction 0 so cargoRequired is 0;
+        // this case is unreachable but required for exhaustiveness.
+        break;
+    }
+  }
+
+  return {
+    ...quest,
+    cargoRequired,
+    paymentOnCompletion,
+    paymentPerTrip,
+    description,
+    estimatedFuelPerTrip: fuelKg * 2,
+    estimatedTripTicks: gameSecondsToTicks(tripTime * 2),
+  };
+}
+
+/**
  * Check if quest can be accepted with current ship.
  *
- * When a World reference is provided, fuel requirements are computed fresh
- * from the ship's current state rather than relying on the quest's
- * estimatedFuelPerTrip (which is a stale display-only snapshot from
- * quest generation time).
+ * Resolves the quest template for the current ship when world is provided,
+ * so cargo and fuel checks use per-ship values. Also checks destination
+ * accessibility (piloting skill) since quest generation includes destinations
+ * reachable by ANY fleet ship.
  */
 export function canAcceptQuest(
   ship: Ship,
@@ -759,41 +849,43 @@ export function canAcceptQuest(
     return { canAccept: false, reason: 'Unknown ship class' };
   }
 
+  // Check destination accessibility (piloting skill requirement).
+  // Quest generation includes destinations reachable by ANY fleet ship,
+  // so this ship might not be able to access all quest destinations.
+  if (world) {
+    const destLoc = world.locations.find((l) => l.id === quest.destination);
+    if (destLoc && !canShipAccessLocation(ship, destLoc)) {
+      return {
+        canAccept: false,
+        reason: `Crew lacks piloting skill to access ${destLoc.name}`,
+      };
+    }
+  }
+
+  // Resolve quest for this ship to get per-ship cargo/fuel values
+  const resolved = world ? resolveQuestForShip(quest, ship, world) : quest;
+
   // Check cargo capacity (available space after fuel allocation)
   const availableCargo = calculateAvailableCargoCapacity(
     shipClass.cargoCapacity
   );
-  if (quest.cargoRequired > availableCargo) {
+  if (resolved.cargoRequired > availableCargo) {
     return {
       canAccept: false,
-      reason: `Insufficient cargo capacity (need ${formatMass(quest.cargoRequired)}, have ${formatMass(Math.floor(availableCargo))})`,
+      reason: `Insufficient cargo capacity (need ${formatMass(resolved.cargoRequired)}, have ${formatMass(Math.floor(availableCargo))})`,
     };
   }
 
-  // Check fuel for at least one round trip.
-  // Compute fresh from ship physics when world is available; fall back to
-  // the quest's stale estimate otherwise.
-  let fuelRequired = quest.estimatedFuelPerTrip;
-  if (world) {
-    const originLoc = world.locations.find((l) => l.id === quest.origin);
-    const destLoc = world.locations.find((l) => l.id === quest.destination);
-    if (originLoc && destLoc) {
-      const distanceKm = getDistanceBetween(originLoc, destLoc);
-      fuelRequired =
-        calculateTripFuelKg(ship, distanceKm, ship.flightProfileBurnFraction) *
-        2; // Round trip
-    }
-  }
-  if (fuelRequired > ship.fuelKg) {
+  // Check fuel for at least one round trip (resolved values are per-ship)
+  if (resolved.estimatedFuelPerTrip > ship.fuelKg) {
     return {
       canAccept: false,
-      reason: `Insufficient fuel for trip (need ${formatFuelMass(fuelRequired)}, have ${formatFuelMass(ship.fuelKg)})`,
+      reason: `Insufficient fuel for trip (need ${formatFuelMass(resolved.estimatedFuelPerTrip)}, have ${formatFuelMass(ship.fuelKg)})`,
     };
   }
 
   // For passenger quests, check crew capacity
   if (quest.type === 'passenger') {
-    // Check if there's a quarters room with available space
     const quartersRoom = ship.rooms.find((r) => r.type === 'quarters');
     if (!quartersRoom) {
       return {
