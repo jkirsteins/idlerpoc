@@ -1865,8 +1865,8 @@ function renderEquipmentSection(gameData: GameData): HTMLElement {
         mode: 'full',
       });
       degradationBar.style.fontSize = '0.85em';
-      degradationBar.style.marginTop = '0.5em';
-      item.appendChild(degradationBar);
+      degradationBar.style.marginTop = '0.25em';
+      info.appendChild(degradationBar);
     }
 
     equipmentList.appendChild(item);
