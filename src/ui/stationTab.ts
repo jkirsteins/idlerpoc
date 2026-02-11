@@ -439,6 +439,7 @@ export function createStationTab(
       buyDiv.appendChild(priceLabel);
 
       const buyButton = document.createElement('button');
+      buyButton.className = 'small-button';
       buyButton.textContent = 'Buy';
       buyButton.addEventListener('click', () =>
         callbacks.onBuyEquipment(equipDef.id)
@@ -534,6 +535,7 @@ export function createStationTab(
     buyDiv.appendChild(netLabel);
 
     const buyButton = document.createElement('button');
+    buyButton.className = 'small-button';
     buyButton.addEventListener('click', () =>
       callbacks.onBuyShipEquipment(equipDef.id)
     );
@@ -862,6 +864,7 @@ export function createStationTab(
         sellDiv.appendChild(priceLabel);
 
         const sellButton = document.createElement('button');
+        sellButton.className = 'small-button';
         sellButton.textContent = 'Sell';
         const capturedItemId = item.id;
         sellButton.addEventListener('click', () =>
@@ -922,9 +925,8 @@ export function createStationTab(
       const isCurrentlyInstalled = currentMiningEquip?.id === equipDef.id;
       const isUpgrade =
         !isCurrentlyInstalled &&
-        (currentMiningEquip
-          ? (equipDef.miningRate ?? 0) > (currentMiningEquip.miningRate ?? 0)
-          : true);
+        currentMiningEquip !== undefined &&
+        (equipDef.miningRate ?? 0) > (currentMiningEquip.miningRate ?? 0);
       const isDowngrade =
         !isCurrentlyInstalled &&
         currentMiningEquip !== undefined &&
