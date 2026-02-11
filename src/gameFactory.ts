@@ -97,10 +97,24 @@ function createEngineInstance(shipClassId: ShipClassId): EngineInstance {
 }
 
 /**
- * Generate hireable crew candidates (2-3 random crew)
+ * Generate hireable crew candidates for a location.
+ *
+ * Mirrors the quest system: location.size drives the candidate count.
+ * A separate daily "empty market" roll adds a chance that nobody is
+ * looking for work — the probability scales inversely with station
+ * size so major hubs (Earth, size 5) are rarely empty (~10%) while
+ * remote outposts (size 1) often have nobody (~50%).
  */
-export function generateHireableCrew(): CrewMember[] {
-  const count = 2 + Math.floor(Math.random() * 2); // 2-3 candidates
+export function generateHireableCrew(locationSize: number): CrewMember[] {
+  // Daily availability roll — chance the hiring market is dry.
+  // size 5: 10%, size 3: ~17%, size 2: 25%, size 1: 50%
+  const emptyChance = 1 / (locationSize * 2);
+  if (Math.random() < emptyChance) {
+    return [];
+  }
+
+  // When crew are available, 1 to locationSize candidates
+  const count = 1 + Math.floor(Math.random() * locationSize);
   const candidates: CrewMember[] = [];
 
   const availableRoles: CrewRole[] = ['pilot', 'miner', 'trader'];
@@ -116,8 +130,10 @@ export function generateHireableCrew(): CrewMember[] {
 }
 
 /**
- * Generate hireable crew pools for all stations with 'hire' service
- * Only generates for stations that have at least one docked ship
+ * Generate hireable crew pools for all stations with 'hire' service.
+ * Only generates for stations that have at least one docked ship.
+ * Candidate count scales with location size — large hubs attract more
+ * crew while remote outposts may have nobody looking for work.
  */
 export function generateHireableCrewByLocation(
   world: GameData['world'],
@@ -129,7 +145,7 @@ export function generateHireableCrewByLocation(
       location.services.includes('hire') &&
       dockedLocationIds.includes(location.id)
     ) {
-      pools[location.id] = generateHireableCrew();
+      pools[location.id] = generateHireableCrew(location.size);
     }
   }
   return pools;

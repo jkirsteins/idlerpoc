@@ -44,7 +44,7 @@ npm run dev
   - Auto-assign crew to best-fit slots based on skill affinity
   - Crew salaries paid per tick
   - Unpaid crew depart at next station
-  - Hire new crew at stations with hiring services
+  - Hire new crew at stations with hiring services — daily candidate roster scales with station size; smaller outposts may have no candidates on a given day
   - **Crew profiles** with ranked titles (e.g. "Competent Pilot"), service records showing ship tenure, company tenure, current assignment, and recruitment origin
 - **Mining System**:
   - Orbit locations with `mine` service to extract ore (crew in mining_ops slots operate ship-mounted mining equipment from the mining bay)
