@@ -6,7 +6,8 @@ import {
 } from './flightPhysics';
 import { calculateShipSalaryPerTick } from './crewRoles';
 import { getDistanceBetween } from './worldGen';
-import { TICKS_PER_DAY } from './timeSystem';
+import { TICKS_PER_DAY, GAME_SECONDS_PER_DAY } from './timeSystem';
+import { formatExposureDays } from './gravitySystem';
 
 // Average fuel price for profit estimates (matches questGen.ts FUEL_PRICE_PER_KG).
 // Actual station prices vary by location (1.6–5.0 cr/kg via getFuelPricePerKg).
@@ -123,20 +124,23 @@ export function getShipHealthAlerts(ship: Ship): ShipHealthAlert[] {
     });
   }
 
-  // Warning: Zero-G exposure
-  const crewWithExposure = ship.crew.filter((c) => c.zeroGExposure >= 14);
+  // Warning: Zero-G exposure (zeroGExposure is stored in game-seconds)
+  const crewWithExposure = ship.crew.filter(
+    (c) => c.zeroGExposure >= 14 * GAME_SECONDS_PER_DAY
+  );
   if (crewWithExposure.length > 0) {
     const maxExposure = Math.max(
       ...crewWithExposure.map((c) => c.zeroGExposure)
     );
-    const days = Math.floor(maxExposure);
+    const days = formatExposureDays(maxExposure);
     let level = 'Minor';
-    if (maxExposure >= 365) level = 'Critical';
-    else if (maxExposure >= 180) level = 'Severe';
-    else if (maxExposure >= 60) level = 'Moderate';
+    if (maxExposure >= 365 * GAME_SECONDS_PER_DAY) level = 'Critical';
+    else if (maxExposure >= 180 * GAME_SECONDS_PER_DAY) level = 'Severe';
+    else if (maxExposure >= 60 * GAME_SECONDS_PER_DAY) level = 'Moderate';
 
     alerts.push({
-      severity: maxExposure >= 180 ? 'critical' : 'warning',
+      severity:
+        maxExposure >= 180 * GAME_SECONDS_PER_DAY ? 'critical' : 'warning',
       message: `Crew zero-G exposure: ${days} days (${level} atrophy)`,
       action: 'Dock at planetary station or add gravity equipment',
     });
