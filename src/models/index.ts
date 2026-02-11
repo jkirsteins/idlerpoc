@@ -509,6 +509,7 @@ export interface CatchUpShipSummary {
   activity: CatchUpShipActivity;
   encounters?: CatchUpEncounterStats;
   contractInfo?: CatchUpContractInfo;
+  crewHighlights?: LogEntry[];
 }
 
 export interface CatchUpReport {
