@@ -2,6 +2,7 @@ import type { GameData } from '../models';
 import { getActiveShip } from '../models';
 import type { PlayingTab, TabbedViewCallbacks } from './types';
 import type { Component } from './component';
+import { guardRebuild } from './component';
 
 export type { TabbedViewCallbacks } from './types';
 import { getShipClass } from '../shipClasses';
@@ -208,7 +209,7 @@ export function createTabbedView(
   }
 
   function rebuild(gameData: GameData) {
-    // Rebuild header and tab bar (always visible, cheap to recreate)
+    // Rebuild header (cheap to recreate, no interactive elements)
     headerArea.replaceChildren(renderShipHeader(gameData, callbacks));
     updateTabBar(gameData);
 
@@ -245,18 +246,20 @@ export function createTabbedView(
     }
   }
 
-  rebuild(gameData);
+  const { guardedRebuild } = guardRebuild(container, rebuild);
+
+  guardedRebuild(gameData);
 
   return {
     el: container,
     update(gameData: GameData) {
-      rebuild(gameData);
+      guardedRebuild(gameData);
     },
     updateView(state: TabbedViewState) {
       currentTab = state.activeTab;
       currentShowNav = state.showNavigation;
       currentSelectedCrewId = state.selectedCrewId;
-      rebuild(state.gameData);
+      guardedRebuild(state.gameData);
     },
   };
 }

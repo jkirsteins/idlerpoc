@@ -8,10 +8,11 @@
  *   - Station Store   (trade) — crew gear, sell, ship equipment
  */
 
-import type { GameData, WorldLocation, Ship, OreId } from '../models';
+import type { GameData, WorldLocation, Ship } from '../models';
 import { getActiveShip } from '../models';
 import type { TabbedViewCallbacks } from './types';
 import type { Component } from './component';
+import { guardRebuild } from './component';
 import {
   getCrewEquipmentDefinition,
   getAllCrewEquipmentDefinitions,
@@ -159,10 +160,12 @@ export function createStationTab(
     }
   }
 
-  rebuild(gameData);
+  const { guardedRebuild } = guardRebuild(container, rebuild);
+
+  guardedRebuild(gameData);
   return {
     el: container,
-    update: rebuild,
+    update: guardedRebuild,
   };
 }
 
@@ -373,7 +376,7 @@ function renderOreSelling(
       'padding: 2px 8px; font-size: 0.8rem; cursor: pointer; background: #2e7d32; color: white; border: none; border-radius: 3px;';
     sellBtn.textContent = 'Sell';
     sellBtn.addEventListener('click', () =>
-      callbacks.onSellOre(item.oreId as OreId, item.quantity)
+      callbacks.onSellOre(item.oreId, item.quantity)
     );
     rightSide.appendChild(sellBtn);
 
@@ -442,7 +445,8 @@ function renderHiringSection(
     const skillsDiv = document.createElement('div');
     skillsDiv.style.cssText = 'font-size: 0.8rem; color: #888;';
     const skillParts: string[] = [];
-    for (const [skillId, value] of Object.entries(candidate.skills)) {
+    for (const skillId of ['piloting', 'mining', 'commerce'] as const) {
+      const value = candidate.skills[skillId];
       if (value > 0) {
         skillParts.push(`${skillId} ${Math.floor(value)}`);
       }

@@ -1,6 +1,7 @@
 import type { GameData } from '../models';
 import { SHIP_CLASSES } from '../shipClasses';
 import type { Component } from './component';
+import { guardRebuild } from './component';
 
 export interface SettingsTabCallbacks {
   onReset: () => void;
@@ -237,8 +238,10 @@ export function createSettingsTab(
     container.appendChild(resetSection);
   }
 
-  rebuild(gameData);
-  return { el: container, update: rebuild };
+  const { guardedRebuild } = guardRebuild(container, rebuild);
+
+  guardedRebuild(gameData);
+  return { el: container, update: guardedRebuild };
 }
 
 /**

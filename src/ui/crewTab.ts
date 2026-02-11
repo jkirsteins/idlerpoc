@@ -47,6 +47,7 @@ import {
 import type { MasteryBonus } from '../masterySystem';
 import { getAllOreDefinitions } from '../oreTypes';
 import type { Component } from './component';
+import { guardRebuild } from './component';
 
 /** Snapshot the props the crew tab renders so we can shallow-compare. */
 function snapshotCrewProps(
@@ -164,10 +165,12 @@ export function createCrewTab(
     container.appendChild(layout);
   }
 
-  rebuild(gameData);
+  const { guardedRebuild } = guardRebuild(container, rebuild);
+
+  guardedRebuild(gameData);
   return {
     el: container,
-    update: rebuild,
+    update: guardedRebuild,
     setSelectedCrewId(id: string | undefined) {
       currentSelectedCrewId = id;
     },

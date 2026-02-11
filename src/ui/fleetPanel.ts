@@ -4,6 +4,7 @@ import { getEngineDefinition } from '../engines';
 import { computeMaxRange } from '../flightPhysics';
 import { formatDualTime } from '../timeSystem';
 import type { Component } from './component';
+import { guardRebuild } from './component';
 import { formatFuelMass, calculateFuelPercentage } from './fuelFormatting';
 
 export interface FleetPanelCallbacks {
@@ -210,8 +211,10 @@ export function createFleetPanel(
     }
   }
 
-  rebuild(gameData);
-  return { el: panel, update: rebuild };
+  const { guardedRebuild } = guardRebuild(panel, rebuild);
+
+  guardedRebuild(gameData);
+  return { el: panel, update: guardedRebuild };
 }
 
 function getTierColor(tier: ShipClassTier): string {

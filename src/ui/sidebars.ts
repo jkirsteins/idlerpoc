@@ -15,6 +15,7 @@ import { getRoomDefinition } from '../rooms';
 import { renderStatBar } from './components/statBar';
 import { attachTooltip, formatPowerTooltip } from './components/tooltip';
 import type { Component } from './component';
+import { guardRebuild } from './component';
 import {
   formatFuelMass,
   calculateFuelPercentage,
@@ -324,8 +325,10 @@ export function createLeftSidebar(
     }
   }
 
-  rebuild(gameData);
-  return { el: sidebar, update: rebuild };
+  const { guardedRebuild } = guardRebuild(sidebar, rebuild);
+
+  guardedRebuild(gameData);
+  return { el: sidebar, update: guardedRebuild };
 }
 
 export function createRightSidebar(gameData: GameData): Component {
@@ -505,8 +508,13 @@ export function createRightSidebar(gameData: GameData): Component {
     }
   }
 
-  rebuild(gameData);
-  return { el: sidebar, update: rebuild };
+  const { guardedRebuild: guardedRebuildRight } = guardRebuild(
+    sidebar,
+    rebuild
+  );
+
+  guardedRebuildRight(gameData);
+  return { el: sidebar, update: guardedRebuildRight };
 }
 
 // Helper functions

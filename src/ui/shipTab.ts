@@ -31,6 +31,7 @@ const TICKS_PER_HOUR = TICKS_PER_DAY / 24;
 import { renderStatBar } from './components/statBar';
 import { attachTooltip, formatPowerTooltip } from './components/tooltip';
 import type { Component } from './component';
+import { guardRebuild } from './component';
 import {
   formatFuelMass,
   calculateFuelPercentage,
@@ -195,10 +196,12 @@ export function createShipTab(
     contentArea.appendChild(renderUnassignedCrew(gameData, callbacks));
   }
 
-  rebuild(gameData);
+  const { guardedRebuild } = guardRebuild(container, rebuild);
+
+  guardedRebuild(gameData);
   return {
     el: container,
-    update: rebuild,
+    update: guardedRebuild,
     setShowNavigation(v: boolean) {
       currentShowNav = v;
     },

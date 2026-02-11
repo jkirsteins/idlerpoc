@@ -18,6 +18,7 @@ import {
 } from '../encounterSystem';
 import { renderThreatBadge } from './threatBadge';
 import type { Component } from './component';
+import { guardRebuild } from './component';
 import { formatFuelMass, calculateFuelPercentage } from './fuelFormatting';
 import { getDistanceBetween, canShipAccessLocation } from '../worldGen';
 import { getFuelPricePerKg } from './refuelDialog';
@@ -274,8 +275,10 @@ export function createWorkTab(
     }
   }
 
-  rebuild(gameData);
-  return { el: container, update: rebuild };
+  const { guardedRebuild } = guardRebuild(container, rebuild);
+
+  guardedRebuild(gameData);
+  return { el: container, update: guardedRebuild };
 }
 
 function renderAvailableWork(

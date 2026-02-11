@@ -19,6 +19,7 @@ import { initializeFlight } from '../flightPhysics';
 import { calculateTripFuelKg } from '../questGen';
 import { formatDualTime } from '../timeSystem';
 import type { Component } from './component';
+import { guardRebuild } from './component';
 import { formatFuelMass } from './fuelFormatting';
 import {
   createFlightProfileControl,
@@ -424,6 +425,8 @@ export function createNavigationView(
     container.appendChild(legend);
   }
 
-  rebuild(gameData);
-  return { el: container, update: rebuild };
+  const { guardedRebuild } = guardRebuild(container, rebuild);
+
+  guardedRebuild(gameData);
+  return { el: container, update: guardedRebuild };
 }
