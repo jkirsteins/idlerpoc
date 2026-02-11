@@ -124,6 +124,7 @@ describe('attemptEvasion', () => {
         piloting: 10,
         mining: 2,
         commerce: 0,
+        repairs: 0,
       },
     });
     const bridge = createTestRoom({
@@ -154,6 +155,7 @@ describe('attemptEvasion', () => {
         piloting: 100,
         mining: 10,
         commerce: 0,
+        repairs: 0,
       },
     });
     const bridge = createTestRoom({
@@ -184,6 +186,7 @@ describe('attemptNegotiation', () => {
         piloting: 0,
         mining: 3,
         commerce: 0,
+        repairs: 0,
       },
     });
     const ship = createTestShip({ crew: [crew] });
@@ -199,6 +202,7 @@ describe('attemptNegotiation', () => {
         piloting: 100,
         mining: 15,
         commerce: 0,
+        repairs: 0,
       },
     });
     const ship = createTestShip({ crew: [crew] });
@@ -215,6 +219,7 @@ describe('attemptNegotiation', () => {
         piloting: 80,
         mining: 10,
         commerce: 0,
+        repairs: 0,
       },
     });
     const pilot = createTestCrew({
@@ -223,6 +228,7 @@ describe('attemptNegotiation', () => {
         piloting: 50,
         mining: 10,
         commerce: 0,
+        repairs: 0,
       },
     });
     const ship = createTestShip({ crew: [pilot, miner] });
@@ -281,6 +287,7 @@ describe('calculateDefenseScore', () => {
         piloting: 50,
         mining: 10,
         commerce: 0,
+        repairs: 0,
       },
     });
     const pdStation = createTestRoom({
@@ -305,6 +312,7 @@ describe('calculateDefenseScore', () => {
         piloting: 50,
         mining: 10,
         commerce: 0,
+        repairs: 0,
       },
       equipment: [{ id: 'rifle-1', definitionId: 'rifle' }],
     });
@@ -331,6 +339,7 @@ describe('calculateDefenseScore', () => {
         piloting: 50,
         mining: 10,
         commerce: 0,
+        repairs: 0,
       },
       equipment: [{ id: 'rifle-1', definitionId: 'rifle' }],
     });
@@ -795,6 +804,7 @@ describe('resolveEncounter', () => {
         piloting: 10,
         mining: 2,
         commerce: 0,
+        repairs: 0,
       },
     });
     const bridge = createTestRoom({
@@ -831,6 +841,7 @@ describe('resolveEncounter', () => {
           piloting: 1,
           mining: 1,
           commerce: 0,
+          repairs: 0,
         },
       }),
     ];
@@ -928,6 +939,7 @@ describe('combat variance', () => {
         piloting: 3,
         mining: 2,
         commerce: 0,
+        repairs: 0,
       },
     });
     const ship = createTestShip({

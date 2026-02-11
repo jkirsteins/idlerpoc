@@ -129,7 +129,7 @@ Remaining follow-up:
 
 ## Other Known Gaps
 
-- **Equipment Repair at Stations**: Degraded equipment cannot currently be repaired (in-flight repair now via job slots).
+- ~~**Equipment Repair at Stations**~~: Resolved — repair job slots now work in all ship states (docked, in flight, orbiting).
 - **Morale System**: Morale is initialized on crew members but never modified or used. No decay, recovery, or gameplay effects. Galley and rest slots reference morale in design but provide no morale effect in code.
 - **Loyalty Skill Thresholds**: Three loyalty thresholds (morale decay reduction at 25, salary discount at 50, departure delay at 75) are documented in `skillRanks.ts` comments but none are implemented. Loyalty is not a current skill.
 - **Additional Skills**: Astrogation, Engineering, Strength, Charisma, and Loyalty skills are designed in WORLDRULES.md but not implemented. Only Piloting, Mining, and Commerce exist.

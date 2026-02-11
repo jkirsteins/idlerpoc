@@ -39,6 +39,7 @@ export function createTestCrew(
       piloting: 30,
       mining: 15,
       commerce: 0,
+      repairs: 0,
     },
     xp: 0,
     level: 1,
@@ -116,6 +117,7 @@ export function createTestShip(overrides: Partial<Ship> = {}): Ship {
       piloting: 30,
       mining: 10,
       commerce: 0,
+      repairs: 0,
     },
   });
 

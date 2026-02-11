@@ -87,10 +87,18 @@ const COMMERCE_CHECKPOINT_LABELS: Record<number, string> = {
   0.95: '+10% payment on all contracts',
 };
 
+const REPAIRS_CHECKPOINT_LABELS: Record<number, string> = {
+  0.1: '+5% Repairs mastery XP',
+  0.25: '+5% repair speed on all equipment',
+  0.5: '-10% air filter degradation rate',
+  0.95: '+10% chance for bonus repair points',
+};
+
 const CHECKPOINT_LABELS: Record<SkillId, Record<number, string>> = {
   piloting: PILOTING_CHECKPOINT_LABELS,
   mining: MINING_CHECKPOINT_LABELS,
   commerce: COMMERCE_CHECKPOINT_LABELS,
+  repairs: REPAIRS_CHECKPOINT_LABELS,
 };
 
 // ─── Item Mastery Bonus Tables ───────────────────────────────────
@@ -133,6 +141,17 @@ export const TRADE_MASTERY_BONUSES: MasteryBonus[] = [
   { level: 99, label: '+20% payment, -15% fuel, best prices' },
 ];
 
+/** Equipment repair mastery bonuses (repairs) */
+export const EQUIPMENT_REPAIR_MASTERY_BONUSES: MasteryBonus[] = [
+  { level: 10, label: '+5% repair speed' },
+  { level: 25, label: '+10% repair speed' },
+  { level: 40, label: '+15% repair speed' },
+  { level: 50, label: '+20% repair speed' },
+  { level: 65, label: '+25% repair speed' },
+  { level: 80, label: '+30% repair speed' },
+  { level: 99, label: '+40% repair speed' },
+];
+
 // ─── Computed Bonus Helpers ──────────────────────────────────────
 
 /** Get the ore yield bonus from mastery level (multiplicative, e.g. 0.10 = +10%). */
@@ -172,6 +191,18 @@ export function getRouteMasteryTimeBonus(masteryLevel: number): number {
   if (masteryLevel >= 65) return 0.15;
   if (masteryLevel >= 40) return 0.1;
   if (masteryLevel >= 25) return 0.05;
+  return 0;
+}
+
+/** Get the repair speed bonus from equipment repair mastery (e.g. 0.20 = +20%). */
+export function getEquipmentRepairMasteryBonus(masteryLevel: number): number {
+  if (masteryLevel >= 99) return 0.4;
+  if (masteryLevel >= 80) return 0.3;
+  if (masteryLevel >= 65) return 0.25;
+  if (masteryLevel >= 50) return 0.2;
+  if (masteryLevel >= 40) return 0.15;
+  if (masteryLevel >= 25) return 0.1;
+  if (masteryLevel >= 10) return 0.05;
   return 0;
 }
 
@@ -271,6 +302,21 @@ export function getCommercePoolSellBonus(pool: MasteryPool): number {
 
 /** Commerce pool: +10% contract payment at 95%. */
 export function getCommercePoolPaymentBonus(pool: MasteryPool): number {
+  return isCheckpointActive(pool, 0.95) ? 0.1 : 0;
+}
+
+/** Repairs pool: +5% repair speed at 25%. */
+export function getRepairsPoolSpeedBonus(pool: MasteryPool): number {
+  return isCheckpointActive(pool, 0.25) ? 0.05 : 0;
+}
+
+/** Repairs pool: -10% air filter degradation at 50%. */
+export function getRepairsPoolFilterReduction(pool: MasteryPool): number {
+  return isCheckpointActive(pool, 0.5) ? 0.1 : 0;
+}
+
+/** Repairs pool: +10% chance for bonus repair points at 95%. */
+export function getRepairsPoolBonusChance(pool: MasteryPool): number {
   return isCheckpointActive(pool, 0.95) ? 0.1 : 0;
 }
 
@@ -396,6 +442,7 @@ export function createInitialMastery(): Record<SkillId, SkillMasteryState> {
     piloting: createEmptyMasteryState(),
     mining: createEmptyMasteryState(),
     commerce: createEmptyMasteryState(),
+    repairs: createEmptyMasteryState(),
   };
 }
 

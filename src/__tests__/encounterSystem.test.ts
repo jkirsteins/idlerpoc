@@ -177,6 +177,7 @@ describe('calculateCrewSkillFactor', () => {
         piloting: 60,
         mining: 10,
         commerce: 0,
+        repairs: 0,
       },
     });
     const ship = createTestShip();
@@ -197,6 +198,7 @@ describe('calculateCrewSkillFactor', () => {
         piloting: 50,
         mining: 10,
         commerce: 0,
+        repairs: 0,
       },
     });
     const pilot = createTestCrew({
@@ -204,6 +206,7 @@ describe('calculateCrewSkillFactor', () => {
         piloting: 40,
         mining: 10,
         commerce: 0,
+        repairs: 0,
       },
     });
     const ship = createTestShip();
@@ -224,6 +227,7 @@ describe('calculateCrewSkillFactor', () => {
         piloting: 0,
         mining: 3,
         commerce: 0,
+        repairs: 0,
       },
     });
     const ship = createTestShip();
@@ -469,6 +473,7 @@ describe('calculateEncounterChance', () => {
         piloting: 1,
         mining: 2,
         commerce: 0,
+        repairs: 0,
       },
     });
     ship.crew = [lowSkillCrew];
@@ -482,6 +487,7 @@ describe('calculateEncounterChance', () => {
         piloting: 10,
         mining: 2,
         commerce: 0,
+        repairs: 0,
       },
     });
     ship.crew = [highSkillCrew];

@@ -59,7 +59,7 @@ function createMinerCrew(miningSkill = 15) {
   return createTestCrew({
     name: 'Test Miner',
     role: 'miner',
-    skills: { piloting: 5, mining: miningSkill, commerce: 0 },
+    skills: { piloting: 5, mining: miningSkill, commerce: 0, repairs: 0 },
     equipment: [], // Mining equipment is now ship-mounted, not crew-carried
     mastery: createInitialMastery(),
   });
@@ -91,7 +91,7 @@ describe('Mining System', () => {
       const miner = createTestCrew({
         name: 'Miner',
         role: 'miner',
-        skills: { piloting: 5, mining: 15, commerce: 0 },
+        skills: { piloting: 5, mining: 15, commerce: 0, repairs: 0 },
       });
       const ship = createTestShip({
         crew: [miner],
@@ -271,7 +271,7 @@ describe('Mining System', () => {
     it('commerce skill improves sell price', () => {
       const ore = getOreDefinition('iron_ore');
       const highCommerceCrew = createTestCrew({
-        skills: { piloting: 10, mining: 0, commerce: 50 },
+        skills: { piloting: 10, mining: 0, commerce: 50, repairs: 0 },
       });
       const ship = createTestShip({ crew: [highCommerceCrew] });
       const location = createTradeLocation({ type: 'space_station' }); // 1.0x
