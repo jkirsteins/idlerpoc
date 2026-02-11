@@ -72,7 +72,7 @@ export function createRefuelDialog(
 ): HTMLElement {
   const ship = getActiveShip(gameData);
   const pricePerKg = getFuelPricePerKg(location, ship);
-  const maxPurchaseKg = ship.maxFuelKg - ship.fuelKg;
+  const maxPurchaseKg = Math.floor(ship.maxFuelKg - ship.fuelKg);
 
   // Create modal overlay
   const overlay = document.createElement('div');
@@ -161,6 +161,7 @@ export function createRefuelDialog(
   const inputGroup = document.createElement('div');
   inputGroup.style.cssText = `
     display: flex;
+    flex-wrap: wrap;
     gap: 0.5rem;
     margin-bottom: 1rem;
   `;
@@ -172,31 +173,54 @@ export function createRefuelDialog(
   fuelInput.step = '100';
   fuelInput.value = maxPurchaseKg.toString();
   fuelInput.style.cssText = `
-    flex: 1;
+    flex: 1 1 100%;
     padding: 0.5rem;
     background: #16213e;
     border: 1px solid #4a90e2;
     border-radius: 4px;
     color: #e0e0e0;
     font-size: 1rem;
+    min-width: 0;
   `;
   inputGroup.appendChild(fuelInput);
+
+  // Slider (created before buttons so button click handlers can reference it)
+  const slider = document.createElement('input');
+  slider.type = 'range';
+  slider.min = '0';
+  slider.max = maxPurchaseKg.toString();
+  slider.step = '100';
+  slider.value = maxPurchaseKg.toString();
+  slider.style.cssText = `
+    width: 100%;
+    margin-bottom: 1rem;
+  `;
 
   // Quick fill buttons
   const buttonGroup = document.createElement('div');
   buttonGroup.style.cssText = `
     display: flex;
     gap: 0.5rem;
+    flex: 1 1 100%;
   `;
 
-  const quickFillButtons = [
-    { label: '25%', fraction: 0.25 },
-    { label: '50%', fraction: 0.5 },
-    { label: '75%', fraction: 0.75 },
-    { label: 'Max', fraction: 1.0 },
+  const quickFillButtons: Array<{ label: string; getAmount: () => number }> = [
+    { label: '25%', getAmount: () => Math.round(maxPurchaseKg * 0.25) },
+    { label: '50%', getAmount: () => Math.round(maxPurchaseKg * 0.5) },
+    { label: '75%', getAmount: () => Math.round(maxPurchaseKg * 0.75) },
+    {
+      label: 'Max',
+      getAmount: () => {
+        const affordable =
+          pricePerKg > 0
+            ? Math.floor(gameData.credits / pricePerKg)
+            : maxPurchaseKg;
+        return Math.min(maxPurchaseKg, affordable);
+      },
+    },
   ];
 
-  for (const { label, fraction } of quickFillButtons) {
+  for (const { label, getAmount } of quickFillButtons) {
     const btn = document.createElement('button');
     btn.textContent = label;
     btn.style.cssText = `
@@ -218,8 +242,9 @@ export function createRefuelDialog(
       btn.style.color = '#4a90e2';
     });
     btn.addEventListener('click', () => {
-      const amount = Math.round(maxPurchaseKg * fraction);
+      const amount = getAmount();
       fuelInput.value = amount.toString();
+      slider.value = amount.toString();
       updateCostDisplay();
     });
     buttonGroup.appendChild(btn);
@@ -228,17 +253,7 @@ export function createRefuelDialog(
 
   inputSection.appendChild(inputGroup);
 
-  // Slider
-  const slider = document.createElement('input');
-  slider.type = 'range';
-  slider.min = '0';
-  slider.max = maxPurchaseKg.toString();
-  slider.step = '100';
-  slider.value = maxPurchaseKg.toString();
-  slider.style.cssText = `
-    width: 100%;
-    margin-bottom: 1rem;
-  `;
+  // Append slider after input group
   inputSection.appendChild(slider);
 
   // Sync slider and input
