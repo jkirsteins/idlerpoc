@@ -73,46 +73,72 @@ export function createLogTab(gameData: GameData): Component {
     }
   }
 
-  function updateLogDisplay(gd: GameData) {
-    logList.replaceChildren();
+  // Stable "no logs" message and cap note, toggled via display
+  const noLogsMsg = document.createElement('p');
+  noLogsMsg.className = 'no-logs';
+  noLogsMsg.style.display = 'none';
+  logList.appendChild(noLogsMsg);
 
-    if (gd.log.length === 0) {
-      const noLogs = document.createElement('p');
-      noLogs.className = 'no-logs';
-      noLogs.textContent = 'No events yet.';
-      logList.appendChild(noLogs);
-      return;
+  const capNote = document.createElement('p');
+  capNote.className = 'log-cap-note';
+  capNote.style.color = '#888';
+  capNote.style.fontSize = '0.8rem';
+  capNote.style.fontStyle = 'italic';
+  capNote.style.textAlign = 'center';
+  capNote.style.marginTop = '0.5rem';
+  capNote.textContent = `Only the last ${MAX_LOG_ENTRIES} events are kept. Older entries are no longer available.`;
+  capNote.style.display = 'none';
+  logList.appendChild(capNote);
+
+  // Rendered entry elements keyed by log index (entries are immutable once added)
+  const renderedEntries: HTMLElement[] = [];
+
+  function updateLogDisplay(gd: GameData) {
+    // Ensure we have rendered elements for all log entries
+    while (renderedEntries.length < gd.log.length) {
+      const idx = renderedEntries.length;
+      const el = renderLogEntry(gd.log[idx]);
+      renderedEntries.push(el);
+      // Insert before the cap note (which stays at the end)
+      logList.insertBefore(el, capNote);
     }
 
+    // Handle log pruning: if log shrank, remove excess rendered entries
+    while (renderedEntries.length > gd.log.length) {
+      const el = renderedEntries.pop()!;
+      el.remove();
+    }
+
+    // Apply filter: show/hide each entry and re-order (newest first via CSS)
     const reversedLog = [...gd.log].reverse();
-    const filtered = reversedLog.filter((entry) =>
-      matchesFilter(entry.type, currentFilter)
+    const filteredSet = new Set(
+      reversedLog
+        .filter((entry) => matchesFilter(entry.type, currentFilter))
+        .map((_, i) => gd.log.length - 1 - i)
     );
 
-    if (filtered.length === 0) {
-      const noLogs = document.createElement('p');
-      noLogs.className = 'no-logs';
-      noLogs.textContent = `No ${currentFilter} events.`;
-      logList.appendChild(noLogs);
-      return;
+    let visibleCount = 0;
+    for (let i = 0; i < renderedEntries.length; i++) {
+      const visible = filteredSet.has(i);
+      renderedEntries[i].style.display = visible ? '' : 'none';
+      // Use CSS order for reverse display (newest first)
+      renderedEntries[i].style.order = String(gd.log.length - i);
+      if (visible) visibleCount++;
     }
 
-    for (const entry of filtered) {
-      logList.appendChild(renderLogEntry(entry));
+    // Toggle "no logs" message
+    if (gd.log.length === 0) {
+      noLogsMsg.textContent = 'No events yet.';
+      noLogsMsg.style.display = '';
+    } else if (visibleCount === 0) {
+      noLogsMsg.textContent = `No ${currentFilter} events.`;
+      noLogsMsg.style.display = '';
+    } else {
+      noLogsMsg.style.display = 'none';
     }
 
-    // If the log is at capacity, show a note that older entries were pruned
-    if (gd.log.length >= MAX_LOG_ENTRIES) {
-      const note = document.createElement('p');
-      note.className = 'log-cap-note';
-      note.textContent = `Only the last ${MAX_LOG_ENTRIES} events are kept. Older entries are no longer available.`;
-      note.style.color = '#888';
-      note.style.fontSize = '0.8rem';
-      note.style.fontStyle = 'italic';
-      note.style.textAlign = 'center';
-      note.style.marginTop = '0.5rem';
-      logList.appendChild(note);
-    }
+    // Toggle cap note
+    capNote.style.display = gd.log.length >= MAX_LOG_ENTRIES ? '' : 'none';
   }
 
   // --- update (called every tick) ---

@@ -113,6 +113,54 @@ function shipPropsChanged(a: ShipSnapshot | null, b: ShipSnapshot): boolean {
   return false;
 }
 
+// ── Refs for job slot rows (have interactive <select> dropdowns) ──
+
+interface JobSlotRowRefs {
+  row: HTMLDivElement;
+  jobLabel: HTMLSpanElement;
+  skillBadge: HTMLSpanElement | null;
+  /** Container for the assigned crew or assignment dropdown */
+  contentArea: HTMLDivElement;
+}
+
+// ── Refs for room cards ──
+
+interface RoomCardRefs {
+  card: HTMLDivElement;
+  roomIcon: HTMLDivElement;
+  roomName: HTMLDivElement;
+  powerBadge: HTMLDivElement | null;
+  engineSlot: HTMLDivElement | null;
+  cargoSection: HTMLDivElement | null;
+  cargoCapacity: HTMLDivElement | null;
+  cargoFill: HTMLDivElement | null;
+  crewCount: HTMLDivElement | null;
+  crewList: HTMLDivElement | null;
+  bridgeActions: HTMLDivElement | null;
+  navBtn: HTMLButtonElement | null;
+  slotRowMap: Map<string, JobSlotRowRefs>;
+}
+
+// ── Refs for unassigned crew rows ──
+
+interface UnassignedCrewRowRefs {
+  row: HTMLDivElement;
+  nameEl: HTMLDivElement;
+  roleEl: HTMLDivElement;
+  statsEl: HTMLDivElement;
+  assignSection: HTMLDivElement;
+}
+
+// ── Refs for ship jobs card ──
+
+interface ShipJobsCardRefs {
+  card: HTMLDivElement;
+  crewCount: HTMLDivElement;
+  repairInfo: HTMLDivElement;
+  crewList: HTMLDivElement;
+  slotRowMap: Map<string, JobSlotRowRefs>;
+}
+
 export function createShipTab(
   gameData: GameData,
   showNavigation: boolean,
@@ -126,18 +174,673 @@ export function createShipTab(
   // Persistent flight profile slider — survives rebuilds (interactive element)
   const profileControl = createFlightProfileControl(gameData);
 
-  // Content area: everything below the slider gets rebuilt via replaceChildren()
-  const contentArea = document.createElement('div');
-  container.append(profileControl.el, contentArea);
+  // ── Navigation view slot ──
+  const navSlot = document.createElement('div');
+  let navComponent: Component | null = null;
 
-  function rebuild(gameData: GameData) {
+  // ── Ship content container (everything except nav) ──
+  const shipContent = document.createElement('div');
+
+  // ── Stat bar slots (leaf helpers, re-rendered via slot pattern) ──
+  const fuelBarSlot = document.createElement('div');
+  const powerBarSlot = document.createElement('div');
+  const oxygenBarSlot = document.createElement('div');
+  const radiationBarSlot = document.createElement('div');
+  const heatBarSlot = document.createElement('div');
+  const containmentBarSlot = document.createElement('div');
+
+  // ── Flight strip slot ──
+  const flightStripSlot = document.createElement('div');
+
+  // ── Ship stats panel slot ──
+  const shipStatsPanelSlot = document.createElement('div');
+
+  // ── Job slots grid ──
+  const jobSlotsGrid = document.createElement('div');
+  jobSlotsGrid.className = 'room-grid';
+  const roomCardMap = new Map<string, RoomCardRefs>();
+  let shipJobsCardRefs: ShipJobsCardRefs | null = null;
+
+  // ── Gravity status slot ──
+  const gravityStatusSlot = document.createElement('div');
+
+  // ── Equipment section slot ──
+  const equipmentSectionSlot = document.createElement('div');
+
+  // ── Unassigned crew section ──
+  const stagingArea = document.createElement('div');
+  stagingArea.className = 'staging-area';
+  const stagingHeaderRow = document.createElement('div');
+  stagingHeaderRow.style.display = 'flex';
+  stagingHeaderRow.style.alignItems = 'center';
+  stagingHeaderRow.style.justifyContent = 'space-between';
+  const stagingTitle = document.createElement('h3');
+  stagingHeaderRow.appendChild(stagingTitle);
+  const autoAssignBtn = document.createElement('button');
+  autoAssignBtn.className = 'small-button';
+  autoAssignBtn.textContent = 'Auto-Assign All';
+  autoAssignBtn.addEventListener('click', callbacks.onAutoAssignCrew);
+  stagingHeaderRow.appendChild(autoAssignBtn);
+  stagingArea.appendChild(stagingHeaderRow);
+  const stagingEmptyMsg = document.createElement('p');
+  stagingEmptyMsg.className = 'staging-empty';
+  stagingEmptyMsg.textContent = 'All crew members are assigned to jobs.';
+  stagingArea.appendChild(stagingEmptyMsg);
+  const stagingCrewList = document.createElement('div');
+  stagingCrewList.className = 'staging-crew-list';
+  stagingArea.appendChild(stagingCrewList);
+  const unassignedCrewMap = new Map<string, UnassignedCrewRowRefs>();
+
+  // Assemble ship content
+  shipContent.append(
+    fuelBarSlot,
+    powerBarSlot,
+    oxygenBarSlot,
+    radiationBarSlot,
+    heatBarSlot,
+    containmentBarSlot,
+    flightStripSlot,
+    shipStatsPanelSlot,
+    jobSlotsGrid,
+    gravityStatusSlot,
+    equipmentSectionSlot,
+    stagingArea
+  );
+
+  // Assemble container
+  container.append(profileControl.el, navSlot, shipContent);
+
+  // ── Helper: create a job slot row ──
+  function createJobSlotRow(slot: JobSlot, gameData: GameData): JobSlotRowRefs {
+    const def = getJobSlotDefinition(slot.type);
+
+    const row = document.createElement('div');
+    row.className = 'room-crew-item';
+    row.style.display = 'flex';
+    row.style.alignItems = 'center';
+    row.style.gap = '0.5rem';
+
+    // Job icon + name
+    const jobLabel = document.createElement('span');
+    jobLabel.style.fontSize = '0.85rem';
+    jobLabel.style.minWidth = '90px';
+    jobLabel.style.color = def?.required ? '#fbbf24' : '#aaa';
+    jobLabel.textContent = `${def?.icon ?? '?'} ${def?.name ?? slot.type}`;
+
+    let skillBadge: HTMLSpanElement | null = null;
+    if (def?.skill) {
+      skillBadge = document.createElement('span');
+      skillBadge.style.fontSize = '0.7rem';
+      skillBadge.style.color = '#666';
+      skillBadge.style.marginLeft = '4px';
+      skillBadge.textContent = `(${def.skill})`;
+      jobLabel.appendChild(skillBadge);
+    }
+    row.appendChild(jobLabel);
+
+    // Content area for assigned crew or assignment dropdown
+    const contentArea = document.createElement('div');
+    contentArea.style.display = 'contents';
+    row.appendChild(contentArea);
+
+    const refs: JobSlotRowRefs = { row, jobLabel, skillBadge, contentArea };
+
+    updateJobSlotRowContent(refs, slot, gameData);
+
+    return refs;
+  }
+
+  // ── Helper: update job slot row content ──
+  function updateJobSlotRowContent(
+    refs: JobSlotRowRefs,
+    slot: JobSlot,
+    gameData: GameData
+  ): void {
+    const ship = getActiveShip(gameData);
+    const def = getJobSlotDefinition(slot.type);
+    const crew = slot.assignedCrewId
+      ? (ship.crew.find((c) => c.id === slot.assignedCrewId) ?? null)
+      : null;
+
+    // Clear the content area
+    while (refs.contentArea.firstChild) {
+      refs.contentArea.removeChild(refs.contentArea.firstChild);
+    }
+
+    if (crew) {
+      // Show assigned crew
+      const crewSpan = document.createElement('span');
+      crewSpan.className = 'crew-name-short';
+      crewSpan.style.flex = '1';
+
+      if (crew.isCaptain) {
+        const badge = document.createElement('span');
+        badge.className = 'captain-badge';
+        badge.textContent = 'CPT ';
+        crewSpan.appendChild(badge);
+      }
+
+      crewSpan.appendChild(document.createTextNode(crew.name.split(' ')[0]));
+
+      // Show skill level for this job
+      if (def?.skill) {
+        const skillVal = Math.floor(crew.skills[def.skill]);
+        const lvl = document.createElement('span');
+        lvl.style.fontSize = '0.75rem';
+        lvl.style.color = '#4a9eff';
+        lvl.style.marginLeft = '4px';
+        lvl.textContent = `[${skillVal}]`;
+        crewSpan.appendChild(lvl);
+      }
+
+      refs.contentArea.appendChild(crewSpan);
+
+      const removeBtn = document.createElement('button');
+      removeBtn.className = 'small-button';
+      removeBtn.textContent = 'Remove';
+      removeBtn.addEventListener('click', () =>
+        callbacks.onJobUnassign(crew.id)
+      );
+      refs.contentArea.appendChild(removeBtn);
+    } else {
+      // Empty slot -- show dropdown to assign
+      const unassigned = getUnassignedCrew(ship);
+      if (unassigned.length > 0) {
+        const select = document.createElement('select');
+        select.className = 'crew-select';
+        select.style.flex = '1';
+
+        const defaultOpt = document.createElement('option');
+        defaultOpt.value = '';
+        defaultOpt.textContent = '-- assign --';
+        select.appendChild(defaultOpt);
+
+        // Sort by affinity: highest relevant skill first
+        const sorted = [...unassigned].sort((a, b) => {
+          if (!def?.skill) return 0;
+          return b.skills[def.skill] - a.skills[def.skill];
+        });
+
+        for (const c of sorted) {
+          const opt = document.createElement('option');
+          opt.value = c.id;
+          const prefix = c.isCaptain ? 'CPT ' : '';
+          const skillInfo = def?.skill
+            ? ` [${def.skill}: ${Math.floor(c.skills[def.skill])}]`
+            : '';
+          opt.textContent = `${prefix}${c.name} (${getCrewRoleName(c.role)})${skillInfo}`;
+          select.appendChild(opt);
+        }
+
+        select.addEventListener('change', (e) => {
+          const crewId = (e.target as HTMLSelectElement).value;
+          if (crewId) {
+            callbacks.onJobAssign(crewId, slot.id);
+          }
+        });
+
+        refs.contentArea.appendChild(select);
+      } else {
+        const emptyLabel = document.createElement('span');
+        emptyLabel.style.color = '#555';
+        emptyLabel.style.flex = '1';
+        emptyLabel.textContent = '(empty)';
+        refs.contentArea.appendChild(emptyLabel);
+      }
+    }
+  }
+
+  // ── Helper: create a room card ──
+  function createRoomCard(room: Room, gameData: GameData): RoomCardRefs {
+    const ship = getActiveShip(gameData);
+    const roomDef = getRoomDefinition(room.type);
+    const slots = getRoomJobSlots(ship, room.id);
+
+    const card = document.createElement('div');
+    card.className = `room-card room-${room.state}`;
+
+    // Icon
+    const roomIcon = document.createElement('div');
+    roomIcon.className = 'room-icon';
+    roomIcon.textContent = roomDef?.icon ?? '?';
+    card.appendChild(roomIcon);
+
+    // Name
+    const roomName = document.createElement('div');
+    roomName.className = 'room-name';
+    roomName.textContent = roomDef?.name ?? room.type;
+    card.appendChild(roomName);
+
+    // Power badge
+    let powerBadge: HTMLDivElement | null = null;
+    if (roomDef) {
+      powerBadge = document.createElement('div');
+      powerBadge.className = 'room-power-badge';
+      card.appendChild(powerBadge);
+    }
+
+    // Engine slot (engine room only)
+    let engineSlot: HTMLDivElement | null = null;
+    if (room.type === 'engine_room') {
+      engineSlot = document.createElement('div');
+      card.appendChild(engineSlot);
+    }
+
+    // Cargo hold special section
+    let cargoSection: HTMLDivElement | null = null;
+    let cargoCapacity: HTMLDivElement | null = null;
+    let cargoFill: HTMLDivElement | null = null;
+    if (room.type === 'cargo_hold') {
+      cargoSection = document.createElement('div');
+
+      const automatedMsg = document.createElement('div');
+      automatedMsg.className = 'room-automated';
+      automatedMsg.textContent = 'Automated';
+      cargoSection.appendChild(automatedMsg);
+
+      cargoCapacity = document.createElement('div');
+      cargoCapacity.className = 'room-cargo-capacity';
+      cargoSection.appendChild(cargoCapacity);
+
+      const progressBar = document.createElement('div');
+      progressBar.className = 'cargo-progress-bar';
+      cargoFill = document.createElement('div');
+      cargoFill.className = 'cargo-progress-fill';
+      progressBar.appendChild(cargoFill);
+      cargoSection.appendChild(progressBar);
+
+      card.appendChild(cargoSection);
+    }
+
+    // Crew count (non-cargo rooms)
+    let crewCountEl: HTMLDivElement | null = null;
+    let crewList: HTMLDivElement | null = null;
+    const slotRowMap = new Map<string, JobSlotRowRefs>();
+
+    if (room.type !== 'cargo_hold') {
+      crewCountEl = document.createElement('div');
+      crewCountEl.className = 'room-crew-count';
+      card.appendChild(crewCountEl);
+
+      // Job slot list
+      crewList = document.createElement('div');
+      crewList.className = 'room-crew-list';
+
+      if (slots.length === 0) {
+        const emptyMsg = document.createElement('div');
+        emptyMsg.className = 'room-crew-empty';
+        emptyMsg.textContent = 'No job slots';
+        crewList.appendChild(emptyMsg);
+      } else {
+        for (const slot of slots) {
+          const rowRefs = createJobSlotRow(slot, gameData);
+          slotRowMap.set(slot.id, rowRefs);
+          crewList.appendChild(rowRefs.row);
+        }
+      }
+
+      card.appendChild(crewList);
+    }
+
+    // Bridge-specific: Navigation button
+    let bridgeActions: HTMLDivElement | null = null;
+    let navBtn: HTMLButtonElement | null = null;
+    if (room.type === 'bridge') {
+      bridgeActions = document.createElement('div');
+      bridgeActions.className = 'room-actions';
+
+      navBtn = document.createElement('button');
+      navBtn.className = 'room-action-btn';
+      navBtn.textContent = '\uD83D\uDDFA\uFE0F Navigation';
+      navBtn.addEventListener('click', callbacks.onToggleNavigation);
+      bridgeActions.appendChild(navBtn);
+
+      card.appendChild(bridgeActions);
+    }
+
+    const refs: RoomCardRefs = {
+      card,
+      roomIcon,
+      roomName,
+      powerBadge,
+      engineSlot,
+      cargoSection,
+      cargoCapacity,
+      cargoFill,
+      crewCount: crewCountEl,
+      crewList,
+      bridgeActions,
+      navBtn,
+      slotRowMap,
+    };
+
+    // Initial data fill
+    updateRoomCard(refs, room, gameData);
+
+    return refs;
+  }
+
+  // ── Helper: update room card in-place ──
+  function updateRoomCard(
+    refs: RoomCardRefs,
+    room: Room,
+    gameData: GameData
+  ): void {
+    const ship = getActiveShip(gameData);
+    const roomDef = getRoomDefinition(room.type);
+    const slots = getRoomJobSlots(ship, room.id);
+    const assignedCount = getRoomCrewCount(ship, room.id);
+
+    // Update card class for room state
+    refs.card.className = `room-card room-${room.state}`;
+
+    // Power badge
+    if (refs.powerBadge && roomDef) {
+      if (room.type === 'engine_room') {
+        const engineDef = getEngineDefinition(ship.engine.definitionId);
+        refs.powerBadge.textContent = `+${engineDef.powerOutput} kW / -${roomDef.powerDraw} kW`;
+      } else {
+        refs.powerBadge.textContent = `${roomDef.powerDraw} kW`;
+      }
+    }
+
+    // Engine slot
+    if (refs.engineSlot) {
+      if (refs.engineSlot.firstChild)
+        refs.engineSlot.removeChild(refs.engineSlot.firstChild);
+      refs.engineSlot.appendChild(renderEngineSlot(gameData, callbacks));
+    }
+
+    // Cargo section
+    if (refs.cargoCapacity && refs.cargoFill) {
+      const shipClass = getShipClass(ship.classId);
+      const maxCapacity = shipClass
+        ? Math.floor(calculateAvailableCargoCapacity(shipClass.cargoCapacity))
+        : 0;
+      const currentCargo = ship.cargo.length * 100;
+      const cargoPercent =
+        maxCapacity > 0 ? (currentCargo / maxCapacity) * 100 : 0;
+      refs.cargoCapacity.textContent = `Cargo: ${currentCargo.toLocaleString()} / ${maxCapacity.toLocaleString()} kg`;
+      refs.cargoFill.style.width = `${Math.min(100, cargoPercent)}%`;
+    }
+
+    // Crew count
+    if (refs.crewCount) {
+      refs.crewCount.textContent = `${assignedCount}/${slots.length}`;
+    }
+
+    // Reconcile job slot rows
+    if (refs.crewList) {
+      const currentSlotIds = new Set<string>();
+
+      for (const slot of slots) {
+        currentSlotIds.add(slot.id);
+
+        const existing = refs.slotRowMap.get(slot.id);
+        if (existing) {
+          updateJobSlotRowContent(existing, slot, gameData);
+        } else {
+          const rowRefs = createJobSlotRow(slot, gameData);
+          refs.slotRowMap.set(slot.id, rowRefs);
+          refs.crewList.appendChild(rowRefs.row);
+        }
+      }
+
+      // Remove departed slots
+      for (const [id, rowRefs] of refs.slotRowMap) {
+        if (!currentSlotIds.has(id)) {
+          rowRefs.row.remove();
+          refs.slotRowMap.delete(id);
+        }
+      }
+    }
+
+    // Bridge nav button
+    if (refs.navBtn) {
+      refs.navBtn.disabled = !isHelmManned(ship);
+      if (!isHelmManned(ship)) {
+        refs.navBtn.title = 'Helm must be manned to access navigation';
+      } else {
+        refs.navBtn.title = '';
+      }
+    }
+  }
+
+  // ── Helper: create ship jobs card ──
+  function createShipJobsCard(
+    shipJobs: JobSlot[],
+    gameData: GameData
+  ): ShipJobsCardRefs {
+    const card = document.createElement('div');
+    card.className = 'room-card room-operational';
+
+    const icon = document.createElement('div');
+    icon.className = 'room-icon';
+    icon.textContent = '\uD83D\uDD27';
+    card.appendChild(icon);
+
+    const name = document.createElement('div');
+    name.className = 'room-name';
+    name.textContent = 'Ship Jobs';
+    card.appendChild(name);
+
+    const crewCount = document.createElement('div');
+    crewCount.className = 'room-crew-count';
+    card.appendChild(crewCount);
+
+    const repairInfo = document.createElement('div');
+    repairInfo.style.fontSize = '0.8rem';
+    repairInfo.style.color = '#4ade80';
+    repairInfo.style.padding = '0.25rem 0';
+    card.appendChild(repairInfo);
+
+    const crewList = document.createElement('div');
+    crewList.className = 'room-crew-list';
+    card.appendChild(crewList);
+
+    const slotRowMap = new Map<string, JobSlotRowRefs>();
+    for (const slot of shipJobs) {
+      const rowRefs = createJobSlotRow(slot, gameData);
+      slotRowMap.set(slot.id, rowRefs);
+      crewList.appendChild(rowRefs.row);
+    }
+
+    const refs: ShipJobsCardRefs = {
+      card,
+      crewCount,
+      repairInfo,
+      crewList,
+      slotRowMap,
+    };
+
+    updateShipJobsCard(refs, shipJobs, gameData);
+
+    return refs;
+  }
+
+  // ── Helper: update ship jobs card in-place ──
+  function updateShipJobsCard(
+    refs: ShipJobsCardRefs,
+    shipJobs: JobSlot[],
+    gameData: GameData
+  ): void {
+    const ship = getActiveShip(gameData);
+    const filledCount = shipJobs.filter(
+      (s) => s.assignedCrewId !== null
+    ).length;
+    refs.crewCount.textContent = `${filledCount}/${shipJobs.length}`;
+
+    // Repair points info
+    const repairSlots = shipJobs.filter(
+      (s) => s.type === 'repair' && s.assignedCrewId !== null
+    );
+    if (repairSlots.length > 0) {
+      let totalRepairPts = 0;
+      for (const slot of repairSlots) {
+        const crew = ship.crew.find((c) => c.id === slot.assignedCrewId);
+        if (crew) {
+          totalRepairPts += calculateRepairPoints(crew);
+        }
+      }
+      const degradedCount = ship.equipment.filter(
+        (eq) => eq.degradation > 0
+      ).length;
+      refs.repairInfo.textContent = `Repair: ${totalRepairPts.toFixed(1)} pts/tick${degradedCount > 0 ? ` \u2192 ${degradedCount} items` : ''}`;
+      refs.repairInfo.style.display = '';
+    } else {
+      refs.repairInfo.style.display = 'none';
+    }
+
+    // Reconcile slot rows
+    const currentSlotIds = new Set<string>();
+    for (const slot of shipJobs) {
+      currentSlotIds.add(slot.id);
+      const existing = refs.slotRowMap.get(slot.id);
+      if (existing) {
+        updateJobSlotRowContent(existing, slot, gameData);
+      } else {
+        const rowRefs = createJobSlotRow(slot, gameData);
+        refs.slotRowMap.set(slot.id, rowRefs);
+        refs.crewList.appendChild(rowRefs.row);
+      }
+    }
+    for (const [id, rowRefs] of refs.slotRowMap) {
+      if (!currentSlotIds.has(id)) {
+        rowRefs.row.remove();
+        refs.slotRowMap.delete(id);
+      }
+    }
+  }
+
+  // ── Helper: create unassigned crew row ──
+  function createUnassignedCrewRow(
+    crewId: string,
+    gameData: GameData
+  ): UnassignedCrewRowRefs {
+    const row = document.createElement('div');
+    row.className = 'staging-crew-row';
+
+    const crewInfo = document.createElement('div');
+    crewInfo.className = 'staging-crew-info';
+
+    const nameEl = document.createElement('div');
+    nameEl.className = 'staging-crew-name';
+    crewInfo.appendChild(nameEl);
+
+    const roleEl = document.createElement('div');
+    roleEl.className = 'staging-crew-role';
+    crewInfo.appendChild(roleEl);
+
+    const statsEl = document.createElement('div');
+    statsEl.className = 'staging-crew-stats';
+    crewInfo.appendChild(statsEl);
+
+    row.appendChild(crewInfo);
+
+    const assignSection = document.createElement('div');
+    assignSection.className = 'staging-crew-assign';
+    row.appendChild(assignSection);
+
+    const refs: UnassignedCrewRowRefs = {
+      row,
+      nameEl,
+      roleEl,
+      statsEl,
+      assignSection,
+    };
+
+    updateUnassignedCrewRow(refs, crewId, gameData);
+
+    return refs;
+  }
+
+  // ── Helper: update unassigned crew row in-place ──
+  function updateUnassignedCrewRow(
+    refs: UnassignedCrewRowRefs,
+    crewId: string,
+    gameData: GameData
+  ): void {
+    const ship = getActiveShip(gameData);
+    const crew = ship.crew.find((c) => c.id === crewId);
+    if (!crew) return;
+
+    // Name
+    while (refs.nameEl.firstChild) {
+      refs.nameEl.removeChild(refs.nameEl.firstChild);
+    }
+    if (crew.isCaptain) {
+      const captainBadge = document.createElement('span');
+      captainBadge.className = 'captain-badge';
+      captainBadge.textContent = 'CPT ';
+      refs.nameEl.appendChild(captainBadge);
+    }
+    refs.nameEl.appendChild(document.createTextNode(crew.name));
+
+    // Role
+    refs.roleEl.textContent = getCrewRoleName(crew.role);
+
+    // Stats
+    refs.statsEl.innerHTML = `<span class="stat health">HP: ${crew.health}</span><span class="stat morale">M: ${crew.morale}</span><span class="stat level">Lv: ${crew.level}</span>`;
+
+    // Assignment dropdown
+    while (refs.assignSection.firstChild) {
+      refs.assignSection.removeChild(refs.assignSection.firstChild);
+    }
+
+    const emptySlots = ship.jobSlots.filter((s) => s.assignedCrewId === null);
+    if (emptySlots.length > 0) {
+      const select = document.createElement('select');
+      select.className = 'crew-select';
+
+      const defaultOption = document.createElement('option');
+      defaultOption.value = '';
+      defaultOption.textContent = 'Assign to job...';
+      select.appendChild(defaultOption);
+
+      for (const slot of emptySlots) {
+        const slotDef = getJobSlotDefinition(slot.type);
+        if (!slotDef) continue;
+
+        // Find room name for context
+        let locationLabel = '';
+        if (slot.sourceRoomId) {
+          const room = ship.rooms.find((r) => r.id === slot.sourceRoomId);
+          const roomDef = room ? getRoomDefinition(room.type) : null;
+          locationLabel = roomDef ? ` (${roomDef.name})` : '';
+        } else {
+          locationLabel = ' (Ship)';
+        }
+
+        const skillInfo = slotDef.skill
+          ? ` [${slotDef.skill}: ${Math.floor(crew.skills[slotDef.skill])}]`
+          : '';
+
+        const option = document.createElement('option');
+        option.value = slot.id;
+        option.textContent = `${slotDef.name}${locationLabel}${skillInfo}`;
+        select.appendChild(option);
+      }
+
+      select.addEventListener('change', (e) => {
+        const slotId = (e.target as HTMLSelectElement).value;
+        if (slotId) {
+          callbacks.onJobAssign(crew.id, slotId);
+        }
+      });
+
+      refs.assignSection.appendChild(select);
+    }
+  }
+
+  // ── Main update function ──
+  function update(gameData: GameData): void {
     const snap = snapshotShipProps(gameData, currentShowNav);
     if (!shipPropsChanged(lastSnapshot, snap)) return;
     lastSnapshot = snap;
 
     const ship = getActiveShip(gameData);
 
-    // Show flight profile slider when docked or orbiting (not in flight)
+    // Show flight profile slider when docked or orbiting (not in flight) and not in nav view
     const showSlider =
       !currentShowNav &&
       (ship.location.status === 'docked' ||
@@ -147,58 +850,164 @@ export function createShipTab(
       updateFlightProfileControl(profileControl, ship);
     }
 
-    contentArea.replaceChildren();
-
+    // Toggle navigation view vs ship content
     if (currentShowNav) {
-      contentArea.appendChild(
-        createNavigationView(gameData, {
+      shipContent.style.display = 'none';
+      navSlot.style.display = '';
+
+      if (!navComponent) {
+        navComponent = createNavigationView(gameData, {
           onToggleNavigation: callbacks.onToggleNavigation,
           onStartTrip: callbacks.onStartTrip,
-        }).el
-      );
+        });
+        navSlot.appendChild(navComponent.el);
+      } else {
+        navComponent.update(gameData);
+      }
       return;
+    } else {
+      navSlot.style.display = 'none';
+      shipContent.style.display = '';
+      // Destroy nav component when leaving nav view so it re-creates fresh next time
+      if (navComponent) {
+        if (navSlot.firstChild) navSlot.removeChild(navSlot.firstChild);
+        navComponent = null;
+      }
     }
 
-    // Fuel progress bar
-    contentArea.appendChild(renderFuelBar(gameData));
+    // ── Stat bars (leaf helpers via slot divs) ──
+    if (fuelBarSlot.firstChild) fuelBarSlot.removeChild(fuelBarSlot.firstChild);
+    fuelBarSlot.appendChild(renderFuelBar(gameData));
 
-    // Power progress bar
-    contentArea.appendChild(renderPowerBar(gameData));
+    if (powerBarSlot.firstChild)
+      powerBarSlot.removeChild(powerBarSlot.firstChild);
+    powerBarSlot.appendChild(renderPowerBar(gameData));
 
-    // Oxygen progress bar
-    contentArea.appendChild(renderOxygenBar(gameData));
+    if (oxygenBarSlot.firstChild)
+      oxygenBarSlot.removeChild(oxygenBarSlot.firstChild);
+    oxygenBarSlot.appendChild(renderOxygenBar(gameData));
 
-    // Torch ship status bars (always shown for discoverability)
-    contentArea.appendChild(renderRadiationBar(gameData));
-    contentArea.appendChild(renderHeatBar(gameData));
-    contentArea.appendChild(renderContainmentBar(gameData));
+    if (radiationBarSlot.firstChild)
+      radiationBarSlot.removeChild(radiationBarSlot.firstChild);
+    radiationBarSlot.appendChild(renderRadiationBar(gameData));
 
-    // Flight status strip (shown when in flight)
+    if (heatBarSlot.firstChild) heatBarSlot.removeChild(heatBarSlot.firstChild);
+    heatBarSlot.appendChild(renderHeatBar(gameData));
+
+    if (containmentBarSlot.firstChild)
+      containmentBarSlot.removeChild(containmentBarSlot.firstChild);
+    containmentBarSlot.appendChild(renderContainmentBar(gameData));
+
+    // ── Flight strip (leaf helper via slot) ──
+    if (flightStripSlot.firstChild)
+      flightStripSlot.removeChild(flightStripSlot.firstChild);
     if (ship.location.status === 'in_flight') {
       const strip = renderFlightStrip(gameData);
-      if (strip) contentArea.appendChild(strip);
+      if (strip) flightStripSlot.appendChild(strip);
     }
 
-    // Ship stats panel
-    contentArea.appendChild(renderShipStatsPanel(gameData));
+    // ── Ship stats panel (leaf helper via slot) ──
+    if (shipStatsPanelSlot.firstChild)
+      shipStatsPanelSlot.removeChild(shipStatsPanelSlot.firstChild);
+    shipStatsPanelSlot.appendChild(renderShipStatsPanel(gameData));
 
-    // Job slots grid (organized by room + ship-wide)
-    contentArea.appendChild(renderJobSlotsGrid(gameData, callbacks));
+    // ── Job slots grid (reconciled with Maps) ──
+    const currentRoomIds = new Set<string>();
 
-    // Gravity status panel
-    contentArea.appendChild(renderGravityStatus(gameData));
+    for (const room of ship.rooms) {
+      currentRoomIds.add(room.id);
 
-    // Equipment section
-    contentArea.appendChild(renderEquipmentSection(gameData));
+      const existing = roomCardMap.get(room.id);
+      if (existing) {
+        updateRoomCard(existing, room, gameData);
+      } else {
+        const cardRefs = createRoomCard(room, gameData);
+        roomCardMap.set(room.id, cardRefs);
+        // Insert before ship jobs card if it exists
+        if (shipJobsCardRefs) {
+          jobSlotsGrid.insertBefore(cardRefs.card, shipJobsCardRefs.card);
+        } else {
+          jobSlotsGrid.appendChild(cardRefs.card);
+        }
+      }
+    }
 
-    // Unassigned crew
-    contentArea.appendChild(renderUnassignedCrew(gameData, callbacks));
+    // Remove departed rooms
+    for (const [id, cardRefs] of roomCardMap) {
+      if (!currentRoomIds.has(id)) {
+        cardRefs.card.remove();
+        roomCardMap.delete(id);
+      }
+    }
+
+    // Ship-wide jobs section (repair)
+    const shipJobs = ship.jobSlots.filter((s) => !s.sourceRoomId);
+    if (shipJobs.length > 0) {
+      if (!shipJobsCardRefs) {
+        shipJobsCardRefs = createShipJobsCard(shipJobs, gameData);
+        jobSlotsGrid.appendChild(shipJobsCardRefs.card);
+      } else {
+        updateShipJobsCard(shipJobsCardRefs, shipJobs, gameData);
+      }
+      shipJobsCardRefs.card.style.display = '';
+    } else if (shipJobsCardRefs) {
+      shipJobsCardRefs.card.style.display = 'none';
+    }
+
+    // ── Gravity status (leaf helper via slot) ──
+    if (gravityStatusSlot.firstChild)
+      gravityStatusSlot.removeChild(gravityStatusSlot.firstChild);
+    gravityStatusSlot.appendChild(renderGravityStatus(gameData));
+
+    // ── Equipment section (leaf helper via slot) ──
+    if (equipmentSectionSlot.firstChild)
+      equipmentSectionSlot.removeChild(equipmentSectionSlot.firstChild);
+    equipmentSectionSlot.appendChild(renderEquipmentSection(gameData));
+
+    // ── Unassigned crew section (reconciled with Map) ──
+    const unassigned = getUnassignedCrew(ship);
+
+    stagingTitle.textContent = `Unassigned Crew (${unassigned.length})`;
+    autoAssignBtn.style.display = ship.crew.length > 0 ? '' : 'none';
+
+    if (unassigned.length === 0) {
+      stagingEmptyMsg.style.display = '';
+      stagingCrewList.style.display = 'none';
+    } else {
+      stagingEmptyMsg.style.display = 'none';
+      stagingCrewList.style.display = '';
+
+      const currentCrewIds = new Set<string>();
+
+      for (const crew of unassigned) {
+        currentCrewIds.add(crew.id);
+
+        const existing = unassignedCrewMap.get(crew.id);
+        if (existing) {
+          updateUnassignedCrewRow(existing, crew.id, gameData);
+        } else {
+          const rowRefs = createUnassignedCrewRow(crew.id, gameData);
+          unassignedCrewMap.set(crew.id, rowRefs);
+          stagingCrewList.appendChild(rowRefs.row);
+        }
+      }
+
+      // Remove departed crew
+      for (const [id, rowRefs] of unassignedCrewMap) {
+        if (!currentCrewIds.has(id)) {
+          rowRefs.row.remove();
+          unassignedCrewMap.delete(id);
+        }
+      }
+    }
   }
 
-  rebuild(gameData);
+  // Initial render
+  update(gameData);
+
   return {
     el: container,
-    update: rebuild,
+    update,
     setShowNavigation(v: boolean) {
       currentShowNav = v;
     },
@@ -740,266 +1549,7 @@ function renderShipStatsPanel(gameData: GameData): HTMLElement {
   return section;
 }
 
-// ── Job slots grid ───────────────────────────────────────────────
-
-function renderJobSlotsGrid(
-  gameData: GameData,
-  callbacks: ShipTabCallbacks
-): HTMLElement {
-  const ship = getActiveShip(gameData);
-  const grid = document.createElement('div');
-  grid.className = 'room-grid';
-
-  // Room-based cards with their job slots
-  for (const room of ship.rooms) {
-    grid.appendChild(renderRoomCard(room, gameData, callbacks));
-  }
-
-  // Ship-wide jobs section (repair)
-  const shipJobs = ship.jobSlots.filter((s) => !s.sourceRoomId);
-  if (shipJobs.length > 0) {
-    grid.appendChild(renderShipJobsCard(shipJobs, gameData, callbacks));
-  }
-
-  return grid;
-}
-
-function renderJobSlotRow(
-  slot: JobSlot,
-  gameData: GameData,
-  callbacks: ShipTabCallbacks
-): HTMLElement {
-  const ship = getActiveShip(gameData);
-  const def = getJobSlotDefinition(slot.type);
-  const crew = slot.assignedCrewId
-    ? (ship.crew.find((c) => c.id === slot.assignedCrewId) ?? null)
-    : null;
-
-  const row = document.createElement('div');
-  row.className = 'room-crew-item';
-  row.style.display = 'flex';
-  row.style.alignItems = 'center';
-  row.style.gap = '0.5rem';
-
-  // Job icon + name
-  const jobLabel = document.createElement('span');
-  jobLabel.style.fontSize = '0.85rem';
-  jobLabel.style.minWidth = '90px';
-  jobLabel.style.color = def?.required ? '#fbbf24' : '#aaa';
-  jobLabel.textContent = `${def?.icon ?? '?'} ${def?.name ?? slot.type}`;
-  if (def?.skill) {
-    const skillBadge = document.createElement('span');
-    skillBadge.style.fontSize = '0.7rem';
-    skillBadge.style.color = '#666';
-    skillBadge.style.marginLeft = '4px';
-    skillBadge.textContent = `(${def.skill})`;
-    jobLabel.appendChild(skillBadge);
-  }
-  row.appendChild(jobLabel);
-
-  if (crew) {
-    // Show assigned crew
-    const crewSpan = document.createElement('span');
-    crewSpan.className = 'crew-name-short';
-    crewSpan.style.flex = '1';
-
-    if (crew.isCaptain) {
-      const badge = document.createElement('span');
-      badge.className = 'captain-badge';
-      badge.textContent = 'CPT ';
-      crewSpan.appendChild(badge);
-    }
-
-    crewSpan.appendChild(document.createTextNode(crew.name.split(' ')[0]));
-
-    // Show skill level for this job
-    if (def?.skill) {
-      const skillVal = Math.floor(crew.skills[def.skill]);
-      const lvl = document.createElement('span');
-      lvl.style.fontSize = '0.75rem';
-      lvl.style.color = '#4a9eff';
-      lvl.style.marginLeft = '4px';
-      lvl.textContent = `[${skillVal}]`;
-      crewSpan.appendChild(lvl);
-    }
-
-    row.appendChild(crewSpan);
-
-    const removeBtn = document.createElement('button');
-    removeBtn.className = 'small-button';
-    removeBtn.textContent = 'Remove';
-    removeBtn.addEventListener('click', () => callbacks.onJobUnassign(crew.id));
-    row.appendChild(removeBtn);
-  } else {
-    // Empty slot — show dropdown to assign
-    const unassigned = getUnassignedCrew(ship);
-    if (unassigned.length > 0) {
-      const select = document.createElement('select');
-      select.className = 'crew-select';
-      select.style.flex = '1';
-
-      const defaultOpt = document.createElement('option');
-      defaultOpt.value = '';
-      defaultOpt.textContent = '-- assign --';
-      select.appendChild(defaultOpt);
-
-      // Sort by affinity: highest relevant skill first
-      const sorted = [...unassigned].sort((a, b) => {
-        if (!def?.skill) return 0;
-        return b.skills[def.skill] - a.skills[def.skill];
-      });
-
-      for (const c of sorted) {
-        const opt = document.createElement('option');
-        opt.value = c.id;
-        const prefix = c.isCaptain ? 'CPT ' : '';
-        const skillInfo = def?.skill
-          ? ` [${def.skill}: ${Math.floor(c.skills[def.skill])}]`
-          : '';
-        opt.textContent = `${prefix}${c.name} (${getCrewRoleName(c.role)})${skillInfo}`;
-        select.appendChild(opt);
-      }
-
-      select.addEventListener('change', (e) => {
-        const crewId = (e.target as HTMLSelectElement).value;
-        if (crewId) {
-          callbacks.onJobAssign(crewId, slot.id);
-        }
-      });
-
-      row.appendChild(select);
-    } else {
-      const emptyLabel = document.createElement('span');
-      emptyLabel.style.color = '#555';
-      emptyLabel.style.flex = '1';
-      emptyLabel.textContent = '(empty)';
-      row.appendChild(emptyLabel);
-    }
-  }
-
-  return row;
-}
-
-function renderRoomCard(
-  room: Room,
-  gameData: GameData,
-  callbacks: ShipTabCallbacks
-): HTMLElement {
-  const ship = getActiveShip(gameData);
-  const roomDef = getRoomDefinition(room.type);
-  const slots = getRoomJobSlots(ship, room.id);
-  const assignedCount = getRoomCrewCount(ship, room.id);
-
-  const roomCard = document.createElement('div');
-  roomCard.className = `room-card room-${room.state}`;
-
-  // Icon
-  const roomIcon = document.createElement('div');
-  roomIcon.className = 'room-icon';
-  roomIcon.textContent = roomDef?.icon ?? '?';
-  roomCard.appendChild(roomIcon);
-
-  // Name
-  const roomName = document.createElement('div');
-  roomName.className = 'room-name';
-  roomName.textContent = roomDef?.name ?? room.type;
-  roomCard.appendChild(roomName);
-
-  // Power badge
-  if (roomDef) {
-    const powerBadge = document.createElement('div');
-    powerBadge.className = 'room-power-badge';
-
-    if (room.type === 'engine_room') {
-      const engineDef = getEngineDefinition(ship.engine.definitionId);
-      powerBadge.textContent = `+${engineDef.powerOutput} kW / -${roomDef.powerDraw} kW`;
-    } else {
-      powerBadge.textContent = `${roomDef.powerDraw} kW`;
-    }
-
-    roomCard.appendChild(powerBadge);
-  }
-
-  // Engine room special: show equipped engine + controls
-  if (room.type === 'engine_room') {
-    roomCard.appendChild(renderEngineSlot(gameData, callbacks));
-  }
-
-  // Cargo hold is automated — no job slots
-  if (room.type === 'cargo_hold') {
-    const automatedMsg = document.createElement('div');
-    automatedMsg.className = 'room-automated';
-    automatedMsg.textContent = 'Automated';
-    roomCard.appendChild(automatedMsg);
-
-    const shipClass = getShipClass(ship.classId);
-    const maxCapacity = shipClass
-      ? Math.floor(calculateAvailableCargoCapacity(shipClass.cargoCapacity))
-      : 0;
-
-    const currentCargo = ship.cargo.length * 100;
-    const cargoPercent =
-      maxCapacity > 0 ? (currentCargo / maxCapacity) * 100 : 0;
-
-    const capacity = document.createElement('div');
-    capacity.className = 'room-cargo-capacity';
-    capacity.textContent = `Cargo: ${currentCargo.toLocaleString()} / ${maxCapacity.toLocaleString()} kg`;
-    roomCard.appendChild(capacity);
-
-    const progressBar = document.createElement('div');
-    progressBar.className = 'cargo-progress-bar';
-    const progressFill = document.createElement('div');
-    progressFill.className = 'cargo-progress-fill';
-    progressFill.style.width = `${Math.min(100, cargoPercent)}%`;
-    progressBar.appendChild(progressFill);
-    roomCard.appendChild(progressBar);
-
-    return roomCard;
-  }
-
-  // Crew count
-  const crewCount = document.createElement('div');
-  crewCount.className = 'room-crew-count';
-  crewCount.textContent = `${assignedCount}/${slots.length}`;
-  roomCard.appendChild(crewCount);
-
-  // Job slot list
-  const crewList = document.createElement('div');
-  crewList.className = 'room-crew-list';
-
-  if (slots.length === 0) {
-    const emptyMsg = document.createElement('div');
-    emptyMsg.className = 'room-crew-empty';
-    emptyMsg.textContent = 'No job slots';
-    crewList.appendChild(emptyMsg);
-  } else {
-    for (const slot of slots) {
-      crewList.appendChild(renderJobSlotRow(slot, gameData, callbacks));
-    }
-  }
-
-  roomCard.appendChild(crewList);
-
-  // Bridge-specific: Navigation button (requires helm to be manned)
-  if (room.type === 'bridge') {
-    const bridgeActions = document.createElement('div');
-    bridgeActions.className = 'room-actions';
-
-    const navBtn = document.createElement('button');
-    navBtn.className = 'room-action-btn';
-    navBtn.textContent = '\uD83D\uDDFA\uFE0F Navigation';
-    navBtn.disabled = !isHelmManned(ship);
-    if (!isHelmManned(ship)) {
-      navBtn.title = 'Helm must be manned to access navigation';
-    }
-    navBtn.addEventListener('click', callbacks.onToggleNavigation);
-    bridgeActions.appendChild(navBtn);
-
-    roomCard.appendChild(bridgeActions);
-  }
-
-  return roomCard;
-}
+// ── Engine slot (leaf helper, rendered via slot pattern in room card) ──
 
 function renderEngineSlot(
   gameData: GameData,
@@ -1121,198 +1671,6 @@ function renderEngineSlot(
   }
 
   return equipmentSlot;
-}
-
-function renderShipJobsCard(
-  shipJobs: JobSlot[],
-  gameData: GameData,
-  callbacks: ShipTabCallbacks
-): HTMLElement {
-  const card = document.createElement('div');
-  card.className = 'room-card room-operational';
-
-  const icon = document.createElement('div');
-  icon.className = 'room-icon';
-  icon.textContent = '\uD83D\uDD27';
-  card.appendChild(icon);
-
-  const name = document.createElement('div');
-  name.className = 'room-name';
-  name.textContent = 'Ship Jobs';
-  card.appendChild(name);
-
-  const ship = getActiveShip(gameData);
-  const filledCount = shipJobs.filter((s) => s.assignedCrewId !== null).length;
-  const crewCount = document.createElement('div');
-  crewCount.className = 'room-crew-count';
-  crewCount.textContent = `${filledCount}/${shipJobs.length}`;
-  card.appendChild(crewCount);
-
-  // Show repair points if any engineers assigned
-  const repairSlots = shipJobs.filter(
-    (s) => s.type === 'repair' && s.assignedCrewId !== null
-  );
-  if (repairSlots.length > 0) {
-    let totalRepairPts = 0;
-    for (const slot of repairSlots) {
-      const crew = ship.crew.find((c) => c.id === slot.assignedCrewId);
-      if (crew) {
-        totalRepairPts += calculateRepairPoints(crew);
-      }
-    }
-    const degradedCount = ship.equipment.filter(
-      (eq) => eq.degradation > 0
-    ).length;
-
-    const repairInfo = document.createElement('div');
-    repairInfo.style.fontSize = '0.8rem';
-    repairInfo.style.color = '#4ade80';
-    repairInfo.style.padding = '0.25rem 0';
-    repairInfo.textContent = `Repair: ${totalRepairPts.toFixed(1)} pts/tick${degradedCount > 0 ? ` \u2192 ${degradedCount} items` : ''}`;
-    card.appendChild(repairInfo);
-  }
-
-  const crewList = document.createElement('div');
-  crewList.className = 'room-crew-list';
-
-  for (const slot of shipJobs) {
-    crewList.appendChild(renderJobSlotRow(slot, gameData, callbacks));
-  }
-
-  card.appendChild(crewList);
-
-  return card;
-}
-
-// ── Unassigned crew (staging area) ───────────────────────────────
-
-function renderUnassignedCrew(
-  gameData: GameData,
-  callbacks: ShipTabCallbacks
-): HTMLElement {
-  const ship = getActiveShip(gameData);
-  const unassigned = getUnassignedCrew(ship);
-
-  const staging = document.createElement('div');
-  staging.className = 'staging-area';
-
-  const headerRow = document.createElement('div');
-  headerRow.style.display = 'flex';
-  headerRow.style.alignItems = 'center';
-  headerRow.style.justifyContent = 'space-between';
-
-  const title = document.createElement('h3');
-  title.textContent = `Unassigned Crew (${unassigned.length})`;
-  headerRow.appendChild(title);
-
-  // Auto-assign button
-  if (ship.crew.length > 0) {
-    const autoBtn = document.createElement('button');
-    autoBtn.className = 'small-button';
-    autoBtn.textContent = 'Auto-Assign All';
-    autoBtn.addEventListener('click', callbacks.onAutoAssignCrew);
-    headerRow.appendChild(autoBtn);
-  }
-
-  staging.appendChild(headerRow);
-
-  if (unassigned.length === 0) {
-    const emptyMsg = document.createElement('p');
-    emptyMsg.className = 'staging-empty';
-    emptyMsg.textContent = 'All crew members are assigned to jobs.';
-    staging.appendChild(emptyMsg);
-  } else {
-    const crewList = document.createElement('div');
-    crewList.className = 'staging-crew-list';
-
-    // Collect all empty slots for the dropdown
-    const emptySlots = ship.jobSlots.filter((s) => s.assignedCrewId === null);
-
-    for (const crew of unassigned) {
-      const crewRow = document.createElement('div');
-      crewRow.className = 'staging-crew-row';
-
-      const crewInfo = document.createElement('div');
-      crewInfo.className = 'staging-crew-info';
-
-      const nameEl = document.createElement('div');
-      nameEl.className = 'staging-crew-name';
-      if (crew.isCaptain) {
-        const captainBadge = document.createElement('span');
-        captainBadge.className = 'captain-badge';
-        captainBadge.textContent = 'CPT ';
-        nameEl.appendChild(captainBadge);
-      }
-      nameEl.appendChild(document.createTextNode(crew.name));
-      crewInfo.appendChild(nameEl);
-
-      const role = document.createElement('div');
-      role.className = 'staging-crew-role';
-      role.textContent = getCrewRoleName(crew.role);
-      crewInfo.appendChild(role);
-
-      const stats = document.createElement('div');
-      stats.className = 'staging-crew-stats';
-      stats.innerHTML = `<span class="stat health">HP: ${crew.health}</span><span class="stat morale">M: ${crew.morale}</span><span class="stat level">Lv: ${crew.level}</span>`;
-      crewInfo.appendChild(stats);
-
-      crewRow.appendChild(crewInfo);
-
-      // Job slot assignment dropdown
-      if (emptySlots.length > 0) {
-        const assignSection = document.createElement('div');
-        assignSection.className = 'staging-crew-assign';
-
-        const select = document.createElement('select');
-        select.className = 'crew-select';
-
-        const defaultOption = document.createElement('option');
-        defaultOption.value = '';
-        defaultOption.textContent = 'Assign to job...';
-        select.appendChild(defaultOption);
-
-        for (const slot of emptySlots) {
-          const slotDef = getJobSlotDefinition(slot.type);
-          if (!slotDef) continue;
-
-          // Find room name for context
-          let locationLabel = '';
-          if (slot.sourceRoomId) {
-            const room = ship.rooms.find((r) => r.id === slot.sourceRoomId);
-            const roomDef = room ? getRoomDefinition(room.type) : null;
-            locationLabel = roomDef ? ` (${roomDef.name})` : '';
-          } else {
-            locationLabel = ' (Ship)';
-          }
-
-          const skillInfo = slotDef.skill
-            ? ` [${slotDef.skill}: ${Math.floor(crew.skills[slotDef.skill])}]`
-            : '';
-
-          const option = document.createElement('option');
-          option.value = slot.id;
-          option.textContent = `${slotDef.name}${locationLabel}${skillInfo}`;
-          select.appendChild(option);
-        }
-
-        select.addEventListener('change', (e) => {
-          const slotId = (e.target as HTMLSelectElement).value;
-          if (slotId) {
-            callbacks.onJobAssign(crew.id, slotId);
-          }
-        });
-
-        assignSection.appendChild(select);
-        crewRow.appendChild(assignSection);
-      }
-
-      crewList.appendChild(crewRow);
-    }
-
-    staging.appendChild(crewList);
-  }
-
-  return staging;
 }
 
 // ── Gravity status ───────────────────────────────────────────────

@@ -63,6 +63,212 @@ export function createTabbedView(
   let currentShowNav = showNavigation;
   let currentSelectedCrewId = selectedCrewId;
 
+  // ── Mount-once header elements ─────────────────────────────────────
+  const headerEl = document.createElement('div');
+  headerEl.className = 'ship-header';
+  headerArea.appendChild(headerEl);
+
+  // Date display with day progress bar
+  const dateHeader = document.createElement('div');
+  dateHeader.className = 'date-header-global';
+
+  const dateText = document.createElement('span');
+  dateHeader.appendChild(dateText);
+
+  const dayProgressBar = document.createElement('div');
+  dayProgressBar.className = 'day-progress-bar';
+  dayProgressBar.style.width = '100%';
+  dayProgressBar.style.height = '4px';
+  dayProgressBar.style.background = 'rgba(255, 255, 255, 0.1)';
+  dayProgressBar.style.borderRadius = '2px';
+  dayProgressBar.style.marginTop = '4px';
+  dayProgressBar.style.overflow = 'hidden';
+
+  const dayProgressFill = document.createElement('div');
+  dayProgressFill.className = 'day-progress-fill';
+  dayProgressFill.style.height = '100%';
+  dayProgressFill.style.background = '#4a9eff';
+  dayProgressFill.style.borderRadius = '2px';
+  dayProgressBar.appendChild(dayProgressFill);
+
+  dateHeader.appendChild(dayProgressBar);
+  headerEl.appendChild(dateHeader);
+
+  // Fleet panel slot (visible only when >1 ships)
+  const fleetPanelSlot = document.createElement('div');
+  headerEl.appendChild(fleetPanelSlot);
+  let fleetPanelComponent: Component | null = null;
+
+  // Ship name
+  const shipNameEl = document.createElement('h2');
+  shipNameEl.className = 'ship-name';
+  headerEl.appendChild(shipNameEl);
+
+  // Ship class label
+  const shipClassEl = document.createElement('div');
+  shipClassEl.className = 'ship-class-label';
+  headerEl.appendChild(shipClassEl);
+
+  // Captain label
+  const captainEl = document.createElement('div');
+  captainEl.className = 'captain-label';
+  headerEl.appendChild(captainEl);
+
+  // ── Mount-once global status bar ───────────────────────────────────
+  const statusBar = document.createElement('div');
+  statusBar.className = 'global-status-bar';
+  headerEl.appendChild(statusBar);
+
+  // Left side: Stats
+  const statsDiv = document.createElement('div');
+  statsDiv.className = 'global-status-stats';
+
+  // Credits with delta display
+  const creditsContainer = document.createElement('div');
+  creditsContainer.style.position = 'relative';
+  creditsContainer.style.display = 'inline-block';
+
+  const creditsDiv = document.createElement('div');
+  const creditsLabel = document.createElement('span');
+  creditsLabel.style.color = '#888';
+  creditsLabel.textContent = 'Credits:';
+  const creditsValueSpan = document.createElement('span');
+  creditsValueSpan.style.color = '#4a9eff';
+  creditsValueSpan.style.fontWeight = 'bold';
+  creditsDiv.appendChild(creditsLabel);
+  creditsDiv.appendChild(document.createTextNode(' '));
+  creditsDiv.appendChild(creditsValueSpan);
+  creditsContainer.appendChild(creditsDiv);
+
+  // Credit delta element (reused, shown/hidden via animation)
+  const creditDeltaEl = document.createElement('div');
+  creditDeltaEl.className = 'credit-delta';
+  creditDeltaEl.style.position = 'absolute';
+  creditDeltaEl.style.left = '100%';
+  creditDeltaEl.style.top = '0';
+  creditDeltaEl.style.marginLeft = '0.5rem';
+  creditDeltaEl.style.fontSize = '0.9rem';
+  creditDeltaEl.style.fontWeight = 'bold';
+  creditDeltaEl.style.whiteSpace = 'nowrap';
+  creditDeltaEl.style.display = 'none';
+  creditsContainer.appendChild(creditDeltaEl);
+
+  statsDiv.appendChild(creditsContainer);
+
+  // Crew count
+  const crewDiv = document.createElement('div');
+  const crewLabel = document.createElement('span');
+  crewLabel.style.color = '#888';
+  crewLabel.textContent = 'Crew:';
+  const crewValueSpan = document.createElement('span');
+  crewValueSpan.style.fontWeight = 'bold';
+  crewDiv.appendChild(crewLabel);
+  crewDiv.appendChild(document.createTextNode(' '));
+  crewDiv.appendChild(crewValueSpan);
+  statsDiv.appendChild(crewDiv);
+
+  // Crew cost per day
+  const crewCostDiv = document.createElement('div');
+  const crewCostLabel = document.createElement('span');
+  crewCostLabel.style.color = '#888';
+  crewCostLabel.textContent = 'Crew Cost:';
+  const crewCostValueSpan = document.createElement('span');
+  crewCostValueSpan.style.color = '#ffa500';
+  crewCostValueSpan.style.fontWeight = 'bold';
+  crewCostDiv.appendChild(crewCostLabel);
+  crewCostDiv.appendChild(document.createTextNode(' '));
+  crewCostDiv.appendChild(crewCostValueSpan);
+  statsDiv.appendChild(crewCostDiv);
+
+  statusBar.appendChild(statsDiv);
+
+  // Right side: Action buttons
+  const actionsDiv = document.createElement('div');
+  actionsDiv.className = 'global-status-actions';
+
+  // Status text (complex: can contain text + threat badge + progress bar)
+  const statusTextEl = document.createElement('span');
+  statusTextEl.className = 'global-status-text';
+
+  // Sub-elements for status text
+  const statusPlainText = document.createTextNode('');
+  statusTextEl.appendChild(statusPlainText);
+
+  // In-flight container (threat badge + progress bar)
+  const flightInfoContainer = document.createElement('span');
+  flightInfoContainer.style.display = 'none';
+
+  const flightDestText = document.createElement('span');
+  flightInfoContainer.appendChild(flightDestText);
+
+  const threatLabel = document.createElement('span');
+  threatLabel.style.marginLeft = '8px';
+  threatLabel.style.fontWeight = '700';
+  threatLabel.style.fontSize = '11px';
+  threatLabel.style.padding = '2px 6px';
+  threatLabel.style.borderRadius = '3px';
+  flightInfoContainer.appendChild(threatLabel);
+
+  // Inline flight progress bar
+  const flightProgressContainer = document.createElement('span');
+  flightProgressContainer.className = 'header-flight-progress';
+  flightProgressContainer.style.marginLeft = '12px';
+  flightProgressContainer.style.display = 'inline-flex';
+  flightProgressContainer.style.alignItems = 'center';
+  flightProgressContainer.style.gap = '6px';
+
+  const flightProgressBar = document.createElement('span');
+  flightProgressBar.style.display = 'inline-block';
+  flightProgressBar.style.width = '80px';
+  flightProgressBar.style.height = '8px';
+  flightProgressBar.style.background = 'rgba(255, 255, 255, 0.1)';
+  flightProgressBar.style.borderRadius = '4px';
+  flightProgressBar.style.overflow = 'hidden';
+
+  const flightProgressFill = document.createElement('span');
+  flightProgressFill.style.display = 'block';
+  flightProgressFill.style.height = '100%';
+  flightProgressFill.style.background = '#4a9eff';
+  flightProgressFill.style.borderRadius = '4px';
+  flightProgressBar.appendChild(flightProgressFill);
+
+  const flightProgressLabel = document.createElement('span');
+  flightProgressLabel.style.fontSize = '11px';
+  flightProgressLabel.style.color = '#aaa';
+
+  flightProgressContainer.appendChild(flightProgressBar);
+  flightProgressContainer.appendChild(flightProgressLabel);
+  flightInfoContainer.appendChild(flightProgressContainer);
+
+  statusTextEl.appendChild(flightInfoContainer);
+
+  actionsDiv.appendChild(statusTextEl);
+
+  // Undock button (created once, toggled display)
+  const undockBtn = document.createElement('button');
+  undockBtn.className = 'global-status-btn';
+  undockBtn.textContent = 'Undock';
+  undockBtn.style.display = 'none';
+  undockBtn.addEventListener('click', () => callbacks.onUndock());
+  actionsDiv.appendChild(undockBtn);
+
+  // Buy Fuel button (created once, toggled display)
+  const refuelBtn = document.createElement('button');
+  refuelBtn.className = 'global-status-btn';
+  refuelBtn.style.display = 'none';
+  refuelBtn.addEventListener('click', () => callbacks.onBuyFuel());
+  actionsDiv.appendChild(refuelBtn);
+
+  // Advance Day button (created once, toggled display)
+  const advanceDayBtn = document.createElement('button');
+  advanceDayBtn.textContent = '\u23ED Advance Day';
+  advanceDayBtn.className = 'global-status-btn';
+  advanceDayBtn.style.display = 'none';
+  advanceDayBtn.addEventListener('click', () => callbacks.onAdvanceDay());
+  actionsDiv.appendChild(advanceDayBtn);
+
+  statusBar.appendChild(actionsDiv);
+
   // ── Keep-alive tab components ──────────────────────────────────────
   // Tab components are created lazily on first visit and kept alive
   // forever. Every tick, ALL alive tabs receive update() so they stay
@@ -208,9 +414,248 @@ export function createTabbedView(
     tabWrappers.set(tab, wrapper);
   }
 
-  function rebuild(gameData: GameData) {
-    // Rebuild header and tab bar (always visible, cheap to recreate)
-    headerArea.replaceChildren(renderShipHeader(gameData, callbacks));
+  // ── Header update (patches in-place) ───────────────────────────────
+  function updateHeader(gameData: GameData) {
+    const ship = getActiveShip(gameData);
+
+    // Date display
+    const dateStr = formatGameDate(gameData.gameTime);
+    if (dateText.textContent !== dateStr) {
+      dateText.textContent = dateStr;
+    }
+
+    // Day progress bar
+    const dayProgress =
+      ((gameData.gameTime % GAME_SECONDS_PER_DAY) / GAME_SECONDS_PER_DAY) * 100;
+    dayProgressFill.style.width = `${dayProgress}%`;
+
+    // Fleet panel (only when fleet has multiple ships)
+    if (gameData.ships.length > 1) {
+      fleetPanelSlot.style.display = '';
+      if (!fleetPanelComponent) {
+        fleetPanelComponent = createFleetPanel(gameData, {
+          onSelectShip: callbacks.onSelectShip,
+        });
+        fleetPanelSlot.appendChild(fleetPanelComponent.el);
+      } else {
+        fleetPanelComponent.update(gameData);
+      }
+    } else {
+      fleetPanelSlot.style.display = 'none';
+    }
+
+    // Ship name
+    if (shipNameEl.textContent !== ship.name) {
+      shipNameEl.textContent = ship.name;
+    }
+
+    // Ship class
+    const shipClass = getShipClass(ship.classId);
+    const classText = `Class: ${shipClass?.name ?? ship.classId}`;
+    if (shipClassEl.textContent !== classText) {
+      shipClassEl.textContent = classText;
+    }
+
+    // Captain
+    const captain = ship.crew.find((c) => c.isCaptain);
+    if (captain) {
+      const captainText = `Captain ${captain.name}`;
+      if (captainEl.textContent !== captainText) {
+        captainEl.textContent = captainText;
+      }
+      captainEl.style.display = '';
+    } else {
+      captainEl.style.display = 'none';
+    }
+
+    // ── Global status bar update ───────────────────────────────────
+    // Credits
+    const currentCredits = Math.round(gameData.credits);
+    creditsValueSpan.textContent = currentCredits.toLocaleString();
+
+    // Credit delta animation
+    if (previousCredits !== null && previousCredits !== currentCredits) {
+      const delta = currentCredits - previousCredits;
+
+      if (delta > 0) {
+        creditDeltaEl.textContent = `+${delta.toLocaleString()}`;
+        creditDeltaEl.style.color = '#4ade80';
+      } else {
+        creditDeltaEl.textContent = delta.toLocaleString();
+        creditDeltaEl.style.color = '#ef4444';
+      }
+
+      // Reset animation by removing and re-adding
+      creditDeltaEl.style.display = '';
+      creditDeltaEl.style.animation = 'none';
+      // Force reflow to restart animation
+      void creditDeltaEl.offsetHeight;
+      creditDeltaEl.style.animation = 'credit-delta-float 2s ease-out forwards';
+
+      // Clear old timeout and set new one
+      if (creditDeltaTimeout !== null) {
+        clearTimeout(creditDeltaTimeout);
+      }
+      creditDeltaTimeout = window.setTimeout(() => {
+        creditDeltaEl.style.display = 'none';
+        creditDeltaTimeout = null;
+      }, 2000);
+    }
+    previousCredits = currentCredits;
+
+    // Crew count
+    const maxCrew = shipClass?.maxCrew ?? '?';
+    const crewText = `${ship.crew.length}/${maxCrew}`;
+    if (crewValueSpan.textContent !== crewText) {
+      crewValueSpan.textContent = crewText;
+    }
+
+    // Crew cost per day (fleet-wide)
+    let totalCrewCost = 0;
+    for (const s of gameData.ships) {
+      totalCrewCost += calculateShipSalaryPerTick(s);
+    }
+
+    if (totalCrewCost > 0) {
+      crewCostDiv.style.display = '';
+      const costText = `${(totalCrewCost * TICKS_PER_DAY).toFixed(0)} cr/day`;
+      if (crewCostValueSpan.textContent !== costText) {
+        crewCostValueSpan.textContent = costText;
+      }
+    } else {
+      crewCostDiv.style.display = 'none';
+    }
+
+    // ── Status text ──────────────────────────────────────────────────
+    if (ship.location.status === 'docked') {
+      const dockedAt = ship.location.dockedAt;
+      const location = gameData.world.locations.find((l) => l.id === dockedAt);
+      const locationName = location?.name || dockedAt;
+      const text = `Docked at ${locationName}`;
+      if (statusPlainText.textContent !== text) {
+        statusPlainText.textContent = text;
+      }
+      flightInfoContainer.style.display = 'none';
+    } else if (ship.location.status === 'orbiting') {
+      const orbitingAt = ship.location.orbitingAt;
+      const location = gameData.world.locations.find(
+        (l) => l.id === orbitingAt
+      );
+      const locationName = location?.name || orbitingAt;
+      const text = `Orbiting ${locationName}`;
+      if (statusPlainText.textContent !== text) {
+        statusPlainText.textContent = text;
+      }
+      flightInfoContainer.style.display = 'none';
+    } else {
+      // In flight
+      statusPlainText.textContent = '';
+      if (ship.activeFlightPlan) {
+        flightInfoContainer.style.display = '';
+
+        const destId = ship.activeFlightPlan.destination;
+        const destLocation = gameData.world.locations.find(
+          (l) => l.id === destId
+        );
+        const destName = destLocation?.name || destId;
+        const destText = `In flight to ${destName}`;
+        if (flightDestText.textContent !== destText) {
+          flightDestText.textContent = destText;
+        }
+
+        // Compute regional threat for in-flight status
+        const currentKm = getShipPositionKm(ship, gameData.world);
+        const positionDanger = calculatePositionDanger(
+          currentKm,
+          gameData.world
+        );
+        const dangerRisk =
+          positionDanger > 3
+            ? 0.35
+            : positionDanger > 1.5
+              ? 0.2
+              : positionDanger > 0.5
+                ? 0.08
+                : 0.02;
+        const threatLevelValue = getThreatLevel(dangerRisk);
+
+        if (threatLevelValue !== 'clear') {
+          threatLabel.style.display = '';
+          const colors: Record<string, string> = {
+            caution: '#ffc107',
+            danger: '#e94560',
+            critical: '#ff6b6b',
+          };
+          threatLabel.style.color = colors[threatLevelValue] || '#aaa';
+          threatLabel.style.background = `${colors[threatLevelValue]}22`;
+          const threatText = threatLevelValue.toUpperCase();
+          if (threatLabel.textContent !== threatText) {
+            threatLabel.textContent = threatText;
+          }
+        } else {
+          threatLabel.style.display = 'none';
+        }
+
+        // Flight progress
+        const progressPercent =
+          (ship.activeFlightPlan.distanceCovered /
+            ship.activeFlightPlan.totalDistance) *
+          100;
+        flightProgressFill.style.width = `${progressPercent}%`;
+        flightProgressLabel.textContent = `${progressPercent.toFixed(0)}%`;
+      } else {
+        // In flight but no active flight plan
+        flightInfoContainer.style.display = 'none';
+        statusPlainText.textContent = 'In flight';
+      }
+    }
+
+    // ── Action buttons (show/hide) ───────────────────────────────────
+    // Undock button (only when docked, disabled when helm unmanned)
+    const isDocked = ship.location.status === 'docked';
+    undockBtn.style.display = isDocked ? '' : 'none';
+    if (isDocked) {
+      const helmOk = isHelmManned(ship);
+      undockBtn.disabled = !helmOk;
+      undockBtn.title = helmOk
+        ? ''
+        : 'Helm is unmanned — assign crew to the helm before undocking';
+    }
+
+    // Buy Fuel button (when docked at refuel station with fuel < 100%)
+    let showRefuel = false;
+    if (ship.location.status === 'docked') {
+      const dockedAt = ship.location.dockedAt;
+      const location = gameData.world.locations.find((l) => l.id === dockedAt);
+      if (
+        location?.services.includes('refuel') &&
+        ship.fuelKg < ship.maxFuelKg
+      ) {
+        showRefuel = true;
+        const fuelNeededKg = ship.maxFuelKg - ship.fuelKg;
+        const fuelPercentage = calculateFuelPercentage(
+          ship.fuelKg,
+          ship.maxFuelKg
+        );
+        const percentNeeded = 100 - fuelPercentage;
+        const cost = Math.round(percentNeeded * 5);
+        refuelBtn.textContent = `Buy Fuel (${formatFuelMass(fuelNeededKg)} → ${cost} cr)`;
+        refuelBtn.disabled = gameData.credits < cost;
+      }
+    }
+    refuelBtn.style.display = showRefuel ? '' : 'none';
+
+    // Advance Day button (only when docked or orbiting with no contract)
+    const canAdvanceDay =
+      (ship.location.status === 'docked' ||
+        ship.location.status === 'orbiting') &&
+      !ship.activeContract;
+    advanceDayBtn.style.display = canAdvanceDay ? '' : 'none';
+  }
+
+  // ── Main update function ───────────────────────────────────────────
+  function update(gameData: GameData) {
+    updateHeader(gameData);
     updateTabBar(gameData);
 
     if (currentTab === 'log') {
@@ -246,331 +691,19 @@ export function createTabbedView(
     }
   }
 
-  rebuild(gameData);
+  // Initial render
+  update(gameData);
 
   return {
     el: container,
     update(gameData: GameData) {
-      rebuild(gameData);
+      update(gameData);
     },
     updateView(state: TabbedViewState) {
       currentTab = state.activeTab;
       currentShowNav = state.showNavigation;
       currentSelectedCrewId = state.selectedCrewId;
-      rebuild(state.gameData);
+      update(state.gameData);
     },
   };
-}
-
-function renderShipHeader(
-  gameData: GameData,
-  callbacks: TabbedViewCallbacks
-): HTMLElement {
-  const header = document.createElement('div');
-  header.className = 'ship-header';
-
-  // Date display with day progress bar
-  const dateHeader = document.createElement('div');
-  dateHeader.className = 'date-header-global';
-
-  const dateText = document.createElement('span');
-  dateText.textContent = formatGameDate(gameData.gameTime);
-  dateHeader.appendChild(dateText);
-
-  // Day progress bar
-  const dayProgress =
-    ((gameData.gameTime % GAME_SECONDS_PER_DAY) / GAME_SECONDS_PER_DAY) * 100;
-  const dayProgressBar = document.createElement('div');
-  dayProgressBar.className = 'day-progress-bar';
-  dayProgressBar.style.width = '100%';
-  dayProgressBar.style.height = '4px';
-  dayProgressBar.style.background = 'rgba(255, 255, 255, 0.1)';
-  dayProgressBar.style.borderRadius = '2px';
-  dayProgressBar.style.marginTop = '4px';
-  dayProgressBar.style.overflow = 'hidden';
-
-  const dayProgressFill = document.createElement('div');
-  dayProgressFill.className = 'day-progress-fill';
-  dayProgressFill.style.height = '100%';
-  dayProgressFill.style.width = `${dayProgress}%`;
-  dayProgressFill.style.background = '#4a9eff';
-  dayProgressFill.style.borderRadius = '2px';
-  dayProgressBar.appendChild(dayProgressFill);
-
-  dateHeader.appendChild(dayProgressBar);
-
-  header.appendChild(dateHeader);
-
-  const ship = getActiveShip(gameData);
-
-  // Fleet status panel (only when fleet has multiple ships)
-  if (gameData.ships.length > 1) {
-    header.appendChild(
-      createFleetPanel(gameData, { onSelectShip: callbacks.onSelectShip }).el
-    );
-  }
-
-  const shipName = document.createElement('h2');
-  shipName.className = 'ship-name';
-  shipName.textContent = ship.name;
-  header.appendChild(shipName);
-
-  const shipClass = getShipClass(ship.classId);
-  const shipClassLabel = document.createElement('div');
-  shipClassLabel.className = 'ship-class-label';
-  shipClassLabel.textContent = `Class: ${shipClass?.name ?? ship.classId}`;
-  header.appendChild(shipClassLabel);
-
-  const captain = ship.crew.find((c) => c.isCaptain);
-  if (captain) {
-    const captainLabel = document.createElement('div');
-    captainLabel.className = 'captain-label';
-    captainLabel.textContent = `Captain ${captain.name}`;
-    header.appendChild(captainLabel);
-  }
-
-  // Global status bar with credits, crew, and advance day
-  header.appendChild(renderGlobalStatusBar(gameData, callbacks));
-
-  return header;
-}
-
-function renderGlobalStatusBar(
-  gameData: GameData,
-  callbacks: TabbedViewCallbacks
-): HTMLElement {
-  const statusBar = document.createElement('div');
-  statusBar.className = 'global-status-bar';
-
-  const ship = getActiveShip(gameData);
-
-  // Left side: Stats
-  const statsDiv = document.createElement('div');
-  statsDiv.className = 'global-status-stats';
-
-  // Credits with delta display
-  const creditsContainer = document.createElement('div');
-  creditsContainer.style.position = 'relative';
-  creditsContainer.style.display = 'inline-block';
-
-  const creditsDiv = document.createElement('div');
-  creditsDiv.innerHTML = `<span style="color: #888;">Credits:</span> <span style="color: #4a9eff; font-weight: bold;">${Math.round(gameData.credits).toLocaleString()}</span>`;
-  creditsContainer.appendChild(creditsDiv);
-
-  // Show credit delta if credits changed
-  const currentCredits = Math.round(gameData.credits);
-  if (previousCredits !== null && previousCredits !== currentCredits) {
-    const delta = currentCredits - previousCredits;
-    const deltaEl = document.createElement('div');
-    deltaEl.className = 'credit-delta';
-    deltaEl.style.position = 'absolute';
-    deltaEl.style.left = '100%';
-    deltaEl.style.top = '0';
-    deltaEl.style.marginLeft = '0.5rem';
-    deltaEl.style.fontSize = '0.9rem';
-    deltaEl.style.fontWeight = 'bold';
-    deltaEl.style.whiteSpace = 'nowrap';
-    deltaEl.style.animation = 'credit-delta-float 2s ease-out forwards';
-
-    if (delta > 0) {
-      deltaEl.textContent = `+${delta.toLocaleString()}`;
-      deltaEl.style.color = '#4ade80';
-    } else {
-      deltaEl.textContent = delta.toLocaleString();
-      deltaEl.style.color = '#ef4444';
-    }
-
-    creditsContainer.appendChild(deltaEl);
-
-    // Clear old timeout and set new one
-    if (creditDeltaTimeout !== null) {
-      clearTimeout(creditDeltaTimeout);
-    }
-    creditDeltaTimeout = window.setTimeout(() => {
-      creditDeltaTimeout = null;
-    }, 2000);
-  }
-  previousCredits = currentCredits;
-
-  statsDiv.appendChild(creditsContainer);
-
-  // Crew count
-  const shipClass = getShipClass(ship.classId);
-  const maxCrew = shipClass?.maxCrew ?? '?';
-  const crewDiv = document.createElement('div');
-  crewDiv.innerHTML = `<span style="color: #888;">Crew:</span> <span style="font-weight: bold;">${ship.crew.length}/${maxCrew}</span>`;
-  statsDiv.appendChild(crewDiv);
-
-  // Crew cost per tick (fleet-wide)
-  let totalCrewCost = 0;
-  for (const s of gameData.ships) {
-    totalCrewCost += calculateShipSalaryPerTick(s);
-  }
-
-  if (totalCrewCost > 0) {
-    const costDiv = document.createElement('div');
-    costDiv.innerHTML = `<span style="color: #888;">Crew Cost:</span> <span style="color: #ffa500; font-weight: bold;">${(totalCrewCost * TICKS_PER_DAY).toFixed(0)} cr/day</span>`;
-    statsDiv.appendChild(costDiv);
-  }
-
-  statusBar.appendChild(statsDiv);
-
-  // Right side: Action buttons
-  const actionsDiv = document.createElement('div');
-  actionsDiv.className = 'global-status-actions';
-
-  // Status text
-  const statusText = document.createElement('span');
-  statusText.className = 'global-status-text';
-  if (ship.location.status === 'docked') {
-    const dockedAt = ship.location.dockedAt;
-    const location = gameData.world.locations.find((l) => l.id === dockedAt);
-    const locationName = location?.name || dockedAt;
-    statusText.textContent = `Docked at ${locationName}`;
-  } else if (ship.location.status === 'orbiting') {
-    const orbitingAt = ship.location.orbitingAt;
-    const location = gameData.world.locations.find((l) => l.id === orbitingAt);
-    const locationName = location?.name || orbitingAt;
-    statusText.textContent = `Orbiting ${locationName}`;
-  } else {
-    if (ship.activeFlightPlan) {
-      const destId = ship.activeFlightPlan.destination;
-      const destLocation = gameData.world.locations.find(
-        (l) => l.id === destId
-      );
-      const destName = destLocation?.name || destId;
-
-      // Compute regional threat for in-flight status
-      const currentKm = getShipPositionKm(ship, gameData.world);
-      const positionDanger = calculatePositionDanger(currentKm, gameData.world);
-      const dangerRisk =
-        positionDanger > 3
-          ? 0.35
-          : positionDanger > 1.5
-            ? 0.2
-            : positionDanger > 0.5
-              ? 0.08
-              : 0.02;
-      const threatLevel = getThreatLevel(dangerRisk);
-
-      // Build status text with flight progress
-      const textSpan = document.createElement('span');
-      textSpan.textContent = `In flight to ${destName}`;
-      statusText.appendChild(textSpan);
-
-      if (threatLevel !== 'clear') {
-        const threatLabel = document.createElement('span');
-        threatLabel.style.marginLeft = '8px';
-        threatLabel.style.fontWeight = '700';
-        threatLabel.style.fontSize = '11px';
-        threatLabel.style.padding = '2px 6px';
-        threatLabel.style.borderRadius = '3px';
-        const colors: Record<string, string> = {
-          caution: '#ffc107',
-          danger: '#e94560',
-          critical: '#ff6b6b',
-        };
-        threatLabel.style.color = colors[threatLevel] || '#aaa';
-        threatLabel.style.background = `${colors[threatLevel]}22`;
-        threatLabel.textContent = threatLevel.toUpperCase();
-        statusText.appendChild(threatLabel);
-      }
-
-      // Add inline progress bar
-      const progressPercent =
-        (ship.activeFlightPlan.distanceCovered /
-          ship.activeFlightPlan.totalDistance) *
-        100;
-      const progressContainer = document.createElement('span');
-      progressContainer.className = 'header-flight-progress';
-      progressContainer.style.marginLeft = '12px';
-      progressContainer.style.display = 'inline-flex';
-      progressContainer.style.alignItems = 'center';
-      progressContainer.style.gap = '6px';
-
-      const progressBar = document.createElement('span');
-      progressBar.style.display = 'inline-block';
-      progressBar.style.width = '80px';
-      progressBar.style.height = '8px';
-      progressBar.style.background = 'rgba(255, 255, 255, 0.1)';
-      progressBar.style.borderRadius = '4px';
-      progressBar.style.overflow = 'hidden';
-
-      const progressFill = document.createElement('span');
-      progressFill.style.display = 'block';
-      progressFill.style.height = '100%';
-      progressFill.style.width = `${progressPercent}%`;
-      progressFill.style.background = '#4a9eff';
-      progressFill.style.borderRadius = '4px';
-      progressBar.appendChild(progressFill);
-
-      const progressLabel = document.createElement('span');
-      progressLabel.style.fontSize = '11px';
-      progressLabel.style.color = '#aaa';
-      progressLabel.textContent = `${progressPercent.toFixed(0)}%`;
-
-      progressContainer.appendChild(progressBar);
-      progressContainer.appendChild(progressLabel);
-      statusText.appendChild(progressContainer);
-    } else {
-      statusText.textContent = 'In flight';
-    }
-  }
-  actionsDiv.appendChild(statusText);
-
-  // Undock button (only show when docked)
-  if (ship.location.status === 'docked') {
-    const undockBtn = document.createElement('button');
-    undockBtn.className = 'global-status-btn';
-    undockBtn.textContent = 'Undock';
-    if (!isHelmManned(ship)) {
-      undockBtn.disabled = true;
-      undockBtn.title =
-        'Helm is unmanned — assign crew to the helm before undocking';
-    }
-    undockBtn.addEventListener('click', () => callbacks.onUndock());
-    actionsDiv.appendChild(undockBtn);
-  }
-
-  // Buy Fuel button (when docked at refuel station with fuel < 100%)
-  if (ship.location.status === 'docked') {
-    const dockedAt = ship.location.dockedAt;
-    const location = gameData.world.locations.find((l) => l.id === dockedAt);
-
-    if (location?.services.includes('refuel') && ship.fuelKg < ship.maxFuelKg) {
-      const fuelNeededKg = ship.maxFuelKg - ship.fuelKg;
-      // TODO: This should use proper per-kg pricing from location (task #6)
-      // For now, keeping legacy percentage-based pricing converted to kg
-      const fuelPercentage = calculateFuelPercentage(
-        ship.fuelKg,
-        ship.maxFuelKg
-      );
-      const percentNeeded = 100 - fuelPercentage;
-      const cost = Math.round(percentNeeded * 5);
-      const refuelBtn = document.createElement('button');
-      refuelBtn.textContent = `Buy Fuel (${formatFuelMass(fuelNeededKg)} → ${cost} cr)`;
-      refuelBtn.className = 'global-status-btn';
-      refuelBtn.disabled = gameData.credits < cost;
-      refuelBtn.addEventListener('click', () => callbacks.onBuyFuel());
-      actionsDiv.appendChild(refuelBtn);
-    }
-  }
-
-  // Advance Day button (only when docked or orbiting with no contract)
-  const canAdvanceDay =
-    (ship.location.status === 'docked' ||
-      ship.location.status === 'orbiting') &&
-    !ship.activeContract;
-
-  if (canAdvanceDay) {
-    const advanceDayBtn = document.createElement('button');
-    advanceDayBtn.textContent = '\u23ED Advance Day';
-    advanceDayBtn.className = 'global-status-btn';
-    advanceDayBtn.addEventListener('click', () => callbacks.onAdvanceDay());
-    actionsDiv.appendChild(advanceDayBtn);
-  }
-
-  statusBar.appendChild(actionsDiv);
-
-  return statusBar;
 }
