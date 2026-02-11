@@ -602,7 +602,7 @@ export function generatePersistentTradeRoutes(
     routes.push({
       id: `trade_${location.id}_${partner.id}`,
       type: 'trade_route',
-      title: `Trade: ${location.name} → ${partner.name}`,
+      title: `Trade: ${location.name} ↔ ${partner.name}`,
       description: `Haul ${tradeGood} to ${partner.name}. Permanent trade route.`,
       origin: location.id,
       destination: partner.id,

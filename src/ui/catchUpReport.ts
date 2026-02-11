@@ -121,6 +121,14 @@ export function renderCatchUpReport(
     container.appendChild(fleetStats);
   }
 
+  // --- Highlight colors (shared by per-ship crew events and remaining highlights) ---
+  const HIGHLIGHT_COLORS: Partial<Record<LogEntryType, string>> = {
+    crew_level_up: '#4ade80',
+    crew_hired: '#4ecdc4',
+    crew_departed: '#ff6b6b',
+    gravity_warning: '#ffa500',
+  };
+
   // --- Per-ship summaries ---
   let totalEncounterCreditsGained = 0;
   let totalEncounterCreditsLost = 0;
@@ -220,20 +228,26 @@ export function renderCatchUpReport(
         shipsWithEncounters++;
       }
 
+      // Crew highlights nested under this ship
+      if (summary.crewHighlights && summary.crewHighlights.length > 0) {
+        for (const entry of summary.crewHighlights) {
+          const line = document.createElement('div');
+          line.className = 'catchup-ship-event';
+          line.textContent = entry.message;
+          line.style.color = HIGHLIGHT_COLORS[entry.type] ?? '#a0a0b0';
+          line.style.paddingLeft = '0.75rem';
+          line.style.fontSize = '0.85rem';
+          shipDiv.appendChild(line);
+        }
+      }
+
       shipsSection.appendChild(shipDiv);
     }
 
     container.appendChild(shipsSection);
   }
 
-  // --- Crew highlights (skill-ups, hires, departures) ---
-  const HIGHLIGHT_COLORS: Partial<Record<LogEntryType, string>> = {
-    crew_level_up: '#4ade80',
-    crew_hired: '#4ecdc4',
-    crew_departed: '#ff6b6b',
-    gravity_warning: '#ffa500',
-  };
-
+  // --- Remaining crew highlights not tied to a specific ship ---
   if (report.logHighlights && report.logHighlights.length > 0) {
     const crewSection = document.createElement('div');
     crewSection.className = 'catchup-progress';
