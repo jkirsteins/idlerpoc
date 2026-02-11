@@ -110,6 +110,21 @@ Current ship equipment (20 items) is dominated by mandatory survival systems. "F
 - **Event Gain Scaling**: Scale flat event gains inversely to rank bracket to prevent high-level spikiness (combat +3.0 is huge at skill 95).
 - **Stronger Match Bonus**: Consider increasing SKILL_MATCH_MULTIPLIER from 1.5x to 3x to make crew assignment more impactful.
 
+## Piracy System
+
+Player-initiated offensive combat — flipping from defender to attacker on trade routes.
+
+- **Core mechanic**: Choose a trade route to raid. Ship lurks along the route and encounters NPC merchants instead of pirates. Combat resolves with inverted roles: player's attack score vs NPC defense.
+- **Loot**: Successful raids yield stolen cargo and credits. Higher-value trade routes (longer distance, richer cargo) attract better loot but have better-defended convoys.
+- **Faction reputation system** (prerequisite): Piracy requires a reputation/standing system. Raiding Terran Alliance convoys tanks Alliance standing (bounty hunters, denied station access). Raiding Free Traders Guild convoys angers the Guild. The Kreth Collective may tolerate or reward piracy against their rivals.
+- **Bounty hunters**: High piracy reputation triggers bounty hunter encounters — elite NPC ships that specifically target the player. Scales with notoriety.
+- **Location viability**: Piracy near Earth/Alliance space is suicidal (high patrol density, fast response). Piracy in lawless zones (Freeport, The Scatter) is viable. Deep space is safest for pirates but has fewer targets.
+- **Offensive weapons** (prerequisite): Piracy is most interesting when the player can invest in offensive loadouts (see Ship Equipment Variety → Offensive Ship Weapons). PD-only ships would rely on boarding, which is riskier.
+- **Smuggling compartments**: Hidden cargo that survives inspection if caught. Ties into Trade/Cargo Equipment backlog item.
+- **Idle-safe design**: During catch-up, piracy encounters cap at "minor haul" (no jackpot raids while AFK). Active play required for the biggest scores.
+- **Economic balance**: Piracy income must not trivially exceed legitimate trade. Risk of bounty hunters, faction lockout, and equipment degradation should create a real cost. Piracy is high-variance: big wins and painful losses.
+- **Prerequisites**: Faction reputation system, offensive ship weapons, smuggling mechanics.
+
 ## EVA System
 
 - **EVA (Extra-Vehicular Activity)**: Crew EVA system for outside-the-ship operations. Would enable hand-mining of specific asteroid targets, ship hull inspection/repair, cargo transfer between ships, and salvage operations. Requires EVA suit crew equipment, airlock room type, and EVA skill or EVA-related piloting checks. Could tie into mining (artisanal hand-mining of rare samples) and repair (hull patch jobs) gameplay loops.
