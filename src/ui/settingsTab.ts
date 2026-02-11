@@ -17,85 +17,295 @@ export function createSettingsTab(
   const container = document.createElement('div');
   container.className = 'settings-tab';
 
-  function rebuild(gameData: GameData) {
-    container.replaceChildren();
-    const title = document.createElement('h3');
-    title.textContent = 'Settings';
-    container.appendChild(title);
+  // ── Title ──
+  const title = document.createElement('h3');
+  title.textContent = 'Settings';
+  container.appendChild(title);
 
-    // Stats Section
-    const statsSection = document.createElement('div');
-    statsSection.className = 'settings-section';
+  // ── Stats Section ──
+  const statsSection = document.createElement('div');
+  statsSection.className = 'settings-section';
 
-    const statsTitle = document.createElement('h4');
-    statsTitle.textContent = 'Statistics';
-    statsTitle.style.marginBottom = '1rem';
-    statsTitle.style.color = '#4a9eff';
-    statsSection.appendChild(statsTitle);
+  const statsTitle = document.createElement('h4');
+  statsTitle.textContent = 'Statistics';
+  statsTitle.style.marginBottom = '1rem';
+  statsTitle.style.color = '#4a9eff';
+  statsSection.appendChild(statsTitle);
 
-    // Lifetime Credits
-    const lifetimeCredits = document.createElement('div');
-    lifetimeCredits.className = 'stat-row';
-    lifetimeCredits.innerHTML = `
-    <span class="stat-label">Lifetime Credits Earned:</span>
-    <span class="stat-value">${gameData.lifetimeCreditsEarned.toLocaleString()} cr</span>
-  `;
-    statsSection.appendChild(lifetimeCredits);
+  // Lifetime Credits row
+  const lifetimeCreditsRow = document.createElement('div');
+  lifetimeCreditsRow.className = 'stat-row';
+  const lifetimeCreditsLabel = document.createElement('span');
+  lifetimeCreditsLabel.className = 'stat-label';
+  lifetimeCreditsLabel.textContent = 'Lifetime Credits Earned:';
+  const lifetimeCreditsValue = document.createElement('span');
+  lifetimeCreditsValue.className = 'stat-value';
+  lifetimeCreditsRow.appendChild(lifetimeCreditsLabel);
+  lifetimeCreditsRow.appendChild(lifetimeCreditsValue);
+  statsSection.appendChild(lifetimeCreditsRow);
 
-    // Current Credits
-    const currentCredits = document.createElement('div');
-    currentCredits.className = 'stat-row';
-    currentCredits.innerHTML = `
-    <span class="stat-label">Current Credits:</span>
-    <span class="stat-value">${Math.round(gameData.credits).toLocaleString()} cr</span>
-  `;
-    statsSection.appendChild(currentCredits);
+  // Current Credits row
+  const currentCreditsRow = document.createElement('div');
+  currentCreditsRow.className = 'stat-row';
+  const currentCreditsLabel = document.createElement('span');
+  currentCreditsLabel.className = 'stat-label';
+  currentCreditsLabel.textContent = 'Current Credits:';
+  const currentCreditsValue = document.createElement('span');
+  currentCreditsValue.className = 'stat-value';
+  currentCreditsRow.appendChild(currentCreditsLabel);
+  currentCreditsRow.appendChild(currentCreditsValue);
+  statsSection.appendChild(currentCreditsRow);
 
-    // Ship Unlock Progress
-    const nextUnlock = findNextShipUnlock(gameData.lifetimeCreditsEarned);
-    if (nextUnlock) {
-      const progress =
-        (gameData.lifetimeCreditsEarned / nextUnlock.threshold) * 100;
-      const remaining = nextUnlock.threshold - gameData.lifetimeCreditsEarned;
+  // Ship Unlock Progress row (always exists, toggled via display)
+  const unlockRow = document.createElement('div');
+  unlockRow.className = 'stat-row';
+  unlockRow.style.marginTop = '1rem';
+  const unlockLabel = document.createElement('span');
+  unlockLabel.className = 'stat-label';
+  const unlockValue = document.createElement('span');
+  unlockValue.className = 'stat-value';
+  unlockRow.appendChild(unlockLabel);
+  unlockRow.appendChild(unlockValue);
+  statsSection.appendChild(unlockRow);
 
-      const unlockDiv = document.createElement('div');
-      unlockDiv.className = 'stat-row';
-      unlockDiv.style.marginTop = '1rem';
-      unlockDiv.innerHTML = `
-      <span class="stat-label">Next Ship Unlock (${nextUnlock.shipName}):</span>
-      <span class="stat-value">${remaining.toLocaleString()} cr remaining</span>
-    `;
-      statsSection.appendChild(unlockDiv);
+  // Progress bar (always exists, toggled via display)
+  const progressBar = document.createElement('div');
+  progressBar.className = 'unlock-progress-bar';
+  progressBar.style.width = '100%';
+  progressBar.style.height = '8px';
+  progressBar.style.background = 'rgba(255, 255, 255, 0.1)';
+  progressBar.style.borderRadius = '4px';
+  progressBar.style.marginTop = '0.5rem';
+  progressBar.style.overflow = 'hidden';
 
-      // Progress bar
-      const progressBar = document.createElement('div');
-      progressBar.className = 'unlock-progress-bar';
-      progressBar.style.width = '100%';
-      progressBar.style.height = '8px';
-      progressBar.style.background = 'rgba(255, 255, 255, 0.1)';
-      progressBar.style.borderRadius = '4px';
-      progressBar.style.marginTop = '0.5rem';
-      progressBar.style.overflow = 'hidden';
+  const progressFill = document.createElement('div');
+  progressFill.style.height = '100%';
+  progressFill.style.background = '#4a9eff';
+  progressFill.style.transition = 'width 0.3s ease';
+  progressBar.appendChild(progressFill);
+  statsSection.appendChild(progressBar);
 
-      const progressFill = document.createElement('div');
-      progressFill.style.width = `${Math.min(100, progress)}%`;
-      progressFill.style.height = '100%';
-      progressFill.style.background = '#4a9eff';
-      progressFill.style.transition = 'width 0.3s ease';
-      progressBar.appendChild(progressFill);
+  // Encounter Stats heading
+  const encounterTitle = document.createElement('div');
+  encounterTitle.style.marginTop = '1.5rem';
+  encounterTitle.style.marginBottom = '0.5rem';
+  encounterTitle.style.fontWeight = 'bold';
+  encounterTitle.style.color = '#aaa';
+  encounterTitle.textContent = 'Encounters:';
+  statsSection.appendChild(encounterTitle);
 
-      statsSection.appendChild(progressBar);
+  // Encounter stat rows — create all 6 once, keep refs to value spans
+  const encounterStatDefs = [
+    { label: 'Total', color: '#fff' },
+    { label: 'Evaded', color: '#4ade80' },
+    { label: 'Negotiated', color: '#fbbf24' },
+    { label: 'Victories', color: '#60a5fa' },
+    { label: 'Harassments', color: '#fb923c' },
+    { label: 'Boardings', color: '#ef4444' },
+  ] as const;
+
+  const encounterValueRefs: HTMLSpanElement[] = [];
+
+  for (const def of encounterStatDefs) {
+    const row = document.createElement('div');
+    row.className = 'stat-row';
+
+    const label = document.createElement('span');
+    label.className = 'stat-label';
+    label.textContent = `${def.label}:`;
+
+    const value = document.createElement('span');
+    value.className = 'stat-value';
+    value.style.color = def.color;
+
+    row.appendChild(label);
+    row.appendChild(value);
+    statsSection.appendChild(row);
+    encounterValueRefs.push(value);
+  }
+
+  container.appendChild(statsSection);
+
+  // ── Auto-Pause Settings Section ──
+  const autoPauseSection = document.createElement('div');
+  autoPauseSection.className = 'settings-section';
+  autoPauseSection.style.marginTop = '2rem';
+
+  const autoPauseTitle = document.createElement('h4');
+  autoPauseTitle.textContent = 'Auto-Pause Settings';
+  autoPauseTitle.style.marginBottom = '1rem';
+  autoPauseTitle.style.color = '#4a9eff';
+  autoPauseSection.appendChild(autoPauseTitle);
+
+  const autoPauseDesc = document.createElement('p');
+  autoPauseDesc.textContent =
+    'Automatically pause the game when certain events occur:';
+  autoPauseDesc.className = 'settings-description';
+  autoPauseDesc.style.marginBottom = '1rem';
+  autoPauseSection.appendChild(autoPauseDesc);
+
+  const pauseSettingDefs = [
+    {
+      key: 'onArrival' as const,
+      label: 'Pause on ship arrival',
+      description: 'Pause when any ship arrives at a destination',
+    },
+    {
+      key: 'onContractComplete' as const,
+      label: 'Pause on contract completion',
+      description: 'Pause when contracts or trips are completed',
+    },
+    {
+      key: 'onCriticalAlert' as const,
+      label: 'Pause on critical alerts',
+      description: 'Pause when critical situations occur',
+    },
+    {
+      key: 'onLowFuel' as const,
+      label: 'Pause on low fuel',
+      description: 'Pause when fuel drops below 10%',
+    },
+  ];
+
+  const checkboxRefs: {
+    key: keyof GameData['autoPauseSettings'];
+    checkbox: HTMLInputElement;
+  }[] = [];
+
+  for (const setting of pauseSettingDefs) {
+    const row = document.createElement('div');
+    row.style.marginBottom = '0.75rem';
+
+    const label = document.createElement('label');
+    label.style.display = 'flex';
+    label.style.alignItems = 'flex-start';
+    label.style.cursor = 'pointer';
+
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.style.marginTop = '2px';
+    checkbox.style.marginRight = '0.5rem';
+    checkbox.addEventListener('change', () => {
+      if (callbacks.onAutoPauseSettingChange) {
+        callbacks.onAutoPauseSettingChange(setting.key, checkbox.checked);
+      }
+    });
+
+    const textDiv = document.createElement('div');
+    const labelText = document.createElement('div');
+    labelText.textContent = setting.label;
+    labelText.style.fontWeight = '500';
+    labelText.style.color = '#fff';
+    textDiv.appendChild(labelText);
+
+    const descText = document.createElement('div');
+    descText.textContent = setting.description;
+    descText.style.fontSize = '12px';
+    descText.style.color = '#aaa';
+    descText.style.marginTop = '2px';
+    textDiv.appendChild(descText);
+
+    label.appendChild(checkbox);
+    label.appendChild(textDiv);
+    row.appendChild(label);
+    autoPauseSection.appendChild(row);
+
+    checkboxRefs.push({ key: setting.key, checkbox });
+  }
+
+  container.appendChild(autoPauseSection);
+
+  // ── Reset Section (static — never changes) ──
+  const resetSection = document.createElement('div');
+  resetSection.className = 'settings-section';
+  resetSection.style.marginTop = '2rem';
+
+  const description = document.createElement('p');
+  description.textContent =
+    'Reset your game and return to the beginning. All progress will be lost.';
+  description.className = 'settings-description';
+  resetSection.appendChild(description);
+
+  const resetBtn = document.createElement('button');
+  resetBtn.className = 'danger';
+  resetBtn.textContent = 'Reset Game';
+  resetBtn.addEventListener('click', () => {
+    if (
+      confirm(
+        'Are you sure you want to reset your game? All progress will be lost.'
+      )
+    ) {
+      callbacks.onReset();
+    }
+  });
+  resetSection.appendChild(resetBtn);
+
+  container.appendChild(resetSection);
+
+  // ── Snapshot for shallow-compare ──
+  let prevLifetimeCredits = -1;
+  let prevCurrentCredits = -1;
+  let prevUnlockShipName = '';
+  let prevUnlockThreshold = -1;
+  let prevEncTotal = -1;
+  let prevEncEvaded = -1;
+  let prevEncNegotiated = -1;
+  let prevEncVictories = -1;
+  let prevEncHarassments = -1;
+  let prevEncBoardings = -1;
+  let prevAutoPauseOnArrival = false;
+  let prevAutoPauseOnContractComplete = false;
+  let prevAutoPauseOnCriticalAlert = false;
+  let prevAutoPauseOnLowFuel = false;
+
+  function update(gameData: GameData): void {
+    // Lifetime credits
+    const ltc = gameData.lifetimeCreditsEarned;
+    if (ltc !== prevLifetimeCredits) {
+      lifetimeCreditsValue.textContent = `${ltc.toLocaleString()} cr`;
+      prevLifetimeCredits = ltc;
     }
 
-    // Encounter Stats
-    const encounterTitle = document.createElement('div');
-    encounterTitle.style.marginTop = '1.5rem';
-    encounterTitle.style.marginBottom = '0.5rem';
-    encounterTitle.style.fontWeight = 'bold';
-    encounterTitle.style.color = '#aaa';
-    encounterTitle.textContent = 'Encounters:';
-    statsSection.appendChild(encounterTitle);
+    // Current credits
+    const cc = Math.round(gameData.credits);
+    if (cc !== prevCurrentCredits) {
+      currentCreditsValue.textContent = `${cc.toLocaleString()} cr`;
+      prevCurrentCredits = cc;
+    }
 
+    // Ship unlock progress
+    const nextUnlock = findNextShipUnlock(ltc);
+    if (nextUnlock) {
+      const shipName = nextUnlock.shipName;
+      const threshold = nextUnlock.threshold;
+
+      if (
+        shipName !== prevUnlockShipName ||
+        threshold !== prevUnlockThreshold
+      ) {
+        unlockLabel.textContent = `Next Ship Unlock (${shipName}):`;
+        prevUnlockShipName = shipName;
+        prevUnlockThreshold = threshold;
+      }
+
+      const remaining = threshold - ltc;
+      unlockValue.textContent = `${remaining.toLocaleString()} cr remaining`;
+
+      const progress = (ltc / threshold) * 100;
+      progressFill.style.width = `${Math.min(100, progress)}%`;
+
+      unlockRow.style.display = '';
+      progressBar.style.display = '';
+    } else {
+      if (prevUnlockShipName !== '' || prevUnlockThreshold !== -1) {
+        prevUnlockShipName = '';
+        prevUnlockThreshold = -1;
+      }
+      unlockRow.style.display = 'none';
+      progressBar.style.display = 'none';
+    }
+
+    // Encounter stats
     const stats = gameData.encounterStats || {
       totalEncounters: 0,
       evaded: 0,
@@ -104,141 +314,69 @@ export function createSettingsTab(
       harassments: 0,
       boardings: 0,
     };
-    const encounterStats = [
-      { label: 'Total', value: stats.totalEncounters },
-      { label: 'Evaded', value: stats.evaded, color: '#4ade80' },
-      { label: 'Negotiated', value: stats.negotiated, color: '#fbbf24' },
-      { label: 'Victories', value: stats.victories, color: '#60a5fa' },
-      { label: 'Harassments', value: stats.harassments, color: '#fb923c' },
-      { label: 'Boardings', value: stats.boardings, color: '#ef4444' },
+
+    const encounterValues = [
+      stats.totalEncounters,
+      stats.evaded,
+      stats.negotiated,
+      stats.victories,
+      stats.harassments,
+      stats.boardings,
     ];
 
-    for (const stat of encounterStats) {
-      const row = document.createElement('div');
-      row.className = 'stat-row';
-      row.innerHTML = `
-      <span class="stat-label">${stat.label}:</span>
-      <span class="stat-value" style="color: ${stat.color || '#fff'}">${stat.value}</span>
-    `;
-      statsSection.appendChild(row);
+    const prevEncValues = [
+      prevEncTotal,
+      prevEncEvaded,
+      prevEncNegotiated,
+      prevEncVictories,
+      prevEncHarassments,
+      prevEncBoardings,
+    ];
+
+    for (let i = 0; i < encounterValues.length; i++) {
+      if (encounterValues[i] !== prevEncValues[i]) {
+        encounterValueRefs[i].textContent = String(encounterValues[i]);
+      }
     }
 
-    container.appendChild(statsSection);
-
-    // Auto-Pause Settings Section
-    const autoPauseSection = document.createElement('div');
-    autoPauseSection.className = 'settings-section';
-    autoPauseSection.style.marginTop = '2rem';
-
-    const autoPauseTitle = document.createElement('h4');
-    autoPauseTitle.textContent = 'Auto-Pause Settings';
-    autoPauseTitle.style.marginBottom = '1rem';
-    autoPauseTitle.style.color = '#4a9eff';
-    autoPauseSection.appendChild(autoPauseTitle);
-
-    const autoPauseDesc = document.createElement('p');
-    autoPauseDesc.textContent =
-      'Automatically pause the game when certain events occur:';
-    autoPauseDesc.className = 'settings-description';
-    autoPauseDesc.style.marginBottom = '1rem';
-    autoPauseSection.appendChild(autoPauseDesc);
+    prevEncTotal = stats.totalEncounters;
+    prevEncEvaded = stats.evaded;
+    prevEncNegotiated = stats.negotiated;
+    prevEncVictories = stats.victories;
+    prevEncHarassments = stats.harassments;
+    prevEncBoardings = stats.boardings;
 
     // Auto-pause checkboxes
-    const pauseSettings = [
-      {
-        key: 'onArrival' as const,
-        label: 'Pause on ship arrival',
-        description: 'Pause when any ship arrives at a destination',
-      },
-      {
-        key: 'onContractComplete' as const,
-        label: 'Pause on contract completion',
-        description: 'Pause when contracts or trips are completed',
-      },
-      {
-        key: 'onCriticalAlert' as const,
-        label: 'Pause on critical alerts',
-        description: 'Pause when critical situations occur',
-      },
-      {
-        key: 'onLowFuel' as const,
-        label: 'Pause on low fuel',
-        description: 'Pause when fuel drops below 10%',
-      },
+    const apSettings = gameData.autoPauseSettings;
+    const currentApValues = [
+      apSettings.onArrival,
+      apSettings.onContractComplete,
+      apSettings.onCriticalAlert,
+      apSettings.onLowFuel,
+    ];
+    const prevApValues = [
+      prevAutoPauseOnArrival,
+      prevAutoPauseOnContractComplete,
+      prevAutoPauseOnCriticalAlert,
+      prevAutoPauseOnLowFuel,
     ];
 
-    for (const setting of pauseSettings) {
-      const row = document.createElement('div');
-      row.style.marginBottom = '0.75rem';
-
-      const label = document.createElement('label');
-      label.style.display = 'flex';
-      label.style.alignItems = 'flex-start';
-      label.style.cursor = 'pointer';
-
-      const checkbox = document.createElement('input');
-      checkbox.type = 'checkbox';
-      checkbox.checked = gameData.autoPauseSettings[setting.key];
-      checkbox.style.marginTop = '2px';
-      checkbox.style.marginRight = '0.5rem';
-      checkbox.addEventListener('change', () => {
-        if (callbacks.onAutoPauseSettingChange) {
-          callbacks.onAutoPauseSettingChange(setting.key, checkbox.checked);
-        }
-      });
-
-      const textDiv = document.createElement('div');
-      const labelText = document.createElement('div');
-      labelText.textContent = setting.label;
-      labelText.style.fontWeight = '500';
-      labelText.style.color = '#fff';
-      textDiv.appendChild(labelText);
-
-      const descText = document.createElement('div');
-      descText.textContent = setting.description;
-      descText.style.fontSize = '12px';
-      descText.style.color = '#aaa';
-      descText.style.marginTop = '2px';
-      textDiv.appendChild(descText);
-
-      label.appendChild(checkbox);
-      label.appendChild(textDiv);
-      row.appendChild(label);
-      autoPauseSection.appendChild(row);
+    for (let i = 0; i < checkboxRefs.length; i++) {
+      if (currentApValues[i] !== prevApValues[i]) {
+        checkboxRefs[i].checkbox.checked = currentApValues[i];
+      }
     }
 
-    container.appendChild(autoPauseSection);
-
-    // Reset Section
-    const resetSection = document.createElement('div');
-    resetSection.className = 'settings-section';
-    resetSection.style.marginTop = '2rem';
-
-    const description = document.createElement('p');
-    description.textContent =
-      'Reset your game and return to the beginning. All progress will be lost.';
-    description.className = 'settings-description';
-    resetSection.appendChild(description);
-
-    const resetBtn = document.createElement('button');
-    resetBtn.className = 'danger';
-    resetBtn.textContent = 'Reset Game';
-    resetBtn.addEventListener('click', () => {
-      if (
-        confirm(
-          'Are you sure you want to reset your game? All progress will be lost.'
-        )
-      ) {
-        callbacks.onReset();
-      }
-    });
-    resetSection.appendChild(resetBtn);
-
-    container.appendChild(resetSection);
+    prevAutoPauseOnArrival = apSettings.onArrival;
+    prevAutoPauseOnContractComplete = apSettings.onContractComplete;
+    prevAutoPauseOnCriticalAlert = apSettings.onCriticalAlert;
+    prevAutoPauseOnLowFuel = apSettings.onLowFuel;
   }
 
-  rebuild(gameData);
-  return { el: container, update: rebuild };
+  // Initial render
+  update(gameData);
+
+  return { el: container, update };
 }
 
 /**
