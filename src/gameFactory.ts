@@ -97,10 +97,17 @@ function createEngineInstance(shipClassId: ShipClassId): EngineInstance {
 }
 
 /**
- * Generate hireable crew candidates (2-3 random crew)
+ * Generate hireable crew candidates for a location.
+ *
+ * Candidate count is derived from location size (the same property that
+ * drives daily quest count), so larger stations naturally attract more
+ * crew.  A random roll of 0..size means small outposts (size 1) have a
+ * 50 % chance of zero candidates while major hubs (size 5) almost
+ * always offer several.
  */
-export function generateHireableCrew(): CrewMember[] {
-  const count = 2 + Math.floor(Math.random() * 2); // 2-3 candidates
+export function generateHireableCrew(locationSize: number): CrewMember[] {
+  // 0 to locationSize candidates (inclusive) — mirrors quest count logic
+  const count = Math.floor(Math.random() * (locationSize + 1));
   const candidates: CrewMember[] = [];
 
   const availableRoles: CrewRole[] = ['pilot', 'miner', 'trader'];
@@ -116,8 +123,10 @@ export function generateHireableCrew(): CrewMember[] {
 }
 
 /**
- * Generate hireable crew pools for all stations with 'hire' service
- * Only generates for stations that have at least one docked ship
+ * Generate hireable crew pools for all stations with 'hire' service.
+ * Only generates for stations that have at least one docked ship.
+ * Candidate count scales with location size — large hubs attract more
+ * crew while remote outposts may have nobody looking for work.
  */
 export function generateHireableCrewByLocation(
   world: GameData['world'],
@@ -129,7 +138,7 @@ export function generateHireableCrewByLocation(
       location.services.includes('hire') &&
       dockedLocationIds.includes(location.id)
     ) {
-      pools[location.id] = generateHireableCrew();
+      pools[location.id] = generateHireableCrew(location.size);
     }
   }
   return pools;

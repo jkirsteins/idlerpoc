@@ -535,7 +535,8 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
       {
         heading: 'Mechanics',
         paragraphs: [
-          '2-3 randomly generated candidates are available per station visit. Candidates refresh when advancing the day.',
+          "Each day, a new roster of candidates is generated at every hiring station. The number of available candidates depends on the station's size — major hubs like Earth may offer up to 5 candidates, while smaller outposts may have none at all.",
+          'There is always a chance that no crew are looking for work on a given day. Advance to the next day to see a fresh roster.',
           'Each candidate has randomized [[skill-system|skills]], level, and [[crew-roles|role]].',
         ],
       },
