@@ -148,26 +148,38 @@ export function render(
     return;
   }
 
-  // Catch-up modal is already showing — update progress in-place to prevent flicker
+  // Catch-up progress bar is showing — update it in-place to prevent flicker.
+  // Only match when catchUpProgress is set (not catchUpReport), so that when
+  // catch-up completes the report falls through to the slow-path rebuild.
   if (
     state.phase === 'playing' &&
-    (state.catchUpReport || state.catchUpProgress) &&
+    state.catchUpProgress &&
     mounted !== null &&
     mounted.hasCatchUpReport &&
+    mounted.catchUpProgressText &&
+    mounted.catchUpProgressFill &&
     container.contains(mounted.wrapper)
   ) {
-    // Update progress bar in-place if we have stored references
-    if (
-      state.catchUpProgress &&
-      mounted.catchUpProgressText &&
-      mounted.catchUpProgressFill
-    ) {
-      const pct = Math.round(
-        (state.catchUpProgress.processed / state.catchUpProgress.total) * 100
-      );
-      mounted.catchUpProgressText.textContent = `Processing ${state.catchUpProgress.processed.toLocaleString()} / ${state.catchUpProgress.total.toLocaleString()} updates (${pct}%)`;
-      mounted.catchUpProgressFill.style.width = `${pct}%`;
-    }
+    const pct = Math.round(
+      (state.catchUpProgress.processed / state.catchUpProgress.total) * 100
+    );
+    mounted.catchUpProgressText.textContent = `Processing ${state.catchUpProgress.processed.toLocaleString()} / ${state.catchUpProgress.total.toLocaleString()} updates (${pct}%)`;
+    mounted.catchUpProgressFill.style.width = `${pct}%`;
+    return;
+  }
+
+  // Catch-up report is already displayed — it's static content, no update needed.
+  // Detected by hasCatchUpReport being set but progress refs absent (progress bar
+  // sets them; report does not). Without this, every tick falls through to the
+  // slow path and recreates the report modal from scratch.
+  if (
+    state.phase === 'playing' &&
+    state.catchUpReport &&
+    mounted !== null &&
+    mounted.hasCatchUpReport &&
+    !mounted.catchUpProgressText &&
+    container.contains(mounted.wrapper)
+  ) {
     return;
   }
 

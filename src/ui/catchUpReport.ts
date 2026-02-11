@@ -183,6 +183,27 @@ export function renderCatchUpReport(
 
       shipDiv.appendChild(activityEl);
 
+      // Contract info line (if any)
+      if (summary.contractInfo) {
+        const contractEl = document.createElement('div');
+        contractEl.className = 'catchup-ship-event';
+        contractEl.style.paddingLeft = '0.75rem';
+        contractEl.style.fontSize = '0.85rem';
+
+        const statusLabels: Record<string, { text: string; color: string }> = {
+          ongoing: { text: 'In progress', color: '#4a9eff' },
+          completed: { text: 'Completed', color: '#4ecdc4' },
+          expired: { text: 'Expired', color: '#ff6b6b' },
+          abandoned: { text: 'Abandoned', color: '#ffa500' },
+        };
+
+        const { text, color } =
+          statusLabels[summary.contractInfo.status] ?? statusLabels.ongoing;
+        contractEl.textContent = `Contract: ${summary.contractInfo.title} — ${text}`;
+        contractEl.style.color = color;
+        shipDiv.appendChild(contractEl);
+      }
+
       // Encounter lines (if any)
       if (summary.encounters) {
         renderEncounterLines(summary.encounters, shipDiv);

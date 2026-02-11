@@ -3,6 +3,7 @@ import { getShipClass, type ShipClassTier } from '../shipClasses';
 import { getEngineDefinition } from '../engines';
 import { computeMaxRange } from '../flightPhysics';
 import { formatDualTime } from '../timeSystem';
+import { getTradeRouteName } from '../utils';
 import type { Component } from './component';
 import { formatFuelMass, calculateFuelPercentage } from './fuelFormatting';
 import { getCommandCommerceBonus, getFleetAuraBonus } from '../captainBonus';
@@ -55,16 +56,8 @@ function getShipActivity(ship: Ship, gd: GameData): ShipActivity {
   }
 
   if (ship.routeAssignment) {
-    const origin = gd.world.locations.find(
-      (l) => l.id === ship.routeAssignment!.originId
-    );
-    const dest = gd.world.locations.find(
-      (l) => l.id === ship.routeAssignment!.destinationId
-    );
-    const originName = origin?.name ?? ship.routeAssignment.originId;
-    const destName = dest?.name ?? ship.routeAssignment.destinationId;
     return {
-      label: `Trade Route: ${originName} ↔ ${destName}`,
+      label: `Trade Route: ${getTradeRouteName(ship, gd)}`,
       color: '#4a9eff',
     };
   }

@@ -3,6 +3,7 @@ import { getActiveShip } from '../models';
 import { getShipClass, SHIP_CLASSES } from '../shipClasses';
 import type { RoomType } from '../models';
 import { getEngineDefinition } from '../engines';
+import { formatTradeRouteName } from '../utils';
 import { getRoomDefinition } from '../rooms';
 import { getEquipmentDefinition } from '../equipment';
 import {
@@ -789,7 +790,7 @@ function renderEnhancedShipCard(
         <span style="color: #aaa;">Type:</span> ${quest.type.charAt(0).toUpperCase() + quest.type.slice(1)}
       </div>
       <div style="font-size: 0.85rem; margin-bottom: 0.25rem;">
-        <span style="color: #aaa;">Route:</span> ${origin?.name || quest.origin} → ${dest?.name || quest.destination}
+        <span style="color: #aaa;">Route:</span> ${quest.type === 'trade_route' || quest.type === 'freight' ? formatTradeRouteName(origin?.name || quest.origin, dest?.name || quest.destination) : `${origin?.name || quest.origin} \u2192 ${dest?.name || quest.destination}`}
       </div>
       ${
         quest.tripsRequired > 1 || quest.tripsRequired === -1

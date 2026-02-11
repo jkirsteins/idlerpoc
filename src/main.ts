@@ -5,13 +5,18 @@ import type {
   GameData,
   CrewEquipmentId,
   CatchUpReport,
+  ContractSnapshot,
   Toast,
   EncounterResult,
   SkillId,
   OreId,
   RouteSnapshot,
 } from './models';
-import { buildCatchUpReport, snapshotRoutes } from './catchUpReportBuilder';
+import {
+  buildCatchUpReport,
+  snapshotContracts,
+  snapshotRoutes,
+} from './catchUpReportBuilder';
 import { getActiveShip } from './models';
 import { createNewGame, createAdditionalShip } from './gameFactory';
 import { saveGame, loadGame, clearGame, importGame } from './storage';
@@ -88,6 +93,7 @@ interface ActiveCatchUp {
   prevGameTime: number;
   elapsedRealSeconds: number;
   routeSnapshots: Map<string, RouteSnapshot>;
+  contractSnapshots: Map<string, ContractSnapshot>;
 }
 
 let activeCatchUp: ActiveCatchUp | null = null;
@@ -209,6 +215,7 @@ function fastForwardTicks(gameData: GameData): CatchUpReport | null {
   drainEncounterResults();
 
   const routeSnaps = snapshotRoutes(gameData);
+  const contractSnaps = snapshotContracts(gameData);
 
   if (totalTicks <= CATCH_UP_BATCH_SIZE) {
     // Small gap: process synchronously
@@ -255,7 +262,7 @@ function fastForwardTicks(gameData: GameData): CatchUpReport | null {
         gameData,
         prevCredits,
         prevGameTime,
-        routeSnaps
+        { routes: routeSnaps, contracts: contractSnaps }
       );
     }
     return null;
@@ -269,6 +276,7 @@ function fastForwardTicks(gameData: GameData): CatchUpReport | null {
     prevGameTime: gameData.gameTime,
     elapsedRealSeconds: elapsedSeconds,
     routeSnapshots: routeSnaps,
+    contractSnapshots: contractSnaps,
   };
 
   return null;
@@ -1579,7 +1587,10 @@ function processCatchUpBatch(): void {
       state.gameData,
       activeCatchUp.prevCredits,
       activeCatchUp.prevGameTime,
-      activeCatchUp.routeSnapshots
+      {
+        routes: activeCatchUp.routeSnapshots,
+        contracts: activeCatchUp.contractSnapshots,
+      }
     );
     activeCatchUp = null;
     catchUpBatchScheduled = false;
@@ -1611,7 +1622,10 @@ function processCatchUpBatch(): void {
       state.gameData,
       activeCatchUp.prevCredits,
       activeCatchUp.prevGameTime,
-      activeCatchUp.routeSnapshots
+      {
+        routes: activeCatchUp.routeSnapshots,
+        contracts: activeCatchUp.contractSnapshots,
+      }
     );
     activeCatchUp = null;
     catchUpBatchScheduled = false;
@@ -1690,6 +1704,7 @@ function processPendingTicks(): void {
     : state.gameData.gameTime;
 
   const pendingRouteSnaps = snapshotRoutes(state.gameData);
+  const pendingContractSnaps = snapshotContracts(state.gameData);
 
   if (totalTicks > CATCH_UP_BATCH_SIZE) {
     // Large gap: start batched catch-up
@@ -1702,6 +1717,7 @@ function processPendingTicks(): void {
       prevGameTime: reportPrevGameTime,
       elapsedRealSeconds: reportRealSeconds,
       routeSnapshots: pendingRouteSnaps,
+      contractSnapshots: pendingContractSnaps,
     };
     if (state.phase === 'playing') {
       state = {
@@ -1767,7 +1783,7 @@ function processPendingTicks(): void {
       state.gameData,
       prevCredits,
       prevGameTime,
-      pendingRouteSnaps
+      { routes: pendingRouteSnaps, contracts: pendingContractSnaps }
     );
     if (state.phase === 'playing') {
       state = { ...state, catchUpReport: report };

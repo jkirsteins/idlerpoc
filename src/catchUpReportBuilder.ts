@@ -1,38 +1,41 @@
 import type {
   GameData,
   CatchUpReport,
+  CatchUpContractInfo,
   CatchUpEncounterStats,
   CatchUpShipSummary,
+  ContractSnapshot,
   EncounterResult,
   LogEntry,
   RouteSnapshot,
 } from './models';
+import { getTradeRouteName, getMiningRouteName } from './utils';
 
 /** Snapshot each ship's automated route assignment before catch-up ticks run. */
 export function snapshotRoutes(gameData: GameData): Map<string, RouteSnapshot> {
   const snapshots = new Map<string, RouteSnapshot>();
   for (const ship of gameData.ships) {
     if (ship.routeAssignment) {
-      const origin = gameData.world.locations.find(
-        (l) => l.id === ship.routeAssignment!.originId
-      );
-      const dest = gameData.world.locations.find(
-        (l) => l.id === ship.routeAssignment!.destinationId
-      );
-      snapshots.set(ship.id, {
-        type: 'trade',
-        routeName: `${origin?.name ?? ship.routeAssignment.originId} ↔ ${dest?.name ?? ship.routeAssignment.destinationId}`,
-      });
+      const routeName = getTradeRouteName(ship, gameData)!;
+      snapshots.set(ship.id, { type: 'trade', routeName });
     } else if (ship.miningRoute) {
-      const mine = gameData.world.locations.find(
-        (l) => l.id === ship.miningRoute!.mineLocationId
-      );
-      const sell = gameData.world.locations.find(
-        (l) => l.id === ship.miningRoute!.sellLocationId
-      );
+      const routeName = getMiningRouteName(ship, gameData)!;
+      snapshots.set(ship.id, { type: 'mining', routeName });
+    }
+  }
+  return snapshots;
+}
+
+/** Snapshot each ship's active contract before catch-up ticks run. */
+export function snapshotContracts(
+  gameData: GameData
+): Map<string, ContractSnapshot> {
+  const snapshots = new Map<string, ContractSnapshot>();
+  for (const ship of gameData.ships) {
+    if (ship.activeContract) {
       snapshots.set(ship.id, {
-        type: 'mining',
-        routeName: `${mine?.name ?? ship.miningRoute.mineLocationId} → ${sell?.name ?? ship.miningRoute.sellLocationId}`,
+        questTitle: ship.activeContract.quest.title,
+        questId: ship.activeContract.quest.id,
       });
     }
   }
@@ -51,7 +54,10 @@ export function buildCatchUpReport(
   gameData: GameData,
   prevCredits: number,
   prevGameTime: number,
-  routeSnapshots?: Map<string, RouteSnapshot>
+  snapshots?: {
+    routes?: Map<string, RouteSnapshot>;
+    contracts?: Map<string, ContractSnapshot>;
+  }
 ): CatchUpReport {
   // --- Encounter stats per ship ---
   const encounterMap = new Map<string, CatchUpEncounterStats>();
@@ -144,6 +150,20 @@ export function buildCatchUpReport(
     }
   }
 
+  // --- Track contract events per ship for the report ---
+  const contractCompletedByShip = new Set<string>();
+  const contractExpiredByShip = new Set<string>();
+  const contractAbandonedByShip = new Set<string>();
+  for (const entry of newLogs) {
+    if (!entry.shipName) continue;
+    if (entry.type === 'contract_complete')
+      contractCompletedByShip.add(entry.shipName);
+    if (entry.type === 'contract_expired')
+      contractExpiredByShip.add(entry.shipName);
+    if (entry.type === 'contract_abandoned')
+      contractAbandonedByShip.add(entry.shipName);
+  }
+
   // --- Build one summary per ship ---
   const shipSummaries: CatchUpShipSummary[] = [];
 
@@ -154,35 +174,17 @@ export function buildCatchUpReport(
     let activity: CatchUpShipSummary['activity'];
 
     // Use route snapshot (pre-catch-up state) or current state to identify route ships
-    const snapshot = routeSnapshots?.get(ship.id);
+    const snapshot = snapshots?.routes?.get(ship.id);
 
     if (snapshot?.type === 'trade' || ship.routeAssignment) {
       // Trade route ship — use snapshot route name (survives route cancellation during catch-up)
       const routeName =
-        snapshot?.routeName ??
-        (() => {
-          const origin = gameData.world.locations.find(
-            (l) => l.id === ship.routeAssignment!.originId
-          );
-          const dest = gameData.world.locations.find(
-            (l) => l.id === ship.routeAssignment!.destinationId
-          );
-          return `${origin?.name ?? ship.routeAssignment!.originId} ↔ ${dest?.name ?? ship.routeAssignment!.destinationId}`;
-        })();
+        snapshot?.routeName ?? getTradeRouteName(ship, gameData)!;
       activity = { type: 'trade_route', routeName, tripsCompleted: trips };
     } else if (snapshot?.type === 'mining' || ship.miningRoute) {
       // Mining route ship — count mining trips from log entries
       const routeName =
-        snapshot?.routeName ??
-        (() => {
-          const mine = gameData.world.locations.find(
-            (l) => l.id === ship.miningRoute!.mineLocationId
-          );
-          const sell = gameData.world.locations.find(
-            (l) => l.id === ship.miningRoute!.sellLocationId
-          );
-          return `${mine?.name ?? ship.miningRoute!.mineLocationId} → ${sell?.name ?? ship.miningRoute!.sellLocationId}`;
-        })();
+        snapshot?.routeName ?? getMiningRouteName(ship, gameData)!;
       const miningTrips = miningTripsByShip.get(ship.name) ?? 0;
       activity = {
         type: 'mining_route',
@@ -213,14 +215,42 @@ export function buildCatchUpReport(
       activity = { type: 'idle', location: loc?.name ?? locId ?? 'Unknown' };
     }
 
-    // Skip idle ships with no encounters — they did nothing interesting
-    if (activity.type === 'idle' && !encounters) continue;
+    // --- Determine contract status for this ship ---
+    let contractInfo: CatchUpContractInfo | undefined;
+    const contractSnap = snapshots?.contracts?.get(ship.id);
+
+    if (contractSnap) {
+      // Ship had a contract before catch-up
+      if (contractCompletedByShip.has(ship.name)) {
+        contractInfo = { title: contractSnap.questTitle, status: 'completed' };
+      } else if (contractExpiredByShip.has(ship.name)) {
+        contractInfo = { title: contractSnap.questTitle, status: 'expired' };
+      } else if (contractAbandonedByShip.has(ship.name)) {
+        contractInfo = { title: contractSnap.questTitle, status: 'abandoned' };
+      } else if (ship.activeContract) {
+        // Still has the same (or a new) contract — ongoing
+        contractInfo = {
+          title: ship.activeContract.quest.title,
+          status: 'ongoing',
+        };
+      }
+    } else if (ship.activeContract) {
+      // Ship picked up a contract during catch-up — show as ongoing
+      contractInfo = {
+        title: ship.activeContract.quest.title,
+        status: 'ongoing',
+      };
+    }
+
+    // Skip idle ships with no encounters and no contract — they did nothing interesting
+    if (activity.type === 'idle' && !encounters && !contractInfo) continue;
 
     shipSummaries.push({
       shipId: ship.id,
       shipName: ship.name,
       activity,
       encounters,
+      contractInfo,
     });
   }
 
