@@ -245,7 +245,7 @@ export function createStationTab(
 
   const fuelSection = document.createElement('div');
   fuelSection.style.cssText =
-    'margin-bottom: 1rem; padding: 0.75rem; border: 1px solid #444; border-radius: 4px;';
+    'margin-bottom: 1rem; padding: 0.75rem; border: 1px solid #444; border-radius: 4px; min-width: 0; overflow: hidden;';
 
   const fuelHeader = document.createElement('h4');
   fuelHeader.style.cssText = 'margin: 0 0 0.5rem 0; color: #4a9eff;';
@@ -656,7 +656,7 @@ export function createStationTab(
     const isFull = ship.fuelKg >= ship.maxFuelKg;
 
     // Status line
-    fuelStatusLine.innerHTML = `Fuel: <strong>${formatFuelMass(ship.fuelKg)}</strong> / ${formatFuelMass(ship.maxFuelKg)} (${fuelPercent}%)`;
+    fuelStatusLine.innerHTML = `Fuel: <strong>${formatFuelMass(ship.fuelKg)}</strong> / ${formatFuelMass(ship.maxFuelKg)} (${Math.round(fuelPercent)}%)`;
 
     // Fuel bar
     const fuelColor =
