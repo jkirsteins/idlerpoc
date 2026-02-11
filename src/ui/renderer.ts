@@ -120,6 +120,8 @@ interface MountedPlayingLayout {
   toastArea: HTMLElement;
   rightSidebar: Component;
   hasCatchUpReport: boolean;
+  catchUpProgressText?: HTMLElement;
+  catchUpProgressFill?: HTMLElement;
 }
 
 let mounted: MountedPlayingLayout | null = null;
@@ -146,7 +148,7 @@ export function render(
     return;
   }
 
-  // Catch-up modal is already showing — skip rebuild to prevent flicker
+  // Catch-up modal is already showing — update progress in-place to prevent flicker
   if (
     state.phase === 'playing' &&
     (state.catchUpReport || state.catchUpProgress) &&
@@ -154,6 +156,18 @@ export function render(
     mounted.hasCatchUpReport &&
     container.contains(mounted.wrapper)
   ) {
+    // Update progress bar in-place if we have stored references
+    if (
+      state.catchUpProgress &&
+      mounted.catchUpProgressText &&
+      mounted.catchUpProgressFill
+    ) {
+      const pct = Math.round(
+        (state.catchUpProgress.processed / state.catchUpProgress.total) * 100
+      );
+      mounted.catchUpProgressText.textContent = `Processing ${state.catchUpProgress.processed.toLocaleString()} / ${state.catchUpProgress.total.toLocaleString()} updates (${pct}%)`;
+      mounted.catchUpProgressFill.style.width = `${pct}%`;
+    }
     return;
   }
 
@@ -202,11 +216,12 @@ export function render(
         mounted = makePlaceholderMounted(container, wrapper);
       } else if (state.catchUpProgress) {
         const progressContent = document.createElement('div');
-        progressContent.appendChild(
-          renderCatchUpProgressModal(state.catchUpProgress)
-        );
+        const progressModal = renderCatchUpProgressModal(state.catchUpProgress);
+        progressContent.appendChild(progressModal.el);
         wrapper.appendChild(progressContent);
         mounted = makePlaceholderMounted(container, wrapper);
+        mounted.catchUpProgressText = progressModal.textEl;
+        mounted.catchUpProgressFill = progressModal.fillEl;
       } else {
         mounted = mountPlayingLayout(container, wrapper, state, callbacks);
       }
@@ -522,7 +537,7 @@ function renderNoGame(callbacks: RendererCallbacks): HTMLElement {
 function renderCatchUpProgressModal(progress: {
   processed: number;
   total: number;
-}): HTMLElement {
+}): { el: HTMLElement; textEl: HTMLElement; fillEl: HTMLElement } {
   const container = document.createElement('div');
   container.className = 'catchup-report';
 
@@ -550,7 +565,7 @@ function renderCatchUpProgressModal(progress: {
   barContainer.appendChild(barFill);
   container.appendChild(barContainer);
 
-  return container;
+  return { el: container, textEl: subtitle, fillEl: barFill };
 }
 
 function renderCreating(
