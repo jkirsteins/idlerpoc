@@ -83,6 +83,15 @@ export const ROOM_DEFINITIONS: RoomDefinition[] = [
     powerDraw: 8,
     alwaysPowered: false,
   },
+  {
+    type: 'mining_bay',
+    name: 'Mining Bay',
+    description:
+      'Ship-mounted mining operations center. Required for asteroid mining.',
+    icon: '⛏️', // pick
+    powerDraw: 4,
+    alwaysPowered: false,
+  },
 ];
 
 export function getRoomDefinition(type: RoomType): RoomDefinition | undefined {

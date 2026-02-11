@@ -1,7 +1,10 @@
 import type { GameData, Ship } from '../models';
 import { getActiveShip } from '../models';
 import { getShipClass, SHIP_CLASSES } from '../shipClasses';
+import type { RoomType } from '../models';
 import { getEngineDefinition } from '../engines';
+import { getRoomDefinition } from '../rooms';
+import { getEquipmentDefinition } from '../equipment';
 import {
   calculateAvailableCargoCapacity,
   computeMaxRange,
@@ -26,6 +29,20 @@ import {
   getFuelColorHex,
 } from './fuelFormatting';
 import { generateShipName } from '../names';
+
+/**
+ * Rooms that vary between ship classes and are worth highlighting in purchase cards.
+ * Universal rooms (bridge, engine_room, cargo_hold) are on every ship so omitted.
+ */
+const DIFFERENTIATING_ROOMS: RoomType[] = [
+  'mining_bay',
+  'armory',
+  'medbay',
+  'cantina',
+  'quarters',
+  'reactor_room',
+  'point_defense_station',
+];
 
 export interface FleetTabCallbacks {
   onSelectShip: (shipId: string) => void;
@@ -1030,9 +1047,107 @@ function createShipPurchase(
     const availableCargoKg = Math.floor(
       calculateAvailableCargoCapacity(shipClass.cargoCapacity)
     );
-    specs.innerHTML = `Crew: ${shipClass.maxCrew} | Cargo: ${availableCargoKg.toLocaleString()} kg | Equipment: ${shipClass.equipmentSlotDefs.length} slots<br>Range: <span style="color: #4ade80; font-weight: bold;">${rangeFormatted} km</span> <span style="color: #aaa;">(${rangeLabel})</span>`;
+
+    // #3: Slot breakdown — standard vs structural-capable
+    const structuralSlots = shipClass.equipmentSlotDefs.filter((s) =>
+      s.tags.includes('structural')
+    ).length;
+    const standardOnlySlots =
+      shipClass.equipmentSlotDefs.length - structuralSlots;
+    const slotLabel =
+      structuralSlots > 0
+        ? `${standardOnlySlots} standard + ${structuralSlots} structural`
+        : `${shipClass.equipmentSlotDefs.length} slots`;
+
+    specs.innerHTML = `Crew: ${shipClass.maxCrew} | Cargo: ${availableCargoKg.toLocaleString()} kg | Equip: ${slotLabel}<br>Range: <span style="color: #4ade80; font-weight: bold;">${rangeFormatted} km</span> <span style="color: #aaa;">(${rangeLabel})</span>`;
     specs.title = `Max range with default engine: ${maxRangeKm.toLocaleString()} km`;
     card.appendChild(specs);
+
+    // #4: Default engine line
+    const engineLine = document.createElement('div');
+    engineLine.style.fontSize = '0.8rem';
+    engineLine.style.color = '#888';
+    engineLine.style.marginBottom = '0.5rem';
+    engineLine.innerHTML = `Engine: ${defaultEngine.icon} <span style="color: #aaa;">${defaultEngine.name}</span> <span style="color: #666;">(${defaultEngine.type})</span>`;
+    card.appendChild(engineLine);
+
+    // #1: Facilities — room/feature icon badges
+    const facilitiesRow = document.createElement('div');
+    facilitiesRow.style.display = 'flex';
+    facilitiesRow.style.flexWrap = 'wrap';
+    facilitiesRow.style.gap = '4px';
+    facilitiesRow.style.marginBottom = '0.5rem';
+
+    for (const roomType of DIFFERENTIATING_ROOMS) {
+      const hasRoom = shipClass.rooms.includes(roomType);
+      const roomDef = getRoomDefinition(roomType);
+      const badge = document.createElement('span');
+      badge.style.display = 'inline-flex';
+      badge.style.alignItems = 'center';
+      badge.style.gap = '2px';
+      badge.style.padding = '2px 6px';
+      badge.style.borderRadius = '3px';
+      badge.style.fontSize = '0.75rem';
+      badge.style.whiteSpace = 'nowrap';
+      if (hasRoom) {
+        badge.style.background = 'rgba(74, 222, 128, 0.15)';
+        badge.style.border = '1px solid rgba(74, 222, 128, 0.3)';
+        badge.style.color = '#4ade80';
+      } else {
+        badge.style.background = 'rgba(255, 255, 255, 0.03)';
+        badge.style.border = '1px solid rgba(255, 255, 255, 0.08)';
+        badge.style.color = '#555';
+      }
+      badge.textContent = `${roomDef?.icon ?? '?'} ${roomDef?.name ?? roomType}`;
+      badge.title = hasRoom
+        ? `${roomDef?.name ?? roomType}: ${roomDef?.description ?? ''}`
+        : `This ship does not have a ${roomDef?.name ?? roomType}`;
+      facilitiesRow.appendChild(badge);
+    }
+
+    // Features (e.g. rotating_habitat)
+    if (shipClass.features.includes('rotating_habitat')) {
+      const badge = document.createElement('span');
+      badge.style.display = 'inline-flex';
+      badge.style.alignItems = 'center';
+      badge.style.gap = '2px';
+      badge.style.padding = '2px 6px';
+      badge.style.borderRadius = '3px';
+      badge.style.fontSize = '0.75rem';
+      badge.style.whiteSpace = 'nowrap';
+      badge.style.background = 'rgba(162, 155, 254, 0.15)';
+      badge.style.border = '1px solid rgba(162, 155, 254, 0.3)';
+      badge.style.color = '#a29bfe';
+      badge.textContent = '🔄 Rotating Habitat';
+      badge.title = 'Provides spin gravity to reduce zero-g health effects';
+      facilitiesRow.appendChild(badge);
+    }
+
+    card.appendChild(facilitiesRow);
+
+    // #2: Included equipment
+    const equipSection = document.createElement('div');
+    equipSection.style.fontSize = '0.75rem';
+    equipSection.style.color = '#888';
+    equipSection.style.marginBottom = '0.5rem';
+
+    const equipLabel = document.createElement('span');
+    equipLabel.style.color = '#666';
+    equipLabel.textContent = 'Included: ';
+    equipSection.appendChild(equipLabel);
+
+    const equipNames = shipClass.defaultEquipment
+      .map((eqId) => {
+        const def = getEquipmentDefinition(eqId);
+        return def ? `${def.icon} ${def.name}` : eqId;
+      })
+      .join(', ');
+    const equipList = document.createElement('span');
+    equipList.style.color = '#aaa';
+    equipList.textContent = equipNames;
+    equipSection.appendChild(equipList);
+
+    card.appendChild(equipSection);
 
     // State 1: Locked message (toggled via display)
     const lockMsg = document.createElement('div');
