@@ -58,11 +58,31 @@ export function createFleetTab(
   container.className = 'fleet-tab';
   container.style.padding = '1rem';
 
-  function rebuild(gameData: GameData) {
-    container.replaceChildren();
+  // Display-only area: map, panels, stats — rebuilt each tick (no interactive state to lose)
+  const dynamicArea = document.createElement('div');
+  container.appendChild(dynamicArea);
+
+  // Stable area: ship purchase inputs/buttons persist across ticks
+  const purchaseComp = createShipPurchase(gameData, callbacks);
+  container.appendChild(purchaseComp.el);
+
+  const dockedHint = document.createElement('div');
+  dockedHint.style.marginTop = '1.5rem';
+  dockedHint.style.padding = '1rem';
+  dockedHint.style.background = 'rgba(0, 0, 0, 0.3)';
+  dockedHint.style.border = '1px solid #444';
+  dockedHint.style.borderRadius = '4px';
+  dockedHint.style.color = '#aaa';
+  dockedHint.style.fontSize = '0.9rem';
+  dockedHint.textContent = '💡 Dock at a station to purchase additional ships.';
+  container.appendChild(dockedHint);
+
+  function update(gameData: GameData) {
+    // Rebuild display-only sections (no interactive elements)
+    dynamicArea.replaceChildren();
 
     // Fleet Map (always show, even with 1 ship)
-    container.appendChild(renderFleetMap(gameData, callbacks));
+    dynamicArea.appendChild(renderFleetMap(gameData, callbacks));
 
     // Show fleet panel and stats only if there are multiple ships
     if (gameData.ships.length > 1) {
@@ -79,10 +99,10 @@ export function createFleetTab(
         createFleetPanel(gameData, { onSelectShip: callbacks.onSelectShip }).el
       );
 
-      container.appendChild(panelSection);
+      dynamicArea.appendChild(panelSection);
 
       // Fleet Performance Dashboard (replaces generic stats)
-      container.appendChild(renderFleetPerformanceDashboard(gameData));
+      dynamicArea.appendChild(renderFleetPerformanceDashboard(gameData));
 
       // Needs Attention Queue
       const needsAttention = gameData.ships.filter((ship) => {
@@ -91,11 +111,13 @@ export function createFleetTab(
       });
 
       if (needsAttention.length > 0) {
-        container.appendChild(renderNeedsAttentionQueue(needsAttention));
+        dynamicArea.appendChild(renderNeedsAttentionQueue(needsAttention));
       }
 
       // Ship Comparison View with Enhanced Cards
-      container.appendChild(renderEnhancedShipComparison(gameData, callbacks));
+      dynamicArea.appendChild(
+        renderEnhancedShipComparison(gameData, callbacks)
+      );
     } else {
       // Single ship - show welcome message and ship card
       const welcomeSection = document.createElement('div');
@@ -118,35 +140,24 @@ export function createFleetTab(
         'Welcome to Fleet Management! Expand your operations by purchasing additional ships. Each ship can operate independently, running separate contracts and exploring different regions of space.';
       welcomeSection.appendChild(message);
 
-      container.appendChild(welcomeSection);
+      dynamicArea.appendChild(welcomeSection);
 
       // Show the single ship card
-      container.appendChild(
+      dynamicArea.appendChild(
         renderEnhancedShipCard(gameData, gameData.ships[0], callbacks)
       );
     }
 
-    // Ship Purchase Section (only when docked)
+    // Update stable purchase section in-place (toggle visibility)
     const activeShip = getActiveShip(gameData);
-    if (activeShip.location.status === 'docked') {
-      container.appendChild(renderShipPurchase(gameData, callbacks));
-    } else {
-      const dockedHint = document.createElement('div');
-      dockedHint.style.marginTop = '1.5rem';
-      dockedHint.style.padding = '1rem';
-      dockedHint.style.background = 'rgba(0, 0, 0, 0.3)';
-      dockedHint.style.border = '1px solid #444';
-      dockedHint.style.borderRadius = '4px';
-      dockedHint.style.color = '#aaa';
-      dockedHint.style.fontSize = '0.9rem';
-      dockedHint.textContent =
-        '💡 Dock at a station to purchase additional ships.';
-      container.appendChild(dockedHint);
-    }
+    const isDocked = activeShip.location.status === 'docked';
+    purchaseComp.el.style.display = isDocked ? '' : 'none';
+    dockedHint.style.display = isDocked ? 'none' : '';
+    purchaseComp.update(gameData);
   }
 
-  rebuild(gameData);
-  return { el: container, update: rebuild };
+  update(gameData);
+  return { el: container, update };
 }
 
 /**
@@ -844,14 +855,28 @@ function renderEnhancedShipCard(
 }
 
 /**
- * Render ship purchase section (unchanged from original)
+ * Ship purchase section — mount-once / update-on-tick Component.
+ *
+ * All cards and their three mutually-exclusive state elements (locked,
+ * insufficient funds, buy form) are created once. update() toggles
+ * visibility and patches text in-place, so inputs and buttons survive
+ * across ticks.
  */
-function renderShipPurchase(
+interface PurchaseCardRefs {
+  classId: string;
+  lockMsg: HTMLElement;
+  affordMsg: HTMLElement;
+  buyContainer: HTMLElement;
+  nameInput: HTMLInputElement;
+}
+
+function createShipPurchase(
   gameData: GameData,
   callbacks: FleetTabCallbacks
-): HTMLElement {
+): Component {
   const section = document.createElement('div');
   section.className = 'ship-purchase-section';
+  section.style.marginTop = '1.5rem';
   section.style.padding = '1rem';
   section.style.background = 'rgba(0, 0, 0, 0.3)';
   section.style.border = '1px solid #444';
@@ -875,6 +900,8 @@ function renderShipPurchase(
   shipList.style.flexDirection = 'column';
   shipList.style.gap = '0.75rem';
 
+  const cardRefs: PurchaseCardRefs[] = [];
+
   for (const shipClass of SHIP_CLASSES) {
     const card = document.createElement('div');
     card.style.padding = '0.75rem';
@@ -882,6 +909,7 @@ function renderShipPurchase(
     card.style.border = '1px solid #555';
     card.style.borderRadius = '4px';
 
+    // Static header
     const header = document.createElement('div');
     header.style.display = 'flex';
     header.style.justifyContent = 'space-between';
@@ -901,6 +929,7 @@ function renderShipPurchase(
 
     card.appendChild(header);
 
+    // Static description
     const desc = document.createElement('div');
     desc.style.fontSize = '0.85rem';
     desc.style.color = '#aaa';
@@ -908,6 +937,7 @@ function renderShipPurchase(
     desc.textContent = shipClass.description;
     card.appendChild(desc);
 
+    // Static specs
     const specs = document.createElement('div');
     specs.style.fontSize = '0.8rem';
     specs.style.color = '#888';
@@ -925,65 +955,103 @@ function renderShipPurchase(
     specs.title = `Max range with default engine: ${maxRangeKm.toLocaleString()} km`;
     card.appendChild(specs);
 
-    const isUnlocked =
-      gameData.lifetimeCreditsEarned >= shipClass.unlockThreshold;
-    const canAfford = gameData.credits >= shipClass.price;
+    // State 1: Locked message (toggled via display)
+    const lockMsg = document.createElement('div');
+    lockMsg.style.fontSize = '0.85rem';
+    lockMsg.style.color = '#ff4444';
+    card.appendChild(lockMsg);
 
-    if (!isUnlocked) {
-      const lockMsg = document.createElement('div');
-      lockMsg.style.fontSize = '0.85rem';
-      lockMsg.style.color = '#ff4444';
-      lockMsg.textContent = `🔒 Unlock at ${shipClass.unlockThreshold.toLocaleString()} lifetime credits earned`;
-      card.appendChild(lockMsg);
-    } else if (!canAfford) {
-      const affordMsg = document.createElement('div');
-      affordMsg.style.fontSize = '0.85rem';
-      affordMsg.style.color = '#ffa500';
-      affordMsg.textContent = `Insufficient funds (need ${(shipClass.price - gameData.credits).toLocaleString()} more credits)`;
-      card.appendChild(affordMsg);
-    } else {
-      const buyContainer = document.createElement('div');
-      buyContainer.style.display = 'flex';
-      buyContainer.style.gap = '0.5rem';
-      buyContainer.style.alignItems = 'center';
+    // State 2: Insufficient funds message (toggled via display)
+    const affordMsg = document.createElement('div');
+    affordMsg.style.fontSize = '0.85rem';
+    affordMsg.style.color = '#ffa500';
+    card.appendChild(affordMsg);
 
-      const nameInput = document.createElement('input');
-      nameInput.type = 'text';
-      nameInput.placeholder = 'Ship name...';
-      nameInput.style.flex = '1';
-      nameInput.style.padding = '0.5rem';
-      nameInput.style.background = 'rgba(0, 0, 0, 0.5)';
-      nameInput.style.border = '1px solid #666';
-      nameInput.style.borderRadius = '4px';
-      nameInput.style.color = '#fff';
-      buyContainer.appendChild(nameInput);
+    // State 3: Buy form (toggled via display)
+    const buyContainer = document.createElement('div');
+    buyContainer.style.display = 'flex';
+    buyContainer.style.flexWrap = 'wrap';
+    buyContainer.style.gap = '0.5rem';
+    buyContainer.style.alignItems = 'center';
 
-      const randomBtn = document.createElement('button');
-      randomBtn.type = 'button';
-      randomBtn.className = 'secondary';
-      randomBtn.textContent = 'Randomize';
-      randomBtn.addEventListener('click', () => {
-        nameInput.value = generateShipName();
-      });
-      buyContainer.appendChild(randomBtn);
+    const nameInput = document.createElement('input');
+    nameInput.type = 'text';
+    nameInput.placeholder = 'Ship name...';
+    nameInput.style.flex = '1';
+    nameInput.style.minWidth = '0';
+    nameInput.style.padding = '0.5rem';
+    nameInput.style.background = 'rgba(0, 0, 0, 0.5)';
+    nameInput.style.border = '1px solid #666';
+    nameInput.style.borderRadius = '4px';
+    nameInput.style.color = '#fff';
+    buyContainer.appendChild(nameInput);
 
-      const buyBtn = document.createElement('button');
-      buyBtn.textContent = 'Buy Ship';
-      buyBtn.style.padding = '0.5rem 1rem';
-      buyBtn.addEventListener('click', () => {
-        const shipName = nameInput.value.trim() || `${shipClass.name}`;
-        callbacks.onBuyShip(shipClass.id, shipName);
-      });
-      buyContainer.appendChild(buyBtn);
+    const randomBtn = document.createElement('button');
+    randomBtn.type = 'button';
+    randomBtn.className = 'secondary';
+    randomBtn.textContent = 'Randomize';
+    randomBtn.style.whiteSpace = 'nowrap';
+    randomBtn.style.flexShrink = '0';
+    randomBtn.addEventListener('click', () => {
+      nameInput.value = generateShipName();
+    });
+    buyContainer.appendChild(randomBtn);
 
-      card.appendChild(buyContainer);
-    }
+    const buyBtn = document.createElement('button');
+    buyBtn.textContent = 'Buy Ship';
+    buyBtn.style.padding = '0.5rem 1rem';
+    buyBtn.style.whiteSpace = 'nowrap';
+    buyBtn.style.flexShrink = '0';
+    buyBtn.addEventListener('click', () => {
+      const shipName = nameInput.value.trim() || shipClass.name;
+      nameInput.value = '';
+      callbacks.onBuyShip(shipClass.id, shipName);
+    });
+    buyContainer.appendChild(buyBtn);
+
+    card.appendChild(buyContainer);
+
+    cardRefs.push({
+      classId: shipClass.id,
+      lockMsg,
+      affordMsg,
+      buyContainer,
+      nameInput,
+    });
 
     shipList.appendChild(card);
   }
 
   section.appendChild(shipList);
-  return section;
+
+  function update(gameData: GameData) {
+    for (const refs of cardRefs) {
+      const sc = SHIP_CLASSES.find((c) => c.id === refs.classId);
+      if (!sc) continue;
+
+      const isUnlocked = gameData.lifetimeCreditsEarned >= sc.unlockThreshold;
+      const canAfford = gameData.credits >= sc.price;
+
+      if (!isUnlocked) {
+        refs.lockMsg.textContent = `🔒 Unlock at ${sc.unlockThreshold.toLocaleString()} lifetime credits earned`;
+        refs.lockMsg.style.display = '';
+        refs.affordMsg.style.display = 'none';
+        refs.buyContainer.style.display = 'none';
+      } else if (!canAfford) {
+        refs.lockMsg.style.display = 'none';
+        refs.affordMsg.textContent = `Insufficient funds (need ${(sc.price - gameData.credits).toLocaleString()} more credits)`;
+        refs.affordMsg.style.display = '';
+        refs.buyContainer.style.display = 'none';
+      } else {
+        refs.lockMsg.style.display = 'none';
+        refs.affordMsg.style.display = 'none';
+        refs.buyContainer.style.display = '';
+      }
+    }
+  }
+
+  update(gameData);
+  return { el: section, update };
 }
 
 // Helper functions
