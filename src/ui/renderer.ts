@@ -99,6 +99,7 @@ export interface RendererCallbacks {
   onStartMiningRoute: (sellLocationId: string) => void;
   onCancelMiningRoute: () => void;
   onDismissCatchUp: () => void;
+  onImportState?: (json: string) => void;
 }
 
 // ── Mounted playing layout ─────────────────────────────────────────
@@ -337,6 +338,7 @@ function mountPlayingLayout(
       onSellAllOre: callbacks.onSellAllOre,
       onStartMiningRoute: callbacks.onStartMiningRoute,
       onCancelMiningRoute: callbacks.onCancelMiningRoute,
+      onImportState: callbacks.onImportState,
     },
     state.selectedCrewId
   );

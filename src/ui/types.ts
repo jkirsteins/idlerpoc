@@ -59,4 +59,5 @@ export interface TabbedViewCallbacks {
   onFlightProfileChange: () => void;
   onStartMiningRoute: (sellLocationId: string) => void;
   onCancelMiningRoute: () => void;
+  onImportState?: (json: string) => void;
 }

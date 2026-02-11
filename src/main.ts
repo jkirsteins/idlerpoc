@@ -18,7 +18,7 @@ import {
   generateHireableCrewByLocation,
   createAdditionalShip,
 } from './gameFactory';
-import { saveGame, loadGame, clearGame } from './storage';
+import { saveGame, loadGame, clearGame, importGame } from './storage';
 import { render, type GameState, type RendererCallbacks } from './ui/renderer';
 import type { WizardStep, WizardDraft } from './ui/wizard';
 import {
@@ -541,6 +541,18 @@ const callbacks: RendererCallbacks = {
   onReset: () => {
     clearGame();
     state = { phase: 'no_game' };
+    renderApp();
+  },
+
+  onImportState: (json: string) => {
+    const gameData = importGame(json);
+    if (!gameData) {
+      alert(
+        'Failed to import save file. The file may be invalid or corrupted.'
+      );
+      return;
+    }
+    state = { phase: 'playing', gameData, activeTab: 'settings' };
     renderApp();
   },
 

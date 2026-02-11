@@ -476,6 +476,42 @@ function backfillMiningData(gameData: GameData): void {
   }
 }
 
+/**
+ * Import game state from a JSON string (e.g. uploaded file).
+ * Parses, migrates, backfills, persists, and returns the resulting GameData.
+ * Returns null if the JSON is invalid or migration fails.
+ */
+export function importGame(json: string): GameData | null {
+  let raw: RawSave;
+  try {
+    raw = JSON.parse(json) as RawSave;
+  } catch {
+    return null;
+  }
+
+  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) {
+    return null;
+  }
+
+  const version = detectVersion(raw);
+  if (version === -1) {
+    return null;
+  }
+
+  const migrated = runMigrations(raw);
+  if (!migrated) {
+    return null;
+  }
+
+  backfillMiningData(migrated);
+
+  // Reset timestamp so the game doesn't try to catch up for offline time
+  migrated.lastTickTimestamp = Date.now();
+
+  saveGame(migrated);
+  return migrated;
+}
+
 export function clearGame(): void {
   localStorage.removeItem(STORAGE_KEY);
   localStorage.removeItem(BACKUP_KEY);
