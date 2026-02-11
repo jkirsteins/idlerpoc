@@ -42,7 +42,7 @@ npm run dev
   - Passive slots (Patient, Rest) benefit crew without training skills
   - Helm is the only required job — no helm crew means the ship coasts
   - Auto-assign crew to best-fit slots based on skill affinity
-  - Crew salaries paid per tick during flight
+  - Crew salaries paid per tick
   - Unpaid crew depart at next station
   - Hire new crew at stations with hiring services
   - **Crew profiles** with ranked titles (e.g. "Competent Pilot"), service records showing ship tenure, company tenure, current assignment, and recruitment origin
@@ -80,7 +80,7 @@ npm run dev
   - Real-time based: game computes elapsed time since last update and processes all pending ticks
   - Idle-friendly: closing the browser or backgrounding the tab catches up on return (up to 1 day, batched to keep UI responsive)
   - `visibilitychange` listener triggers immediate catch-up when tab regains focus
-  - Time advances during flight, frozen when docked
+  - Time advances each tick; game auto-pauses on arrival (configurable in settings)
   - Manual day advancement when docked
   - Quests regenerate daily
   - Start date: 2247-01-01

@@ -12,7 +12,7 @@ export interface CrewRoleDefinition {
   name: string;
   description: string;
   preferredRoom: RoomType;
-  salary: number; // Credits per tick during flight (scaled for 180 gs/tick)
+  salary: number; // Credits per tick (scaled for 180 gs/tick)
 }
 
 export const CREW_ROLE_DEFINITIONS: CrewRoleDefinition[] = [

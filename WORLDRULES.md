@@ -443,9 +443,9 @@ This creates natural trade-offs: Class I ships are slow AND supply-limited, maki
 
 **Time Advancement**:
 
-- Time advances automatically during flight (180 game seconds per tick)
-- Time is frozen when docked
-- Players can manually advance time by one day when docked (with no active contract)
+- Time advances automatically each tick (180 game seconds per tick)
+- Game auto-pauses on arrival at a destination (configurable in settings)
+- Players can manually advance time by one day when docked (with no active contract); salaries are still deducted
 - Quests regenerate when advancing the day
 
 **Pacing (idle-game layered clocks)**:
@@ -461,24 +461,20 @@ This creates natural trade-offs: Class I ships are slow AND supply-limited, maki
 
 ### Salary System
 
-Crew members require regular payment for their services. Salaries are deducted every tick (3 game minutes) during flight operations. When docked, time is frozen and no salaries are charged.
+Crew members require regular payment for their services. Salaries are deducted every tick (3 game minutes). Salaries accrue during both flight and docked time advancement (manual day advance).
 
 **Salary Rates (credits per tick):**
 
-| Role      | Salary/Tick | Salary/Day (480 ticks) | Role Justification                       |
-| --------- | ----------- | ---------------------- | ---------------------------------------- |
-| Captain   | 0           | 0                      | Owner-operator, earns from ship profits  |
-| Pilot     | 0.1         | 48                     | Essential bridge crew, flight operations |
-| Navigator | 0.1         | 48                     | Route planning and hazard analysis       |
-| Engineer  | 0.15        | 72                     | Critical for engine and ship systems     |
-| Cook      | 0.05        | 24                     | Morale specialist, crew welfare          |
-| Medic     | 0.075       | 36                     | Medical care, crew health maintenance    |
-| Gunner    | 0.075       | 36                     | Combat capability, ship security         |
-| Mechanic  | 0.1         | 48                     | Repairs and maintenance specialist       |
+| Role    | Salary/Tick | Salary/Day (480 ticks) | Role Justification                       |
+| ------- | ----------- | ---------------------- | ---------------------------------------- |
+| Captain | 0           | 0                      | Owner-operator, earns from ship profits  |
+| Pilot   | 0.1         | 48                     | Essential bridge crew, flight operations |
+| Miner   | 0.1         | 48                     | Resource extraction specialist           |
+| Trader  | 0.1         | 48                     | Trade and commerce specialist            |
 
 **Economic Pressure:**
 
-A typical 3-person starting crew (captain + pilot + engineer) costs **0.25 credits/tick** or **120 credits/day** during active flight time. This creates constant economic pressure to:
+A typical 4-person crew (captain + pilot + miner + trader) costs **0.3 credits/tick** or **144 credits/day**. This creates constant economic pressure to:
 
 - Accept profitable contracts
 - Minimize idle flight time
@@ -628,18 +624,15 @@ This creates equipment trade-offs: installing a centrifuge uses a structural slo
 
 ### Skill-to-Role Mapping
 
-Every skill must map to a role archetype:
+Every skill maps to a role archetype. The current implementation uses 3 skills:
 
-| Skill           | Role          | Description                                                                                         |
-| --------------- | ------------- | --------------------------------------------------------------------------------------------------- |
-| **Piloting**    | Pilot         | Ship handling, helm control, real-time maneuvering. Handles ship operations during flight.          |
-| **Astrogation** | Navigator     | Route plotting, hazard analysis, jump calculations. Handles course planning and scanner operations. |
-| **Engineering** | Engineer      | Reactor maintenance, systems repair, technical expertise. Keeps ship systems operational.           |
-| **Strength**    | Gunner        | Combat capability, security, physical prowess. Handles weapons and boarding actions.                |
-| **Charisma**    | Quartermaster | Morale management, trade negotiations, crew welfare. Handles supplies and diplomacy.                |
-| **Loyalty**     | First Officer | Crew support, conflict mediation, reliability. Supports captain and maintains crew cohesion.        |
+| Skill        | Role   | Description                                                                         |
+| ------------ | ------ | ----------------------------------------------------------------------------------- |
+| **Piloting** | Pilot  | Ship handling, helm control, combat defense. Handles ship operations during flight. |
+| **Mining**   | Miner  | Resource extraction, ore processing, equipment operation.                           |
+| **Commerce** | Trader | Trade negotiations, route optimization, economic bonuses.                           |
 
-**Note**: Piloting and Astrogation are distinct skills. A bridge with both a skilled pilot AND a skilled navigator is ideal — the pilot handles the ship, the navigator plots the course. On smaller ships, one person may do both (poorly).
+**Future skills** (designed but not yet implemented): Astrogation, Engineering, Strength, Charisma, Loyalty. See `skillRanks.ts` for design notes.
 
 ### Special Cases
 
@@ -649,24 +642,19 @@ Every skill must map to a role archetype:
 
 1. Calculate highest skill
 2. Assign role based on that skill
-3. If tie, prioritize: Piloting > Astrogation > Engineering > Strength > Charisma > Loyalty
+3. If tie, prioritize: Piloting > Mining > Commerce
 4. Captain is always assigned manually (player character)
 
 ### Initial Stat Distribution
 
-New crew members receive skill distributions weighted toward their intended role:
-
-- **Primary skill**: 6-9 (role-defining)
-- **Secondary skills**: 3-5 (general competence)
-
-This ensures roles are meaningful at creation but allows growth and specialization through experience.
+All crew start at zero skills. Progression comes entirely from job slot training and event-based gains during gameplay.
 
 ### Skill Caps & Growth
 
-- Skills scale 1-100 with 10 named ranks (Untrained → Master)
+- Skills scale 0-99 with 10 named ranks (Untrained → Master)
 - Training is passive via job slot assignment with diminishing returns
 - Specialization available at skill 50: +50% training in chosen skill, -25% in others
-- Commerce (7th skill): trained by ship commander/first officer completing trade routes, improves pay and fuel pricing
+- Commerce: trained by captain/first officer completing trade routes, improves pay and fuel pricing
 - Piloting skill gates ship class access (Class II: 25, Class III: 50, Class IV: 75, Class V: 95)
 - Crew can shift roles by developing different skills (though rare)
 - See `docs/skill-system.md` for full details

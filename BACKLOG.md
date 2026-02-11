@@ -120,7 +120,9 @@ Remaining follow-up:
 ## Other Known Gaps
 
 - **Equipment Repair at Stations**: Degraded equipment cannot currently be repaired (in-flight repair now via job slots).
-- **Morale System**: Morale exists but has no game effects yet.
+- **Morale System**: Morale is initialized on crew members but never modified or used. No decay, recovery, or gameplay effects. Galley and rest slots reference morale in design but provide no morale effect in code.
+- **Loyalty Skill Thresholds**: Three loyalty thresholds (morale decay reduction at 25, salary discount at 50, departure delay at 75) are documented in `skillRanks.ts` comments but none are implemented. Loyalty is not a current skill.
+- **Additional Skills**: Astrogation, Engineering, Strength, Charisma, and Loyalty skills are designed in WORLDRULES.md but not implemented. Only Piloting, Mining, and Commerce exist.
 - **Health Recovery Mechanic**: Health can decrease; patient job slot provides in-flight recovery. Station recovery not yet implemented.
 - **Ship Unlocking**: All ships except Station Keeper are locked. Need unlock progression system.
 - **Cargo Weight Estimation**: Currently hardcoded `* 100`. Need proper cargo weight tracking.

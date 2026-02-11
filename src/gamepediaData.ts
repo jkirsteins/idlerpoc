@@ -50,7 +50,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
       {
         paragraphs: [
           'The game runs on a tick-based simulation where each real-time second equals 3 game minutes (180 game seconds). A full game day takes about 8 real minutes to pass.',
-          'Time advances automatically during flight but is frozen when docked at a station or planet. While docked, you can manually advance to the next day to refresh available [[contracts|quests]] and trigger [[zero-g-exposure|recovery]] mechanics.',
+          'The game auto-pauses on arrival at a destination (configurable in Settings). While docked, you can manually advance to the next day to refresh available [[contracts|quests]] and trigger [[zero-g-exposure|recovery]] mechanics. Salaries still accrue during manual day advancement.',
         ],
       },
       {
@@ -95,7 +95,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
       {
         paragraphs: [
           'Credits are the universal currency. You earn them by completing [[contracts|contracts and trade routes]], selling [[ore-types|mined ore]], and spend them on fuel, [[crew-salaries|crew salaries]], [[crew-hiring|hiring]], and [[ship-equipment|equipment]].',
-          'Economic pressure is constant: your crew costs money every day during flight, and fuel is expensive. Accepting profitable [[contracts|contracts]], [[mining-system|mining]] valuable ores, and planning efficient routes is essential to stay solvent.',
+          'Economic pressure is constant: your crew costs money every day, and fuel is expensive. Accepting profitable [[contracts|contracts]], [[mining-system|mining]] valuable ores, and planning efficient routes is essential to stay solvent.',
         ],
       },
       {
@@ -110,7 +110,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
       {
         heading: 'Expenses',
         paragraphs: [
-          '[[crew-salaries|Crew salaries]] are deducted every day during flight. A typical 3-person crew costs about 120 credits per day.',
+          '[[crew-salaries|Crew salaries]] are deducted every day, including during manual day advancement while docked. A typical crew of 1 pilot + 1 miner + 1 trader costs 144 credits per day.',
           'Fuel must be purchased at stations with refueling services. Fuel pricing varies by location.',
           '[[ship-equipment|Equipment]] can be bought at stations with trade services. Selling equipment returns 50% of the retail value.',
           'If credits reach zero, crew become unpaid. Unpaid crew will leave the ship at the next port. The captain (you) never leaves.',
@@ -281,16 +281,26 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
       {
         heading: 'Layer 3: Mastery Pool (0-100%)',
         paragraphs: [
-          'As you earn item mastery XP, 25% of that XP flows into a per-skill mastery pool. The pool percentage represents your overall mastery of the skill domain.',
-          'The mastery pool provides skill-wide bonuses at key checkpoints.',
+          'As you earn item mastery XP, 25% of that XP flows into a per-skill mastery pool. Once your [[skill-system|skill level]] reaches 99, the flow rate increases to 50%. The pool percentage represents your overall mastery of the skill domain.',
+          'The mastery pool provides skill-wide bonuses at key checkpoints. Bonuses are specific to each skill:',
         ],
         table: {
-          headers: ['Checkpoint', 'Bonus'],
+          headers: ['Checkpoint', 'Piloting', 'Mining', 'Commerce'],
           rows: [
-            ['10%', 'Minor skill-wide efficiency bonus'],
-            ['25%', 'Moderate skill-wide efficiency bonus'],
-            ['50%', 'Major skill-wide bonus + unlock advanced techniques'],
-            ['95%', 'Pinnacle bonus — near-complete mastery of the domain'],
+            ['10%', '+5% mastery XP', '+5% mastery XP', '+5% mastery XP'],
+            ['25%', '-0.1s engine warmup', '+5% ore yield', '-5% crew salary'],
+            [
+              '50%',
+              '+5% fuel efficiency',
+              '-10% equipment degradation',
+              '+5% sell price',
+            ],
+            [
+              '95%',
+              '+10% evasion chance',
+              '+10% double ore chance',
+              '+10% contract payment',
+            ],
           ],
         },
       },
@@ -576,7 +586,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
     sections: [
       {
         paragraphs: [
-          'Crew members require regular payment during flight operations. Salaries are deducted every game day during flight. When docked, [[time-system|time]] is frozen and no salaries are charged.',
+          'Crew members require regular payment. Salaries are deducted every game day, including during manual day advancement while docked.',
         ],
       },
       {
@@ -587,8 +597,8 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
           rows: [
             ['Captain', '0 cr', 'Owner-operator, earns from ship profits'],
             ['[[crew-roles|Pilot]]', '48 cr', 'Essential bridge crew'],
-            ['[[crew-roles|Miner]]', '36 cr', 'Resource extraction specialist'],
-            ['[[crew-roles|Trader]]', '36 cr', 'Trade and commerce specialist'],
+            ['[[crew-roles|Miner]]', '48 cr', 'Resource extraction specialist'],
+            ['[[crew-roles|Trader]]', '48 cr', 'Trade and commerce specialist'],
           ],
         },
       },
@@ -661,7 +671,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
         heading: 'Skill Training',
         paragraphs: [
           'Each job slot trains specific [[skill-system|skills]]. Assigning crew to jobs that match their [[crew-roles|role]] skill gives a 1.5x training speed bonus.',
-          'Passive slots (Patient, Rest) benefit crew without training skills, allowing health and morale recovery.',
+          'Passive slots (Patient, Rest) benefit crew without training skills, allowing health recovery and rest.',
         ],
       },
       {
@@ -1069,8 +1079,8 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
       {
         heading: 'Locations',
         paragraphs: [
-          'The game world includes 8 locations: Earth, Gateway Station, Meridian Station, Forge Station, Freeport Station, Ceres, Mars, and The Outpost.',
-          'Each location has different services, different quest availability, and different threat levels for routes passing nearby.',
+          'The game world includes 11 locations: Earth, Gateway Station, Debris Field Alpha, Scrapyard Ring, NEA-2247, Meridian Depot, Forge Station, Freeport Station, The Scatter, Mars, and Jupiter Station.',
+          'Each location has different services, different quest availability, and different threat levels for routes passing nearby. See [[mining-destinations|Mining Destinations]] for details on mining-only locations.',
         ],
       },
       {
@@ -1197,7 +1207,8 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
     id: 'mining-destinations',
     title: 'Mining Destinations',
     category: 'Space',
-    summary: 'Near-Earth mining locations accessible by Station Keeper ships.',
+    summary:
+      'Near-Earth mining locations accessible by early-game Class II ships.',
     sections: [
       {
         paragraphs: [
@@ -1207,7 +1218,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
       {
         heading: 'Near-Earth Mining Locations',
         paragraphs: [
-          'These sites are within range of Station Keeper class ships and provide a solid introduction to mining operations.',
+          'These sites are within range of early-game [[ship-classes|Class II]] ships and provide a solid introduction to mining operations. Mining requires a ship with a mining bay (Class II Wayfarer or better).',
         ],
         table: {
           headers: [
