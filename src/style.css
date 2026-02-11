@@ -281,6 +281,33 @@ button.small-button:hover {
   background: #1a4a7a;
 }
 
+/* Shop sub-tabs (station store) */
+.shop-tab {
+  padding: 6px 14px;
+  font-size: 12px;
+  background: transparent;
+  color: #888;
+  border: 1px solid #333;
+  border-radius: 4px;
+  cursor: pointer;
+  transition:
+    background 0.2s,
+    color 0.2s,
+    border-color 0.2s;
+}
+
+.shop-tab:hover {
+  color: #ccc;
+  border-color: #555;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.shop-tab.active {
+  color: #4a9eff;
+  border-color: #4a9eff;
+  background: rgba(74, 158, 255, 0.1);
+}
+
 /* No game view */
 .no-game {
   text-align: center;
