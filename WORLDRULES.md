@@ -463,18 +463,20 @@ This creates natural trade-offs: Class I ships are slow AND supply-limited, maki
 
 Crew members require regular payment for their services. Salaries are deducted every tick (3 game minutes). Salaries accrue during both flight and docked time advancement (manual day advance).
 
-**Salary Rates (credits per tick):**
+**Base Salary Rates (credits per tick):**
 
-| Role    | Salary/Tick | Salary/Day (480 ticks) | Role Justification                       |
-| ------- | ----------- | ---------------------- | ---------------------------------------- |
-| Captain | 0           | 0                      | Owner-operator, earns from ship profits  |
-| Pilot   | 0.1         | 48                     | Essential bridge crew, flight operations |
-| Miner   | 0.1         | 48                     | Resource extraction specialist           |
-| Trader  | 0.1         | 48                     | Trade and commerce specialist            |
+| Role    | Base/Tick | Base/Day (480 ticks) | Role Justification                       |
+| ------- | --------- | -------------------- | ---------------------------------------- |
+| Captain | 0         | 0                    | Owner-operator, earns from ship profits  |
+| Pilot   | 0.1       | 48                   | Essential bridge crew, flight operations |
+| Miner   | 0.1       | 48                   | Resource extraction specialist           |
+| Trader  | 0.1       | 48                   | Trade and commerce specialist            |
+
+**Salary Multiplier:** Each crew member has a `salaryMultiplier` set at hire time based on their starting skills (polynomial: `1.0 + 0.5 × (totalSkill/10)^1.6`). Actual salary = base × multiplier. Green recruits cost the base rate; skilled veterans can cost 3-7× more. The multiplier does not change as crew train after being hired.
 
 **Economic Pressure:**
 
-A typical 4-person crew (captain + pilot + miner + trader) costs **0.3 credits/tick** or **144 credits/day**. This creates constant economic pressure to:
+A 4-person crew of green recruits costs **0.3 credits/tick** or **144 credits/day**. A crew of veterans can cost **500+ cr/day**. This creates constant economic pressure to:
 
 - Accept profitable contracts
 - Minimize idle flight time
@@ -500,20 +502,52 @@ A typical 4-person crew (captain + pilot + miner + trader) costs **0.3 credits/t
 
 When docked at stations with **'hire'** service (Earth, Forge Station, Freeport Station, Mars), players can recruit additional crew members.
 
-**Hiring Mechanics:**
+**Candidate Generation:**
 
 - Daily candidate roster scales with station size (1 to `location.size` candidates when available)
 - Daily "empty market" chance: ~10% at major hubs (size 5), ~50% at remote outposts (size 1)
 - Candidates refresh daily (same trigger as quest regeneration)
-- Each candidate has randomized skills, level, and role
-- Hire cost formula: **Base Cost (500 cr) + (Level × 200 cr)**
-  - Level 1 crew: ~700 credits
-  - Level 3 crew: ~1,100 credits
-  - Level 5 crew: ~1,500 credits
+- Larger stations attract slightly better candidates on average (quality bonus scales with `locationSize`)
+
+**Archetype System:**
+
+Each candidate has a role archetype (Pilot, Miner, or Trader) that shapes their skill distribution:
+
+- **Pilot**: High piloting, moderate commerce, minimal mining
+- **Miner**: High mining, moderate piloting, minimal commerce
+- **Trader**: High commerce, moderate piloting, minimal mining
+
+A quality roll (squared random distribution) determines overall skill magnitude:
+
+- ~50% of candidates are green recruits (primary skill 0-9)
+- ~20% are seasoned (primary 9-18)
+- ~16% are veterans (primary 18-26)
+- ~13% are elite specialists (primary 26-35)
+
+**Hire Cost Formula:** **Base Cost (500 cr) + 20 × totalSkill^1.8** (polynomial)
+
+- Green recruit (0-5 skill points): 500-830 cr
+- Seasoned crew (10-15 skill points): 1,800-3,100 cr
+- Veteran (25-35 skill points): 7,000-13,500 cr
+- Elite specialist (40-50 skill points): 16,000-24,000 cr
+
+These costs are tuned against trip income: a green recruit costs a fraction of one trip's profit, while an elite specialist costs several trips. This creates meaningful hiring decisions at every stage of the game.
+
+**Salary Scaling:**
+
+Each crew member has a salary multiplier set at hire time based on their starting skills:
+
+- Formula: `1.0 + 0.5 × (totalSkill / 10)^1.6` (polynomial)
+- Green recruit: 1.0× (48 cr/day)
+- Seasoned (15 skill total): ~2.0× (~95 cr/day)
+- Veteran (30 skill total): ~3.9× (~186 cr/day)
+- Elite (45 skill total): ~6.9× (~333 cr/day)
+- The multiplier is locked at hire time — training after hiring does not increase wages
 
 **Strategic Considerations:**
 
-- Hiring higher-level crew costs more but provides better skills
+- Cheap recruits + training = cost-effective long-term investment
+- Pre-skilled veterans provide immediate capability at higher ongoing cost
 - Crew diversity (multiple roles) enables more operational flexibility
 - Larger crews increase operational costs but reduce single-crew dependency
 - Crew departures due to unpaid wages can force emergency hiring
@@ -648,7 +682,7 @@ Every skill maps to a role archetype. The current implementation uses 3 skills:
 
 ### Initial Stat Distribution
 
-All crew start at zero skills. Progression comes entirely from job slot training and event-based gains during gameplay.
+The captain starts at zero skills. Hired crew arrive with archetype-weighted starting skills set by a quality roll at generation time (see Crew Hiring section). Further progression comes from job slot training and event-based gains during gameplay.
 
 ### Skill Caps & Growth
 

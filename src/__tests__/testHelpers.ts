@@ -46,6 +46,7 @@ export function createTestCrew(
     equipment: [],
     unpaidTicks: 0,
     hireCost: 500,
+    salaryMultiplier: 1.0,
     zeroGExposure: 0,
     mastery: createInitialMastery(),
     hiredAt: 0,

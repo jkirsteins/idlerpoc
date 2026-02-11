@@ -16,7 +16,12 @@ import { CURRENT_SAVE_VERSION } from './storage';
 import { generateCrewName } from './names';
 import { generateWorld } from './worldGen';
 import { getLevelForXP } from './levelSystem';
-import { generateSkillsForRole } from './crewRoles';
+import {
+  generateSkillsForRole,
+  rollCrewQuality,
+  calculateHireCost,
+  calculateSalaryMultiplier,
+} from './crewRoles';
 import { createInitialMastery } from './masterySystem';
 import { generateAllLocationQuests } from './questGen';
 import { getEquipmentDefinition, canEquipInSlot } from './equipment';
@@ -27,8 +32,7 @@ import { generateId } from './utils';
 
 export { generateId } from './utils';
 
-const HIRE_BASE_COST = 500;
-const HIRE_LEVEL_MULTIPLIER = 200;
+export const HIRE_BASE_COST = 500;
 
 function createEquipmentInstance(definitionId: EquipmentId): EquipmentInstance {
   return {
@@ -41,18 +45,20 @@ function createEquipmentInstance(definitionId: EquipmentId): EquipmentInstance {
 function createCrewMember(
   name: string,
   targetRole: CrewRole,
-  isCaptain: boolean = false
+  isCaptain: boolean = false,
+  quality: number = 0
 ): CrewMember {
   const xp = 0;
   const level = getLevelForXP(xp);
 
-  // All crew start with zero skills — progression comes from training
-  const skills = generateSkillsForRole(targetRole);
+  // Captain starts at zero; hired crew get archetype-weighted skills
+  const skills = generateSkillsForRole(targetRole, quality);
 
   // Use target role directly (skills start at 0, can't deduce from them)
   const role = isCaptain ? 'captain' : targetRole;
 
-  const hireCost = HIRE_BASE_COST + level * HIRE_LEVEL_MULTIPLIER;
+  const hireCost = calculateHireCost(skills, HIRE_BASE_COST);
+  const salaryMultiplier = isCaptain ? 1.0 : calculateSalaryMultiplier(skills);
 
   return {
     id: generateId(),
@@ -67,6 +73,7 @@ function createCrewMember(
     equipment: [],
     unpaidTicks: 0,
     hireCost,
+    salaryMultiplier,
     zeroGExposure: 0,
     mastery: createInitialMastery(),
     hiredAt: 0, // Set to actual gameTime when hired; 0 = game epoch for captain
@@ -104,6 +111,11 @@ function createEngineInstance(shipClassId: ShipClassId): EngineInstance {
  * looking for work — the probability scales inversely with station
  * size so major hubs (Earth, size 5) are rarely empty (~10%) while
  * remote outposts (size 1) often have nobody (~50%).
+ *
+ * Each candidate has an archetype (pilot/miner/trader) that determines
+ * their skill distribution. A quality roll — skewed toward low values —
+ * sets their overall skill magnitude. Larger stations produce slightly
+ * better candidates on average. Hire cost and salary scale with skills.
  */
 export function generateHireableCrew(locationSize: number): CrewMember[] {
   // Daily availability roll — chance the hiring market is dry.
@@ -123,7 +135,8 @@ export function generateHireableCrew(locationSize: number): CrewMember[] {
     const role =
       availableRoles[Math.floor(Math.random() * availableRoles.length)];
     const name = generateCrewName();
-    candidates.push(createCrewMember(name, role, false));
+    const quality = rollCrewQuality(locationSize);
+    candidates.push(createCrewMember(name, role, false, quality));
   }
 
   return candidates;
