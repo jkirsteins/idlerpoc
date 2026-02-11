@@ -496,11 +496,24 @@ export interface RouteSnapshot {
   routeName: string;
 }
 
+/** Pre-catch-up snapshot of a ship's active contract for accurate reporting. */
+export interface ContractSnapshot {
+  questTitle: string;
+  questId: string;
+}
+
+/** Per-ship contract status in the catch-up report. */
+export interface CatchUpContractInfo {
+  title: string;
+  status: 'ongoing' | 'completed' | 'expired' | 'abandoned';
+}
+
 export interface CatchUpShipSummary {
   shipId: string;
   shipName: string;
   activity: CatchUpShipActivity;
   encounters?: CatchUpEncounterStats;
+  contractInfo?: CatchUpContractInfo;
 }
 
 export interface CatchUpReport {
