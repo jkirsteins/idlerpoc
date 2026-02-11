@@ -146,9 +146,14 @@ export function applyTraining(
 
 /**
  * Apply direct skill training for all crew on a ship during one flight tick.
+ * The trainingMultiplier scales all gains — used by the captain training aura
+ * (1.5× on captain's ship) and fleet coordination aura (+10%/+5% near captain).
  * Returns any skill-up results for logging.
  */
-export function applyPassiveTraining(ship: Ship): SkillUpResult[] {
+export function applyPassiveTraining(
+  ship: Ship,
+  trainingMultiplier: number = 1.0
+): SkillUpResult[] {
   const skillUps: SkillUpResult[] = [];
 
   for (const crew of ship.crew) {
@@ -157,7 +162,8 @@ export function applyPassiveTraining(ship: Ship): SkillUpResult[] {
 
     const training = calculateTickTraining(crew, jobSlotType);
     if (training) {
-      const skillUp = applyTraining(crew, training.skill, training.gain);
+      const gain = training.gain * trainingMultiplier;
+      const skillUp = applyTraining(crew, training.skill, gain);
       if (skillUp) {
         skillUps.push(skillUp);
       }

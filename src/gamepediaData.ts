@@ -117,9 +117,10 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
         ],
       },
       {
-        heading: 'Commerce Skill Bonus',
+        heading: 'Captain Command Bonus',
         paragraphs: [
-          "Each ship's commanding officer (the captain if aboard, otherwise the crew member with the highest [[commerce-skill|Commerce]] skill) provides quest payment bonuses (up to +20%) and fuel discounts (up to -20%) for that ship.",
+          "The captain provides a [[captain-command|Command Bonus]] to the ship they are aboard — a continuous multiplier to income, [[mining-system|mining]] yield, and encounter evasion derived from their [[skill-system|skills]]. The better the captain's skills, the bigger the bonus.",
+          'Ships without the captain use an acting captain (highest [[commerce-skill|Commerce]] crew member) who provides only 25% of the commerce bonus. Placing the captain on your most productive ship maximizes fleet income.',
         ],
       },
       {
@@ -136,6 +137,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
       'contracts',
       'crew-salaries',
       'commerce-skill',
+      'captain-command',
       'crew-hiring',
       'mining-system',
       'station-services',
@@ -220,7 +222,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
       {
         heading: 'Passive Routes (Steady Pay)',
         paragraphs: [
-          'Trade routes are permanent routes between all trading partners at every trade hub. They never expire, have no deadline, and can be fully automated — set a ship on a route and forget about it. The trade-off is lower pay per trip compared to active contracts.',
+          'Trade routes are permanent routes between all trading partners at every trade hub. They never expire, have no deadline, and can be fully automated — set a ship on a route and forget about it. The trade-off is lower cr/hr compared to active contracts.',
           'Trade goods are determined by [[navigation|location]] type: planets export manufactured goods, stations export tech components, asteroid belts export raw ore.',
           'Trade route payment scales with distance, route danger, and location economic power. [[commerce-skill|Commerce skill]] bonuses apply to all contract types but yield the biggest absolute gains on high-paying active contracts.',
         ],
@@ -229,7 +231,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
         heading: 'Cargo Scaling & Ship Progression',
         paragraphs: [
           "All cargo-hauling contracts scale the load with your [[ship-classes|ship's]] available cargo hold. Bigger ships fill their holds more per trip, earning proportionally more through cargo premiums. Upgrading to a larger ship class immediately increases income on all contracts and trade routes.",
-          'Quest cards show payment per trip, estimated fuel cost, and projected profit so you can compare profitability at a glance.',
+          'All quest cards show costs, payment, and profit as credits per in-game hour (cr/hr). This lets you compare profitability across contracts of different distances at a glance — a short trip and a long trip are equally easy to evaluate.',
         ],
       },
       {
@@ -237,7 +239,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
         paragraphs: [
           'You can only have one active contract per ship at a time. While in flight you can choose to continue, pause and dock on arrival, or abandon the contract.',
           'Pausing a contract preserves all progress — resume anytime from the docked state. Abandoning a contract ends it permanently, but you keep credits earned from completed trips. The current in-progress trip will not be paid.',
-          'Quest cards show estimated fuel cost, trip time, [[crew-salaries|crew salary]] cost, and projected profit/loss based on your current [[flight-physics|flight profile]].',
+          'Quest cards show estimated fuel cost, trip time (with real-time equivalent), [[crew-salaries|crew salary]] cost, and projected profit/loss as cr/hr based on your current [[flight-physics|flight profile]].',
           'Accepting a contract requires the [[job-slots|helm]] to be manned — make sure you have crew assigned to the helm before browsing the job board.',
         ],
       },
@@ -473,16 +475,23 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
         ],
       },
       {
-        heading: 'Bonuses',
-        paragraphs: [''],
+        heading: 'Captain Command Bonus',
+        paragraphs: [
+          "When the captain is aboard a ship, their commerce skill provides a continuous [[captain-command|Command Bonus]] to income: +1% per skill point (e.g. skill 50 = +50% income). This replaces the tiered bracket system for the captain's ship.",
+          'Ships without the captain use an acting captain who provides 25% of the equivalent bonus.',
+        ],
+      },
+      {
+        heading: 'Fuel Discount',
+        paragraphs: ['Commerce skill also provides fuel purchase discounts:'],
         table: {
-          headers: ['Commerce Level', 'Quest Pay Bonus', 'Fuel Discount'],
+          headers: ['Commerce Level', 'Fuel Discount'],
           rows: [
-            ['0-24', '+0%', '0%'],
-            ['25-49', '+5%', '-5%'],
-            ['50-74', '+10%', '-10%'],
-            ['75-94', '+15%', '-15%'],
-            ['95-99', '+20%', '-20%'],
+            ['0-24', '0%'],
+            ['25-49', '-5%'],
+            ['50-74', '-10%'],
+            ['75-94', '-15%'],
+            ['95-99', '-20%'],
           ],
         },
       },
@@ -491,6 +500,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
       'skill-system',
       'contracts',
       'credits-economy',
+      'captain-command',
       'mastery-system',
     ],
   },
@@ -759,6 +769,93 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
       },
     ],
     relatedArticles: ['skill-system', 'encounters', 'contracts'],
+  },
+
+  {
+    id: 'captain-command',
+    title: "Captain's Command Bonus",
+    category: 'Crew',
+    summary:
+      "The captain's skills provide ship-wide multipliers to income, mining yield, and encounter evasion.",
+    sections: [
+      {
+        paragraphs: [
+          'The captain is the player character — the owner-operator of the fleet. When aboard a ship, the captain provides a Command Bonus: a set of multiplicative modifiers derived from their [[skill-system|skills]].',
+          'The Command Bonus creates a natural incentive to place the captain on the most productive ship. A +50% income bonus on a high-earning ship is worth far more than the same bonus on a small one.',
+        ],
+      },
+      {
+        heading: 'Bonus Formulas',
+        paragraphs: [
+          "Each of the captain's skills contributes a different bonus to the ship they command:",
+        ],
+        table: {
+          headers: ['Skill', 'Formula', 'Example (Skill 50)'],
+          rows: [
+            [
+              '[[commerce-skill|Commerce]]',
+              'skill / 100',
+              '+50% income on [[contracts|contracts]], trade routes, ore sales',
+            ],
+            [
+              'Piloting',
+              'skill / 200',
+              '+25% [[encounters|encounter]] evasion chance',
+            ],
+            [
+              '[[mining-system|Mining]]',
+              'skill / 100',
+              '+50% ore extraction rate',
+            ],
+          ],
+        },
+      },
+      {
+        heading: 'Acting Captain',
+        paragraphs: [
+          'Ships without the captain use an acting captain — the crew member with the highest [[commerce-skill|Commerce]] skill. The acting captain provides only 25% of the equivalent commerce bonus. Piloting and mining command bonuses are exclusive to the real captain.',
+          "The fleet panel shows each ship's command status: a gold badge with the captain's bonus, or a gray badge for the acting captain's reduced bonus.",
+        ],
+      },
+      {
+        heading: 'Captain-Only Abilities',
+        paragraphs: [
+          "Only the captain's ship can attempt to negotiate with pirates during [[encounters|encounters]]. Ships without the captain must evade, fight, or flee — they cannot negotiate safe passage. This makes the captain's ship safer in dangerous space.",
+          "The captain's leadership also provides a Rally Bonus of +5 to the ship's defense score in combat, strengthening the crew's ability to repel boarders.",
+        ],
+      },
+      {
+        heading: 'Fleet Coordination Aura',
+        paragraphs: [
+          'The captain projects a coordination aura that boosts nearby ships in the fleet. Ships at the same location as the captain receive +10% to income and training speed. Ships one hop away on the nav chart receive +5%.',
+          "The aura only affects ships that are docked or orbiting — ships in flight are between locations and outside the aura's range. The captain's own ship does not receive the aura bonus (it already has the stronger direct command bonuses).",
+          'This creates a fleet positioning incentive: clustering ships near the captain makes the entire fleet more productive.',
+        ],
+      },
+      {
+        heading: 'Training Speed Aura',
+        paragraphs: [
+          "All crew aboard the captain's ship train at 1.5× speed. This makes the captain's ship the natural training ground — recruit new crew, train them on the flagship, then deploy them to fleet ships.",
+          "Ships near the captain also benefit from the fleet coordination aura's training bonus (+10% at same location, +5% one hop away).",
+        ],
+      },
+      {
+        heading: 'Strategy',
+        paragraphs: [
+          "Place the captain on the ship running the most profitable or dangerous routes. The captain's presence makes that ship more productive, safer, and a faster training ground.",
+          'Consider stationing your fleet near the captain to maximize the coordination aura. The +10% income and training bonus on nearby ships compounds significantly over time.',
+          "As the captain levels up, their command bonuses grow — rewarding investment in the captain's skills across all three disciplines.",
+        ],
+      },
+    ],
+    relatedArticles: [
+      'commerce-skill',
+      'skill-system',
+      'credits-economy',
+      'encounters',
+      'mining-system',
+      'contracts',
+    ],
   },
 
   // ═══════════════════════════════════════════════════════════
@@ -1163,19 +1260,21 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
       {
         paragraphs: [
           'During flight, your ship may encounter pirates. Encounter probability depends on your position, [[engines|engine]] heat signature, and crew [[skill-system|skills]].',
+          "The captain's [[captain-command|Command Bonus]] provides an additional evasion chance based on their [[skill-system|piloting]] skill when aboard.",
         ],
       },
       {
         heading: 'Combat Pipeline',
         paragraphs: [
-          'Encounters are auto-resolved through a pipeline: Evade ([[crew-roles|pilot]] [[skill-system|piloting]]) > Negotiate ([[skill-system|commerce]]) > Flee (if outmatched) > Combat > Outcome.',
+          'Encounters are auto-resolved through a pipeline: Evade ([[crew-roles|pilot]] [[skill-system|piloting]]) > Negotiate (captain only) > Flee (if outmatched) > Combat > Outcome.',
           'Possible outcomes: Evasion (clean escape), Negotiation (pay ransom), Fled (emergency escape with minor damage), Victory (bounty reward), Harassment (minor damage), Boarding (major losses).',
+          '**Negotiation requires the captain.** Only the captain has the authority to broker deals with pirates. Ships without the captain skip the negotiation step entirely and must fight, evade, or flee.',
         ],
       },
       {
         heading: 'Defense Score',
         paragraphs: [
-          'Your defense score comes from: point defense [[ship-equipment|equipment]] (PD lasers, flak turrets), deflector shields, [[crew-equipment|crew weapons]] (armory strength), and ship mass.',
+          "Your defense score comes from: point defense [[ship-equipment|equipment]] (PD lasers, flak turrets), deflector shields, [[crew-equipment|crew weapons]] (armory strength), ship mass, and the [[captain-command|captain's rally bonus]] (+5 when aboard).",
           'Equipping your ship with defense [[ship-equipment|equipment]] and arming your crew improves combat outcomes.',
         ],
       },
@@ -1206,6 +1305,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
       'crew-equipment',
       'ship-equipment',
       'skill-system',
+      'captain-command',
     ],
   },
 

@@ -4,14 +4,13 @@ This file tracks deferred features and known gaps that are not currently priorit
 
 ## Captain Flagship System
 
-The captain currently provides almost no mechanical benefit for being on any particular ship. A flagship system should create emergent incentives for the captain to command the best ship in the fleet. Full design in `docs/captain-flagship-design.md`, research sources in `docs/bibliography-idle-game-research.md`.
+Full design in `docs/captain-flagship-design.md`, research sources in `docs/bibliography-idle-game-research.md`.
 
-- **Captain Presence Multiplier (Phase 1)**: Strengthen captain's skill-based multipliers on income (commerce), evasion (piloting), and extraction (mining). Acting captain fallback provides only 25% of the bonus. The better the ship, the more the captain's multiplier is worth in absolute terms.
+- ~~**Captain Presence Multiplier (Phase 1)**~~: **DONE** — Captain's skills provide ship-wide multipliers: Commerce (+1%/point income), Piloting (+0.5%/point evasion), Mining (+1%/point yield). Acting captain fallback at 25%. Command bar, fleet badges, quest card bonus lines, and capabilities panel all surface the bonus. See `src/captainBonus.ts`.
 - **Morale System Activation (Phase 2)**: Wire up the existing unused `morale` field. Captain presence stabilizes morale; absence causes drift and eventual desertion. High morale → +15% training speed, +10% combat defense. Low morale → penalties and desertion risk.
-- **Captain-Only Encounter Outcomes (Phase 3)**: Gate negotiation behind captain presence. Ships without the captain can only evade, flee, or fight. Captain provides rally defense bonus (+5) in combat.
-- **Fleet Coordination Aura (Phase 4)**: Captain provides +10% income/training to ships at the same location, +5% one hop away. Creates fleet positioning strategy.
-- **Training Speed Aura (Phase 5)**: Captain's ship gets 1.5x training speed for all crew aboard. Creates a recruit → train on flagship → deploy to fleet pipeline.
-- **UI Surfacing**: Command bonus bar on Ship tab, captain badge in fleet panel, bonus breakdown on quest cards (showing concrete credit value of captain placement), morale indicators, capabilities panel command section. All indicators shown always (dimmed/inactive when captain absent) per UI discoverability rule.
+- ~~**Captain-Only Encounter Outcomes (Phase 3)**~~: **DONE** — Negotiation gated behind captain presence. Ships without captain skip negotiation and must evade, fight, or flee. Captain provides +5 rally defense bonus. See `src/combatSystem.ts`.
+- ~~**Fleet Coordination Aura (Phase 4)**~~: **DONE** — Captain provides +10% income/training to ships at same location, +5% one hop away (adjacent in sorted-by-distance order). Applied to contract payments, ore sales, and passive training. See `src/captainBonus.ts`.
+- ~~**Training Speed Aura (Phase 5)**~~: **DONE** — Captain's ship gets 1.5× training speed for all crew aboard. Combined with fleet aura for nearby ships. See `src/skillProgression.ts`.
 
 ## Deferred Gravity System Features
 

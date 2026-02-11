@@ -928,6 +928,14 @@ button.small-button:hover {
   background: #333;
 }
 
+.bar-command {
+  background: #fbbf24;
+}
+
+.bar-command-inactive {
+  background: #6b7280;
+}
+
 /* Custom Tooltip */
 .custom-tooltip {
   position: absolute;
