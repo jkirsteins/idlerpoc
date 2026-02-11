@@ -58,6 +58,9 @@ export function createFleetTab(
   container.className = 'fleet-tab';
   container.style.padding = '1rem';
 
+  /** Persists ship-name input values across fleet-tab rebuilds (keyed by ship class ID). */
+  const shipNameDrafts = new Map<string, string>();
+
   function rebuild(gameData: GameData) {
     container.replaceChildren();
 
@@ -129,7 +132,9 @@ export function createFleetTab(
     // Ship Purchase Section (only when docked)
     const activeShip = getActiveShip(gameData);
     if (activeShip.location.status === 'docked') {
-      container.appendChild(renderShipPurchase(gameData, callbacks));
+      container.appendChild(
+        renderShipPurchase(gameData, callbacks, shipNameDrafts)
+      );
     } else {
       const dockedHint = document.createElement('div');
       dockedHint.style.marginTop = '1.5rem';
@@ -848,7 +853,8 @@ function renderEnhancedShipCard(
  */
 function renderShipPurchase(
   gameData: GameData,
-  callbacks: FleetTabCallbacks
+  callbacks: FleetTabCallbacks,
+  shipNameDrafts: Map<string, string>
 ): HTMLElement {
   const section = document.createElement('div');
   section.className = 'ship-purchase-section';
@@ -944,34 +950,47 @@ function renderShipPurchase(
     } else {
       const buyContainer = document.createElement('div');
       buyContainer.style.display = 'flex';
+      buyContainer.style.flexWrap = 'wrap';
       buyContainer.style.gap = '0.5rem';
       buyContainer.style.alignItems = 'center';
 
       const nameInput = document.createElement('input');
       nameInput.type = 'text';
       nameInput.placeholder = 'Ship name...';
+      nameInput.value = shipNameDrafts.get(shipClass.id) ?? '';
       nameInput.style.flex = '1';
+      nameInput.style.minWidth = '0';
       nameInput.style.padding = '0.5rem';
       nameInput.style.background = 'rgba(0, 0, 0, 0.5)';
       nameInput.style.border = '1px solid #666';
       nameInput.style.borderRadius = '4px';
       nameInput.style.color = '#fff';
+      nameInput.addEventListener('input', () => {
+        shipNameDrafts.set(shipClass.id, nameInput.value);
+      });
       buyContainer.appendChild(nameInput);
 
       const randomBtn = document.createElement('button');
       randomBtn.type = 'button';
       randomBtn.className = 'secondary';
       randomBtn.textContent = 'Randomize';
+      randomBtn.style.whiteSpace = 'nowrap';
+      randomBtn.style.flexShrink = '0';
       randomBtn.addEventListener('click', () => {
-        nameInput.value = generateShipName();
+        const name = generateShipName();
+        nameInput.value = name;
+        shipNameDrafts.set(shipClass.id, name);
       });
       buyContainer.appendChild(randomBtn);
 
       const buyBtn = document.createElement('button');
       buyBtn.textContent = 'Buy Ship';
       buyBtn.style.padding = '0.5rem 1rem';
+      buyBtn.style.whiteSpace = 'nowrap';
+      buyBtn.style.flexShrink = '0';
       buyBtn.addEventListener('click', () => {
         const shipName = nameInput.value.trim() || `${shipClass.name}`;
+        shipNameDrafts.delete(shipClass.id);
         callbacks.onBuyShip(shipClass.id, shipName);
       });
       buyContainer.appendChild(buyBtn);
