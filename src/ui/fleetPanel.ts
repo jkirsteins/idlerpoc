@@ -86,9 +86,6 @@ function getShipActivity(ship: Ship, gd: GameData): ShipActivity {
       case 'supply':
         typeLabel = 'Supply';
         break;
-      case 'standing_freight':
-        typeLabel = 'Standing Freight';
-        break;
       case 'trade_route':
         typeLabel = 'Trade Route';
         break;

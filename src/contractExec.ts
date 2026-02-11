@@ -95,11 +95,16 @@ function getDockedLocationIds(gameData: GameData): string[] {
 /**
  * Regenerate quests if we've crossed a day boundary.
  * All non-trade-route quests are regenerated fresh each day.
+ * Uses the full fleet for payment calculation so the reference ship
+ * isn't arbitrarily whichever ship triggered the day boundary.
  */
-function regenerateQuestsIfNewDay(gameData: GameData, ship: Ship): void {
+function regenerateQuestsIfNewDay(gameData: GameData): void {
   const currentDay = getDaysSinceEpoch(gameData.gameTime);
   if (currentDay > gameData.lastQuestRegenDay) {
-    gameData.availableQuests = generateAllLocationQuests(ship, gameData.world);
+    gameData.availableQuests = generateAllLocationQuests(
+      gameData.ships,
+      gameData.world
+    );
     gameData.lastQuestRegenDay = currentDay;
 
     // Regenerate hireable crew only for stations with docked ships
@@ -432,7 +437,7 @@ export function completeLeg(gameData: GameData, ship: Ship): void {
 
       checkFirstArrival(gameData, ship, destination.id);
       removeUnpaidCrew(gameData, ship);
-      regenerateQuestsIfNewDay(gameData, ship);
+      regenerateQuestsIfNewDay(gameData);
 
       // Mining route auto-continuation (sell ore, refuel, return to mine)
       handleMiningRouteArrival(gameData, ship);
@@ -472,7 +477,7 @@ export function completeLeg(gameData: GameData, ship: Ship): void {
     abandonContract(gameData, ship);
     checkFirstArrival(gameData, ship, arrivalLocation.id);
     removeUnpaidCrew(gameData, ship);
-    regenerateQuestsIfNewDay(gameData, ship);
+    regenerateQuestsIfNewDay(gameData);
     return;
   }
 
@@ -493,7 +498,7 @@ export function completeLeg(gameData: GameData, ship: Ship): void {
       ship.activeContract = null;
       checkFirstArrival(gameData, ship, arrivalLocation.id);
       removeUnpaidCrew(gameData, ship);
-      regenerateQuestsIfNewDay(gameData, ship);
+      regenerateQuestsIfNewDay(gameData);
       return;
     }
   }
@@ -538,7 +543,7 @@ export function completeLeg(gameData: GameData, ship: Ship): void {
 
       checkFirstArrival(gameData, ship, arrivalLocation.id);
       removeUnpaidCrew(gameData, ship);
-      regenerateQuestsIfNewDay(gameData, ship);
+      regenerateQuestsIfNewDay(gameData);
     } else {
       // Multi-leg: flip to inbound, try to continue
       activeContract.leg = 'inbound';
@@ -618,22 +623,19 @@ export function completeLeg(gameData: GameData, ship: Ship): void {
 
     dockShipAtLocation(ship, arrivalLocation.id);
 
-    // Save quest data from completed contract BEFORE clearing, so
-    // autoRestartRouteTrip can reference payment/cargo values.
     const hasRouteAssignment = ship.routeAssignment !== null;
-    const completedQuest = activeContract.quest;
 
     ship.activeContract = null;
 
     checkFirstArrival(gameData, ship, arrivalLocation.id);
     removeUnpaidCrew(gameData, ship);
-    regenerateQuestsIfNewDay(gameData, ship);
+    regenerateQuestsIfNewDay(gameData);
 
     if (hasRouteAssignment) {
       checkAutoRefuel(gameData, ship, arrivalLocation.id);
 
       if (ship.routeAssignment) {
-        autoRestartRouteTrip(gameData, ship, completedQuest);
+        autoRestartRouteTrip(gameData, ship);
       }
     }
   } else {
@@ -741,5 +743,5 @@ export function abandonContract(gameData: GameData, ship: Ship): void {
 
   ship.activeContract = null;
 
-  regenerateQuestsIfNewDay(gameData, ship);
+  regenerateQuestsIfNewDay(gameData);
 }

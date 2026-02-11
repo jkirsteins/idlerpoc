@@ -8,7 +8,6 @@ import {
   calculateDryMass,
   calculateFuelMassRequired,
   calculateFuelTankCapacity,
-  getCurrentShipMass,
   getSpecificImpulse,
 } from './flightPhysics';
 import { gameSecondsToTicks, GAME_SECONDS_PER_TICK } from './timeSystem';
@@ -17,11 +16,10 @@ import { calculateShipSalaryPerTick } from './crewRoles';
 import { calculatePositionDanger } from './encounterSystem';
 import { getCrewForJobType, isHelmManned } from './jobSlots';
 import { getCommercePaymentBonus } from './skillRanks';
+import { getFuelPricePerKg } from './ui/refuelDialog';
 
-// Fuel pricing constant for payment calculations (credits per kg)
-// Matches base rate from refuelDialog.ts getFuelPricePerKg()
-// Actual station prices range from 1.6 (Earth/LEO) to 5.0 (Outer System)
-const FUEL_PRICE_PER_KG = 2.0;
+// Fallback fuel price for payment calculations when no location is available
+const FUEL_PRICE_PER_KG_FALLBACK = 2.0;
 
 /**
  * Helper: Calculate fuel mass required for a one-way trip in kg
@@ -118,11 +116,16 @@ const PASSENGER_NAMES = [
  * The cost floor guarantees 130-200% of actual operating costs (crew salaries + fuel),
  * ensuring every quest is profitable. The distance bonus rewards long-haul routes.
  * All values emerge from ship physics, crew composition, and fuel economy.
+ *
+ * When origin/destination are provided, fuel cost uses the average of both
+ * endpoints' actual station prices instead of a flat constant.
  */
 function calculatePayment(
   ship: Ship,
   distanceKm: number,
-  cargoKg: number = 0
+  cargoKg: number = 0,
+  origin?: WorldLocation,
+  destination?: WorldLocation
 ): number {
   // 1. Estimate operating costs for round trip
   const tripTimeSecs = estimateTripTime(ship, distanceKm);
@@ -133,8 +136,17 @@ function calculatePayment(
   // Calculate fuel cost in credits using the canonical fuel calculator
   const fuelKgRequired = calculateTripFuelKg(ship, distanceKm);
 
+  // Use location-based pricing when available, averaging origin and
+  // destination prices (ship refuels at both endpoints on multi-leg routes).
+  let fuelPricePerKg = FUEL_PRICE_PER_KG_FALLBACK;
+  if (origin && destination) {
+    const originPrice = getFuelPricePerKg(origin, ship);
+    const destPrice = getFuelPricePerKg(destination, ship);
+    fuelPricePerKg = (originPrice + destPrice) / 2;
+  }
+
   const crewCost = crewSalaryPerTick * roundTripTicks;
-  const fuelCost = fuelKgRequired * 2 * FUEL_PRICE_PER_KG; // Round trip
+  const fuelCost = fuelKgRequired * 2 * fuelPricePerKg; // Round trip
   const totalCost = crewCost + fuelCost;
 
   // 2. Cost floor: 130-200% of operating costs
@@ -162,7 +174,9 @@ function calculatePayment(
 
   const payment = basePayment * (1 + crewBonus + commerceBonus);
 
-  return Math.round(payment);
+  // Minimum payment floor — prevents zero-credit quests when a solo
+  // captain (salary 0) does short hops (near-zero fuel cost).
+  return Math.max(10, Math.round(payment));
 }
 
 /**
@@ -225,14 +239,26 @@ export function estimateTripTime(
   const clampedBurnFraction = Math.max(0.1, Math.min(1.0, burnFraction));
   const engineDef = getEngineDefinition(ship.engine.definitionId);
   const distanceMeters = distanceKm * 1000;
-  // Use current ship mass (including fuel, cargo, crew) — same as initializeFlight
-  const currentMass = getCurrentShipMass(ship);
-  const thrust = engineDef.thrust;
-  const acceleration = thrust / currentMass;
+  const specificImpulse = getSpecificImpulse(engineDef);
 
-  // Use fixed cruise velocity (same as computeMaxRange and initializeFlight)
-  // 50% fuel budget for one-way trip, scaled by burn fraction
-  const maxAllocatedDeltaV = 0.5 * engineDef.maxDeltaV;
+  // Use full-tank mass — same basis as calculateTripFuelKg so the two
+  // halves of calculatePayment (crew cost from trip time, fuel cost from
+  // fuel mass) are computed under identical assumptions.
+  const dryMass = calculateDryMass(ship);
+  const maxFuelKg = calculateFuelTankCapacity(
+    shipClass.cargoCapacity,
+    engineDef
+  );
+  const fullMass = dryMass + maxFuelKg;
+  const thrust = engineDef.thrust;
+  const acceleration = thrust / fullMass;
+
+  // Match calculateTripFuelKg: cap at min(Tsiolkovsky delta-v, engine maxDeltaV)
+  const availableDeltaV = calculateDeltaV(fullMass, dryMass, specificImpulse);
+  const maxAllocatedDeltaV = Math.min(
+    availableDeltaV * 0.5,
+    0.5 * engineDef.maxDeltaV
+  );
   const allocatedDeltaV = maxAllocatedDeltaV * clampedBurnFraction;
 
   // Edge case: zero thrust or zero fuel
@@ -306,7 +332,9 @@ function generateDeliveryQuest(
     : 1000;
   const cargoKg = Math.round(Math.min(1000 + Math.random() * 9000, maxCargo));
 
-  const payment = Math.round(calculatePayment(ship, distanceKm, cargoKg) * 1.5); // Active premium: finite quest, 7d expiry
+  const payment = Math.round(
+    calculatePayment(ship, distanceKm, cargoKg, origin, destination) * 1.5
+  ); // Active premium: finite quest, 7d expiry
   const estimatedTime = estimateTripTime(ship, distanceKm);
   const fuelKgRequired = calculateTripFuelKg(ship, distanceKm);
 
@@ -340,7 +368,9 @@ function generatePassengerQuest(
   const passengerName =
     PASSENGER_NAMES[Math.floor(Math.random() * PASSENGER_NAMES.length)];
 
-  const payment = Math.round(calculatePayment(ship, distanceKm) * 2.0); // Highest active premium: tightest deadline (3d), quarters required
+  const payment = Math.round(
+    calculatePayment(ship, distanceKm, 0, origin, destination) * 2.0
+  ); // Highest active premium: tightest deadline (3d), quarters required
   const estimatedTime = estimateTripTime(ship, distanceKm);
   const fuelKgRequired = calculateTripFuelKg(ship, distanceKm);
 
@@ -385,7 +415,7 @@ function generateFreightQuest(
   const trips = Math.floor(2 + Math.random() * 4); // 2-5 trips
 
   const paymentPerTrip = Math.round(
-    calculatePayment(ship, distanceKm, cargoKg) * 1.2
+    calculatePayment(ship, distanceKm, cargoKg, origin, destination) * 1.2
   ); // Semi-active premium: multi-trip with 14d expiry
   const estimatedTime = estimateTripTime(ship, distanceKm);
   const fuelKgRequired = calculateTripFuelKg(ship, distanceKm);
@@ -428,7 +458,7 @@ function generateSupplyQuest(
   const cargoPerTrip = Math.min(availableCargoSupply * 0.8, 10000); // Use 80% of available cargo
 
   const payment = Math.round(
-    calculatePayment(ship, distanceKm, totalCargoKg) * 2.5
+    calculatePayment(ship, distanceKm, cargoPerTrip, origin, destination) * 2.5
   ); // High commitment premium: large bulk contract, 30d expiry, lump sum
   const estimatedTime = estimateTripTime(ship, distanceKm);
   const fuelKgRequired = calculateTripFuelKg(ship, distanceKm);
@@ -523,7 +553,7 @@ function calculateRouteDanger(
  * - Location economic power (bigger hubs offer better rates via size)
  * - Crew skill bonuses (same as regular quests)
  */
-function calculateTradeRoutePayment(
+export function calculateTradeRoutePayment(
   ship: Ship,
   origin: WorldLocation,
   destination: WorldLocation,
@@ -540,8 +570,13 @@ function calculateTradeRoutePayment(
 
   const fuelKgRequired = calculateTripFuelKg(ship, distanceKm);
 
+  // Use actual station prices at both endpoints
+  const originPrice = getFuelPricePerKg(origin, ship);
+  const destPrice = getFuelPricePerKg(destination, ship);
+  const avgFuelPrice = (originPrice + destPrice) / 2;
+
   const crewCost = crewSalaryPerTick * roundTripTicks;
-  const fuelCost = fuelKgRequired * 2 * FUEL_PRICE_PER_KG; // Round trip in kg
+  const fuelCost = fuelKgRequired * 2 * avgFuelPrice; // Round trip
   const totalCost = crewCost + fuelCost;
 
   // Fixed at 120% of operating costs (no randomness unlike regular quests)
@@ -580,7 +615,22 @@ function calculateTradeRoutePayment(
     locationFactor *
     (1 + crewBonus + commerceBonus);
 
-  return Math.round(payment);
+  return Math.max(10, Math.round(payment));
+}
+
+/**
+ * Calculate trade route cargo amount for a ship at a given origin location.
+ * Cargo scales with origin's economic power, capped by ship's available cargo.
+ */
+export function calculateTradeRouteCargo(
+  ship: Ship,
+  origin: WorldLocation
+): number {
+  const shipClass = getShipClass(ship.classId);
+  const maxCargo = shipClass
+    ? Math.floor(calculateAvailableCargoCapacity(shipClass.cargoCapacity) * 0.8)
+    : 1000;
+  return Math.min(1000 + origin.size * 500, maxCargo);
 }
 
 /**
@@ -617,14 +667,7 @@ export function generatePersistentTradeRoutes(
     const distanceKm = getDistanceBetween(location, partner);
     const tradeGood = getTradeGood(location, partner);
 
-    // Cargo scales with origin's economic power, capped by ship's available cargo capacity
-    const shipClassTR = getShipClass(ship.classId);
-    const maxCargoTR = shipClassTR
-      ? Math.floor(
-          calculateAvailableCargoCapacity(shipClassTR.cargoCapacity) * 0.8
-        )
-      : 1000;
-    const cargoKg = Math.min(1000 + location.size * 500, maxCargoTR);
+    const cargoKg = calculateTradeRouteCargo(ship, location);
 
     const paymentPerTrip = calculateTradeRoutePayment(
       ship,
@@ -659,17 +702,55 @@ export function generatePersistentTradeRoutes(
 }
 
 /**
+ * Pick the best reference ship for quest generation at a given location.
+ *
+ * Uses the ship with the highest operating costs (crew salary + fuel tank).
+ * This ensures the cost-based payment floor is high enough that all ships
+ * in the fleet will find the quest profitable.
+ *
+ * Falls back to the first ship if none can reach the location.
+ */
+function pickReferenceShip(ships: Ship[]): Ship {
+  let bestShip: Ship | null = null;
+  let bestCost = -1;
+
+  for (const ship of ships) {
+    const salary = calculateShipSalaryPerTick(ship);
+    const shipClass = getShipClass(ship.classId);
+    const tankSize = shipClass
+      ? calculateFuelTankCapacity(
+          shipClass.cargoCapacity,
+          getEngineDefinition(ship.engine.definitionId)
+        )
+      : 0;
+    // Approximate operating cost weight: salary dominates for crew-heavy
+    // ships, tank size dominates for fuel-heavy ships.
+    const cost = salary + tankSize * 0.001;
+    if (cost > bestCost) {
+      bestCost = cost;
+      bestShip = ship;
+    }
+  }
+
+  return bestShip ?? ships[0];
+}
+
+/**
  * Generate quests for all locations in the world.
  * All non-trade-route quests are regenerated fresh each day.
+ *
+ * Accepts the full fleet so the reference ship for payment calculation
+ * is chosen per-location based on highest operating costs.
  */
 export function generateAllLocationQuests(
-  ship: Ship,
+  ships: Ship[],
   world: World
 ): Record<string, Quest[]> {
   const allQuests: Record<string, Quest[]> = {};
   for (const location of world.locations) {
-    const tradeRoutes = generatePersistentTradeRoutes(ship, location, world);
-    const randomQuests = generateQuestsForLocation(ship, location, world);
+    const refShip = pickReferenceShip(ships);
+    const tradeRoutes = generatePersistentTradeRoutes(refShip, location, world);
+    const randomQuests = generateQuestsForLocation(refShip, location, world);
     allQuests[location.id] = [...tradeRoutes, ...randomQuests];
   }
   return allQuests;
@@ -731,11 +812,17 @@ export function generateQuestsForLocation(
 }
 
 /**
- * Check if quest can be accepted with current ship
+ * Check if quest can be accepted with current ship.
+ *
+ * When a World reference is provided, fuel requirements are computed fresh
+ * from the ship's current state rather than relying on the quest's
+ * estimatedFuelPerTrip (which is a stale display-only snapshot from
+ * quest generation time).
  */
 export function canAcceptQuest(
   ship: Ship,
-  quest: Quest
+  quest: Quest,
+  world?: World
 ): { canAccept: boolean; reason?: string } {
   // Helm must be manned to depart on a contract
   if (!isHelmManned(ship)) {
@@ -762,11 +849,24 @@ export function canAcceptQuest(
     };
   }
 
-  // Check fuel for at least one round trip
-  if (quest.estimatedFuelPerTrip > ship.fuelKg) {
+  // Check fuel for at least one round trip.
+  // Compute fresh from ship physics when world is available; fall back to
+  // the quest's stale estimate otherwise.
+  let fuelRequired = quest.estimatedFuelPerTrip;
+  if (world) {
+    const originLoc = world.locations.find((l) => l.id === quest.origin);
+    const destLoc = world.locations.find((l) => l.id === quest.destination);
+    if (originLoc && destLoc) {
+      const distanceKm = getDistanceBetween(originLoc, destLoc);
+      fuelRequired =
+        calculateTripFuelKg(ship, distanceKm, ship.flightProfileBurnFraction) *
+        2; // Round trip
+    }
+  }
+  if (fuelRequired > ship.fuelKg) {
     return {
       canAccept: false,
-      reason: `Insufficient fuel for trip (need ${Math.round(quest.estimatedFuelPerTrip).toLocaleString()} kg, have ${Math.round(ship.fuelKg).toLocaleString()} kg)`,
+      reason: `Insufficient fuel for trip (need ${Math.round(fuelRequired).toLocaleString()} kg, have ${Math.round(ship.fuelKg).toLocaleString()} kg)`,
     };
   }
 

@@ -1,8 +1,16 @@
 import type { GameData, Ship, Quest } from './models';
-import { canAcceptQuest } from './questGen';
+import {
+  canAcceptQuest,
+  calculateTradeRoutePayment,
+  calculateTradeRouteCargo,
+  calculateTripFuelKg,
+  estimateTripTime,
+} from './questGen';
 import { addLog } from './logSystem';
 import { generateId } from './utils';
+import { getDistanceBetween } from './worldGen';
 import { getFuelPricePerKg } from './ui/refuelDialog';
+import { gameSecondsToTicks } from './timeSystem';
 
 type AcceptQuestFn = (gameData: GameData, ship: Ship, quest: Quest) => void;
 
@@ -66,7 +74,7 @@ export function assignShipToRoute(
   }
 
   // Validation: Ship must be able to accept quest
-  const validation = canAcceptQuest(ship, quest);
+  const validation = canAcceptQuest(ship, quest, gameData.world);
   if (!validation.canAccept) {
     return { success: false, error: validation.reason };
   }
@@ -178,19 +186,20 @@ export function checkAutoRefuel(
 
       return { refueled: true };
     } else {
-      // Insufficient funds - pause route assignment
+      // Insufficient funds - save stats before clearing assignment
+      const assignment = ship.routeAssignment;
       const originLoc = gameData.world.locations.find(
-        (l) => l.id === ship.routeAssignment!.originId
+        (l) => l.id === assignment.originId
       );
       const destLoc = gameData.world.locations.find(
-        (l) => l.id === ship.routeAssignment!.destinationId
+        (l) => l.id === assignment.destinationId
       );
 
       addLog(
         gameData.log,
         gameData.gameTime,
         'contract_abandoned',
-        `Route assignment ended at ${location.name}: insufficient credits for refuel (needed ${fuelCost}, have ${gameData.credits}). Route ${originLoc?.name} ↔ ${destLoc?.name} completed ${ship.routeAssignment.totalTripsCompleted} trips.`,
+        `Route assignment ended at ${location.name}: insufficient credits for refuel (needed ${fuelCost}, have ${gameData.credits}). Route ${originLoc?.name} ↔ ${destLoc?.name} completed ${assignment.totalTripsCompleted} trips, earned ${assignment.creditsEarned.toLocaleString()} credits.`,
         ship.name
       );
 
@@ -212,14 +221,12 @@ export function checkAutoRefuel(
  * Auto-restart next trip for route-assigned ships.
  * Called after inbound leg completion in completeLeg().
  *
- * @param previousQuest The quest from the just-completed contract. Must be
- *   passed explicitly because ship.activeContract is already null by the
- *   time this function runs.
+ * Payment is recalculated from the ship's current state each trip so that
+ * crew skill gains, ship upgrades, and fuel price changes are reflected.
  */
 export function autoRestartRouteTrip(
   gameData: GameData,
-  ship: Ship,
-  previousQuest?: Quest
+  ship: Ship
 ): { restarted: boolean; reason?: string } {
   if (!ship.routeAssignment) {
     return { restarted: false, reason: 'No route assignment' };
@@ -241,8 +248,20 @@ export function autoRestartRouteTrip(
     return { restarted: false, reason: 'Route locations not found' };
   }
 
-  // Create a new quest instance for the next trip, carrying forward the
-  // payment and cargo values from the previous quest.
+  // Recalculate payment from current ship state so crew skill gains,
+  // ship upgrades, and fuel price changes are reflected each trip.
+  const cargoKg = calculateTradeRouteCargo(ship, originLoc);
+  const paymentPerTrip = calculateTradeRoutePayment(
+    ship,
+    originLoc,
+    destLoc,
+    gameData.world,
+    cargoKg
+  );
+  const distanceKm = getDistanceBetween(originLoc, destLoc);
+  const fuelKgRequired = calculateTripFuelKg(ship, distanceKm);
+  const estimatedTime = estimateTripTime(ship, distanceKm);
+
   const nextQuest: Quest = {
     id: generateId(),
     type: 'trade_route',
@@ -250,14 +269,14 @@ export function autoRestartRouteTrip(
     description: `Automated freight route`,
     origin: assignment.originId,
     destination: assignment.destinationId,
-    cargoRequired: previousQuest?.cargoRequired || 0,
+    cargoRequired: cargoKg,
     totalCargoRequired: 0,
     tripsRequired: -1, // Unlimited
-    paymentPerTrip: previousQuest?.paymentPerTrip || 0,
+    paymentPerTrip,
     paymentOnCompletion: 0,
     expiresAfterDays: 0,
-    estimatedFuelPerTrip: previousQuest?.estimatedFuelPerTrip || 0,
-    estimatedTripTicks: previousQuest?.estimatedTripTicks || 0,
+    estimatedFuelPerTrip: fuelKgRequired * 2,
+    estimatedTripTicks: gameSecondsToTicks(estimatedTime * 2),
   };
 
   // Start next trip immediately (no user interaction)

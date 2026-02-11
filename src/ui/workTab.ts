@@ -897,7 +897,7 @@ export function createWorkTab(
       (l) => l.id === quest.destination
     );
     const origin = gd.world.locations.find((l) => l.id === quest.origin);
-    const { canAccept, reason } = canAcceptQuest(ship, quest);
+    const { canAccept, reason } = canAcceptQuest(ship, quest, gd.world);
 
     // Card disabled state
     if (!canAccept) {
@@ -1115,8 +1115,8 @@ export function createWorkTab(
 
       // Sort: acceptable first
       const sortedTrade = [...tradeRoutes].sort((a, b) => {
-        const aOk = canAcceptQuest(ship, a).canAccept;
-        const bOk = canAcceptQuest(ship, b).canAccept;
+        const aOk = canAcceptQuest(ship, a, gd.world).canAccept;
+        const bOk = canAcceptQuest(ship, b, gd.world).canAccept;
         if (aOk && !bOk) return -1;
         if (!aOk && bOk) return 1;
         return 0;
@@ -1157,8 +1157,8 @@ export function createWorkTab(
 
       if (regularQuests.length > 0) {
         const sortedQuests = [...regularQuests].sort((a, b) => {
-          const aAcceptable = canAcceptQuest(ship, a).canAccept;
-          const bAcceptable = canAcceptQuest(ship, b).canAccept;
+          const aAcceptable = canAcceptQuest(ship, a, gd.world).canAccept;
+          const bAcceptable = canAcceptQuest(ship, b, gd.world).canAccept;
           if (aAcceptable && !bAcceptable) return -1;
           if (!aAcceptable && bAcceptable) return 1;
           return 0;
