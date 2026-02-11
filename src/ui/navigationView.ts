@@ -6,6 +6,7 @@ import {
   getUnreachableReason,
   getDistanceBetween,
 } from '../worldGen';
+import { formatDistance } from '../formatting';
 import { getGravityDegradationLevel } from '../gravitySystem';
 import {
   getShipPositionKm,
@@ -36,13 +37,6 @@ const NAV_SERVICE_LABELS: Record<string, { icon: string; label: string }> = {
 export interface NavigationViewCallbacks {
   onToggleNavigation: () => void;
   onStartTrip?: (destinationId: string) => void;
-}
-
-function formatDistance(km: number): string {
-  if (km < 0.5) return 'Current Location';
-  if (km < 1000) return `${Math.round(km)} km`;
-  if (km < 1_000_000) return `${(km / 1000).toFixed(1)}K km`;
-  return `${(km / 1_000_000).toFixed(1)}M km`;
 }
 
 /** Per-location refs for the map marker */
@@ -426,7 +420,10 @@ export function createNavigationView(
       const distanceFromCurrent = Math.abs(
         location.distanceFromEarth - currentKm
       );
-      const distText = `Distance: ${formatDistance(distanceFromCurrent)}`;
+      const distText =
+        distanceFromCurrent < 0.5
+          ? 'Current Location'
+          : `Distance: ${formatDistance(distanceFromCurrent)}`;
       if (legendRefs.distance.textContent !== distText) {
         legendRefs.distance.textContent = distText;
       }

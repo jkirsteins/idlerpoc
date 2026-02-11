@@ -26,6 +26,7 @@ import {
 import { getLevelForXP } from './levelSystem';
 import { createRefuelDialog, getFuelPricePerKg } from './ui/refuelDialog';
 import { formatFuelMass, calculateFuelPercentage } from './ui/fuelFormatting';
+import { formatCredits } from './formatting';
 import {
   advanceToNextDayStart,
   GAME_SECONDS_PER_DAY,
@@ -870,7 +871,7 @@ const callbacks: RendererCallbacks = {
             state.gameData.log,
             state.gameData.gameTime,
             'refueled',
-            `Purchased ${formatFuelMass(fuelKg)} fuel for ${totalCost.toLocaleString()} credits`,
+            `Purchased ${formatFuelMass(fuelKg)} fuel for ${formatCredits(totalCost)}`,
             ship.name
           );
 
@@ -1203,7 +1204,7 @@ const callbacks: RendererCallbacks = {
       state.gameData.log,
       state.gameData.gameTime,
       'equipment_bought',
-      `Purchased new ship: ${shipClass.name} for ${shipClass.price.toLocaleString()} credits`
+      `Purchased new ship: ${shipClass.name} for ${formatCredits(shipClass.price)}`
     );
 
     saveGame(state.gameData);

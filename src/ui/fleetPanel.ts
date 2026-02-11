@@ -10,6 +10,7 @@ import {
   getFuelColorHex,
 } from './fuelFormatting';
 import { getCommandCommerceBonus, getFleetAuraBonus } from '../captainBonus';
+import { formatLargeNumber } from '../formatting';
 
 export interface FleetPanelCallbacks {
   onSelectShip: (shipId: string) => void;
@@ -445,13 +446,4 @@ function getTierColor(tier: ShipClassTier): string {
     default:
       return '#fff';
   }
-}
-
-function formatLargeNumber(num: number): string {
-  if (num >= 1_000_000) {
-    return (num / 1_000_000).toFixed(1) + 'M';
-  } else if (num >= 1_000) {
-    return (num / 1_000).toFixed(0) + 'K';
-  }
-  return num.toFixed(0);
 }

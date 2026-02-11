@@ -35,6 +35,7 @@ import { getAllOreDefinitions } from './oreTypes';
 import { addLog } from './logSystem';
 import { calculateAvailableCargoCapacity } from './flightPhysics';
 import { getShipClass } from './shipClasses';
+import { formatCredits } from './formatting';
 
 // ─── Constants ──────────────────────────────────────────────────
 
@@ -383,7 +384,7 @@ export function sellOre(
     gameData.log,
     gameData.gameTime,
     'ore_sold',
-    `${ship.name} sold ${quantity} ${ore.icon} ${ore.name} for ${boostedCredits.toLocaleString()} cr at ${location.name}`,
+    `${ship.name} sold ${quantity} ${ore.icon} ${ore.name} for ${formatCredits(boostedCredits)} at ${location.name}`,
     ship.name
   );
 

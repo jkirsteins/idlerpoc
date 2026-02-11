@@ -17,6 +17,7 @@ import { calculatePositionDanger } from './encounterSystem';
 import { getCrewForJobType, isHelmManned } from './jobSlots';
 import { getFuelPricePerKg } from './ui/refuelDialog';
 import { formatFuelMass } from './ui/fuelFormatting';
+import { formatMass } from './formatting';
 
 // Fallback fuel price for payment calculations when no location is available
 const FUEL_PRICE_PER_KG_FALLBACK = 2.0;
@@ -334,7 +335,7 @@ function generateDeliveryQuest(
     id: generateId(),
     type: 'delivery',
     title: `Deliver ${cargoType}`,
-    description: `Deliver ${cargoKg.toLocaleString()} kg of ${cargoType} to ${destination.name}`,
+    description: `Deliver ${formatMass(cargoKg)} of ${cargoType} to ${destination.name}`,
     origin: origin.id,
     destination: destination.id,
     cargoRequired: cargoKg,
@@ -417,7 +418,7 @@ function generateFreightQuest(
     id: generateId(),
     type: 'freight',
     title: `Freight contract: ${trips} trips`,
-    description: `Haul ${cargoKg.toLocaleString()} kg of ${cargoType} from ${origin.name} to ${destination.name}, ${trips} trips total`,
+    description: `Haul ${formatMass(cargoKg)} of ${cargoType} from ${origin.name} to ${destination.name}, ${trips} trips total`,
     origin: origin.id,
     destination: destination.id,
     cargoRequired: cargoKg,
@@ -470,8 +471,8 @@ function generateSupplyQuest(
   return {
     id: generateId(),
     type: 'supply',
-    title: `Supply contract: ${totalCargoKg.toLocaleString()} kg`,
-    description: `Deliver total of ${totalCargoKg.toLocaleString()} kg of ${cargoType} to ${destination.name} (multiple trips required)`,
+    title: `Supply contract: ${formatMass(totalCargoKg)}`,
+    description: `Deliver total of ${formatMass(totalCargoKg)} of ${cargoType} to ${destination.name} (multiple trips required)`,
     origin: origin.id,
     destination: destination.id,
     cargoRequired: Math.round(cargoPerTrip),
@@ -689,7 +690,7 @@ export function generatePersistentTradeRoutes(
       id: `trade_${location.id}_${partner.id}`,
       type: 'trade_route',
       title: `Trade: ${location.name} → ${partner.name}`,
-      description: `Haul ${cargoKg.toLocaleString()} kg of ${tradeGood} to ${partner.name}. Permanent trade route.`,
+      description: `Haul ${formatMass(cargoKg)} of ${tradeGood} to ${partner.name}. Permanent trade route.`,
       origin: location.id,
       destination: partner.id,
       cargoRequired: cargoKg,
@@ -850,7 +851,7 @@ export function canAcceptQuest(
   if (quest.cargoRequired > availableCargo) {
     return {
       canAccept: false,
-      reason: `Insufficient cargo capacity (need ${quest.cargoRequired.toLocaleString()} kg, have ${Math.floor(availableCargo).toLocaleString()} kg)`,
+      reason: `Insufficient cargo capacity (need ${formatMass(quest.cargoRequired)}, have ${formatMass(Math.floor(availableCargo))})`,
     };
   }
 

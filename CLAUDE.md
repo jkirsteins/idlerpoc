@@ -42,6 +42,27 @@ When creating new tab views or adding content to existing tabs:
 
 **Always show UI indicators, never conditionally hide them.** Every game system that has a UI indicator (status bars, gauges, panels) must be rendered at all times, even when the system is inactive or the current ship/equipment doesn't engage with it. Hidden controls hide the existence of features from players. Showing an indicator in a "neutral" or "N/A" state encourages players to explore how to interact with systems they haven't encountered yet. Use disabled/dimmed/zero states instead of removing elements from the DOM.
 
+# Value Display Formatting
+
+**Never format numbers inline.** All player-visible values must use the centralized functions below so that format changes happen in one place.
+
+| Value type      | Function                             | Module                     | Example output      |
+| --------------- | ------------------------------------ | -------------------------- | ------------------- |
+| Credits         | `formatCredits(n)`                   | `src/formatting.ts`        | `1,234 cr`          |
+| Distance        | `formatDistance(km)`                 | `src/formatting.ts`        | `45K km`, `1.5M km` |
+| Large number    | `formatLargeNumber(n)`               | `src/formatting.ts`        | `45K`, `1.5M`       |
+| Range label     | `getRangeLabel(km)`                  | `src/formatting.ts`        | `GEO/Cislunar`      |
+| Mass (general)  | `formatMass(kg)`                     | `src/formatting.ts`        | `12,500 kg`         |
+| Fuel mass       | `formatFuelMass(kg)`                 | `src/ui/fuelFormatting.ts` | `12,500 kg`         |
+| Fuel % (number) | `calculateFuelPercentage(fuel, max)` | `src/ui/fuelFormatting.ts` | `75.5`              |
+| Fuel colour     | `getFuelColorHex(pct)`               | `src/ui/fuelFormatting.ts` | `#4caf50`           |
+| Time (dual)     | `formatDualTime(gameSec)`            | `src/timeSystem.ts`        | `2 days (irl 5m)`   |
+| Game date       | `formatGameDate(gameTime)`           | `src/timeSystem.ts`        | `Day 42`            |
+
+- For rates like `cr/day`, append the rate suffix after `formatCredits()`: `` `${formatCredits(x)}/day` ``.
+- Tooltips showing raw precision (e.g. `maxRangeKm.toLocaleString() + ' km'`) are acceptable since they supplement the formatted display value.
+- `formatFuelMass` delegates to `formatMass`; use whichever reads clearer in context.
+
 # Additional rules
 
 - Consult README for project scope before starting work. See if any other markdown files (\*.md pattern, in root and in docs/ folder) might be relevant. If so, read them.

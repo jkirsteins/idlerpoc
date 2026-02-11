@@ -26,6 +26,7 @@ import {
   GAME_SECONDS_PER_TICK,
   TICKS_PER_DAY,
 } from '../timeSystem';
+import { formatLargeNumber, getRangeLabel, formatMass } from '../formatting';
 
 /** Ticks per game hour (used to convert per-tick rates to per-hour for display) */
 const TICKS_PER_HOUR = TICKS_PER_DAY / 24;
@@ -570,7 +571,7 @@ export function createShipTab(
       const currentCargo = ship.cargo.length * 100;
       const cargoPercent =
         maxCapacity > 0 ? (currentCargo / maxCapacity) * 100 : 0;
-      refs.cargoCapacity.textContent = `Cargo: ${currentCargo.toLocaleString()} / ${maxCapacity.toLocaleString()} kg`;
+      refs.cargoCapacity.textContent = `Cargo: ${formatMass(currentCargo)} / ${formatMass(maxCapacity)}`;
       refs.cargoFill.style.width = `${Math.min(100, cargoPercent)}%`;
     }
 
@@ -1992,24 +1993,6 @@ function renderEquipmentSection(gameData: GameData): HTMLElement {
 }
 
 // ── Helpers ──────────────────────────────────────────────────────
-
-function formatLargeNumber(num: number): string {
-  if (num >= 1_000_000) {
-    return (num / 1_000_000).toFixed(1) + 'M';
-  } else if (num >= 1_000) {
-    return (num / 1_000).toFixed(0) + 'K';
-  }
-  return num.toFixed(0);
-}
-
-function getRangeLabel(rangeKm: number): string {
-  if (rangeKm < 50_000) return 'LEO/MEO';
-  if (rangeKm < 1_000_000) return 'GEO/Cislunar';
-  if (rangeKm < 10_000_000) return 'Inner System';
-  if (rangeKm < 100_000_000) return 'Mars';
-  if (rangeKm < 500_000_000) return 'Jupiter';
-  return 'Outer System';
-}
 
 function getTierColor(tier: string): string {
   switch (tier) {

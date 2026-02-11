@@ -35,6 +35,7 @@ import { getFuelPricePerKg } from './refuelDialog';
 import { getCrewRoleDefinition, getCrewSalaryPerTick } from '../crewRoles';
 import { getSkillRank } from '../skillRanks';
 import { GAME_SECONDS_PER_DAY, TICKS_PER_DAY } from '../timeSystem';
+import { formatCredits } from '../formatting';
 
 // ═══════════════════════════════════════════════════════════
 // FLAVOR TEXT
@@ -440,7 +441,7 @@ export function createStationTab(
 
       const priceLabel = document.createElement('div');
       priceLabel.style.color = '#4a9eff';
-      priceLabel.textContent = `${equipDef.value.toLocaleString()} cr`;
+      priceLabel.textContent = `${formatCredits(equipDef.value)}`;
       buyDiv.appendChild(priceLabel);
 
       const buyButton = document.createElement('button');
@@ -681,7 +682,7 @@ export function createStationTab(
 
       const neededKg = ship.maxFuelKg - ship.fuelKg;
       const fillCost = Math.round(neededKg * pricePerKg);
-      fuelBuyBtn.textContent = `Buy Fuel (${formatFuelMass(neededKg)} needed · ~${fillCost.toLocaleString()} cr to fill)`;
+      fuelBuyBtn.textContent = `Buy Fuel (${formatFuelMass(neededKg)} needed · ~${formatCredits(fillCost)} to fill)`;
       fuelBuyBtn.disabled = gd.credits < Math.round(100 * pricePerKg);
     }
   }
@@ -694,7 +695,7 @@ export function createStationTab(
       const ore = getOreDefinition(item.oreId);
       return sum + getOreSellPrice(ore, location, ship) * item.quantity;
     }, 0);
-    sellAllBtn.textContent = `Sell All (${totalValue.toLocaleString()} cr)`;
+    sellAllBtn.textContent = `Sell All (${formatCredits(totalValue)})`;
 
     // Reconcile ore rows
     const currentOreIds = new Set<string>();
@@ -774,7 +775,7 @@ export function createStationTab(
       refs.iconNameSpan.textContent = `${ore.icon} ${ore.name}`;
       refs.quantitySpan.textContent = ` \u00d7 ${item.quantity}`;
       refs.priceSpan.textContent = `${pricePerUnit} cr/unit`;
-      refs.valueLabel.textContent = `${itemTotal.toLocaleString()} cr`;
+      refs.valueLabel.textContent = `${formatCredits(itemTotal)}`;
     }
 
     // Remove departed ore rows
@@ -886,7 +887,7 @@ export function createStationTab(
       // Update in-place
       refs.nameDiv.textContent = `${equipDef.icon} ${equipDef.name}`;
       refs.sourceDiv.textContent = item.source;
-      refs.priceLabel.textContent = `${sellPrice.toLocaleString()} cr`;
+      refs.priceLabel.textContent = `${formatCredits(sellPrice)}`;
     }
 
     // Remove departed items
@@ -973,12 +974,12 @@ export function createStationTab(
         const netCost = price - tradeIn;
 
         if (refs.priceLabel) {
-          refs.priceLabel.textContent = `${price.toLocaleString()} cr`;
+          refs.priceLabel.textContent = `${formatCredits(price)}`;
         }
 
         if (refs.tradeInLabel) {
           if (tradeIn > 0) {
-            refs.tradeInLabel.textContent = `Trade-in: -${tradeIn.toLocaleString()} cr`;
+            refs.tradeInLabel.textContent = `Trade-in: -${formatCredits(tradeIn)}`;
             refs.tradeInLabel.style.display = '';
           } else {
             refs.tradeInLabel.style.display = 'none';
@@ -987,7 +988,7 @@ export function createStationTab(
 
         if (refs.netLabel) {
           if (tradeIn > 0) {
-            refs.netLabel.textContent = `Net: ${netCost.toLocaleString()} cr`;
+            refs.netLabel.textContent = `Net: ${formatCredits(netCost)}`;
             refs.netLabel.style.display = '';
           } else {
             refs.netLabel.style.display = 'none';
@@ -1135,7 +1136,7 @@ export function createStationTab(
     refs.skillsDiv.textContent =
       skillParts.length > 0 ? skillParts.join(' · ') : 'No experience';
 
-    refs.costLabel.textContent = `Hire: ${candidate.hireCost.toLocaleString()} cr`;
+    refs.costLabel.textContent = `Hire: ${formatCredits(candidate.hireCost)}`;
 
     // Show per-crew salary (not flat per-role) in daily amount
     const salaryPerTick = getCrewSalaryPerTick(candidate);

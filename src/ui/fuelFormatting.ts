@@ -1,19 +1,14 @@
 /**
- * Utility functions for formatting fuel mass displays in the UI.
- * Part of the fuel system realism update.
+ * Fuel-specific formatting utilities.
+ *
+ * General mass formatting lives in `src/formatting.ts` — this module
+ * re-exports it under a fuel-specific name and adds fuel-only helpers
+ * (percentage, colour).
  */
+import { formatMass } from '../formatting';
 
-/**
- * Format fuel mass in kilograms with appropriate unit suffix.
- * Examples:
- * - 500 kg → "500 kg"
- * - 1,500 kg → "1,500 kg"
- * - 10,000 kg → "10,000 kg"
- * - 100,000 kg → "100,000 kg"
- */
-export function formatFuelMass(kg: number): string {
-  return `${Math.round(kg).toLocaleString()} kg`;
-}
+/** Format fuel mass in kilograms.  Delegates to the shared `formatMass`. */
+export const formatFuelMass = formatMass;
 
 /**
  * Format fuel percentage for display (used alongside kg in some contexts).

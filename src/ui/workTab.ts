@@ -30,6 +30,7 @@ import {
   getCommandBonusCreditAttribution,
   getHypotheticalCaptainBonus,
 } from '../captainBonus';
+import { formatCredits, formatMass, formatDistance } from '../formatting';
 import {
   createFlightProfileControl,
   updateFlightProfileControl,
@@ -374,7 +375,7 @@ export function createWorkTab(
     const infoHtml = `
     <div><strong>Route:</strong> ${originLoc?.name || 'Unknown'} \u2194 ${destLoc?.name || 'Unknown'}</div>
     <div><strong>Trips Completed:</strong> ${assignment.totalTripsCompleted}</div>
-    <div><strong>Credits Earned:</strong> ${assignment.creditsEarned.toLocaleString()}</div>
+    <div><strong>Credits Earned:</strong> ${formatCredits(assignment.creditsEarned)}</div>
     <div><strong>Auto-Refuel:</strong> ${assignment.autoRefuel ? `Enabled (< ${assignment.autoRefuelThreshold}%)` : 'Disabled'}</div>
   `;
     refs.routeInfo.innerHTML = infoHtml;
@@ -911,7 +912,7 @@ export function createWorkTab(
       const distance = Math.abs(
         origin.distanceFromEarth - destination.distanceFromEarth
       );
-      refs.distanceInfo.textContent = `Distance: ${distance.toLocaleString()} km`;
+      refs.distanceInfo.textContent = `Distance: ${formatDistance(distance)}`;
       refs.distanceInfo.style.display = '';
     } else {
       refs.distanceInfo.style.display = 'none';
@@ -919,7 +920,7 @@ export function createWorkTab(
 
     // Cargo
     if (quest.cargoRequired > 0) {
-      refs.cargoInfo.textContent = `Cargo: ${quest.cargoRequired.toLocaleString()} kg`;
+      refs.cargoInfo.textContent = `Cargo: ${formatMass(quest.cargoRequired)}`;
       refs.cargoInfo.style.display = '';
     } else {
       refs.cargoInfo.style.display = 'none';
@@ -927,7 +928,7 @@ export function createWorkTab(
 
     // Total cargo
     if (quest.totalCargoRequired > 0) {
-      refs.totalCargoInfo.textContent = `Total cargo: ${quest.totalCargoRequired.toLocaleString()} kg`;
+      refs.totalCargoInfo.textContent = `Total cargo: ${formatMass(quest.totalCargoRequired)}`;
       refs.totalCargoInfo.style.display = '';
     } else {
       refs.totalCargoInfo.style.display = 'none';
@@ -978,13 +979,13 @@ export function createWorkTab(
     const tripFuelCost = Math.round(profileFuelKg * fuelPricePerKg);
 
     if (tripCrewCost > 0) {
-      refs.crewCostInfo.textContent = `Crew Salaries: ~${tripCrewCost.toLocaleString()} cr per trip`;
+      refs.crewCostInfo.textContent = `Crew Salaries: ~${formatCredits(tripCrewCost)} per trip`;
       refs.crewCostInfo.style.display = '';
     } else {
       refs.crewCostInfo.style.display = 'none';
     }
 
-    refs.fuelCostInfo.textContent = `Fuel Cost: ~${tripFuelCost.toLocaleString()} cr per trip`;
+    refs.fuelCostInfo.textContent = `Fuel Cost: ~${formatCredits(tripFuelCost)} per trip`;
 
     // For lump-sum multi-trip contracts, divide by trips for per-trip comparison
     const tripPayment =
@@ -1002,7 +1003,7 @@ export function createWorkTab(
     const profit = tripPayment - totalCost;
 
     refs.profitInfo.style.color = profit >= 0 ? '#4caf50' : '#e94560';
-    refs.profitInfo.textContent = `Est. Profit: ${profit >= 0 ? '+' : ''}${profit.toLocaleString()} cr per trip`;
+    refs.profitInfo.textContent = `Est. Profit: ${profit >= 0 ? '+' : ''}${formatCredits(profit)} per trip`;
 
     // Route risk
     if (origin && destination) {
@@ -1020,11 +1021,11 @@ export function createWorkTab(
 
     // Payment — show per-trip breakdown for multi-trip lump-sum contracts
     if (quest.paymentPerTrip > 0) {
-      refs.payment.textContent = `Payment: ${quest.paymentPerTrip.toLocaleString()} credits/trip`;
+      refs.payment.textContent = `Payment: ${formatCredits(quest.paymentPerTrip)}/trip`;
     } else if (quest.tripsRequired > 1) {
-      refs.payment.textContent = `Payment: ${quest.paymentOnCompletion.toLocaleString()} cr on completion (${tripPayment.toLocaleString()} cr/trip)`;
+      refs.payment.textContent = `Payment: ${formatCredits(quest.paymentOnCompletion)} on completion (${formatCredits(tripPayment)}/trip)`;
     } else {
-      refs.payment.textContent = `Payment: ${quest.paymentOnCompletion.toLocaleString()} credits on completion`;
+      refs.payment.textContent = `Payment: ${formatCredits(quest.paymentOnCompletion)} on completion`;
     }
 
     // Buttons vs reason
@@ -1366,12 +1367,12 @@ export function createWorkTab(
       0
     );
 
-    let cargoText = `Ore Cargo: ${totalOreUnits} units (${Math.round(oreWeight).toLocaleString()} kg)`;
+    let cargoText = `Ore Cargo: ${totalOreUnits} units (${formatMass(oreWeight)})`;
     if (remaining <= 0) {
       cargoText += ' \u2014 FULL';
       refs.cargoSection.style.color = '#e94560';
     } else {
-      cargoText += ` \u2014 ${Math.round(remaining).toLocaleString()} kg remaining`;
+      cargoText += ` \u2014 ${formatMass(remaining)} remaining`;
       refs.cargoSection.style.color = '#aaa';
     }
     refs.cargoSection.textContent = cargoText;
@@ -1406,7 +1407,7 @@ export function createWorkTab(
       );
 
       refs.activeRouteLabel.textContent = `\u{1F504} Auto-sell route \u2192 ${sellLoc?.name ?? 'Unknown'}`;
-      refs.activeRouteStats.textContent = `Trips: ${route.totalTrips} \u00B7 Earned: ${route.totalCreditsEarned.toLocaleString()} cr \u00B7 Status: ${route.status}`;
+      refs.activeRouteStats.textContent = `Trips: ${route.totalTrips} \u00B7 Earned: ${formatCredits(route.totalCreditsEarned)} \u00B7 Status: ${route.status}`;
     } else {
       refs.activeRouteContainer.style.display = 'none';
       refs.setupRouteContainer.style.display = '';
@@ -1505,7 +1506,7 @@ export function createWorkTab(
     if (quest.tripsRequired === -1) {
       refs.progress.textContent = `Trips completed: ${activeContract.tripsCompleted} (Unlimited)`;
     } else if (quest.type === 'supply') {
-      refs.progress.textContent = `Cargo delivered: ${activeContract.cargoDelivered.toLocaleString()} / ${quest.totalCargoRequired.toLocaleString()} kg`;
+      refs.progress.textContent = `Cargo delivered: ${formatMass(activeContract.cargoDelivered)} / ${formatMass(quest.totalCargoRequired)}`;
     } else {
       refs.progress.textContent = `Trip ${activeContract.tripsCompleted + 1}/${quest.tripsRequired}`;
     }
@@ -1517,15 +1518,15 @@ export function createWorkTab(
     if (quest.paymentPerTrip > 0) {
       refs.paymentInfo.textContent =
         activeContract.leg === 'outbound'
-          ? `Next payment: ${quest.paymentPerTrip.toLocaleString()} cr on inbound arrival`
-          : `Next payment: ${quest.paymentPerTrip.toLocaleString()} cr on arrival`;
+          ? `Next payment: ${formatCredits(quest.paymentPerTrip)} on inbound arrival`
+          : `Next payment: ${formatCredits(quest.paymentPerTrip)} on arrival`;
     } else if (quest.paymentOnCompletion > 0) {
-      refs.paymentInfo.textContent = `Completion bonus: ${quest.paymentOnCompletion.toLocaleString()} cr`;
+      refs.paymentInfo.textContent = `Completion bonus: ${formatCredits(quest.paymentOnCompletion)}`;
     } else {
       refs.paymentInfo.textContent = '';
     }
 
-    refs.earned.textContent = `Earned so far: ${activeContract.creditsEarned.toLocaleString()} credits`;
+    refs.earned.textContent = `Earned so far: ${formatCredits(activeContract.creditsEarned)}`;
 
     // Status hints
     if (ship.location.status === 'in_flight') {
@@ -1575,19 +1576,19 @@ export function createWorkTab(
     if (quest.tripsRequired === -1) {
       refs.progress.textContent = `Trips completed: ${activeContract.tripsCompleted} (Unlimited)`;
     } else if (quest.type === 'supply') {
-      refs.progress.textContent = `Cargo delivered: ${activeContract.cargoDelivered.toLocaleString()} / ${quest.totalCargoRequired.toLocaleString()} kg`;
+      refs.progress.textContent = `Cargo delivered: ${formatMass(activeContract.cargoDelivered)} / ${formatMass(quest.totalCargoRequired)}`;
     } else {
       refs.progress.textContent = `Trip ${activeContract.tripsCompleted + 1}/${quest.tripsRequired}`;
     }
 
-    refs.earned.textContent = `Earned so far: ${activeContract.creditsEarned.toLocaleString()} credits`;
+    refs.earned.textContent = `Earned so far: ${formatCredits(activeContract.creditsEarned)}`;
 
     // Abandon button state
     updatePausedAbandonButton();
 
     // Abandon hint
     const hasRouteAssignment = !!ship.routeAssignment;
-    let hintText = `Abandon ends contract permanently. You keep ${activeContract.creditsEarned.toLocaleString()} cr from completed trips.`;
+    let hintText = `Abandon ends contract permanently. You keep ${formatCredits(activeContract.creditsEarned)} from completed trips.`;
     if (hasRouteAssignment) {
       hintText += ' Your automated route assignment will also end.';
     }
@@ -1666,13 +1667,13 @@ function updateCaptainBonusDisplay(
   const bonusCredits = getCommandBonusCreditAttribution(tripPayment, ship);
 
   if (hasCaptain && bonusCredits > 0) {
-    refs.captainBonusInfo.textContent = `Captain bonus: +${bonusCredits.toLocaleString()} cr`;
+    refs.captainBonusInfo.textContent = `Captain bonus: +${formatCredits(bonusCredits)}`;
     refs.captainBonusInfo.style.color = '#fbbf24';
     refs.captainBonusInfo.style.display = '';
     refs.captainHintInfo.style.display = 'none';
   } else if (!hasCaptain) {
     if (bonusCredits > 0) {
-      refs.captainBonusInfo.textContent = `Acting cpt: +${bonusCredits.toLocaleString()} cr`;
+      refs.captainBonusInfo.textContent = `Acting cpt: +${formatCredits(bonusCredits)}`;
     } else {
       refs.captainBonusInfo.textContent = 'No command bonus';
     }
@@ -1683,7 +1684,7 @@ function updateCaptainBonusDisplay(
       const hypotheticalCredits = Math.round(
         (tripPayment * hypothetical) / (1 + hypothetical)
       );
-      refs.captainHintInfo.textContent = `(Captain: +${hypotheticalCredits.toLocaleString()} cr)`;
+      refs.captainHintInfo.textContent = `(Captain: +${formatCredits(hypotheticalCredits)})`;
       refs.captainHintInfo.style.display = '';
     } else {
       refs.captainHintInfo.style.display = 'none';

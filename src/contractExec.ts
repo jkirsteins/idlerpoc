@@ -9,6 +9,7 @@ import { getShipCommander } from './models';
 import { startShipFlight } from './flightPhysics';
 import { addLog } from './logSystem';
 import { formatFuelMass } from './ui/fuelFormatting';
+import { formatCredits } from './formatting';
 import { generateAllLocationQuests } from './questGen';
 import { getDaysSinceEpoch, TICKS_PER_DAY } from './timeSystem';
 import { generateHireableCrewByLocation } from './gameFactory';
@@ -64,7 +65,7 @@ function tryAutoRefuelForLeg(
       gameData.log,
       gameData.gameTime,
       'refueled',
-      `Auto-refueled ${ship.name} at ${location.name}: ${formatFuelMass(fuelNeededKg)} (${fullCost.toLocaleString()} cr)`,
+      `Auto-refueled ${ship.name} at ${location.name}: ${formatFuelMass(fuelNeededKg)} (${formatCredits(fullCost)})`,
       ship.name
     );
     return true;
@@ -76,7 +77,7 @@ function tryAutoRefuelForLeg(
     gameData.log,
     gameData.gameTime,
     'refueled',
-    `${ship.name} cannot afford refuel at ${location.name} (${fullCost.toLocaleString()} cr needed, have ${gameData.credits.toLocaleString()} cr)`,
+    `${ship.name} cannot afford refuel at ${location.name} (${formatCredits(fullCost)} needed, have ${formatCredits(gameData.credits)})`,
     ship.name
   );
   return false;
@@ -502,7 +503,7 @@ export function completeLeg(gameData: GameData, ship: Ship): void {
         gameData.log,
         gameTime,
         'contract_expired',
-        `Contract expired: ${quest.title}. Deadline of ${quest.expiresAfterDays} days reached.${earned > 0 ? ` Kept ${earned.toLocaleString()} credits earned from completed trips.` : ''}`,
+        `Contract expired: ${quest.title}. Deadline of ${quest.expiresAfterDays} days reached.${earned > 0 ? ` Kept ${formatCredits(earned)} earned from completed trips.` : ''}`,
         ship.name
       );
       dockShipAtLocation(ship, arrivalLocation.id);
@@ -530,7 +531,7 @@ export function completeLeg(gameData: GameData, ship: Ship): void {
         gameData.log,
         gameTime,
         'contract_complete',
-        `Contract completed: ${quest.title}. Earned ${quest.paymentOnCompletion.toLocaleString()} credits.`,
+        `Contract completed: ${quest.title}. Earned ${formatCredits(quest.paymentOnCompletion)}.`,
         ship.name
       );
 
@@ -586,13 +587,13 @@ export function completeLeg(gameData: GameData, ship: Ship): void {
       gameData.log,
       gameTime,
       'payment',
-      `Trip ${activeContract.tripsCompleted} complete. Earned ${tripEarned.toLocaleString()} credits.`,
+      `Trip ${activeContract.tripsCompleted} complete. Earned ${formatCredits(tripEarned)}.`,
       ship.name
     );
   } else {
     let message = `Trip ${activeContract.tripsCompleted}/${quest.tripsRequired === -1 ? '\u221e' : quest.tripsRequired} complete`;
     if (quest.paymentOnCompletion > 0) {
-      message += `. Payment of ${quest.paymentOnCompletion.toLocaleString()} credits on contract completion.`;
+      message += `. Payment of ${formatCredits(quest.paymentOnCompletion)} on contract completion.`;
     }
     addLog(gameData.log, gameTime, 'trip_complete', message, ship.name);
   }
@@ -624,7 +625,7 @@ export function completeLeg(gameData: GameData, ship: Ship): void {
       gameData.log,
       gameTime,
       'contract_complete',
-      `Contract completed: ${quest.title}. Total earned: ${activeContract.creditsEarned.toLocaleString()} credits.`,
+      `Contract completed: ${quest.title}. Total earned: ${formatCredits(activeContract.creditsEarned)}.`,
       ship.name
     );
 
@@ -748,7 +749,7 @@ export function abandonContract(gameData: GameData, ship: Ship): void {
     gameData.log,
     gameData.gameTime,
     'contract_abandoned',
-    `Abandoned contract: ${quest.title}. Earned ${ship.activeContract.creditsEarned.toLocaleString()} credits from completed trips.`,
+    `Abandoned contract: ${quest.title}. Earned ${formatCredits(ship.activeContract.creditsEarned)} from completed trips.`,
     ship.name
   );
 

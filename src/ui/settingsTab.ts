@@ -1,5 +1,6 @@
 import type { GameData } from '../models';
 import { SHIP_CLASSES } from '../shipClasses';
+import { formatCredits } from '../formatting';
 import type { Component } from './component';
 
 export interface SettingsTabCallbacks {
@@ -357,14 +358,14 @@ export function createSettingsTab(
     // Lifetime credits
     const ltc = gameData.lifetimeCreditsEarned;
     if (ltc !== prevLifetimeCredits) {
-      lifetimeCreditsValue.textContent = `${ltc.toLocaleString()} cr`;
+      lifetimeCreditsValue.textContent = formatCredits(ltc);
       prevLifetimeCredits = ltc;
     }
 
     // Current credits
     const cc = Math.round(gameData.credits);
     if (cc !== prevCurrentCredits) {
-      currentCreditsValue.textContent = `${cc.toLocaleString()} cr`;
+      currentCreditsValue.textContent = formatCredits(cc);
       prevCurrentCredits = cc;
     }
 
@@ -384,7 +385,7 @@ export function createSettingsTab(
       }
 
       const remaining = threshold - ltc;
-      unlockValue.textContent = `${remaining.toLocaleString()} cr remaining`;
+      unlockValue.textContent = `${formatCredits(remaining)} remaining`;
 
       const progress = (ltc / threshold) * 100;
       progressFill.style.width = `${Math.min(100, progress)}%`;
