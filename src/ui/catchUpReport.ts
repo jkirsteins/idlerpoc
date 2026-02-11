@@ -150,18 +150,24 @@ export function renderCatchUpReport(
       switch (summary.activity.type) {
         case 'trade_route':
           if (summary.activity.tripsCompleted > 0) {
-            activityEl.textContent = `${summary.activity.tripsCompleted} trip${summary.activity.tripsCompleted > 1 ? 's' : ''} on ${summary.activity.routeName}`;
+            activityEl.textContent = `Made ${summary.activity.tripsCompleted} trip${summary.activity.tripsCompleted > 1 ? 's' : ''} on trade route ${summary.activity.routeName}`;
             activityEl.style.color = '#4a9eff';
           } else {
-            activityEl.textContent = `Assigned to ${summary.activity.routeName} (no trips completed)`;
+            activityEl.textContent = `On trade route ${summary.activity.routeName} (no trips completed)`;
+            activityEl.style.color = '#a0a0b0';
+          }
+          break;
+        case 'mining_route':
+          if (summary.activity.tripsCompleted > 0) {
+            activityEl.textContent = `Made ${summary.activity.tripsCompleted} trip${summary.activity.tripsCompleted > 1 ? 's' : ''} on mining route ${summary.activity.routeName}`;
+            activityEl.style.color = '#81c784';
+          } else {
+            activityEl.textContent = `On mining route ${summary.activity.routeName} (no trips completed)`;
             activityEl.style.color = '#a0a0b0';
           }
           break;
         case 'completed_trips':
-          activityEl.textContent = `Completed ${summary.activity.tripsCompleted} trip${summary.activity.tripsCompleted > 1 ? 's' : ''}`;
-          if (summary.activity.arrivedAt) {
-            activityEl.textContent += `, arrived at ${summary.activity.arrivedAt}`;
-          }
+          activityEl.textContent = `Made ${summary.activity.tripsCompleted} trip${summary.activity.tripsCompleted > 1 ? 's' : ''}`;
           activityEl.style.color = '#4caf50';
           break;
         case 'en_route':

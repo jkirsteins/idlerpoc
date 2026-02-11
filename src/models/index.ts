@@ -484,9 +484,16 @@ export interface CatchUpEncounterStats {
 
 export type CatchUpShipActivity =
   | { type: 'trade_route'; routeName: string; tripsCompleted: number }
-  | { type: 'completed_trips'; tripsCompleted: number; arrivedAt?: string }
+  | { type: 'mining_route'; routeName: string; tripsCompleted: number }
+  | { type: 'completed_trips'; tripsCompleted: number }
   | { type: 'en_route'; destination: string }
   | { type: 'idle'; location: string };
+
+/** Pre-catch-up snapshot of a ship's automated route for accurate reporting. */
+export interface RouteSnapshot {
+  type: 'trade' | 'mining';
+  routeName: string;
+}
 
 export interface CatchUpShipSummary {
   shipId: string;
