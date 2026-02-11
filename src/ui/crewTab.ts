@@ -1619,12 +1619,7 @@ export function createCrewTab(
     // ── Transfer section (always visible, shows context messages) ──
     transferSection.style.display = '';
 
-    if (crew.isCaptain) {
-      transferNoShipsMsg.textContent = 'Captains cannot be transferred.';
-      transferNoShipsMsg.style.display = '';
-      transferControls.style.display = 'none';
-      transferSection.style.opacity = '0.4';
-    } else if (gameData.ships.length <= 1) {
+    if (gameData.ships.length <= 1) {
       transferNoShipsMsg.textContent =
         'Acquire additional ships to transfer crew between them.';
       transferNoShipsMsg.style.display = '';
