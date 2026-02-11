@@ -21,6 +21,7 @@ import { handleMiningRouteArrival } from './miningRoute';
 import { getFuelPricePerKg } from './ui/refuelDialog';
 import { recordDailySnapshot } from './dailyLedger';
 import { unassignCrewFromAllSlots, getCrewForJobType } from './jobSlots';
+import { getFleetAuraIncomeMultiplier } from './captainBonus';
 import {
   awardMasteryXp,
   routeMasteryKey,
@@ -145,11 +146,16 @@ function removeUnpaidCrew(gameData: GameData, ship: Ship): void {
 }
 
 /**
- * Add credits and track lifetime earnings
+ * Add credits and track lifetime earnings.
+ * When a ship is provided, applies the fleet coordination aura multiplier
+ * based on the ship's proximity to the captain.
  */
-function addCredits(gameData: GameData, amount: number): void {
-  gameData.credits += amount;
-  gameData.lifetimeCreditsEarned += amount;
+function addCredits(gameData: GameData, amount: number, ship?: Ship): number {
+  const multiplier = ship ? getFleetAuraIncomeMultiplier(ship, gameData) : 1.0;
+  const boosted = Math.round(amount * multiplier);
+  gameData.credits += boosted;
+  gameData.lifetimeCreditsEarned += boosted;
+  return boosted;
 }
 
 /**
@@ -512,10 +518,10 @@ export function completeLeg(gameData: GameData, ship: Ship): void {
     if (quest.type === 'delivery' || quest.type === 'passenger') {
       // Single-leg contracts complete immediately
       activeContract.tripsCompleted = 1;
-      activeContract.creditsEarned = quest.paymentOnCompletion;
-      addCredits(gameData, quest.paymentOnCompletion);
+      const earned = addCredits(gameData, quest.paymentOnCompletion, ship);
+      activeContract.creditsEarned = earned;
 
-      ship.metrics.creditsEarned += quest.paymentOnCompletion;
+      ship.metrics.creditsEarned += earned;
       ship.metrics.contractsCompleted++;
       ship.metrics.lastActivityTime = gameTime;
 
@@ -564,14 +570,14 @@ export function completeLeg(gameData: GameData, ship: Ship): void {
   }
 
   if (quest.paymentPerTrip > 0) {
-    activeContract.creditsEarned += quest.paymentPerTrip;
-    addCredits(gameData, quest.paymentPerTrip);
+    const tripEarned = addCredits(gameData, quest.paymentPerTrip, ship);
+    activeContract.creditsEarned += tripEarned;
 
-    ship.metrics.creditsEarned += quest.paymentPerTrip;
+    ship.metrics.creditsEarned += tripEarned;
 
     if (ship.routeAssignment) {
       ship.routeAssignment.totalTripsCompleted++;
-      ship.routeAssignment.creditsEarned += quest.paymentPerTrip;
+      ship.routeAssignment.creditsEarned += tripEarned;
       ship.routeAssignment.lastTripCompletedAt = gameTime;
     }
 
@@ -579,7 +585,7 @@ export function completeLeg(gameData: GameData, ship: Ship): void {
       gameData.log,
       gameTime,
       'payment',
-      `Trip ${activeContract.tripsCompleted} complete. Earned ${quest.paymentPerTrip.toLocaleString()} credits.`,
+      `Trip ${activeContract.tripsCompleted} complete. Earned ${tripEarned.toLocaleString()} credits.`,
       ship.name
     );
   } else {
@@ -600,10 +606,14 @@ export function completeLeg(gameData: GameData, ship: Ship): void {
 
   if (isComplete) {
     if (quest.paymentOnCompletion > 0) {
-      activeContract.creditsEarned += quest.paymentOnCompletion;
-      addCredits(gameData, quest.paymentOnCompletion);
+      const completionEarned = addCredits(
+        gameData,
+        quest.paymentOnCompletion,
+        ship
+      );
+      activeContract.creditsEarned += completionEarned;
 
-      ship.metrics.creditsEarned += quest.paymentOnCompletion;
+      ship.metrics.creditsEarned += completionEarned;
     }
 
     ship.metrics.contractsCompleted++;

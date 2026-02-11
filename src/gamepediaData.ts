@@ -788,9 +788,32 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
         ],
       },
       {
+        heading: 'Captain-Only Abilities',
+        paragraphs: [
+          "Only the captain's ship can attempt to negotiate with pirates during [[encounters|encounters]]. Ships without the captain must evade, fight, or flee — they cannot negotiate safe passage. This makes the captain's ship safer in dangerous space.",
+          "The captain's leadership also provides a Rally Bonus of +5 to the ship's defense score in combat, strengthening the crew's ability to repel boarders.",
+        ],
+      },
+      {
+        heading: 'Fleet Coordination Aura',
+        paragraphs: [
+          'The captain projects a coordination aura that boosts nearby ships in the fleet. Ships at the same location as the captain receive +10% to income and training speed. Ships one hop away on the nav chart receive +5%.',
+          "The aura only affects ships that are docked or orbiting — ships in flight are between locations and outside the aura's range. The captain's own ship does not receive the aura bonus (it already has the stronger direct command bonuses).",
+          'This creates a fleet positioning incentive: clustering ships near the captain makes the entire fleet more productive.',
+        ],
+      },
+      {
+        heading: 'Training Speed Aura',
+        paragraphs: [
+          "All crew aboard the captain's ship train at 1.5× speed. This makes the captain's ship the natural training ground — recruit new crew, train them on the flagship, then deploy them to fleet ships.",
+          "Ships near the captain also benefit from the fleet coordination aura's training bonus (+10% at same location, +5% one hop away).",
+        ],
+      },
+      {
         heading: 'Strategy',
         paragraphs: [
-          "Place the captain on the ship running the most profitable routes or the most dangerous missions. The captain's presence makes that ship significantly more productive and safer.",
+          "Place the captain on the ship running the most profitable or dangerous routes. The captain's presence makes that ship more productive, safer, and a faster training ground.",
+          'Consider stationing your fleet near the captain to maximize the coordination aura. The +10% income and training bonus on nearby ships compounds significantly over time.',
           "As the captain levels up, their command bonuses grow — rewarding investment in the captain's skills across all three disciplines.",
         ],
       },
@@ -1213,14 +1236,15 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
       {
         heading: 'Combat Pipeline',
         paragraphs: [
-          'Encounters are auto-resolved through a pipeline: Evade ([[crew-roles|pilot]] [[skill-system|piloting]]) > Negotiate ([[skill-system|commerce]]) > Flee (if outmatched) > Combat > Outcome.',
+          'Encounters are auto-resolved through a pipeline: Evade ([[crew-roles|pilot]] [[skill-system|piloting]]) > Negotiate (captain only) > Flee (if outmatched) > Combat > Outcome.',
           'Possible outcomes: Evasion (clean escape), Negotiation (pay ransom), Fled (emergency escape with minor damage), Victory (bounty reward), Harassment (minor damage), Boarding (major losses).',
+          '**Negotiation requires the captain.** Only the captain has the authority to broker deals with pirates. Ships without the captain skip the negotiation step entirely and must fight, evade, or flee.',
         ],
       },
       {
         heading: 'Defense Score',
         paragraphs: [
-          'Your defense score comes from: point defense [[ship-equipment|equipment]] (PD lasers, flak turrets), deflector shields, [[crew-equipment|crew weapons]] (armory strength), and ship mass.',
+          "Your defense score comes from: point defense [[ship-equipment|equipment]] (PD lasers, flak turrets), deflector shields, [[crew-equipment|crew weapons]] (armory strength), ship mass, and the [[captain-command|captain's rally bonus]] (+5 when aboard).",
           'Equipping your ship with defense [[ship-equipment|equipment]] and arming your crew improves combat outcomes.',
         ],
       },

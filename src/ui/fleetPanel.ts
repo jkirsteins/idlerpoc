@@ -5,7 +5,7 @@ import { computeMaxRange } from '../flightPhysics';
 import { formatDualTime } from '../timeSystem';
 import type { Component } from './component';
 import { formatFuelMass, calculateFuelPercentage } from './fuelFormatting';
-import { getCommandCommerceBonus } from '../captainBonus';
+import { getCommandCommerceBonus, getFleetAuraBonus } from '../captainBonus';
 
 export interface FleetPanelCallbacks {
   onSelectShip: (shipId: string) => void;
@@ -289,15 +289,25 @@ export function createFleetPanel(
     // Command badge
     const hasCaptain = ship.crew.some((c) => c.isCaptain);
     const commandBonus = getCommandCommerceBonus(ship);
-    const cmdText = hasCaptain
-      ? `✦ +${Math.round(commandBonus * 100)}% CMD`
-      : commandBonus > 0
-        ? `+${Math.round(commandBonus * 100)}% ACT`
-        : '— CMD';
+    const aura = getFleetAuraBonus(ship, gd);
+    let cmdText: string;
+    if (hasCaptain) {
+      cmdText = `✦ +${Math.round(commandBonus * 100)}% CMD`;
+    } else if (commandBonus > 0) {
+      const auraSuffix = aura > 0 ? ` +${Math.round(aura * 100)}%⚡` : '';
+      cmdText = `+${Math.round(commandBonus * 100)}% ACT${auraSuffix}`;
+    } else {
+      const auraSuffix = aura > 0 ? ` +${Math.round(aura * 100)}%⚡` : '';
+      cmdText = `— CMD${auraSuffix}`;
+    }
     if (refs.commandBadge.textContent !== cmdText) {
       refs.commandBadge.textContent = cmdText;
     }
-    refs.commandBadge.style.color = hasCaptain ? '#fbbf24' : '#6b7280';
+    refs.commandBadge.style.color = hasCaptain
+      ? '#fbbf24'
+      : aura > 0
+        ? '#60a5fa'
+        : '#6b7280';
 
     // Location / flight status
     if (ship.location.status === 'docked') {

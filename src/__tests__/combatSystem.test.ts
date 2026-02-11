@@ -239,6 +239,7 @@ describe('calculateDefenseScore', () => {
       classId: 'wayfarer',
       rooms: [],
       equipment: [],
+      crew: [], // No crew — isolate mass bonus
     });
     const score = calculateDefenseScore(ship);
     // Wayfarer mass: 200,000 kg / 100,000 = 2.0
@@ -250,6 +251,7 @@ describe('calculateDefenseScore', () => {
       classId: 'wayfarer',
       rooms: [],
       equipment: [createTestEquipment({ definitionId: 'point_defense' })],
+      crew: [], // No crew — isolate PD + mass
     });
     const score = calculateDefenseScore(ship);
     // PD: 20 (base) + mass: 2.0 = 22.0
@@ -266,6 +268,7 @@ describe('calculateDefenseScore', () => {
           degradation: 100,
         }),
       ],
+      crew: [], // No crew — isolate PD degradation + mass
     });
     const score = calculateDefenseScore(ship);
     // PD: 20 * (1 - 100/200) = 10 + mass: 2.0 = 12.0
@@ -352,6 +355,7 @@ describe('calculateDefenseScore', () => {
       classId: 'wayfarer',
       rooms: [],
       equipment: [createTestEquipment({ definitionId: 'deflector_shield' })],
+      crew: [], // No crew — isolate deflector + mass
     });
     const score = calculateDefenseScore(ship);
     // Deflector: 10 + mass: 2.0 = 12.0
@@ -363,11 +367,13 @@ describe('calculateDefenseScore', () => {
       classId: 'station_keeper',
       rooms: [],
       equipment: [],
+      crew: [], // No crew — isolate mass bonus
     });
     const heavyShip = createTestShip({
       classId: 'leviathan',
       rooms: [],
       equipment: [],
+      crew: [], // No crew — isolate mass bonus
     });
 
     const lightScore = calculateDefenseScore(lightShip);

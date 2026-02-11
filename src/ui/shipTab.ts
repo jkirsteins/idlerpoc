@@ -1462,7 +1462,7 @@ function renderContainmentBar(gameData: GameData): HTMLElement {
 
 function renderCommandBar(gameData: GameData): HTMLElement {
   const ship = getActiveShip(gameData);
-  const breakdown = getCommandBonusBreakdown(ship);
+  const breakdown = getCommandBonusBreakdown(ship, gameData);
 
   const maxBonus = Math.max(
     breakdown.commerceBonus,
@@ -1501,13 +1501,26 @@ function renderCommandBar(gameData: GameData): HTMLElement {
       `────────────────────────<br>` +
       `Commerce: +${Math.round(breakdown.commerceBonus * 100)}% income (skill ${Math.round(breakdown.commerceBonus * 100)})<br>` +
       `Piloting: +${Math.round(breakdown.pilotingBonus * 100)}% evasion (skill ${Math.round(breakdown.pilotingBonus * 200)})<br>` +
-      `Mining: +${Math.round(breakdown.miningBonus * 100)}% extraction (skill ${Math.round(breakdown.miningBonus * 100)})`;
+      `Mining: +${Math.round(breakdown.miningBonus * 100)}% extraction (skill ${Math.round(breakdown.miningBonus * 100)})<br>` +
+      `────────────────────────<br>` +
+      `Training: ${breakdown.trainingMultiplier}× speed<br>` +
+      `Negotiate: Available<br>` +
+      `Rally: +${breakdown.rallyBonus} defense`;
   } else if (breakdown.actingCaptainName) {
+    const auraLabel =
+      breakdown.fleetAura > 0
+        ? `+${Math.round(breakdown.fleetAura * 100)}%`
+        : 'None';
     tooltipHtml =
       `<b>Acting Captain: ${breakdown.actingCaptainName}</b><br>` +
       `────────────────────────<br>` +
       `Commerce: +${Math.round(breakdown.commerceBonus * 100)}% income (25% of full bonus)<br>` +
-      `No piloting or mining bonus without captain.`;
+      `No piloting or mining bonus without captain.<br>` +
+      `────────────────────────<br>` +
+      `Training: ${breakdown.trainingMultiplier}× speed<br>` +
+      `Negotiate: Unavailable<br>` +
+      `Rally: —<br>` +
+      `Fleet Aura: ${auraLabel}`;
   } else {
     tooltipHtml = `<b>No Command Bonus</b><br>No captain or crew aboard.`;
   }
@@ -1614,7 +1627,7 @@ function renderShipStatsPanel(gameData: GameData): HTMLElement {
   statsGrid.appendChild(defenseDiv);
 
   // Command bonus card
-  const cmdBreakdown = getCommandBonusBreakdown(ship);
+  const cmdBreakdown = getCommandBonusBreakdown(ship, gameData);
   const cmdDiv = document.createElement('div');
   if (cmdBreakdown.hasCaptain) {
     const cPct = Math.round(cmdBreakdown.commerceBonus * 100);
@@ -1622,14 +1635,24 @@ function renderShipStatsPanel(gameData: GameData): HTMLElement {
     const mPct = Math.round(cmdBreakdown.miningBonus * 100);
     cmdDiv.innerHTML =
       `<span style="color: #888;">Command:</span> <span style="color: #fbbf24; font-weight: bold;">CPT ${cmdBreakdown.captainName} ✦</span><br>` +
-      `<span style="font-size: 0.75rem; color: #fbbf24;">+${cPct}% income · +${pPct}% evasion · +${mPct}% yield</span>`;
-    cmdDiv.title = `Captain's Command Bonus: Commerce +${cPct}%, Piloting +${pPct}%, Mining +${mPct}%`;
+      `<span style="font-size: 0.75rem; color: #fbbf24;">+${cPct}% income · +${pPct}% evasion · +${mPct}% yield</span><br>` +
+      `<span style="font-size: 0.75rem; color: #fbbf24;">${cmdBreakdown.trainingMultiplier}× training · Rally +${cmdBreakdown.rallyBonus} · Negotiate ✓</span>`;
+    cmdDiv.title = `Captain's Command Bonus: Commerce +${cPct}%, Piloting +${pPct}%, Mining +${mPct}%, Training ${cmdBreakdown.trainingMultiplier}×, Rally +${cmdBreakdown.rallyBonus}, Negotiate ✓`;
   } else if (cmdBreakdown.actingCaptainName) {
     const cPct = Math.round(cmdBreakdown.commerceBonus * 100);
+    const auraLabel =
+      cmdBreakdown.fleetAura > 0
+        ? `Aura +${Math.round(cmdBreakdown.fleetAura * 100)}%`
+        : 'No aura';
+    const trainLabel =
+      cmdBreakdown.trainingMultiplier > 1.0
+        ? `${cmdBreakdown.trainingMultiplier}× training`
+        : '1× training';
     cmdDiv.innerHTML =
       `<span style="color: #888;">Command:</span> <span style="color: #6b7280;">ACT ${cmdBreakdown.actingCaptainName}</span><br>` +
-      `<span style="font-size: 0.75rem; color: #6b7280;">+${cPct}% income (reduced) · Piloting — · Mining —</span>`;
-    cmdDiv.title = `Acting Captain provides reduced commerce bonus only`;
+      `<span style="font-size: 0.75rem; color: #6b7280;">+${cPct}% income · Piloting — · Mining —</span><br>` +
+      `<span style="font-size: 0.75rem; color: #6b7280;">${trainLabel} · Rally — · Negotiate ✗ · ${auraLabel}</span>`;
+    cmdDiv.title = `Acting Captain provides reduced commerce bonus only. ${auraLabel} from captain proximity.`;
   } else {
     cmdDiv.innerHTML =
       `<span style="color: #888;">Command:</span> <span style="color: #6b7280;">None</span><br>` +

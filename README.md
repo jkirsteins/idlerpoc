@@ -36,7 +36,7 @@ npm run dev
   - **Three-layer progression**: Skill Level (gates access), Item Mastery (per-route/ore/trade efficiency), Mastery Pool (skill-wide checkpoint bonuses at 10/25/50/95%)
   - **10 named skill ranks** (Untrained → Master) with non-linear distribution for idle-game pacing
   - **Commerce skill** trained by captain/first officer completing trade routes — improves quest pay and fuel pricing
-  - **Captain Command Bonus**: Captain's skills provide ship-wide multipliers — Commerce boosts income (+1% per skill point), Piloting improves evasion, Mining increases extraction. Acting captain fallback provides 25% bonus. Command bar, fleet badges, and quest card bonus lines surface the concrete value of captain placement
+  - **Captain Command Bonus**: Captain's skills provide ship-wide multipliers — Commerce boosts income (+1% per skill point), Piloting improves evasion, Mining increases extraction. Acting captain fallback provides 25% bonus. Captain-only negotiation and rally defense bonus in combat. Fleet coordination aura: +10% income/training at same location, +5% one hop away. Captain's ship trains at 1.5× speed
   - **Specialization system**: at skill 50, crew can lock in +50% training speed in one skill (-25% others)
   - **Piloting skill gates destinations and ship class**: destinations have piloting requirements; Class II requires 25, Class III requires 50, etc.
   - 4 crew roles (Captain, Pilot, Miner, Trader) — role deduced from highest skill
@@ -124,8 +124,9 @@ npm run dev
   - Real-time exposure monitoring and pre-departure warnings
 - **Encounter & Combat System**:
   - Per-tick pirate encounter detection derived from position, engine heat, and crew skills
-  - Auto-resolve combat pipeline: Evade → Negotiate → Flee (if outmatched) → Combat → Outcome
-  - Six outcomes: evasion, negotiation (ransom), fled (emergency escape), victory (bounty), harassment (minor damage), boarding (major losses)
+  - Auto-resolve combat pipeline: Evade → Negotiate (captain only) → Flee (if outmatched) → Combat → Outcome
+  - Six outcomes: evasion, negotiation (ransom, captain required), fled (emergency escape), victory (bounty), harassment (minor damage), boarding (major losses)
+  - Captain's rally bonus (+5 defense) and captain-only negotiation create incentive for captain placement on ships running dangerous routes
   - Combat variance: randomized pirate attack strength (±30%) and defense effectiveness (±15%) ensure borderline fights are unpredictable
   - Defense score from point defense equipment (PD-40 Flak Turret, PD-10 Laser), deflector shields (Magnetic Debris Deflector, EM-1 Micro Deflector), armory crew weapons, and ship mass
   - Defense readiness displayed in Ship Capabilities panel with equipment breakdown

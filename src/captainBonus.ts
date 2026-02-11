@@ -6,17 +6,46 @@
  * evasion on the ship they are aboard. Ships without the captain fall back
  * to an acting captain (highest commerce crew) who provides 25% of the bonus.
  *
- * Formulas (from captain-flagship-design.md):
+ * Phase 1 — Command Multipliers:
  *   Commerce:  captain skill / 100  (e.g. skill 50 → +50%)
  *   Piloting:  captain skill / 200  (e.g. skill 50 → +25%)
  *   Mining:    captain skill / 100  (e.g. skill 50 → +50%)
  *   Acting captain: 25% of the equivalent captain bonus (commerce only)
+ *
+ * Phase 3 — Captain-Only Encounters:
+ *   Negotiation gated behind captain presence.
+ *   Rally defense bonus (+5) when captain is aboard.
+ *
+ * Phase 4 — Fleet Coordination Aura:
+ *   +10% income and training speed for ships at the same location as the captain.
+ *   +5% for ships one hop away (adjacent on the nav chart).
+ *
+ * Phase 5 — Training Speed Aura:
+ *   Captain's ship gets 1.5× training speed for all crew aboard.
  */
 
-import type { CrewMember, Ship, GameData } from './models';
+import type { CrewMember, Ship, GameData, World } from './models';
 
 /** Fraction of full bonus that an acting captain provides. */
 const ACTING_CAPTAIN_FRACTION = 0.25;
+
+// ── Phase 3: Captain-Only Encounters ────────────────────────────
+
+/** Flat defense score bonus when captain is aboard (leadership under fire). */
+export const RALLY_DEFENSE_BONUS = 5;
+
+// ── Phase 4: Fleet Coordination Aura ────────────────────────────
+
+/** Income/training multiplier for ships at the captain's location. */
+export const FLEET_AURA_SAME_LOCATION = 0.1;
+
+/** Income/training multiplier for ships one hop from the captain. */
+export const FLEET_AURA_ADJACENT = 0.05;
+
+// ── Phase 5: Training Speed Aura ────────────────────────────────
+
+/** Training speed multiplier on the captain's own ship. */
+export const CAPTAIN_TRAINING_MULTIPLIER = 1.5;
 
 /**
  * Returns the player captain if they are aboard this ship.
@@ -90,13 +119,25 @@ export interface CommandBonusBreakdown {
   commerceBonus: number;
   pilotingBonus: number;
   miningBonus: number;
+  /** Can this ship negotiate during encounters? (captain only) */
+  canNegotiate: boolean;
+  /** Rally defense bonus (captain only) */
+  rallyBonus: number;
+  /** Training speed multiplier on this ship */
+  trainingMultiplier: number;
+  /** Fleet aura bonus this ship receives (0, 0.05, or 0.10) */
+  fleetAura: number;
   actingCaptainName?: string;
   actingCommerceBonus?: number;
 }
 
-export function getCommandBonusBreakdown(ship: Ship): CommandBonusBreakdown {
+export function getCommandBonusBreakdown(
+  ship: Ship,
+  gameData?: GameData
+): CommandBonusBreakdown {
   const captain = getCaptainOnShip(ship);
   const acting = getActingCaptain(ship);
+  const aura = gameData ? getFleetAuraBonus(ship, gameData) : 0;
 
   if (captain) {
     return {
@@ -105,6 +146,10 @@ export function getCommandBonusBreakdown(ship: Ship): CommandBonusBreakdown {
       commerceBonus: captain.skills.commerce / 100,
       pilotingBonus: captain.skills.piloting / 200,
       miningBonus: captain.skills.mining / 100,
+      canNegotiate: true,
+      rallyBonus: RALLY_DEFENSE_BONUS,
+      trainingMultiplier: CAPTAIN_TRAINING_MULTIPLIER,
+      fleetAura: aura,
       actingCaptainName: acting?.name,
       actingCommerceBonus: acting
         ? (acting.skills.commerce / 100) * ACTING_CAPTAIN_FRACTION
@@ -119,6 +164,10 @@ export function getCommandBonusBreakdown(ship: Ship): CommandBonusBreakdown {
       commerceBonus: (acting.skills.commerce / 100) * ACTING_CAPTAIN_FRACTION,
       pilotingBonus: 0,
       miningBonus: 0,
+      canNegotiate: false,
+      rallyBonus: 0,
+      trainingMultiplier: 1.0,
+      fleetAura: aura,
       actingCaptainName: acting.name,
       actingCommerceBonus:
         (acting.skills.commerce / 100) * ACTING_CAPTAIN_FRACTION,
@@ -131,6 +180,10 @@ export function getCommandBonusBreakdown(ship: Ship): CommandBonusBreakdown {
     commerceBonus: 0,
     pilotingBonus: 0,
     miningBonus: 0,
+    canNegotiate: false,
+    rallyBonus: 0,
+    trainingMultiplier: 1.0,
+    fleetAura: aura,
   };
 }
 
@@ -177,4 +230,142 @@ export function getHypotheticalCaptainBonus(
     }
   }
   return 0;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Phase 3: Captain-Only Encounter Outcomes
+// ═══════════════════════════════════════════════════════════════════
+
+/**
+ * Whether a ship can attempt negotiation during an encounter.
+ * Only the captain's ship can negotiate — acting captains lack the
+ * authority to broker deals with pirates.
+ */
+export function canNegotiate(ship: Ship): boolean {
+  return getCaptainOnShip(ship) !== undefined;
+}
+
+/**
+ * Rally defense bonus from captain's leadership under fire.
+ * Returns RALLY_DEFENSE_BONUS when captain is aboard, 0 otherwise.
+ */
+export function getCommandRallyBonus(ship: Ship): number {
+  return getCaptainOnShip(ship) ? RALLY_DEFENSE_BONUS : 0;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Phase 4: Fleet Coordination Aura
+// ═══════════════════════════════════════════════════════════════════
+
+/**
+ * Get a ship's docked or orbiting location ID.
+ * Returns null if the ship is in flight (in-flight ships don't
+ * participate in the fleet aura — they're between locations).
+ */
+export function getShipLocationId(ship: Ship): string | null {
+  if (ship.location.status === 'docked' && ship.location.dockedAt) {
+    return ship.location.dockedAt;
+  }
+  if (ship.location.status === 'orbiting' && ship.location.orbitingAt) {
+    return ship.location.orbitingAt;
+  }
+  return null;
+}
+
+/**
+ * Find the captain's current location (docked/orbiting).
+ * Returns null if the captain is in flight or doesn't exist.
+ */
+export function getCaptainLocationId(gameData: GameData): string | null {
+  for (const ship of gameData.ships) {
+    if (ship.crew.some((c) => c.isCaptain)) {
+      return getShipLocationId(ship);
+    }
+  }
+  return null;
+}
+
+/**
+ * Are two locations adjacent? Adjacency is derived from the world layout:
+ * locations sorted by distance from Earth are adjacent if they are
+ * consecutive in the sorted order (no other location between them).
+ *
+ * This is emergent from the 1D distance model — the nav chart's natural
+ * topology defines what "one hop away" means.
+ */
+export function areLocationsAdjacent(
+  locIdA: string,
+  locIdB: string,
+  world: World
+): boolean {
+  const sorted = [...world.locations].sort(
+    (a, b) => a.distanceFromEarth - b.distanceFromEarth
+  );
+  const indexA = sorted.findIndex((l) => l.id === locIdA);
+  const indexB = sorted.findIndex((l) => l.id === locIdB);
+  if (indexA < 0 || indexB < 0) return false;
+  return Math.abs(indexA - indexB) === 1;
+}
+
+/**
+ * Fleet coordination aura bonus for a ship.
+ *
+ * Returns the fractional bonus (0.10, 0.05, or 0) based on proximity
+ * to the captain's ship. The captain's own ship returns 0 — it receives
+ * direct command bonuses instead, which are stronger.
+ *
+ * Only applies to ships that are docked or orbiting (not in flight).
+ */
+export function getFleetAuraBonus(ship: Ship, gameData: GameData): number {
+  // Captain's own ship gets direct command bonuses, not aura
+  if (getCaptainOnShip(ship)) return 0;
+
+  const captainLoc = getCaptainLocationId(gameData);
+  if (!captainLoc) return 0;
+
+  const shipLoc = getShipLocationId(ship);
+  if (!shipLoc) return 0;
+
+  if (shipLoc === captainLoc) return FLEET_AURA_SAME_LOCATION;
+
+  if (areLocationsAdjacent(shipLoc, captainLoc, gameData.world)) {
+    return FLEET_AURA_ADJACENT;
+  }
+
+  return 0;
+}
+
+/**
+ * Income multiplier from the fleet coordination aura.
+ * Returns 1.0 + aura bonus (e.g. 1.10 at same location, 1.05 adjacent).
+ * Convenience wrapper for applying to payment amounts.
+ */
+export function getFleetAuraIncomeMultiplier(
+  ship: Ship,
+  gameData: GameData
+): number {
+  return 1.0 + getFleetAuraBonus(ship, gameData);
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Phase 5: Training Speed Aura
+// ═══════════════════════════════════════════════════════════════════
+
+/**
+ * Training speed multiplier for a ship.
+ *
+ * Captain's ship: 1.5× training speed for all crew aboard.
+ * Other ships: base from fleet aura (1.0 + aura bonus).
+ *
+ * This makes the captain's ship the natural training ground — recruit
+ * new crew, train on the flagship, then deploy to fleet ships.
+ */
+export function getCommandTrainingMultiplier(
+  ship: Ship,
+  gameData: GameData
+): number {
+  if (getCaptainOnShip(ship)) {
+    return CAPTAIN_TRAINING_MULTIPLIER;
+  }
+  return 1.0 + getFleetAuraBonus(ship, gameData);
 }

@@ -8,9 +8,9 @@ Full design in `docs/captain-flagship-design.md`, research sources in `docs/bibl
 
 - ~~**Captain Presence Multiplier (Phase 1)**~~: **DONE** — Captain's skills provide ship-wide multipliers: Commerce (+1%/point income), Piloting (+0.5%/point evasion), Mining (+1%/point yield). Acting captain fallback at 25%. Command bar, fleet badges, quest card bonus lines, and capabilities panel all surface the bonus. See `src/captainBonus.ts`.
 - **Morale System Activation (Phase 2)**: Wire up the existing unused `morale` field. Captain presence stabilizes morale; absence causes drift and eventual desertion. High morale → +15% training speed, +10% combat defense. Low morale → penalties and desertion risk.
-- **Captain-Only Encounter Outcomes (Phase 3)**: Gate negotiation behind captain presence. Ships without the captain can only evade, flee, or fight. Captain provides rally defense bonus (+5) in combat.
-- **Fleet Coordination Aura (Phase 4)**: Captain provides +10% income/training to ships at the same location, +5% one hop away. Creates fleet positioning strategy.
-- **Training Speed Aura (Phase 5)**: Captain's ship gets 1.5x training speed for all crew aboard. Creates a recruit → train on flagship → deploy to fleet pipeline.
+- ~~**Captain-Only Encounter Outcomes (Phase 3)**~~: **DONE** — Negotiation gated behind captain presence. Ships without captain skip negotiation and must evade, fight, or flee. Captain provides +5 rally defense bonus. See `src/combatSystem.ts`.
+- ~~**Fleet Coordination Aura (Phase 4)**~~: **DONE** — Captain provides +10% income/training to ships at same location, +5% one hop away (adjacent in sorted-by-distance order). Applied to contract payments, ore sales, and passive training. See `src/captainBonus.ts`.
+- ~~**Training Speed Aura (Phase 5)**~~: **DONE** — Captain's ship gets 1.5× training speed for all crew aboard. Combined with fleet aura for nearby ships. See `src/skillProgression.ts`.
 
 ## Deferred Gravity System Features
 

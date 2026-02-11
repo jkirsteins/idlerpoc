@@ -8,6 +8,17 @@ import {
   getCommandBonusBreakdown,
   getCommandBonusCreditAttribution,
   getHypotheticalCaptainBonus,
+  canNegotiate,
+  getCommandRallyBonus,
+  RALLY_DEFENSE_BONUS,
+  getFleetAuraBonus,
+  areLocationsAdjacent,
+  getCommandTrainingMultiplier,
+  CAPTAIN_TRAINING_MULTIPLIER,
+  FLEET_AURA_SAME_LOCATION,
+  FLEET_AURA_ADJACENT,
+  getShipLocationId,
+  getCaptainLocationId,
 } from '../captainBonus';
 import {
   createTestShip,
@@ -175,6 +186,10 @@ describe('getCommandBonusBreakdown', () => {
     expect(bd.miningBonus).toBeCloseTo(0.12);
     expect(bd.actingCaptainName).toBe('Reyes');
     expect(bd.actingCommerceBonus).toBeCloseTo(0.12);
+    // Phase 3-5 fields
+    expect(bd.canNegotiate).toBe(true);
+    expect(bd.rallyBonus).toBe(RALLY_DEFENSE_BONUS);
+    expect(bd.trainingMultiplier).toBe(CAPTAIN_TRAINING_MULTIPLIER);
   });
 
   it('provides acting captain breakdown when no real captain', () => {
@@ -192,6 +207,10 @@ describe('getCommandBonusBreakdown', () => {
     expect(bd.pilotingBonus).toBe(0);
     expect(bd.miningBonus).toBe(0);
     expect(bd.actingCaptainName).toBe('Reyes');
+    // Phase 3-5 fields for acting captain
+    expect(bd.canNegotiate).toBe(false);
+    expect(bd.rallyBonus).toBe(0);
+    expect(bd.trainingMultiplier).toBe(1.0);
   });
 
   it('returns zero breakdown for empty crew', () => {
@@ -202,6 +221,9 @@ describe('getCommandBonusBreakdown', () => {
     expect(bd.commerceBonus).toBe(0);
     expect(bd.pilotingBonus).toBe(0);
     expect(bd.miningBonus).toBe(0);
+    expect(bd.canNegotiate).toBe(false);
+    expect(bd.rallyBonus).toBe(0);
+    expect(bd.trainingMultiplier).toBe(1.0);
   });
 });
 
@@ -260,5 +282,258 @@ describe('getHypotheticalCaptainBonus', () => {
     });
     // Captain commerce = 60, so hypothetical = 60/100 = 0.6
     expect(getHypotheticalCaptainBonus(shipWithoutCaptain, gd)).toBe(0.6);
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════
+// Phase 3: Captain-Only Encounter Outcomes
+// ═══════════════════════════════════════════════════════════════════
+
+describe('canNegotiate', () => {
+  it('returns true when captain is aboard', () => {
+    const ship = createTestShip();
+    expect(canNegotiate(ship)).toBe(true);
+  });
+
+  it('returns false when no captain', () => {
+    const ship = createTestShip({
+      crew: [
+        createTestCrew({
+          isCaptain: false,
+          skills: { piloting: 80, mining: 0, commerce: 60 },
+        }),
+      ],
+    });
+    expect(canNegotiate(ship)).toBe(false);
+  });
+
+  it('returns false when crew is empty', () => {
+    const ship = createTestShip({ crew: [] });
+    expect(canNegotiate(ship)).toBe(false);
+  });
+});
+
+describe('getCommandRallyBonus', () => {
+  it('returns RALLY_DEFENSE_BONUS when captain aboard', () => {
+    const ship = createTestShip();
+    expect(getCommandRallyBonus(ship)).toBe(RALLY_DEFENSE_BONUS);
+  });
+
+  it('returns 0 when no captain', () => {
+    const ship = createTestShip({
+      crew: [createTestCrew({ isCaptain: false })],
+    });
+    expect(getCommandRallyBonus(ship)).toBe(0);
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════
+// Phase 4: Fleet Coordination Aura
+// ═══════════════════════════════════════════════════════════════════
+
+describe('getShipLocationId', () => {
+  it('returns docked location', () => {
+    const ship = createTestShip({
+      location: { status: 'docked', dockedAt: 'earth' },
+    });
+    expect(getShipLocationId(ship)).toBe('earth');
+  });
+
+  it('returns orbiting location', () => {
+    const ship = createTestShip({
+      location: { status: 'orbiting', orbitingAt: 'nea_2247' },
+    });
+    expect(getShipLocationId(ship)).toBe('nea_2247');
+  });
+
+  it('returns null for in-flight ships', () => {
+    const ship = createTestShip({
+      location: { status: 'in_flight' },
+    });
+    expect(getShipLocationId(ship)).toBeNull();
+  });
+});
+
+describe('getCaptainLocationId', () => {
+  it('returns captain ship location', () => {
+    const captain = createTestCrew({ isCaptain: true });
+    const captainShip = createTestShip({
+      crew: [captain],
+      location: { status: 'docked', dockedAt: 'mars' },
+    });
+    const gd = createTestGameData({ ships: [captainShip] });
+    expect(getCaptainLocationId(gd)).toBe('mars');
+  });
+
+  it('returns null when captain is in flight', () => {
+    const captain = createTestCrew({ isCaptain: true });
+    const captainShip = createTestShip({
+      crew: [captain],
+      location: { status: 'in_flight' },
+    });
+    const gd = createTestGameData({ ships: [captainShip] });
+    expect(getCaptainLocationId(gd)).toBeNull();
+  });
+});
+
+describe('areLocationsAdjacent', () => {
+  it('earth and debris_field_alpha are adjacent', () => {
+    const gd = createTestGameData();
+    expect(areLocationsAdjacent('earth', 'debris_field_alpha', gd.world)).toBe(
+      true
+    );
+  });
+
+  it('debris_field_alpha and leo_station are adjacent', () => {
+    const gd = createTestGameData();
+    expect(
+      areLocationsAdjacent('debris_field_alpha', 'leo_station', gd.world)
+    ).toBe(true);
+  });
+
+  it('earth and leo_station are NOT adjacent (debris between them)', () => {
+    const gd = createTestGameData();
+    expect(areLocationsAdjacent('earth', 'leo_station', gd.world)).toBe(false);
+  });
+
+  it('earth and mars are NOT adjacent', () => {
+    const gd = createTestGameData();
+    expect(areLocationsAdjacent('earth', 'mars', gd.world)).toBe(false);
+  });
+
+  it('returns false for unknown location id', () => {
+    const gd = createTestGameData();
+    expect(areLocationsAdjacent('earth', 'unknown', gd.world)).toBe(false);
+  });
+});
+
+describe('getFleetAuraBonus', () => {
+  it('returns 0 for captain own ship (gets direct bonuses)', () => {
+    const captain = createTestCrew({ isCaptain: true });
+    const ship = createTestShip({
+      crew: [captain],
+      location: { status: 'docked', dockedAt: 'earth' },
+    });
+    const gd = createTestGameData({ ships: [ship] });
+    expect(getFleetAuraBonus(ship, gd)).toBe(0);
+  });
+
+  it('returns FLEET_AURA_SAME_LOCATION for ships at same location', () => {
+    const captain = createTestCrew({ isCaptain: true });
+    const captainShip = createTestShip({
+      crew: [captain],
+      location: { status: 'docked', dockedAt: 'earth' },
+    });
+    const otherShip = createTestShip({
+      crew: [createTestCrew({ isCaptain: false })],
+      location: { status: 'docked', dockedAt: 'earth' },
+    });
+    const gd = createTestGameData({ ships: [captainShip, otherShip] });
+    expect(getFleetAuraBonus(otherShip, gd)).toBe(FLEET_AURA_SAME_LOCATION);
+  });
+
+  it('returns FLEET_AURA_ADJACENT for ships one hop away', () => {
+    const captain = createTestCrew({ isCaptain: true });
+    const captainShip = createTestShip({
+      crew: [captain],
+      location: { status: 'docked', dockedAt: 'earth' },
+    });
+    // debris_field_alpha is adjacent to earth
+    const otherShip = createTestShip({
+      crew: [createTestCrew({ isCaptain: false })],
+      location: { status: 'docked', dockedAt: 'debris_field_alpha' },
+    });
+    const gd = createTestGameData({ ships: [captainShip, otherShip] });
+    expect(getFleetAuraBonus(otherShip, gd)).toBe(FLEET_AURA_ADJACENT);
+  });
+
+  it('returns 0 for ships far from captain', () => {
+    const captain = createTestCrew({ isCaptain: true });
+    const captainShip = createTestShip({
+      crew: [captain],
+      location: { status: 'docked', dockedAt: 'earth' },
+    });
+    const otherShip = createTestShip({
+      crew: [createTestCrew({ isCaptain: false })],
+      location: { status: 'docked', dockedAt: 'mars' },
+    });
+    const gd = createTestGameData({ ships: [captainShip, otherShip] });
+    expect(getFleetAuraBonus(otherShip, gd)).toBe(0);
+  });
+
+  it('returns 0 when ship is in flight', () => {
+    const captain = createTestCrew({ isCaptain: true });
+    const captainShip = createTestShip({
+      crew: [captain],
+      location: { status: 'docked', dockedAt: 'earth' },
+    });
+    const otherShip = createTestShip({
+      crew: [createTestCrew({ isCaptain: false })],
+      location: { status: 'in_flight' },
+    });
+    const gd = createTestGameData({ ships: [captainShip, otherShip] });
+    expect(getFleetAuraBonus(otherShip, gd)).toBe(0);
+  });
+
+  it('returns 0 when captain is in flight', () => {
+    const captain = createTestCrew({ isCaptain: true });
+    const captainShip = createTestShip({
+      crew: [captain],
+      location: { status: 'in_flight' },
+    });
+    const otherShip = createTestShip({
+      crew: [createTestCrew({ isCaptain: false })],
+      location: { status: 'docked', dockedAt: 'earth' },
+    });
+    const gd = createTestGameData({ ships: [captainShip, otherShip] });
+    expect(getFleetAuraBonus(otherShip, gd)).toBe(0);
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════
+// Phase 5: Training Speed Aura
+// ═══════════════════════════════════════════════════════════════════
+
+describe('getCommandTrainingMultiplier', () => {
+  it('returns CAPTAIN_TRAINING_MULTIPLIER for captain ship', () => {
+    const captain = createTestCrew({ isCaptain: true });
+    const ship = createTestShip({
+      crew: [captain],
+      location: { status: 'docked', dockedAt: 'earth' },
+    });
+    const gd = createTestGameData({ ships: [ship] });
+    expect(getCommandTrainingMultiplier(ship, gd)).toBe(
+      CAPTAIN_TRAINING_MULTIPLIER
+    );
+  });
+
+  it('returns 1.0 + aura for ships near captain', () => {
+    const captain = createTestCrew({ isCaptain: true });
+    const captainShip = createTestShip({
+      crew: [captain],
+      location: { status: 'docked', dockedAt: 'earth' },
+    });
+    const otherShip = createTestShip({
+      crew: [createTestCrew({ isCaptain: false })],
+      location: { status: 'docked', dockedAt: 'earth' },
+    });
+    const gd = createTestGameData({ ships: [captainShip, otherShip] });
+    expect(getCommandTrainingMultiplier(otherShip, gd)).toBe(
+      1.0 + FLEET_AURA_SAME_LOCATION
+    );
+  });
+
+  it('returns 1.0 for ships far from captain', () => {
+    const captain = createTestCrew({ isCaptain: true });
+    const captainShip = createTestShip({
+      crew: [captain],
+      location: { status: 'docked', dockedAt: 'earth' },
+    });
+    const otherShip = createTestShip({
+      crew: [createTestCrew({ isCaptain: false })],
+      location: { status: 'docked', dockedAt: 'mars' },
+    });
+    const gd = createTestGameData({ ships: [captainShip, otherShip] });
+    expect(getCommandTrainingMultiplier(otherShip, gd)).toBe(1.0);
   });
 });
