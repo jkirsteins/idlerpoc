@@ -513,26 +513,6 @@ function applyShipTick(gameData: GameData, ship: Ship): boolean {
       }
     }
 
-    // Repair: crew in repair slots generates repair points distributed to degraded equipment
-    const repairCrew = getCrewForJobType(ship, 'repair');
-    if (repairCrew.length > 0) {
-      let totalRepairPoints = 0;
-      for (const eng of repairCrew) {
-        totalRepairPoints += calculateRepairPoints(eng);
-      }
-
-      // Distribute repair points equally across degraded equipment
-      const degradedEquipment = ship.equipment.filter(
-        (eq) => eq.degradation > 0
-      );
-      if (degradedEquipment.length > 0 && totalRepairPoints > 0) {
-        const pointsPerEquipment = totalRepairPoints / degradedEquipment.length;
-        for (const eq of degradedEquipment) {
-          eq.degradation = Math.max(0, eq.degradation - pointsPerEquipment);
-        }
-      }
-    }
-
     // === MINING ===
     // Extract ore when orbiting a mine-enabled location
     if (ship.location.status === 'orbiting' && ship.location.orbitingAt) {
@@ -629,6 +609,27 @@ function applyShipTick(gameData: GameData, ship: Ship): boolean {
     }
 
     if (ship.crew.some((c) => c.zeroGExposure > 0)) {
+      changed = true;
+    }
+  }
+
+  // Repair: crew in repair slots generates repair points distributed to degraded equipment.
+  // Works in all ship states (docked, in_flight, orbiting) so crews can maintain
+  // equipment at stations, not just during voyages.
+  const repairCrew = getCrewForJobType(ship, 'repair');
+  if (repairCrew.length > 0) {
+    let totalRepairPoints = 0;
+    for (const eng of repairCrew) {
+      totalRepairPoints += calculateRepairPoints(eng);
+    }
+
+    // Distribute repair points equally across degraded equipment
+    const degradedEquipment = ship.equipment.filter((eq) => eq.degradation > 0);
+    if (degradedEquipment.length > 0 && totalRepairPoints > 0) {
+      const pointsPerEquipment = totalRepairPoints / degradedEquipment.length;
+      for (const eq of degradedEquipment) {
+        eq.degradation = Math.max(0, eq.degradation - pointsPerEquipment);
+      }
       changed = true;
     }
   }

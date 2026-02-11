@@ -28,7 +28,7 @@ npm run dev
   - Crew are assigned to discrete job slots, not rooms directly
   - Rooms generate job slots (bridge → Helm + Comms, engine room → Drive Ops, etc.)
   - Ship equipment generates additional slots (nav scanner → Scan Ops, point defense → Targeting)
-  - Ship-wide repair slots accept multiple engineers generating repair points
+  - Ship-wide repair slots accept multiple engineers generating repair points (works docked, in flight, or orbiting)
   - Direct skill training: jobs train crew skills with power-law diminishing returns (no XP intermediary)
   - Captain starts at zero skills; hired crew arrive with archetype-weighted starting skills (quality varies)
   - Skill 5 in ~5 real minutes, skill 50 in ~5 real days (captain at helm baseline)

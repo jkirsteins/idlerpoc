@@ -735,7 +735,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
       {
         heading: 'Repair Slots',
         paragraphs: [
-          'Ship-wide repair slots accept multiple crew members who generate repair points to fix degraded [[ship-equipment|equipment]]. This is critical on fusion-class [[ship-classes|ships]] where equipment degrades continuously.',
+          'Ship-wide repair slots accept multiple crew members who generate repair points to fix degraded [[ship-equipment|equipment]]. Repair works in all ship states — docked, in flight, or orbiting. This is critical on fusion-class [[ship-classes|ships]] where equipment degrades continuously.',
         ],
       },
     ],
@@ -1123,8 +1123,9 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
       {
         heading: 'Degradation & Repair',
         paragraphs: [
-          'Equipment degrades during use. Life support filters wear down, shielding absorbs radiation, thermal radiators work harder.',
-          'Crew assigned to repair [[job-slots|job slots]] generate repair points that restore equipment condition. Keeping crew on repair duty is essential on long voyages.',
+          'Equipment degrades during use. Air filtration units wear down constantly, excess [[waste-heat|waste heat]] during flight damages all degradable equipment, and [[mining-system|mining]] equipment wears from active extraction.',
+          'As equipment degrades, its effectiveness decreases. At maximum wear, most equipment operates at 50% capacity. Air filtration units are the exception — they lose all output at full degradation, making them the highest maintenance priority.',
+          'Crew assigned to repair [[job-slots|job slots]] generate repair points that restore equipment condition. Repair works whether your ship is docked, in flight, or orbiting — assign crew to repair duty to keep equipment in working order.',
         ],
       },
     ],
@@ -1621,6 +1622,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
         heading: 'Mining Equipment',
         paragraphs: [
           'Mining equipment is ship-mounted and installed in [[ship-equipment|equipment slots]]. It is operated by crew from the mining bay. Better equipment requires higher [[skill-system|mining]] skill to operate and draws more power.',
+          'Mining equipment degrades during active extraction, reducing its effectiveness. At maximum wear, mining rate drops to 50%. Assign crew to repair [[job-slots|job slots]] to maintain equipment condition. The mining [[mastery-system|mastery pool]] checkpoint at 50% reduces mining equipment wear by 10%.',
           'Mining equipment is purchased and upgraded at stations with trade services via the Ship Equipment tab in the Station Store. Upgrading provides a trade-in credit of 50% of the old equipment value.',
         ],
         table: {

@@ -30,6 +30,7 @@ import {
   getOreMasteryYieldBonus,
   getMiningPoolYieldBonus,
   getMiningPoolDoubleChance,
+  getMiningPoolWearReduction,
 } from './masterySystem';
 import { getAllOreDefinitions } from './oreTypes';
 import { addLog } from './logSystem';
@@ -54,6 +55,20 @@ const BASE_MINING_RATE = 0.12;
  * level 10 in a few hours, mastery 25 in about a day.
  */
 const MASTERY_XP_PER_ORE = 15;
+
+/**
+ * Base degradation applied to mining equipment per tick of active mining.
+ * Same rate as heat-based wear (0.005 = 0.5%/tick).
+ * At this rate, 100% degradation in 20,000 ticks of continuous mining
+ * (~2.8 real minutes / ~16.7 game hours).
+ */
+const MINING_WEAR_PER_TICK = 0.005;
+
+/**
+ * Equipment effectiveness divisor — must match the value in equipment.ts.
+ * At 100% degradation, effectiveness = 1 - 100/200 = 50%.
+ */
+const MINING_EFFECTIVENESS_DIVISOR = 200;
 
 // ─── Core Mining Logic ──────────────────────────────────────────
 
@@ -164,33 +179,50 @@ export function applyMiningTick(
 
   const totalOreCount = getAllOreDefinitions().length;
 
-  // Get all mining equipment installed on the ship
+  // Get all mining equipment instances with their definitions
   const shipMiningGear = ship.equipment
-    .map((eq) => getEquipmentDefinition(eq.definitionId))
+    .map((eq) => ({
+      instance: eq,
+      def: getEquipmentDefinition(eq.definitionId),
+    }))
     .filter(
-      (def): def is EquipmentDefinition =>
-        def !== undefined && def.category === 'mining'
+      (
+        item
+      ): item is { instance: typeof item.instance; def: EquipmentDefinition } =>
+        item.def !== undefined && item.def.category === 'mining'
     );
 
   if (shipMiningGear.length === 0) return null; // No ship mining equipment
 
+  // Track which equipment instances were actively used this tick (for wear)
+  const usedEquipmentIds = new Set<string>();
+
   for (const miner of miners) {
     // Find the best ship mining equipment this miner can operate
     const usableGear = shipMiningGear.filter(
-      (def) => Math.floor(miner.skills.mining) >= (def.miningLevelRequired ?? 0)
+      (item) =>
+        Math.floor(miner.skills.mining) >= (item.def.miningLevelRequired ?? 0)
     );
     if (usableGear.length === 0) continue; // Skill too low for all equipment
 
-    const miningEquip = usableGear.reduce((best, current) =>
-      (current.miningRate ?? 0) > (best.miningRate ?? 0) ? current : best
+    const bestGear = usableGear.reduce((best, current) =>
+      (current.def.miningRate ?? 0) > (best.def.miningRate ?? 0)
+        ? current
+        : best
     );
 
     // Select best ore for this miner
     const ore = selectOreToMine(location, miner.skills.mining);
     if (!ore) continue;
 
-    // Calculate yield
-    const equipRate = miningEquip.miningRate ?? 1.0;
+    // Calculate yield — degradation reduces mining equipment effectiveness
+    const baseEquipRate = bestGear.def.miningRate ?? 1.0;
+    const equipEffectiveness =
+      1 - bestGear.instance.degradation / MINING_EFFECTIVENESS_DIVISOR;
+    const equipRate = baseEquipRate * equipEffectiveness;
+
+    // Mark this equipment as actively used
+    usedEquipmentIds.add(bestGear.instance.id);
     const skillFactor = getSkillFactor(miner.skills.mining);
 
     // Mastery bonuses
@@ -290,6 +322,30 @@ export function applyMiningTick(
     }
 
     ship.miningAccumulator[ore.id] = newAccum;
+  }
+
+  // Apply wear to mining equipment that was actively used this tick
+  if (usedEquipmentIds.size > 0) {
+    // Mining pool mastery can reduce wear
+    const bestMiner = miners.reduce((best, m) =>
+      m.skills.mining > best.skills.mining ? m : best
+    );
+    const pool = bestMiner.mastery?.mining?.pool ?? { xp: 0, maxXp: 0 };
+    const wearReduction = getMiningPoolWearReduction(pool);
+
+    const wearRate = MINING_WEAR_PER_TICK * (1 - wearReduction);
+
+    for (const gear of shipMiningGear) {
+      if (
+        usedEquipmentIds.has(gear.instance.id) &&
+        gear.instance.degradation < 100
+      ) {
+        gear.instance.degradation = Math.min(
+          100,
+          gear.instance.degradation + wearRate
+        );
+      }
+    }
   }
 
   return result;
