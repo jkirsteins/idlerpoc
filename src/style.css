@@ -2611,10 +2611,17 @@ button:disabled:hover {
   margin-bottom: 0.5rem;
 }
 
+.fleet-panel-title {
+  font-size: 0.9rem;
+  font-weight: bold;
+  margin-bottom: 0.5rem;
+  color: #aaa;
+}
+
 .fleet-row {
   display: flex;
-  align-items: center;
-  gap: 1rem;
+  align-items: flex-start;
+  gap: 0.5rem;
   padding: 0.5rem;
   border-radius: 4px;
   cursor: pointer;
@@ -2634,6 +2641,85 @@ button:disabled:hover {
 
 .fleet-row:not(.active):hover {
   background: rgba(255, 255, 255, 0.05);
+}
+
+.fleet-row-indicator {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  margin-top: 5px;
+}
+
+.fleet-row-content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.fleet-row-top {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.fleet-row-tier {
+  font-size: 0.75rem;
+  font-weight: bold;
+  opacity: 0.8;
+}
+
+.fleet-row-name {
+  font-weight: bold;
+}
+
+.fleet-row-activity {
+  font-size: 0.75rem;
+  padding: 1px 6px;
+  border-radius: 3px;
+  border: 1px solid;
+  white-space: nowrap;
+}
+
+.fleet-row-bottom {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  color: #aaa;
+  font-size: 0.8rem;
+}
+
+.fleet-row-location {
+  margin-right: auto;
+}
+
+.fleet-row-stat {
+  white-space: nowrap;
+}
+
+.fleet-row-minibar {
+  display: inline-block;
+  width: 60px;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+  vertical-align: middle;
+  margin-right: 4px;
+  overflow: hidden;
+}
+
+.fleet-row-minibar-fill {
+  display: block;
+  height: 100%;
+  background: #4a9eff;
+}
+
+.fleet-row-flight-pct {
+  font-size: 0.8rem;
 }
 
 /* Fleet management section */
@@ -3725,11 +3811,23 @@ button:disabled:hover {
     max-height: 400px;
   }
 
-  /* Fleet rows: tighter */
+  /* Fleet rows: tighter on mobile */
   .fleet-row {
-    gap: 0.5rem;
     padding: 0.4rem;
     font-size: 0.8rem;
+  }
+
+  .fleet-row-bottom {
+    gap: 0.4rem;
+    font-size: 0.7rem;
+  }
+
+  .fleet-row-activity {
+    font-size: 0.65rem;
+  }
+
+  .fleet-row-minibar {
+    width: 40px;
   }
 
   /* Version badge: smaller */

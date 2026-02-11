@@ -547,10 +547,11 @@ export function createRightSidebar(gameData: GameData): Component {
     // Captain
     const captain = ship.crew.find((c) => c.role === 'captain');
     if (captain) {
-      captainSection.style.display = '';
       captainNameEl.textContent = captain.name;
+      captainSection.style.opacity = '';
     } else {
-      captainSection.style.display = 'none';
+      captainNameEl.textContent = 'None';
+      captainSection.style.opacity = '0.4';
     }
 
     // Crew
@@ -594,14 +595,16 @@ export function createRightSidebar(gameData: GameData): Component {
 
     // Active quest
     if (ship.activeContract) {
-      questSection.style.display = '';
       const contract = ship.activeContract;
       const totalPayment =
         contract.quest.paymentPerTrip + contract.quest.paymentOnCompletion;
       questTitle.textContent = contract.quest.title;
       questRewardValue.textContent = totalPayment.toLocaleString();
+      questSection.style.opacity = '';
     } else {
-      questSection.style.display = 'none';
+      questTitle.textContent = 'No active quest';
+      questRewardValue.textContent = '—';
+      questSection.style.opacity = '0.4';
     }
   }
 

@@ -432,19 +432,14 @@ export function createTabbedView(
       ((gameData.gameTime % GAME_SECONDS_PER_DAY) / GAME_SECONDS_PER_DAY) * 100;
     dayProgressFill.style.width = `${dayProgress}%`;
 
-    // Fleet panel (only when fleet has multiple ships)
-    if (gameData.ships.length > 1) {
-      fleetPanelSlot.style.display = '';
-      if (!fleetPanelComponent) {
-        fleetPanelComponent = createFleetPanel(gameData, {
-          onSelectShip: callbacks.onSelectShip,
-        });
-        fleetPanelSlot.appendChild(fleetPanelComponent.el);
-      } else {
-        fleetPanelComponent.update(gameData);
-      }
+    // Fleet panel (always visible per UI discoverability rule)
+    if (!fleetPanelComponent) {
+      fleetPanelComponent = createFleetPanel(gameData, {
+        onSelectShip: callbacks.onSelectShip,
+      });
+      fleetPanelSlot.appendChild(fleetPanelComponent.el);
     } else {
-      fleetPanelSlot.style.display = 'none';
+      fleetPanelComponent.update(gameData);
     }
 
     // Ship name
@@ -466,9 +461,13 @@ export function createTabbedView(
       if (captainEl.textContent !== captainText) {
         captainEl.textContent = captainText;
       }
-      captainEl.style.display = '';
+      captainEl.style.opacity = '';
     } else {
-      captainEl.style.display = 'none';
+      const noCaptainText = 'No Captain';
+      if (captainEl.textContent !== noCaptainText) {
+        captainEl.textContent = noCaptainText;
+      }
+      captainEl.style.opacity = '0.4';
     }
 
     // ── Global status bar update ───────────────────────────────────
@@ -519,15 +518,11 @@ export function createTabbedView(
       totalCrewCost += calculateShipSalaryPerTick(s);
     }
 
-    if (totalCrewCost > 0) {
-      crewCostDiv.style.display = '';
-      const costText = `${(totalCrewCost * TICKS_PER_DAY).toFixed(0)} cr/day`;
-      if (crewCostValueSpan.textContent !== costText) {
-        crewCostValueSpan.textContent = costText;
-      }
-    } else {
-      crewCostDiv.style.display = 'none';
+    const costText = `${(totalCrewCost * TICKS_PER_DAY).toFixed(0)} cr/day`;
+    if (crewCostValueSpan.textContent !== costText) {
+      crewCostValueSpan.textContent = costText;
     }
+    crewCostDiv.style.opacity = totalCrewCost > 0 ? '' : '0.4';
 
     // ── Status text ──────────────────────────────────────────────────
     if (ship.location.status === 'docked') {

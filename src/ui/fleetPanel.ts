@@ -15,19 +15,101 @@ interface ShipRowRefs {
   row: HTMLDivElement;
   indicator: HTMLDivElement;
   tierBadge: HTMLSpanElement;
-  nameSpan: HTMLDivElement;
-  statusSpan: HTMLDivElement;
+  nameSpan: HTMLSpanElement;
+  activityBadge: HTMLSpanElement;
+  locationSpan: HTMLSpanElement;
   /** Plain text node shown when docked/orbiting */
-  statusPlainText: Text;
+  locationPlainText: Text;
   /** Container for in-flight elements */
-  statusFlightContainer: HTMLSpanElement;
-  statusFlightText: HTMLSpanElement;
+  flightContainer: HTMLSpanElement;
+  flightText: HTMLSpanElement;
   miniBarFill: HTMLSpanElement;
-  statusPercentText: HTMLSpanElement;
-  fuelSpan: HTMLDivElement;
-  crewSpan: HTMLDivElement;
-  equipSpan: HTMLDivElement;
-  rangeSpan: HTMLDivElement;
+  flightPercentText: HTMLSpanElement;
+  fuelSpan: HTMLSpanElement;
+  crewSpan: HTMLSpanElement;
+  equipSpan: HTMLSpanElement;
+  rangeSpan: HTMLSpanElement;
+}
+
+interface ShipActivity {
+  label: string;
+  color: string;
+}
+
+function getShipActivity(ship: Ship, gd: GameData): ShipActivity {
+  if (ship.miningRoute) {
+    const phase = ship.miningRoute.status;
+    const mineLocation = gd.world.locations.find(
+      (l) => l.id === ship.miningRoute!.mineLocationId
+    );
+    const mineName = mineLocation?.name ?? ship.miningRoute.mineLocationId;
+    if (phase === 'mining') {
+      return { label: `Mining at ${mineName}`, color: '#ffd700' };
+    } else if (phase === 'selling') {
+      return { label: 'Mining (selling ore)', color: '#ffd700' };
+    } else {
+      return { label: 'Mining (returning)', color: '#ffd700' };
+    }
+  }
+
+  if (ship.routeAssignment) {
+    const origin = gd.world.locations.find(
+      (l) => l.id === ship.routeAssignment!.originId
+    );
+    const dest = gd.world.locations.find(
+      (l) => l.id === ship.routeAssignment!.destinationId
+    );
+    const originName = origin?.name ?? ship.routeAssignment.originId;
+    const destName = dest?.name ?? ship.routeAssignment.destinationId;
+    return {
+      label: `Trade Route: ${originName} ↔ ${destName}`,
+      color: '#4a9eff',
+    };
+  }
+
+  if (ship.activeContract) {
+    const quest = ship.activeContract.quest;
+    const dest = gd.world.locations.find((l) => l.id === quest.destination);
+    const destName = dest?.name ?? quest.destination;
+
+    let typeLabel: string;
+    switch (quest.type) {
+      case 'delivery':
+        typeLabel = 'Delivery';
+        break;
+      case 'passenger':
+        typeLabel = 'Passenger';
+        break;
+      case 'freight':
+        typeLabel = 'Freight';
+        break;
+      case 'supply':
+        typeLabel = 'Supply';
+        break;
+      case 'standing_freight':
+        typeLabel = 'Standing Freight';
+        break;
+      case 'trade_route':
+        typeLabel = 'Trade Route';
+        break;
+      default:
+        typeLabel = 'Contract';
+    }
+
+    let progress = '';
+    if (quest.tripsRequired > 0) {
+      progress = ` (${ship.activeContract.tripsCompleted}/${quest.tripsRequired})`;
+    }
+
+    const pausedSuffix = ship.activeContract.paused ? ' — paused' : '';
+
+    return {
+      label: `${typeLabel}: ${destName}${progress}${pausedSuffix}`,
+      color: '#ff9f43',
+    };
+  }
+
+  return { label: 'Idle', color: '#666' };
 }
 
 export function createFleetPanel(
@@ -36,19 +118,11 @@ export function createFleetPanel(
 ): Component {
   const panel = document.createElement('div');
   panel.className = 'fleet-panel';
-  panel.style.background = 'rgba(0, 0, 0, 0.3)';
-  panel.style.border = '1px solid #444';
-  panel.style.borderRadius = '4px';
-  panel.style.padding = '0.5rem';
-  panel.style.marginBottom = '0.5rem';
 
   // Title — created once, never changes
   const title = document.createElement('div');
+  title.className = 'fleet-panel-title';
   title.textContent = 'Fleet';
-  title.style.fontSize = '0.9rem';
-  title.style.fontWeight = 'bold';
-  title.style.marginBottom = '0.5rem';
-  title.style.color = '#aaa';
   panel.appendChild(title);
 
   // Ship row pool keyed by ship.id
@@ -60,14 +134,7 @@ export function createFleetPanel(
 
   function createShipRow(ship: Ship): ShipRowRefs {
     const row = document.createElement('div');
-    row.style.display = 'flex';
-    row.style.alignItems = 'center';
-    row.style.gap = '1rem';
-    row.style.padding = '0.5rem';
-    row.style.borderRadius = '4px';
-    row.style.cursor = 'pointer';
-    row.style.transition = 'background 0.2s';
-    row.style.fontSize = '0.85rem';
+    row.className = 'fleet-row';
 
     row.addEventListener('mouseenter', () => {
       if (ship.id !== latestActiveShipId) {
@@ -76,117 +143,105 @@ export function createFleetPanel(
     });
     row.addEventListener('mouseleave', () => {
       if (ship.id !== latestActiveShipId) {
-        row.style.background = 'rgba(0, 0, 0, 0.2)';
+        row.style.background = '';
       }
     });
     row.addEventListener('click', () => callbacks.onSelectShip(ship.id));
 
     // Active indicator dot
     const indicator = document.createElement('div');
-    indicator.style.width = '8px';
-    indicator.style.height = '8px';
-    indicator.style.borderRadius = '50%';
-    indicator.style.flexShrink = '0';
+    indicator.className = 'fleet-row-indicator';
     row.appendChild(indicator);
 
-    // Name container
-    const nameContainer = document.createElement('div');
-    nameContainer.style.display = 'flex';
-    nameContainer.style.alignItems = 'center';
-    nameContainer.style.gap = '0.5rem';
-    nameContainer.style.minWidth = '150px';
+    // Content area (takes remaining space)
+    const content = document.createElement('div');
+    content.className = 'fleet-row-content';
+
+    // Top line: tier + name + activity badge
+    const topLine = document.createElement('div');
+    topLine.className = 'fleet-row-top';
 
     const tierBadge = document.createElement('span');
-    tierBadge.style.fontSize = '0.75rem';
-    tierBadge.style.fontWeight = 'bold';
-    tierBadge.style.opacity = '0.8';
-    nameContainer.appendChild(tierBadge);
+    tierBadge.className = 'fleet-row-tier';
+    topLine.appendChild(tierBadge);
 
-    const nameSpan = document.createElement('div');
-    nameSpan.style.fontWeight = 'bold';
-    nameContainer.appendChild(nameSpan);
+    const nameSpan = document.createElement('span');
+    nameSpan.className = 'fleet-row-name';
+    topLine.appendChild(nameSpan);
 
-    row.appendChild(nameContainer);
+    const activityBadge = document.createElement('span');
+    activityBadge.className = 'fleet-row-activity';
+    topLine.appendChild(activityBadge);
 
-    // Status
-    const statusSpan = document.createElement('div');
-    statusSpan.style.flex = '1';
-    statusSpan.style.minWidth = '200px';
-    statusSpan.style.color = '#aaa';
+    content.appendChild(topLine);
 
-    // Plain text node for docked/orbiting
-    const statusPlainText = document.createTextNode('');
-    statusSpan.appendChild(statusPlainText);
+    // Bottom line: location/flight + stats
+    const bottomLine = document.createElement('div');
+    bottomLine.className = 'fleet-row-bottom';
 
-    // In-flight container (hidden when not in flight)
-    const statusFlightContainer = document.createElement('span');
-    statusFlightContainer.style.display = 'none';
+    // Location / flight info
+    const locationSpan = document.createElement('span');
+    locationSpan.className = 'fleet-row-location';
 
-    const statusFlightText = document.createElement('span');
-    statusFlightContainer.appendChild(statusFlightText);
+    const locationPlainText = document.createTextNode('');
+    locationSpan.appendChild(locationPlainText);
+
+    const flightContainer = document.createElement('span');
+    flightContainer.className = 'fleet-row-flight';
+    flightContainer.style.display = 'none';
+
+    const flightText = document.createElement('span');
+    flightContainer.appendChild(flightText);
 
     // Mini progress bar
     const miniBar = document.createElement('span');
-    miniBar.style.display = 'inline-block';
-    miniBar.style.width = '60px';
-    miniBar.style.height = '6px';
-    miniBar.style.background = 'rgba(255, 255, 255, 0.1)';
-    miniBar.style.borderRadius = '3px';
-    miniBar.style.verticalAlign = 'middle';
-    miniBar.style.marginRight = '4px';
-    miniBar.style.overflow = 'hidden';
+    miniBar.className = 'fleet-row-minibar';
 
     const miniBarFill = document.createElement('span');
-    miniBarFill.style.display = 'block';
-    miniBarFill.style.height = '100%';
-    miniBarFill.style.background = '#4a9eff';
+    miniBarFill.className = 'fleet-row-minibar-fill';
     miniBar.appendChild(miniBarFill);
 
-    statusFlightContainer.appendChild(miniBar);
+    flightContainer.appendChild(miniBar);
 
-    const statusPercentText = document.createElement('span');
-    statusPercentText.style.fontSize = '0.8rem';
-    statusFlightContainer.appendChild(statusPercentText);
+    const flightPercentText = document.createElement('span');
+    flightPercentText.className = 'fleet-row-flight-pct';
+    flightContainer.appendChild(flightPercentText);
 
-    statusSpan.appendChild(statusFlightContainer);
+    locationSpan.appendChild(flightContainer);
+    bottomLine.appendChild(locationSpan);
 
-    row.appendChild(statusSpan);
+    // Stats
+    const fuelSpan = document.createElement('span');
+    fuelSpan.className = 'fleet-row-stat';
+    bottomLine.appendChild(fuelSpan);
 
-    // Fuel
-    const fuelSpan = document.createElement('div');
-    fuelSpan.style.minWidth = '100px';
-    row.appendChild(fuelSpan);
+    const crewSpan = document.createElement('span');
+    crewSpan.className = 'fleet-row-stat';
+    bottomLine.appendChild(crewSpan);
 
-    // Crew
-    const crewSpan = document.createElement('div');
-    crewSpan.style.minWidth = '70px';
-    crewSpan.style.color = '#aaa';
-    row.appendChild(crewSpan);
+    const equipSpan = document.createElement('span');
+    equipSpan.className = 'fleet-row-stat';
+    bottomLine.appendChild(equipSpan);
 
-    // Equipment slots
-    const equipSpan = document.createElement('div');
-    equipSpan.style.minWidth = '70px';
-    equipSpan.style.color = '#aaa';
-    row.appendChild(equipSpan);
+    const rangeSpan = document.createElement('span');
+    rangeSpan.className = 'fleet-row-stat';
+    bottomLine.appendChild(rangeSpan);
 
-    // Range
-    const rangeSpan = document.createElement('div');
-    rangeSpan.style.minWidth = '90px';
-    rangeSpan.style.color = '#aaa';
-    rangeSpan.style.fontSize = '0.8rem';
-    row.appendChild(rangeSpan);
+    content.appendChild(bottomLine);
+    row.appendChild(content);
 
     return {
       row,
       indicator,
       tierBadge,
       nameSpan,
-      statusSpan,
-      statusPlainText,
-      statusFlightContainer,
-      statusFlightText,
+      activityBadge,
+      locationSpan,
+      locationPlainText,
+      flightContainer,
+      flightText,
       miniBarFill,
-      statusPercentText,
+      flightPercentText,
       fuelSpan,
       crewSpan,
       equipSpan,
@@ -199,13 +254,6 @@ export function createFleetPanel(
 
     // Row class & style
     refs.row.className = isActive ? 'fleet-row active' : 'fleet-row';
-    if (isActive) {
-      refs.row.style.background = 'rgba(74, 158, 255, 0.2)';
-      refs.row.style.border = '1px solid #4a9eff';
-    } else {
-      refs.row.style.background = 'rgba(0, 0, 0, 0.2)';
-      refs.row.style.border = '1px solid transparent';
-    }
 
     // Indicator dot
     refs.indicator.style.background = isActive ? '#4a9eff' : 'transparent';
@@ -224,33 +272,41 @@ export function createFleetPanel(
     }
     refs.nameSpan.style.color = isActive ? '#4a9eff' : '#fff';
 
-    // Status
+    // Activity badge
+    const activity = getShipActivity(ship, gd);
+    if (refs.activityBadge.textContent !== activity.label) {
+      refs.activityBadge.textContent = activity.label;
+    }
+    refs.activityBadge.style.background = activity.color + '22';
+    refs.activityBadge.style.color = activity.color;
+    refs.activityBadge.style.borderColor = activity.color + '44';
+
+    // Location / flight status
     if (ship.location.status === 'docked') {
       const dockedAt = ship.location.dockedAt;
       const location = gd.world.locations.find((l) => l.id === dockedAt);
       const text = `Docked at ${location?.name || dockedAt}`;
-      if (refs.statusPlainText.textContent !== text) {
-        refs.statusPlainText.textContent = text;
+      if (refs.locationPlainText.textContent !== text) {
+        refs.locationPlainText.textContent = text;
       }
-      refs.statusFlightContainer.style.display = 'none';
+      refs.flightContainer.style.display = 'none';
     } else if (ship.location.status === 'orbiting') {
       const orbitingAt = ship.location.orbitingAt;
       const location = gd.world.locations.find((l) => l.id === orbitingAt);
       const text = `Orbiting ${location?.name || orbitingAt}`;
-      if (refs.statusPlainText.textContent !== text) {
-        refs.statusPlainText.textContent = text;
+      if (refs.locationPlainText.textContent !== text) {
+        refs.locationPlainText.textContent = text;
       }
-      refs.statusFlightContainer.style.display = 'none';
+      refs.flightContainer.style.display = 'none';
     } else if (ship.activeFlightPlan) {
-      // In flight — hide plain text, show flight container
-      refs.statusPlainText.textContent = '';
-      refs.statusFlightContainer.style.display = '';
+      refs.locationPlainText.textContent = '';
+      refs.flightContainer.style.display = '';
 
       const destId = ship.activeFlightPlan.destination;
       const destination = gd.world.locations.find((l) => l.id === destId);
-      const flightText = `In Flight to ${destination?.name || destId} `;
-      if (refs.statusFlightText.textContent !== flightText) {
-        refs.statusFlightText.textContent = flightText;
+      const flightLabel = `In Flight to ${destination?.name || destId} `;
+      if (refs.flightText.textContent !== flightLabel) {
+        refs.flightText.textContent = flightLabel;
       }
 
       const progressPercent =
@@ -263,18 +319,17 @@ export function createFleetPanel(
         ship.activeFlightPlan.totalTime - ship.activeFlightPlan.elapsedTime;
       const timeLabel = formatDualTime(remainingTime);
       const percentText = `${progressPercent.toFixed(0)}% - ${timeLabel} remaining`;
-      if (refs.statusPercentText.textContent !== percentText) {
-        refs.statusPercentText.textContent = percentText;
+      if (refs.flightPercentText.textContent !== percentText) {
+        refs.flightPercentText.textContent = percentText;
       }
     } else {
-      // Fallback: in_flight but no active flight plan
-      refs.statusPlainText.textContent = 'In Flight';
-      refs.statusFlightContainer.style.display = 'none';
+      refs.locationPlainText.textContent = 'In Flight';
+      refs.flightContainer.style.display = 'none';
     }
 
     // Fuel
     const fuelPercentage = calculateFuelPercentage(ship.fuelKg, ship.maxFuelKg);
-    refs.fuelSpan.style.color = fuelPercentage < 20 ? '#ff4444' : '#aaa';
+    refs.fuelSpan.style.color = fuelPercentage < 20 ? '#ff4444' : '';
     const fuelText = `Fuel: ${formatFuelMass(ship.fuelKg)}`;
     if (refs.fuelSpan.textContent !== fuelText) {
       refs.fuelSpan.textContent = fuelText;
