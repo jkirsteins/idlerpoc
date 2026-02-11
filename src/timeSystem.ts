@@ -10,6 +10,7 @@
 
 export const GAME_SECONDS_PER_TICK = 180; // 3 game minutes (10x slower pacing for idle gameplay)
 export const TICKS_PER_DAY = 480;
+export const GAME_SECONDS_PER_HOUR = 3600;
 export const GAME_SECONDS_PER_DAY = 86400; // 24 hours
 export const EPOCH_YEAR = 2247;
 export const EPOCH_MONTH = 0; // January (0-indexed)

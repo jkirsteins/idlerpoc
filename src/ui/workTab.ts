@@ -1,8 +1,9 @@
 import type { GameData, Quest, Ship, WorldLocation } from '../models';
 import { getActiveShip } from '../models';
 import {
-  formatDuration,
+  formatDualTime,
   GAME_SECONDS_PER_TICK,
+  GAME_SECONDS_PER_HOUR,
   gameSecondsToTicks,
 } from '../timeSystem';
 import {
@@ -27,7 +28,7 @@ import { getCrewForJobType } from '../jobSlots';
 import { getBestShipMiningEquipment } from '../equipment';
 import { getOreCargoWeight, getRemainingOreCapacity } from '../miningSystem';
 import {
-  getCommandBonusCreditAttribution,
+  getCommandCommerceBonus,
   getHypotheticalCaptainBonus,
 } from '../captainBonus';
 import {
@@ -963,7 +964,13 @@ export function createWorkTab(
     const profileTimeTicks = gameSecondsToTicks(profileTimeSecs);
 
     refs.fuelInfo.textContent = `Fuel: ~${formatFuelMass(profileFuelKg)} per trip`;
-    refs.timeInfo.textContent = `Time: ~${formatDuration(profileTimeSecs)} per trip`;
+    refs.timeInfo.textContent = `Time: ~${formatDualTime(profileTimeSecs)} per trip`;
+
+    // Helper: convert a per-trip value to a per-game-hour rate
+    const perHour = (value: number): number =>
+      profileTimeSecs > 0
+        ? Math.round((value / profileTimeSecs) * GAME_SECONDS_PER_HOUR)
+        : 0;
 
     // Costs
     const crewSalaryPerTick = calculateShipSalaryPerTick(ship);
@@ -978,13 +985,13 @@ export function createWorkTab(
     const tripFuelCost = Math.round(profileFuelKg * fuelPricePerKg);
 
     if (tripCrewCost > 0) {
-      refs.crewCostInfo.textContent = `Crew Salaries: ~${tripCrewCost.toLocaleString()} cr per trip`;
+      refs.crewCostInfo.textContent = `Crew Salaries: ~${perHour(tripCrewCost).toLocaleString()} cr/hr`;
       refs.crewCostInfo.style.display = '';
     } else {
       refs.crewCostInfo.style.display = 'none';
     }
 
-    refs.fuelCostInfo.textContent = `Fuel Cost: ~${tripFuelCost.toLocaleString()} cr per trip`;
+    refs.fuelCostInfo.textContent = `Fuel Cost: ~${perHour(tripFuelCost).toLocaleString()} cr/hr`;
 
     // For lump-sum multi-trip contracts, divide by trips for per-trip comparison
     const tripPayment =
@@ -995,14 +1002,14 @@ export function createWorkTab(
           : quest.paymentOnCompletion;
 
     // Captain command bonus attribution
-    updateCaptainBonusDisplay(refs, ship, gd, tripPayment);
+    updateCaptainBonusDisplay(refs, ship, gd);
 
     // Profit
     const totalCost = tripCrewCost + tripFuelCost;
     const profit = tripPayment - totalCost;
 
     refs.profitInfo.style.color = profit >= 0 ? '#4caf50' : '#e94560';
-    refs.profitInfo.textContent = `Est. Profit: ${profit >= 0 ? '+' : ''}${profit.toLocaleString()} cr per trip`;
+    refs.profitInfo.textContent = `Est. Profit: ${profit >= 0 ? '+' : ''}${perHour(profit).toLocaleString()} cr/hr`;
 
     // Route risk
     if (origin && destination) {
@@ -1018,13 +1025,13 @@ export function createWorkTab(
       refs.riskLine.style.display = 'none';
     }
 
-    // Payment — show per-trip breakdown for multi-trip lump-sum contracts
+    // Payment — show per-hour rate for comparability across different trip distances
     if (quest.paymentPerTrip > 0) {
-      refs.payment.textContent = `Payment: ${quest.paymentPerTrip.toLocaleString()} credits/trip`;
+      refs.payment.textContent = `Payment: ${perHour(quest.paymentPerTrip).toLocaleString()} cr/hr (${quest.paymentPerTrip.toLocaleString()} cr/trip)`;
     } else if (quest.tripsRequired > 1) {
-      refs.payment.textContent = `Payment: ${quest.paymentOnCompletion.toLocaleString()} cr on completion (${tripPayment.toLocaleString()} cr/trip)`;
+      refs.payment.textContent = `Payment: ${quest.paymentOnCompletion.toLocaleString()} cr on completion (${perHour(tripPayment).toLocaleString()} cr/hr)`;
     } else {
-      refs.payment.textContent = `Payment: ${quest.paymentOnCompletion.toLocaleString()} credits on completion`;
+      refs.payment.textContent = `Payment: ${quest.paymentOnCompletion.toLocaleString()} cr on completion (${perHour(quest.paymentOnCompletion).toLocaleString()} cr/hr)`;
     }
 
     // Buttons vs reason
@@ -1659,20 +1666,19 @@ export function createWorkTab(
 function updateCaptainBonusDisplay(
   refs: QuestCardRefs,
   ship: Ship,
-  gd: GameData,
-  tripPayment: number
+  gd: GameData
 ): void {
   const hasCaptain = ship.crew.some((c) => c.isCaptain);
-  const bonusCredits = getCommandBonusCreditAttribution(tripPayment, ship);
+  const bonusPercent = Math.round(getCommandCommerceBonus(ship) * 100);
 
-  if (hasCaptain && bonusCredits > 0) {
-    refs.captainBonusInfo.textContent = `Captain bonus: +${bonusCredits.toLocaleString()} cr`;
+  if (hasCaptain && bonusPercent > 0) {
+    refs.captainBonusInfo.textContent = `Captain bonus: +${bonusPercent}%`;
     refs.captainBonusInfo.style.color = '#fbbf24';
     refs.captainBonusInfo.style.display = '';
     refs.captainHintInfo.style.display = 'none';
   } else if (!hasCaptain) {
-    if (bonusCredits > 0) {
-      refs.captainBonusInfo.textContent = `Acting cpt: +${bonusCredits.toLocaleString()} cr`;
+    if (bonusPercent > 0) {
+      refs.captainBonusInfo.textContent = `Acting cpt: +${bonusPercent}%`;
     } else {
       refs.captainBonusInfo.textContent = 'No command bonus';
     }
@@ -1680,10 +1686,7 @@ function updateCaptainBonusDisplay(
     refs.captainBonusInfo.style.display = '';
     const hypothetical = getHypotheticalCaptainBonus(ship, gd);
     if (hypothetical > 0) {
-      const hypotheticalCredits = Math.round(
-        (tripPayment * hypothetical) / (1 + hypothetical)
-      );
-      refs.captainHintInfo.textContent = `(Captain: +${hypotheticalCredits.toLocaleString()} cr)`;
+      refs.captainHintInfo.textContent = `(Captain: +${Math.round(hypothetical * 100)}%)`;
       refs.captainHintInfo.style.display = '';
     } else {
       refs.captainHintInfo.style.display = 'none';
