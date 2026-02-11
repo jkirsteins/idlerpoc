@@ -429,19 +429,14 @@ export function createTabbedView(
       ((gameData.gameTime % GAME_SECONDS_PER_DAY) / GAME_SECONDS_PER_DAY) * 100;
     dayProgressFill.style.width = `${dayProgress}%`;
 
-    // Fleet panel (only when fleet has multiple ships)
-    if (gameData.ships.length > 1) {
-      fleetPanelSlot.style.display = '';
-      if (!fleetPanelComponent) {
-        fleetPanelComponent = createFleetPanel(gameData, {
-          onSelectShip: callbacks.onSelectShip,
-        });
-        fleetPanelSlot.appendChild(fleetPanelComponent.el);
-      } else {
-        fleetPanelComponent.update(gameData);
-      }
+    // Fleet panel (always visible per UI discoverability rule)
+    if (!fleetPanelComponent) {
+      fleetPanelComponent = createFleetPanel(gameData, {
+        onSelectShip: callbacks.onSelectShip,
+      });
+      fleetPanelSlot.appendChild(fleetPanelComponent.el);
     } else {
-      fleetPanelSlot.style.display = 'none';
+      fleetPanelComponent.update(gameData);
     }
 
     // Ship name
