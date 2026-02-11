@@ -411,7 +411,11 @@ function renderFleetMap(
     }
   }
 
-  capabilitySection.appendChild(grid);
+  // Scrollable wrapper so the grid can overflow horizontally on mobile
+  const gridScroll = document.createElement('div');
+  gridScroll.className = 'fleet-reachability-scroll';
+  gridScroll.appendChild(grid);
+  capabilitySection.appendChild(gridScroll);
   section.appendChild(capabilitySection);
 
   return section;
@@ -633,6 +637,7 @@ function renderEnhancedShipComparison(
   section.appendChild(title);
 
   const grid = document.createElement('div');
+  grid.className = 'fleet-comparison-grid';
   grid.style.display = 'grid';
   grid.style.gridTemplateColumns = 'repeat(auto-fill, minmax(350px, 1fr))';
   grid.style.gap = '1rem';

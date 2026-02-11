@@ -3635,6 +3635,28 @@ button:disabled:hover {
     overflow-y: visible;
   }
 
+  /* Fleet row: location on its own line, stats wrap below */
+  .fleet-row-location {
+    flex-basis: 100%;
+  }
+
+  .fleet-row-activity {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 60vw;
+  }
+
+  /* Reachability matrix: horizontal scroll on narrow screens */
+  .fleet-reachability-scroll {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Ship comparison: smaller card minimum */
+  .fleet-comparison-grid {
+    grid-template-columns: 1fr;
+  }
+
   /* Gamepedia: stack sidebar above content */
   .gamepedia-tab {
     flex-direction: column;
@@ -3837,8 +3859,17 @@ button:disabled:hover {
     font-size: 0.7rem;
   }
 
+  .fleet-row-location {
+    flex-basis: 100%;
+  }
+
+  .fleet-row-stat {
+    font-size: 0.65rem;
+  }
+
   .fleet-row-activity {
     font-size: 0.65rem;
+    max-width: 50vw;
   }
 
   .fleet-row-minibar {
