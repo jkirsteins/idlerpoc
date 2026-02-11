@@ -38,25 +38,25 @@ The pay gap between active and passive should be **2-3x** to make the attention 
 
 ## Target Pay Ratios (per trip, relative to operating costs)
 
-| Quest Type      | Old Multiplier | New Multiplier | Effective Pay Range   | Rationale                                                         |
-| --------------- | -------------- | -------------- | --------------------- | ----------------------------------------------------------------- |
-| **Passenger**   | 1.0x           | **2.0x**       | 2.6-4.0x costs        | Highest pay: tightest deadline (3d), requires quarters, one-shot  |
-| **Delivery**    | 1.0x           | **1.5x**       | 1.95-3.0x costs       | High pay: 7d deadline, one-shot, requires cargo capacity          |
-| **Supply**      | 1.5x total     | **2.5x total** | 3.25-5.0x total costs | Very high total: large commitment, 30d deadline, lump sum risk    |
-| **Freight**     | 0.8x/trip      | **1.2x/trip**  | 1.56-2.4x costs       | Good per-trip: multi-trip with 14d deadline                       |
-| **Trade Route** | 150% fixed     | **120% fixed** | ~1.2-1.6x costs       | Baseline: permanent, deterministic, zero-attention passive income |
+| Quest Type      | Multiplier        | Effective Pay Range  | Rationale                                                             |
+| --------------- | ----------------- | -------------------- | --------------------------------------------------------------------- |
+| **Passenger**   | **2.0x**          | 2.6-4.0x costs/trip  | Highest pay: tightest deadline (3d), requires quarters, one-shot      |
+| **Delivery**    | **1.5x**          | 1.95-3.0x costs/trip | High pay: 7d deadline, one-shot, requires cargo capacity              |
+| **Supply**      | **1.3x per trip** | 1.69-2.6x costs/trip | Good per-trip: multi-trip lump sum, 30d deadline, all-or-nothing      |
+| **Freight**     | **1.2x/trip**     | 1.56-2.4x costs/trip | Decent per-trip: multi-trip with 14d deadline, credits kept on expire |
+| **Trade Route** | **120% fixed**    | ~1.2-1.6x costs/trip | Baseline: permanent, deterministic, zero-attention passive income     |
 
 ### Resulting Hierarchy (average cr/trip at same operating cost)
 
 ```
 Passenger (2.0x)  ████████████████████  ← Active: highest reward, tightest deadline
 Delivery  (1.5x)  ███████████████       ← Active: high reward
-Supply    (2.5x)  ████████████████████████ ← Active: very high total (but many trips)
-Freight   (1.2x)  ████████████          ← Semi-active: decent per-trip
+Supply    (1.3x)  ████████████          ← Active: committed multi-trip, lump-sum risk
+Freight   (1.2x)  ██████████            ← Semi-active: decent per-trip
 Trade Rte (120%)  ████                  ← Passive: reliable baseline
 ```
 
-Active quests average ~2.5-3x costs per trip. Trade routes average ~1.2-1.3x costs. The gap is approximately **2x**, hitting the sweet spot.
+Active quests average ~2-3x costs per trip. Trade routes average ~1.2-1.3x costs. The gap is approximately **2x**, hitting the sweet spot.
 
 ## Why Each Quest Type Pays What It Does
 
@@ -81,12 +81,13 @@ Active quests average ~2.5-3x costs per trip. Trade routes average ~1.2-1.3x cos
 - **Per-trip payment** — already-earned credits survive expiry
 - Sits between active and passive: commit for a while, get reliable income
 
-### Supply (2.5x total) — High Commitment Reward
+### Supply (1.3x per trip) — Committed Multi-Trip Reward
 
 - **30-day deadline** — longest deadline, big window
-- **Large total cargo** — 20,000-50,000 kg requires many trips
+- **Large total cargo** — scales with ship capacity (3-7 trips worth of full loads)
 - **Lump sum risk** — all payment on completion; expire and you lose it all
-- Rewards planning and dedication: tie up your ship for a major contract, get a major payday
+- **Per-trip rate** sits between freight and delivery, compensating for the all-or-nothing payout
+- Total payment scales with trip count so bigger ships earn proportionally more
 
 ### Trade Routes (120% of costs) — Baseline Passive Income
 
@@ -95,6 +96,24 @@ Active quests average ~2.5-3x costs per trip. Trade routes average ~1.2-1.3x cos
 - **Deterministic** — exact same pay every trip, no variance
 - **Fully automatable** — set and literally forget
 - The floor of the income spectrum — keeps your operation solvent while you're away
+
+## Cargo Scaling with Ship Capacity
+
+All contract types scale cargo amounts with the accepting ship's available cargo
+hold, ensuring bigger ships haul more per trip and earn proportionally more through
+the cargo premium (`1 + cargoKg/10000 × 0.5`).
+
+| Quest Type      | Cargo per Trip           | Notes                                 |
+| --------------- | ------------------------ | ------------------------------------- |
+| **Delivery**    | 30-80% of available hold | Variable load size for variety        |
+| **Freight**     | 50-80% of available hold | Freight loads heavy                   |
+| **Supply**      | 80% of available hold    | Max load, trip count determines total |
+| **Trade Route** | 80% of available hold    | Always fills the ship                 |
+| **Passenger**   | N/A (no cargo)           | Payment from operating costs only     |
+
+This means upgrading to a larger ship class immediately increases income on all cargo-hauling
+contracts. A Class II ship earning 8x the cargo premium of a Class I ship is the primary
+reward signal for ship progression.
 
 ## Interaction with Other Systems
 

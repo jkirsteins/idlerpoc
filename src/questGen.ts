@@ -325,12 +325,14 @@ function generateDeliveryQuest(
   const distanceKm = getDistanceBetween(origin, destination);
   const cargoType = CARGO_TYPES[Math.floor(Math.random() * CARGO_TYPES.length)];
 
-  // Cargo between 1,000 - 10,000 kg, capped at 80% of available cargo space
+  // Cargo scales with ship capacity: 30-80% of available hold
   const shipClass = getShipClass(ship.classId);
   const maxCargo = shipClass
     ? Math.floor(calculateAvailableCargoCapacity(shipClass.cargoCapacity) * 0.8)
     : 1000;
-  const cargoKg = Math.round(Math.min(1000 + Math.random() * 9000, maxCargo));
+  const cargoKg = Math.round(
+    Math.max(1000, maxCargo * (0.3 + Math.random() * 0.5))
+  );
 
   const payment = Math.round(
     calculatePayment(ship, distanceKm, cargoKg, origin, destination) * 1.5
@@ -403,6 +405,7 @@ function generateFreightQuest(
   const distanceKm = getDistanceBetween(origin, destination);
   const cargoType = CARGO_TYPES[Math.floor(Math.random() * CARGO_TYPES.length)];
 
+  // Cargo scales with ship capacity: 50-80% of available hold (freight loads heavy)
   const shipClassFreight = getShipClass(ship.classId);
   const maxCargoFreight = shipClassFreight
     ? Math.floor(
@@ -410,7 +413,7 @@ function generateFreightQuest(
       )
     : 1000;
   const cargoKg = Math.round(
-    Math.min(1000 + Math.random() * 9000, maxCargoFreight)
+    Math.max(1000, maxCargoFreight * (0.5 + Math.random() * 0.3))
   );
   const trips = Math.floor(2 + Math.random() * 4); // 2-5 trips
 
@@ -449,17 +452,28 @@ function generateSupplyQuest(
   const distanceKm = getDistanceBetween(origin, destination);
   const cargoType = CARGO_TYPES[Math.floor(Math.random() * CARGO_TYPES.length)];
 
-  // Total cargo between 20,000 - 50,000 kg
-  const totalCargoKg = Math.round(20000 + Math.random() * 30000);
   const shipClass = getShipClass(ship.classId);
   const availableCargoSupply = shipClass
     ? calculateAvailableCargoCapacity(shipClass.cargoCapacity)
     : 1500;
-  const cargoPerTrip = Math.min(availableCargoSupply * 0.8, 10000); // Use 80% of available cargo
+  // Use 80% of available cargo — no hard cap so bigger ships haul more per trip
+  const cargoPerTrip = Math.floor(availableCargoSupply * 0.8);
 
-  const payment = Math.round(
-    calculatePayment(ship, distanceKm, cargoPerTrip, origin, destination) * 2.5
-  ); // High commitment premium: large bulk contract, 30d expiry, lump sum
+  // Fixed trip count (3-7); total cargo scales with ship capacity
+  const trips = Math.floor(3 + Math.random() * 5);
+  const totalCargoKg = cargoPerTrip * trips;
+
+  // Payment scales with trip count — each trip pays 1.3x base cost.
+  // Per-trip rate sits between freight (1.2x) and delivery (1.5x),
+  // compensating for the lump-sum risk (no payout until all trips done).
+  const perTripBase = calculatePayment(
+    ship,
+    distanceKm,
+    cargoPerTrip,
+    origin,
+    destination
+  );
+  const payment = Math.round(perTripBase * 1.3 * trips);
   const estimatedTime = estimateTripTime(ship, distanceKm);
   const fuelKgRequired = calculateTripFuelKg(ship, distanceKm);
 
@@ -472,7 +486,7 @@ function generateSupplyQuest(
     destination: destination.id,
     cargoRequired: Math.round(cargoPerTrip),
     totalCargoRequired: totalCargoKg,
-    tripsRequired: Math.ceil(totalCargoKg / cargoPerTrip),
+    tripsRequired: trips,
     paymentPerTrip: 0,
     paymentOnCompletion: payment,
     expiresAfterDays: 30,
@@ -620,17 +634,18 @@ export function calculateTradeRoutePayment(
 
 /**
  * Calculate trade route cargo amount for a ship at a given origin location.
- * Cargo scales with origin's economic power, capped by ship's available cargo.
+ * Cargo fills the ship's hold — bigger ships haul more per trip and earn more
+ * through the cargo premium in payment calculations. Location economics are
+ * reflected in payment scaling (locationFactor), not by restricting cargo volume.
  */
 export function calculateTradeRouteCargo(
   ship: Ship,
-  origin: WorldLocation
+  _origin: WorldLocation
 ): number {
   const shipClass = getShipClass(ship.classId);
-  const maxCargo = shipClass
+  return shipClass
     ? Math.floor(calculateAvailableCargoCapacity(shipClass.cargoCapacity) * 0.8)
     : 1000;
-  return Math.min(1000 + origin.size * 500, maxCargo);
 }
 
 /**
