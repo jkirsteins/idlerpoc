@@ -488,8 +488,11 @@ export interface CatchUpReport {
   totalTicks: number;
   elapsedRealSeconds: number; // actual real-world seconds that passed
   creditsDelta: number; // net credits change during catch-up
-  tripsCompleted: number; // total trip completions across fleet
+  tripsCompleted: number; // non-trade-route trip completions
   contractsCompleted: number; // total contract completions across fleet
+  routeTripSummaries: { shipName: string; trips: number; routeName: string }[];
+  arrivals: { shipName: string; location: string }[]; // non-trade-route ships that arrived
+  enRouteShips: { shipName: string; destination: string }[]; // ships still in flight
   shipReports: CatchUpShipReport[]; // encounter details (may be empty)
   logHighlights: LogEntry[]; // notable log entries (skill-ups, etc.) from the idle period
 }

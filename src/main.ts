@@ -246,12 +246,88 @@ function buildCatchUpReport(
   // --- General progress from log entries added during catch-up ---
   const newLogs = gameData.log.filter((e) => e.gameTime > prevGameTime);
 
-  const tripsCompleted = newLogs.filter(
-    (e) => e.type === 'trip_complete'
-  ).length;
   const contractsCompleted = newLogs.filter(
     (e) => e.type === 'contract_complete'
   ).length;
+
+  // Build a set of ships currently on trade routes (by name)
+  const tradeRouteShipNames = new Set<string>();
+  // Map ship name → route display name for trade route ships
+  const shipRouteNames = new Map<string, string>();
+  for (const ship of gameData.ships) {
+    if (ship.routeAssignment) {
+      tradeRouteShipNames.add(ship.name);
+      const origin = gameData.world.locations.find(
+        (l) => l.id === ship.routeAssignment!.originId
+      );
+      const dest = gameData.world.locations.find(
+        (l) => l.id === ship.routeAssignment!.destinationId
+      );
+      shipRouteNames.set(
+        ship.name,
+        `${origin?.name ?? ship.routeAssignment.originId} ↔ ${dest?.name ?? ship.routeAssignment.destinationId}`
+      );
+    }
+  }
+
+  // Count trips per ship — both 'trip_complete' and 'payment' entries represent trip completions
+  const tripsByShip = new Map<string, number>();
+  for (const entry of newLogs) {
+    if ((entry.type === 'trip_complete' || entry.type === 'payment') && entry.shipName) {
+      tripsByShip.set(entry.shipName, (tripsByShip.get(entry.shipName) ?? 0) + 1);
+    }
+  }
+
+  // Trade route trip summaries (ships on routes)
+  const routeTripSummaries: { shipName: string; trips: number; routeName: string }[] = [];
+  let nonRouteTrips = 0;
+  for (const [shipName, trips] of tripsByShip) {
+    if (tradeRouteShipNames.has(shipName)) {
+      routeTripSummaries.push({
+        shipName,
+        trips,
+        routeName: shipRouteNames.get(shipName) ?? 'Unknown Route',
+      });
+    } else {
+      nonRouteTrips += trips;
+    }
+  }
+
+  // Arrivals for non-trade-route ships only
+  const arrivals: { shipName: string; location: string }[] = [];
+  for (const entry of newLogs) {
+    if (entry.type === 'arrival' && entry.shipName && !tradeRouteShipNames.has(entry.shipName)) {
+      const match = entry.message.match(/Arrived at (.+)/);
+      if (match) {
+        arrivals.push({ shipName: entry.shipName, location: match[1] });
+      }
+    }
+  }
+  // Deduplicate: keep last arrival per ship
+  const lastArrivalByShip = new Map<string, string>();
+  for (const a of arrivals) {
+    lastArrivalByShip.set(a.shipName, a.location);
+  }
+  const dedupedArrivals = Array.from(lastArrivalByShip, ([shipName, location]) => ({
+    shipName,
+    location,
+  }));
+
+  // Ships still en route (in flight after catch-up)
+  const enRouteShips: { shipName: string; destination: string }[] = [];
+  for (const ship of gameData.ships) {
+    if (ship.location.status === 'in_flight' && ship.activeFlightPlan) {
+      // Skip trade route ships — their status is covered by routeTripSummaries
+      if (tradeRouteShipNames.has(ship.name)) continue;
+      const destLoc = gameData.world.locations.find(
+        (l) => l.id === ship.activeFlightPlan!.destination
+      );
+      enRouteShips.push({
+        shipName: ship.name,
+        destination: destLoc?.name ?? ship.activeFlightPlan.destination,
+      });
+    }
+  }
 
   // Collect notable log entries for the catch-up summary
   // (skill-ups, crew hires/departures, gravity warnings)
@@ -351,8 +427,11 @@ function buildCatchUpReport(
     totalTicks,
     elapsedRealSeconds,
     creditsDelta: Math.round(gameData.credits - prevCredits),
-    tripsCompleted,
+    tripsCompleted: nonRouteTrips,
     contractsCompleted,
+    routeTripSummaries,
+    arrivals: dedupedArrivals,
+    enRouteShips,
     shipReports: Array.from(shipReportMap.values()),
     logHighlights,
   };

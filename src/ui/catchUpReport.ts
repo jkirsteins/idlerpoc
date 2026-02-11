@@ -81,6 +81,34 @@ export function renderCatchUpReport(
     progress.appendChild(contractLine);
   }
 
+  // Trade route trip summaries
+  for (const summary of report.routeTripSummaries) {
+    const line = document.createElement('div');
+    line.className = 'catchup-progress-line';
+    line.textContent = `${summary.shipName} performed ${summary.trips} trip${summary.trips > 1 ? 's' : ''} on ${summary.routeName}`;
+    line.style.color = '#4a9eff';
+    progress.appendChild(line);
+  }
+
+  // Arrivals (non-trade-route ships)
+  for (const arrival of report.arrivals) {
+    const line = document.createElement('div');
+    line.className = 'catchup-progress-line';
+    line.textContent = `${arrival.shipName} arrived at ${arrival.location}`;
+    line.style.color = '#a0a0b0';
+    progress.appendChild(line);
+  }
+
+  // Ships still en route
+  for (const ship of report.enRouteShips) {
+    const line = document.createElement('div');
+    line.className = 'catchup-progress-line';
+    line.textContent = `${ship.shipName} still en route to ${ship.destination}`;
+    line.style.color = '#a0a0b0';
+    line.style.fontStyle = 'italic';
+    progress.appendChild(line);
+  }
+
   // Log highlights (skill-ups, crew changes, etc.)
   const HIGHLIGHT_COLORS: Partial<Record<LogEntryType, string>> = {
     crew_level_up: '#4ade80',
