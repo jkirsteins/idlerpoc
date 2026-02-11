@@ -141,32 +141,29 @@ export function getMaxPilotableTier(pilotingSkill: number): ShipClassTier {
  *   - 75 (Skilled): Can pilot Class IV deep system cruisers
  *   - 95 (Master): Can pilot Class V gap-capable vessels
  *
+ * [UNIMPLEMENTED — design-only, not in the current 3-skill system:]
  * ASTROGATION:
  *   - 25: Encounter avoidance bonus kicks in (skill factor active)
  *   - 50: Quest payment bonus from scanner crew
  *   - 75: Encounter detection range doubled (early warning)
- *
  * ENGINEERING:
  *   - 25: Repair points start flowing from repair job slots
  *   - 50: Quest payment bonus from drive ops crew
  *   - 75: Repair efficiency doubled (2x points per tick)
- *
  * STRENGTH:
  *   - 25: Boarding defense contributes to ship defense score
  *   - 50: Can operate heavy weapons (point defense turrets)
  *   - 75: Combat victory bounties increased 50%
- *
  * CHARISMA:
  *   - 25: Negotiation attempts become available
  *   - 50: Quest payment bonus from galley/comms crew
  *   - 75: Negotiation auto-succeeds against low-threat pirates
- *
  * LOYALTY:
  *   - 25: Crew morale decay reduced
  *   - 50: Crew salary reduced 10% (loyalty discount)
  *   - 75: Crew stays 50% longer before departing when unpaid
  *
- * COMMERCE (captain/first officer only):
+ * COMMERCE (captain/first officer only — IMPLEMENTED):
  *   - 25: 5% better quest payment
  *   - 50: 10% fuel discount at stations
  *   - 75: 15% better quest payment + 15% fuel discount

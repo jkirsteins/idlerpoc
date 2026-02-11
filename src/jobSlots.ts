@@ -102,7 +102,7 @@ export const JOB_SLOT_DEFINITIONS: JobSlotDefinition[] = [
     skill: null,
     required: false,
     trainRate: 0,
-    bonusDescription: 'Crew morale',
+    bonusDescription: 'Crew welfare',
     source: 'room',
     sourceRoomType: 'cantina',
   },
@@ -158,7 +158,7 @@ export const JOB_SLOT_DEFINITIONS: JobSlotDefinition[] = [
     skill: null,
     required: false,
     trainRate: 0,
-    bonusDescription: 'Morale recovery for assigned crew',
+    bonusDescription: 'Rest and recovery for assigned crew',
     source: 'room',
     sourceRoomType: 'quarters',
   },
@@ -403,7 +403,7 @@ export function autoAssignCrewToJobs(ship: Ship): void {
         // Score based on relevant skill level
         score = crew.skills[def.skill];
       } else {
-        // Passive slots: prefer crew with lowest health (for patient) or lowest morale
+        // Passive slots: prefer crew with lowest health (for patient)
         if (slot.type === 'patient') {
           score = 100 - crew.health;
         } else {
