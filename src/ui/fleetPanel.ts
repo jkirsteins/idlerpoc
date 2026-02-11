@@ -5,6 +5,7 @@ import { computeMaxRange } from '../flightPhysics';
 import { formatDualTime } from '../timeSystem';
 import type { Component } from './component';
 import { formatFuelMass, calculateFuelPercentage } from './fuelFormatting';
+import { getCommandCommerceBonus, getFleetAuraBonus } from '../captainBonus';
 
 export interface FleetPanelCallbacks {
   onSelectShip: (shipId: string) => void;
@@ -29,6 +30,7 @@ interface ShipRowRefs {
   crewSpan: HTMLSpanElement;
   equipSpan: HTMLSpanElement;
   rangeSpan: HTMLSpanElement;
+  commandBadge: HTMLSpanElement;
 }
 
 interface ShipActivity {
@@ -166,6 +168,11 @@ export function createFleetPanel(
     nameSpan.className = 'fleet-row-name';
     topLine.appendChild(nameSpan);
 
+    const commandBadge = document.createElement('span');
+    commandBadge.style.cssText =
+      'font-size: 0.75em; margin-left: 4px; font-weight: bold;';
+    topLine.appendChild(commandBadge);
+
     const activityBadge = document.createElement('span');
     activityBadge.className = 'fleet-row-activity';
     topLine.appendChild(activityBadge);
@@ -243,6 +250,7 @@ export function createFleetPanel(
       crewSpan,
       equipSpan,
       rangeSpan,
+      commandBadge,
     };
   }
 
@@ -277,6 +285,29 @@ export function createFleetPanel(
     refs.activityBadge.style.background = activity.color + '22';
     refs.activityBadge.style.color = activity.color;
     refs.activityBadge.style.borderColor = activity.color + '44';
+
+    // Command badge
+    const hasCaptain = ship.crew.some((c) => c.isCaptain);
+    const commandBonus = getCommandCommerceBonus(ship);
+    const aura = getFleetAuraBonus(ship, gd);
+    let cmdText: string;
+    if (hasCaptain) {
+      cmdText = `✦ +${Math.round(commandBonus * 100)}% CMD`;
+    } else if (commandBonus > 0) {
+      const auraSuffix = aura > 0 ? ` +${Math.round(aura * 100)}%⚡` : '';
+      cmdText = `+${Math.round(commandBonus * 100)}% ACT${auraSuffix}`;
+    } else {
+      const auraSuffix = aura > 0 ? ` +${Math.round(aura * 100)}%⚡` : '';
+      cmdText = `— CMD${auraSuffix}`;
+    }
+    if (refs.commandBadge.textContent !== cmdText) {
+      refs.commandBadge.textContent = cmdText;
+    }
+    refs.commandBadge.style.color = hasCaptain
+      ? '#fbbf24'
+      : aura > 0
+        ? '#60a5fa'
+        : '#6b7280';
 
     // Location / flight status
     if (ship.location.status === 'docked') {

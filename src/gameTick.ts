@@ -24,6 +24,7 @@ import {
 } from './gravitySystem';
 import { calculateEncounterChance } from './encounterSystem';
 import { applyPassiveTraining, logSkillUps } from './skillProgression';
+import { getCommandTrainingMultiplier } from './captainBonus';
 import { getCrewForJobType, isRoomStaffed, getCrewJobSlot } from './jobSlots';
 import { applyOxygenTick, getOxygenHealthDamage } from './lifeSupportSystem';
 import { applyMiningTick } from './miningSystem';
@@ -488,7 +489,9 @@ function applyShipTick(gameData: GameData, ship: Ship): boolean {
     }
 
     // Passive skill training (during flight)
-    const skillUps = applyPassiveTraining(ship);
+    // Captain's ship trains 1.5×; ships near captain get aura training bonus
+    const trainingMultiplier = getCommandTrainingMultiplier(ship, gameData);
+    const skillUps = applyPassiveTraining(ship, trainingMultiplier);
     if (skillUps.length > 0) {
       logSkillUps(gameData.log, gameData.gameTime, ship.name, skillUps);
     }

@@ -1,5 +1,5 @@
 import type { Quest, Ship, WorldLocation, World } from './models';
-import { getShipCommander } from './models';
+import { getCommandCommerceBonus } from './captainBonus';
 import { getShipClass } from './shipClasses';
 import { getDistanceBetween, canShipAccessLocation } from './worldGen';
 import {
@@ -15,7 +15,6 @@ import { getEngineDefinition } from './engines';
 import { calculateShipSalaryPerTick } from './crewRoles';
 import { calculatePositionDanger } from './encounterSystem';
 import { getCrewForJobType, isHelmManned } from './jobSlots';
-import { getCommercePaymentBonus } from './skillRanks';
 import { getFuelPricePerKg } from './ui/refuelDialog';
 
 // Fallback fuel price for payment calculations when no location is available
@@ -169,8 +168,8 @@ function calculatePayment(
   // 5. Skill-based crew bonus (reputation from skilled crew)
   const crewBonus = calculateCrewSkillBonus(ship);
 
-  // 6. Commerce bonus from captain's trading experience
-  const commerceBonus = getShipCommerceBonus(ship);
+  // 6. Captain command bonus (continuous linear from captain/acting captain)
+  const commerceBonus = getCommandCommerceBonus(ship);
 
   const payment = basePayment * (1 + crewBonus + commerceBonus);
 
@@ -208,16 +207,6 @@ function calculateCrewSkillBonus(ship: Ship): number {
   }
 
   return bonus;
-}
-
-/**
- * Get commerce payment bonus from the ship's captain (or highest-commerce crew).
- * Commerce is trained by completing trade routes and provides better pay.
- */
-function getShipCommerceBonus(ship: Ship): number {
-  const commander = getShipCommander(ship);
-  const commerceSkill = commander?.skills.commerce ?? 0;
-  return getCommercePaymentBonus(commerceSkill);
 }
 
 /**
@@ -619,8 +608,8 @@ export function calculateTradeRoutePayment(
   // 6. Crew skill bonus (same system as regular quests)
   const crewBonus = calculateCrewSkillBonus(ship);
 
-  // 7. Commerce bonus from captain's trading experience
-  const commerceBonus = getShipCommerceBonus(ship);
+  // 7. Captain command bonus (continuous linear from captain/acting captain)
+  const commerceBonus = getCommandCommerceBonus(ship);
 
   const payment =
     (costFloor + distanceBonus) *

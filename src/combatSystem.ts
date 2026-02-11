@@ -17,6 +17,11 @@ import {
 } from './skillProgression';
 import { getCrewForJobType } from './jobSlots';
 import { getBestCrewSkill } from './crewRoles';
+import {
+  getCommandPilotingBonus,
+  getCommandRallyBonus,
+  canNegotiate,
+} from './captainBonus';
 
 /**
  * Combat System
@@ -168,7 +173,11 @@ export function attemptEvasion(ship: Ship): {
   const bestPiloting = getBestCrewSkill(bridgeCrew, 'piloting');
   const pilotingBonus = bestPiloting * COMBAT_CONSTANTS.EVASION_SKILL_FACTOR;
 
-  const chance = velocityFactor + scannerBonus + pilotingBonus;
+  // Captain command bonus: captain's piloting adds extra evasion
+  const commandEvasionBonus = getCommandPilotingBonus(ship) * 0.15;
+
+  const chance =
+    velocityFactor + scannerBonus + pilotingBonus + commandEvasionBonus;
   const success = Math.random() < chance;
 
   return { success, chance };
@@ -283,6 +292,9 @@ export function calculateDefenseScore(ship: Ship): number {
   if (shipClass) {
     defenseScore += shipClass.mass / COMBAT_CONSTANTS.MASS_DIVISOR;
   }
+
+  // 7. Captain rally bonus (leadership under fire)
+  defenseScore += getCommandRallyBonus(ship);
 
   return defenseScore;
 }
@@ -643,8 +655,10 @@ export function resolveEncounter(
     return result;
   }
 
-  // Step 2: Attempt negotiation
-  const negotiation = attemptNegotiation(ship);
+  // Step 2: Attempt negotiation (captain only — acting captains lack authority)
+  const negotiation = canNegotiate(ship)
+    ? attemptNegotiation(ship)
+    : { success: false, chance: 0, negotiatorName: '', negotiatorId: '' };
   if (negotiation.success) {
     const ransomRate = 0.05 + Math.random() * 0.1; // 5-15% of credits
     const scaledRate = ransomRate * (threatLevel / 10);
