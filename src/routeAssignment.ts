@@ -11,6 +11,7 @@ import { generateId } from './utils';
 import { getDistanceBetween } from './worldGen';
 import { getFuelPricePerKg } from './ui/refuelDialog';
 import { gameSecondsToTicks } from './timeSystem';
+import { formatFuelMass, calculateFuelPercentage } from './ui/fuelFormatting';
 
 type AcceptQuestFn = (gameData: GameData, ship: Ship, quest: Quest) => void;
 
@@ -161,7 +162,7 @@ export function checkAutoRefuel(
   }
 
   const threshold = ship.routeAssignment.autoRefuelThreshold;
-  const fuelPercentage = (ship.fuelKg / ship.maxFuelKg) * 100;
+  const fuelPercentage = calculateFuelPercentage(ship.fuelKg, ship.maxFuelKg);
 
   if (fuelPercentage < threshold) {
     // Calculate refuel amount and cost using location-based pricing
@@ -180,7 +181,7 @@ export function checkAutoRefuel(
         gameData.log,
         gameData.gameTime,
         'refueled',
-        `Auto-refueled ${ship.name} at ${location.name}: ${Math.round(fuelNeededKg).toLocaleString()} kg (${fuelCost.toLocaleString()} cr)`,
+        `Auto-refueled ${ship.name} at ${location.name}: ${formatFuelMass(fuelNeededKg)} (${fuelCost.toLocaleString()} cr)`,
         ship.name
       );
 

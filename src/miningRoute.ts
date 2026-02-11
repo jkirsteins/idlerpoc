@@ -4,6 +4,7 @@ import { sellAllOre } from './miningSystem';
 import { getRemainingOreCapacity } from './miningSystem';
 import { addLog } from './logSystem';
 import { getFuelPricePerKg } from './ui/refuelDialog';
+import { formatFuelMass, calculateFuelPercentage } from './ui/fuelFormatting';
 
 /**
  * Mining Route System
@@ -308,7 +309,7 @@ function autoRefuelForMiningRoute(
   ship: Ship,
   location: import('./models').WorldLocation
 ): void {
-  const fuelPct = (ship.fuelKg / ship.maxFuelKg) * 100;
+  const fuelPct = calculateFuelPercentage(ship.fuelKg, ship.maxFuelKg);
   if (fuelPct >= 30) return; // Only refuel below 30%
 
   const fuelNeededKg = ship.maxFuelKg - ship.fuelKg;
@@ -324,7 +325,7 @@ function autoRefuelForMiningRoute(
       gameData.log,
       gameData.gameTime,
       'refueled',
-      `Auto-refueled ${ship.name} at ${location.name}: ${Math.round(fuelNeededKg).toLocaleString()} kg (${fuelCost.toLocaleString()} cr)`,
+      `Auto-refueled ${ship.name} at ${location.name}: ${formatFuelMass(fuelNeededKg)} (${fuelCost.toLocaleString()} cr)`,
       ship.name
     );
   } else {

@@ -4,7 +4,11 @@ import { getEngineDefinition } from '../engines';
 import { computeMaxRange } from '../flightPhysics';
 import { formatDualTime } from '../timeSystem';
 import type { Component } from './component';
-import { formatFuelMass, calculateFuelPercentage } from './fuelFormatting';
+import {
+  formatFuelMass,
+  calculateFuelPercentage,
+  getFuelColorHex,
+} from './fuelFormatting';
 import { getCommandCommerceBonus, getFleetAuraBonus } from '../captainBonus';
 
 export interface FleetPanelCallbacks {
@@ -357,7 +361,8 @@ export function createFleetPanel(
 
     // Fuel
     const fuelPercentage = calculateFuelPercentage(ship.fuelKg, ship.maxFuelKg);
-    refs.fuelSpan.style.color = fuelPercentage < 20 ? '#ff4444' : '';
+    refs.fuelSpan.style.color =
+      fuelPercentage <= 20 ? getFuelColorHex(fuelPercentage) : '';
     const fuelText = `Fuel: ${formatFuelMass(ship.fuelKg)}`;
     if (refs.fuelSpan.textContent !== fuelText) {
       refs.fuelSpan.textContent = fuelText;

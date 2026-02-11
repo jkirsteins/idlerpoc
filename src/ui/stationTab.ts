@@ -26,7 +26,11 @@ import {
 } from '../equipment';
 import { getOreDefinition } from '../oreTypes';
 import { getOreSellPrice } from '../miningSystem';
-import { formatFuelMass, calculateFuelPercentage } from './fuelFormatting';
+import {
+  formatFuelMass,
+  calculateFuelPercentage,
+  getFuelColorHex,
+} from './fuelFormatting';
 import { getFuelPricePerKg } from './refuelDialog';
 import { getCrewRoleDefinition, getCrewSalaryPerTick } from '../crewRoles';
 import { getSkillRank } from '../skillRanks';
@@ -659,8 +663,7 @@ export function createStationTab(
     fuelStatusLine.innerHTML = `Fuel: <strong>${formatFuelMass(ship.fuelKg)}</strong> / ${formatFuelMass(ship.maxFuelKg)} (${Math.round(fuelPercent)}%)`;
 
     // Fuel bar
-    const fuelColor =
-      fuelPercent > 50 ? '#4caf50' : fuelPercent > 20 ? '#ffc107' : '#e94560';
+    const fuelColor = getFuelColorHex(fuelPercent);
     fuelBarFill.style.width = `${fuelPercent}%`;
     fuelBarFill.style.background = fuelColor;
 

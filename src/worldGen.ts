@@ -4,6 +4,7 @@ import { computeMaxRange } from './flightPhysics';
 import { getEngineDefinition } from './engines';
 import { getDistanceBetween } from './utils';
 import { getBestCrewSkill } from './crewRoles';
+import { calculateFuelPercentage } from './ui/fuelFormatting';
 
 export { getDistanceBetween } from './utils';
 
@@ -37,7 +38,7 @@ export function isLocationReachable(
 
   // Calculate effective range based on current fuel (fuel affects how far you can go)
   // At 100% fuel, you can go max range. At 50% fuel, you can go half max range.
-  const fuelPercent = (ship.fuelKg / ship.maxFuelKg) * 100;
+  const fuelPercent = calculateFuelPercentage(ship.fuelKg, ship.maxFuelKg);
   const effectiveRange = maxRange * (fuelPercent / 100);
 
   // Check if destination has refuel services
@@ -91,7 +92,7 @@ export function getUnreachableReason(
   }
 
   // Calculate effective range based on current fuel
-  const fuelPercent = (ship.fuelKg / ship.maxFuelKg) * 100;
+  const fuelPercent = calculateFuelPercentage(ship.fuelKg, ship.maxFuelKg);
   const effectiveRange = maxRange * (fuelPercent / 100);
 
   // Check if we have enough fuel

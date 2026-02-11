@@ -8,6 +8,7 @@ import type {
 import { getShipCommander } from './models';
 import { startShipFlight } from './flightPhysics';
 import { addLog } from './logSystem';
+import { formatFuelMass } from './ui/fuelFormatting';
 import { generateAllLocationQuests } from './questGen';
 import { getDaysSinceEpoch, TICKS_PER_DAY } from './timeSystem';
 import { generateHireableCrewByLocation } from './gameFactory';
@@ -63,7 +64,7 @@ function tryAutoRefuelForLeg(
       gameData.log,
       gameData.gameTime,
       'refueled',
-      `Auto-refueled ${ship.name} at ${location.name}: ${Math.round(fuelNeededKg).toLocaleString()} kg (${fullCost.toLocaleString()} cr)`,
+      `Auto-refueled ${ship.name} at ${location.name}: ${formatFuelMass(fuelNeededKg)} (${fullCost.toLocaleString()} cr)`,
       ship.name
     );
     return true;

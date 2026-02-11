@@ -25,6 +25,7 @@ import {
 } from './gameTick';
 import { getLevelForXP } from './levelSystem';
 import { createRefuelDialog, getFuelPricePerKg } from './ui/refuelDialog';
+import { formatFuelMass, calculateFuelPercentage } from './ui/fuelFormatting';
 import {
   advanceToNextDayStart,
   GAME_SECONDS_PER_DAY,
@@ -869,7 +870,7 @@ const callbacks: RendererCallbacks = {
             state.gameData.log,
             state.gameData.gameTime,
             'refueled',
-            `Purchased ${Math.round(fuelKg).toLocaleString()} kg fuel for ${totalCost.toLocaleString()} credits`,
+            `Purchased ${formatFuelMass(fuelKg)} fuel for ${totalCost.toLocaleString()} credits`,
             ship.name
           );
 
@@ -1527,7 +1528,7 @@ function checkAutoPause(gameData: GameData, prevGameTime: number): boolean {
   // Check for low fuel
   if (settings.onLowFuel) {
     for (const ship of gameData.ships) {
-      const fuelPercent = (ship.fuelKg / ship.maxFuelKg) * 100;
+      const fuelPercent = calculateFuelPercentage(ship.fuelKg, ship.maxFuelKg);
       if (fuelPercent < 10 && ship.location.status === 'in_flight') {
         gameData.isPaused = true;
         return true;

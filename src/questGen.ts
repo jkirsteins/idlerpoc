@@ -16,6 +16,7 @@ import { calculateShipSalaryPerTick } from './crewRoles';
 import { calculatePositionDanger } from './encounterSystem';
 import { getCrewForJobType, isHelmManned } from './jobSlots';
 import { getFuelPricePerKg } from './ui/refuelDialog';
+import { formatFuelMass } from './ui/fuelFormatting';
 
 // Fallback fuel price for payment calculations when no location is available
 const FUEL_PRICE_PER_KG_FALLBACK = 2.0;
@@ -870,7 +871,7 @@ export function canAcceptQuest(
   if (fuelRequired > ship.fuelKg) {
     return {
       canAccept: false,
-      reason: `Insufficient fuel for trip (need ${Math.round(fuelRequired).toLocaleString()} kg, have ${Math.round(ship.fuelKg).toLocaleString()} kg)`,
+      reason: `Insufficient fuel for trip (need ${formatFuelMass(fuelRequired)}, have ${formatFuelMass(ship.fuelKg)})`,
     };
   }
 
