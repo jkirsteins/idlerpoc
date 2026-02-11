@@ -221,6 +221,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
           'You can only have one active contract per ship at a time. While in flight you can choose to continue, pause and dock on arrival, or abandon the contract.',
           'Pausing a contract preserves all progress — resume anytime from the docked state. Abandoning a contract ends it permanently, but you keep credits earned from completed trips. The current in-progress trip will not be paid.',
           'Quest cards show estimated fuel cost, trip time, [[crew-salaries|crew salary]] cost, and projected profit/loss based on your current [[flight-physics|flight profile]].',
+          'Accepting a contract requires the [[job-slots|helm]] to be manned — make sure you have crew assigned to the helm before browsing the job board.',
         ],
       },
     ],
@@ -617,7 +618,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
         heading: 'How It Works',
         paragraphs: [
           'The bridge generates Helm and Comms slots. The engine room generates Drive Ops. The mining bay generates Mining Ops. [[ship-equipment|Ship equipment]] can generate additional slots (e.g. nav scanner creates Scan Ops, point defense creates Targeting).',
-          'Helm is the only required job — without a helm crew member, the ship coasts with no active control.',
+          'Helm is the only required job — without a helm crew member, the ship cannot undock or accept [[contracts|contracts]]. Assign crew to the helm before departing.',
         ],
       },
       {
