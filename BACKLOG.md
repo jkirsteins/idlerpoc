@@ -2,6 +2,17 @@
 
 This file tracks deferred features and known gaps that are not currently prioritized for implementation.
 
+## Captain Flagship System
+
+The captain currently provides almost no mechanical benefit for being on any particular ship. A flagship system should create emergent incentives for the captain to command the best ship in the fleet. Full design in `docs/captain-flagship-design.md`, research sources in `docs/bibliography-idle-game-research.md`.
+
+- **Captain Presence Multiplier (Phase 1)**: Strengthen captain's skill-based multipliers on income (commerce), evasion (piloting), and extraction (mining). Acting captain fallback provides only 25% of the bonus. The better the ship, the more the captain's multiplier is worth in absolute terms.
+- **Morale System Activation (Phase 2)**: Wire up the existing unused `morale` field. Captain presence stabilizes morale; absence causes drift and eventual desertion. High morale → +15% training speed, +10% combat defense. Low morale → penalties and desertion risk.
+- **Captain-Only Encounter Outcomes (Phase 3)**: Gate negotiation behind captain presence. Ships without the captain can only evade, flee, or fight. Captain provides rally defense bonus (+5) in combat.
+- **Fleet Coordination Aura (Phase 4)**: Captain provides +10% income/training to ships at the same location, +5% one hop away. Creates fleet positioning strategy.
+- **Training Speed Aura (Phase 5)**: Captain's ship gets 1.5x training speed for all crew aboard. Creates a recruit → train on flagship → deploy to fleet pipeline.
+- **UI Surfacing**: Command bonus bar on Ship tab, captain badge in fleet panel, bonus breakdown on quest cards (showing concrete credit value of captain placement), morale indicators, capabilities panel command section. All indicators shown always (dimmed/inactive when captain absent) per UI discoverability rule.
+
 ## Deferred Gravity System Features
 
 - **"Juice" / Anti-Atrophy Drugs**: Consumable system needed first. Would allow temporary protection from zero-g exposure.
