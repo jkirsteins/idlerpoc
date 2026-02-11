@@ -20,6 +20,7 @@ import {
   calculateFuelPercentage,
   getFuelColorClass,
 } from './fuelFormatting';
+import { isHelmManned } from '../jobSlots';
 
 interface SidebarCallbacks {
   onBuyFuel?: () => void;
@@ -297,6 +298,11 @@ export function createLeftSidebar(
       undockBtn.className = 'small-button';
       undockBtn.style.width = '100%';
       undockBtn.style.marginBottom = '8px';
+      if (!isHelmManned(ship)) {
+        undockBtn.disabled = true;
+        undockBtn.title =
+          'Helm is unmanned — assign crew to the helm before undocking';
+      }
       undockBtn.addEventListener('click', callbacks.onUndock);
       actionsSection.appendChild(undockBtn);
       hasActions = true;

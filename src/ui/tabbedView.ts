@@ -27,6 +27,7 @@ import {
   getThreatLevel,
 } from '../encounterSystem';
 import { formatFuelMass, calculateFuelPercentage } from './fuelFormatting';
+import { isHelmManned } from '../jobSlots';
 
 // Track credits for delta display
 let previousCredits: number | null = null;
@@ -522,6 +523,11 @@ function renderGlobalStatusBar(
     const undockBtn = document.createElement('button');
     undockBtn.className = 'global-status-btn';
     undockBtn.textContent = 'Undock';
+    if (!isHelmManned(ship)) {
+      undockBtn.disabled = true;
+      undockBtn.title =
+        'Helm is unmanned — assign crew to the helm before undocking';
+    }
     undockBtn.addEventListener('click', () => callbacks.onUndock());
     actionsDiv.appendChild(undockBtn);
   }
