@@ -18,6 +18,7 @@
 
 import type { Ship, GameData, OreId, WorldLocation } from './models';
 import { getShipCommander } from './models';
+import { getCommandMiningBonus } from './captainBonus';
 import { getOreDefinition, type OreDefinition } from './oreTypes';
 import { getEquipmentDefinition, type EquipmentDefinition } from './equipment';
 import { getCrewForJobType } from './jobSlots';
@@ -199,13 +200,17 @@ export function applyMiningTick(
     const poolYieldBonus = getMiningPoolYieldBonus(pool);
     const doubleDropChance = getMiningPoolDoubleChance(pool);
 
+    // Captain command bonus (ship-wide multiplier from captain's mining skill)
+    const captainMiningMultiplier = 1 + getCommandMiningBonus(ship);
+
     // Final yield per tick
     const oreYield =
       BASE_MINING_RATE *
       equipRate *
       skillFactor *
       (1 + masteryYieldBonus) *
-      (1 + poolYieldBonus);
+      (1 + poolYieldBonus) *
+      captainMiningMultiplier;
 
     // Accumulate fractional ore
     const prevAccum = ship.miningAccumulator[ore.id] ?? 0;

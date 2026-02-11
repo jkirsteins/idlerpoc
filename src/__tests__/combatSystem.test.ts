@@ -73,12 +73,13 @@ describe('attemptEvasion', () => {
       location: { status: 'in_flight' },
       activeFlightPlan: createTestFlight({ currentVelocity: 50_000 }),
     });
-    // Clear bridge crew and remove scanner
+    // Clear bridge crew, scanner, and neutralize captain command bonus
     clearJobSlots(ship, 'helm');
     clearJobSlots(ship, 'scanner');
     ship.equipment = ship.equipment.filter(
       (eq) => eq.definitionId !== 'nav_scanner'
     );
+    for (const c of ship.crew) c.skills.piloting = 0;
 
     const result = attemptEvasion(ship);
     expect(result.chance).toBeCloseTo(COMBAT_CONSTANTS.EVASION_VELOCITY_CAP, 2);
@@ -94,6 +95,7 @@ describe('attemptEvasion', () => {
     ship.equipment = ship.equipment.filter(
       (eq) => eq.definitionId !== 'nav_scanner'
     );
+    for (const c of ship.crew) c.skills.piloting = 0;
 
     const result = attemptEvasion(ship);
     expect(result.chance).toBeCloseTo(0.3, 2);
@@ -107,6 +109,7 @@ describe('attemptEvasion', () => {
     clearJobSlots(ship, 'helm');
     clearJobSlots(ship, 'scanner');
     ship.equipment = [createTestEquipment({ definitionId: 'nav_scanner' })];
+    for (const c of ship.crew) c.skills.piloting = 0;
 
     const result = attemptEvasion(ship);
     expect(result.chance).toBeCloseTo(

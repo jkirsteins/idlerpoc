@@ -13,6 +13,7 @@ import {
 } from '../equipment';
 import { calculateRepairPoints } from '../crewRoles';
 import { calculateDefenseScore } from '../combatSystem';
+import { getCommandBonusBreakdown } from '../captainBonus';
 import { getEngineDefinition } from '../engines';
 import { createNavigationView } from './navigationView';
 import { getGravitySource } from '../gravitySystem';
@@ -191,6 +192,7 @@ export function createShipTab(
   const radiationBarSlot = document.createElement('div');
   const heatBarSlot = document.createElement('div');
   const containmentBarSlot = document.createElement('div');
+  const commandBarSlot = document.createElement('div');
 
   // ── Flight status component (includes flight info + station action radio) ──
   const flightStatusComponent = createFlightStatusComponent(gameData, {
@@ -246,6 +248,7 @@ export function createShipTab(
     radiationBarSlot,
     heatBarSlot,
     containmentBarSlot,
+    commandBarSlot,
     flightStatusComponent.el,
     shipStatsPanelSlot,
     jobSlotsGrid,
@@ -905,6 +908,10 @@ export function createShipTab(
       containmentBarSlot.removeChild(containmentBarSlot.firstChild);
     containmentBarSlot.appendChild(renderContainmentBar(gameData));
 
+    if (commandBarSlot.firstChild)
+      commandBarSlot.removeChild(commandBarSlot.firstChild);
+    commandBarSlot.appendChild(renderCommandBar(gameData));
+
     // ── Flight status component (handles its own visibility) ──
     flightStatusComponent.update(gameData);
 
@@ -1451,6 +1458,65 @@ function renderContainmentBar(gameData: GameData): HTMLElement {
   });
 }
 
+// ── Command bar (captain command bonus) ─────────────────────────
+
+function renderCommandBar(gameData: GameData): HTMLElement {
+  const ship = getActiveShip(gameData);
+  const breakdown = getCommandBonusBreakdown(ship);
+
+  const maxBonus = Math.max(
+    breakdown.commerceBonus,
+    breakdown.pilotingBonus,
+    breakdown.miningBonus
+  );
+  const percentage = Math.min(100, maxBonus * 100);
+
+  let valueLabel: string;
+  let colorClass: string;
+
+  if (breakdown.hasCaptain) {
+    valueLabel = `+${Math.round(breakdown.commerceBonus * 100)}% CMD`;
+    colorClass = 'bar-command';
+  } else if (breakdown.actingCaptainName) {
+    valueLabel = `Acting +${Math.round(breakdown.commerceBonus * 100)}%`;
+    colorClass = 'bar-command-inactive';
+  } else {
+    valueLabel = 'No Captain';
+    colorClass = 'bar-command-inactive';
+  }
+
+  const bar = renderStatBar({
+    label: 'COMMAND',
+    percentage,
+    valueLabel,
+    colorClass,
+    mode: 'full',
+  });
+
+  // Build tooltip content
+  let tooltipHtml: string;
+  if (breakdown.hasCaptain) {
+    tooltipHtml =
+      `<b>Captain's Command Bonus</b><br>` +
+      `────────────────────────<br>` +
+      `Commerce: +${Math.round(breakdown.commerceBonus * 100)}% income (skill ${Math.round(breakdown.commerceBonus * 100)})<br>` +
+      `Piloting: +${Math.round(breakdown.pilotingBonus * 100)}% evasion (skill ${Math.round(breakdown.pilotingBonus * 200)})<br>` +
+      `Mining: +${Math.round(breakdown.miningBonus * 100)}% extraction (skill ${Math.round(breakdown.miningBonus * 100)})`;
+  } else if (breakdown.actingCaptainName) {
+    tooltipHtml =
+      `<b>Acting Captain: ${breakdown.actingCaptainName}</b><br>` +
+      `────────────────────────<br>` +
+      `Commerce: +${Math.round(breakdown.commerceBonus * 100)}% income (25% of full bonus)<br>` +
+      `No piloting or mining bonus without captain.`;
+  } else {
+    tooltipHtml = `<b>No Command Bonus</b><br>No captain or crew aboard.`;
+  }
+
+  attachTooltip(bar, { content: tooltipHtml });
+
+  return bar;
+}
+
 // ── Ship stats panel ─────────────────────────────────────────────
 
 function renderShipStatsPanel(gameData: GameData): HTMLElement {
@@ -1546,6 +1612,31 @@ function renderShipStatsPanel(gameData: GameData): HTMLElement {
   defenseDiv.innerHTML = `<span style="color: #888;">Defense:</span> <span style="color: ${defenseColor}; font-weight: bold;">${defenseScore.toFixed(1)}</span><br><span style="font-size: 0.75rem; color: #aaa;">${defenseBreakdown.length > 0 ? defenseBreakdown.join(' + ') : 'None'}</span>`;
   defenseDiv.title = defenseTooltip;
   statsGrid.appendChild(defenseDiv);
+
+  // Command bonus card
+  const cmdBreakdown = getCommandBonusBreakdown(ship);
+  const cmdDiv = document.createElement('div');
+  if (cmdBreakdown.hasCaptain) {
+    const cPct = Math.round(cmdBreakdown.commerceBonus * 100);
+    const pPct = Math.round(cmdBreakdown.pilotingBonus * 100);
+    const mPct = Math.round(cmdBreakdown.miningBonus * 100);
+    cmdDiv.innerHTML =
+      `<span style="color: #888;">Command:</span> <span style="color: #fbbf24; font-weight: bold;">CPT ${cmdBreakdown.captainName} ✦</span><br>` +
+      `<span style="font-size: 0.75rem; color: #fbbf24;">+${cPct}% income · +${pPct}% evasion · +${mPct}% yield</span>`;
+    cmdDiv.title = `Captain's Command Bonus: Commerce +${cPct}%, Piloting +${pPct}%, Mining +${mPct}%`;
+  } else if (cmdBreakdown.actingCaptainName) {
+    const cPct = Math.round(cmdBreakdown.commerceBonus * 100);
+    cmdDiv.innerHTML =
+      `<span style="color: #888;">Command:</span> <span style="color: #6b7280;">ACT ${cmdBreakdown.actingCaptainName}</span><br>` +
+      `<span style="font-size: 0.75rem; color: #6b7280;">+${cPct}% income (reduced) · Piloting — · Mining —</span>`;
+    cmdDiv.title = `Acting Captain provides reduced commerce bonus only`;
+  } else {
+    cmdDiv.innerHTML =
+      `<span style="color: #888;">Command:</span> <span style="color: #6b7280;">None</span><br>` +
+      `<span style="font-size: 0.75rem; color: #6b7280;">No command bonus active</span>`;
+    cmdDiv.title = 'No captain or crew aboard to provide command bonuses';
+  }
+  statsGrid.appendChild(cmdDiv);
 
   section.appendChild(statsGrid);
   return section;

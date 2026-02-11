@@ -27,6 +27,10 @@ import { getCrewForJobType } from '../jobSlots';
 import { getBestShipMiningEquipment } from '../equipment';
 import { getOreCargoWeight, getRemainingOreCapacity } from '../miningSystem';
 import {
+  getCommandBonusCreditAttribution,
+  getHypotheticalCaptainBonus,
+} from '../captainBonus';
+import {
   createFlightProfileControl,
   updateFlightProfileControl,
 } from './flightProfileControl';
@@ -60,6 +64,8 @@ interface QuestCardRefs {
   timeInfo: HTMLDivElement;
   crewCostInfo: HTMLDivElement;
   fuelCostInfo: HTMLDivElement;
+  captainBonusInfo: HTMLDivElement;
+  captainHintInfo: HTMLDivElement;
   profitInfo: HTMLDivElement;
   riskLine: HTMLDivElement;
   riskBadgeSlot: HTMLDivElement;
@@ -776,6 +782,13 @@ export function createWorkTab(
     fuelCostInfo.style.color = '#ffa500';
     details.appendChild(fuelCostInfo);
 
+    const captainBonusInfo = document.createElement('div');
+    details.appendChild(captainBonusInfo);
+
+    const captainHintInfo = document.createElement('div');
+    captainHintInfo.style.cssText = 'color: #666; font-size: 0.85em;';
+    details.appendChild(captainHintInfo);
+
     const profitInfo = document.createElement('div');
     profitInfo.style.cssText = 'font-weight: bold; margin-top: 4px;';
     details.appendChild(profitInfo);
@@ -834,35 +847,7 @@ export function createWorkTab(
     card.appendChild(reasonDiv);
 
     // Initial population
-    updateQuestCardRefs(
-      {
-        card,
-        title,
-        description,
-        details,
-        destInfo,
-        distanceInfo,
-        cargoInfo,
-        totalCargoInfo,
-        tripsInfo,
-        fuelInfo,
-        timeInfo,
-        crewCostInfo,
-        fuelCostInfo,
-        profitInfo,
-        riskLine,
-        riskBadgeSlot,
-        payment,
-        buttonContainer,
-        acceptBtn,
-        assignBtn,
-        reasonDiv,
-      },
-      quest,
-      gd
-    );
-
-    return {
+    const refs: QuestCardRefs = {
       card,
       title,
       description,
@@ -876,6 +861,8 @@ export function createWorkTab(
       timeInfo,
       crewCostInfo,
       fuelCostInfo,
+      captainBonusInfo,
+      captainHintInfo,
       profitInfo,
       riskLine,
       riskBadgeSlot,
@@ -885,6 +872,8 @@ export function createWorkTab(
       assignBtn,
       reasonDiv,
     };
+    updateQuestCardRefs(refs, quest, gd);
+    return refs;
   }
 
   function updateQuestCardRefs(
@@ -997,11 +986,14 @@ export function createWorkTab(
 
     refs.fuelCostInfo.textContent = `Fuel Cost: ~${tripFuelCost.toLocaleString()} cr per trip`;
 
-    // Profit
+    // Captain command bonus attribution
     const tripPayment =
       quest.paymentPerTrip > 0
         ? quest.paymentPerTrip
         : quest.paymentOnCompletion;
+    updateCaptainBonusDisplay(refs, ship, gd, tripPayment);
+
+    // Profit
     const totalCost = tripCrewCost + tripFuelCost;
     const profit = tripPayment - totalCost;
 
@@ -1656,4 +1648,42 @@ export function createWorkTab(
   // Initial render
   update(gameData);
   return { el: container, update };
+}
+
+function updateCaptainBonusDisplay(
+  refs: QuestCardRefs,
+  ship: Ship,
+  gd: GameData,
+  tripPayment: number
+): void {
+  const hasCaptain = ship.crew.some((c) => c.isCaptain);
+  const bonusCredits = getCommandBonusCreditAttribution(tripPayment, ship);
+
+  if (hasCaptain && bonusCredits > 0) {
+    refs.captainBonusInfo.textContent = `Captain bonus: +${bonusCredits.toLocaleString()} cr`;
+    refs.captainBonusInfo.style.color = '#fbbf24';
+    refs.captainBonusInfo.style.display = '';
+    refs.captainHintInfo.style.display = 'none';
+  } else if (!hasCaptain) {
+    if (bonusCredits > 0) {
+      refs.captainBonusInfo.textContent = `Acting cpt: +${bonusCredits.toLocaleString()} cr`;
+    } else {
+      refs.captainBonusInfo.textContent = 'No command bonus';
+    }
+    refs.captainBonusInfo.style.color = '#6b7280';
+    refs.captainBonusInfo.style.display = '';
+    const hypothetical = getHypotheticalCaptainBonus(ship, gd);
+    if (hypothetical > 0) {
+      const hypotheticalCredits = Math.round(
+        (tripPayment * hypothetical) / (1 + hypothetical)
+      );
+      refs.captainHintInfo.textContent = `(Captain: +${hypotheticalCredits.toLocaleString()} cr)`;
+      refs.captainHintInfo.style.display = '';
+    } else {
+      refs.captainHintInfo.style.display = 'none';
+    }
+  } else {
+    refs.captainBonusInfo.style.display = 'none';
+    refs.captainHintInfo.style.display = 'none';
+  }
 }

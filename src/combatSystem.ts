@@ -17,6 +17,7 @@ import {
 } from './skillProgression';
 import { getCrewForJobType } from './jobSlots';
 import { getBestCrewSkill } from './crewRoles';
+import { getCommandPilotingBonus } from './captainBonus';
 
 /**
  * Combat System
@@ -168,7 +169,11 @@ export function attemptEvasion(ship: Ship): {
   const bestPiloting = getBestCrewSkill(bridgeCrew, 'piloting');
   const pilotingBonus = bestPiloting * COMBAT_CONSTANTS.EVASION_SKILL_FACTOR;
 
-  const chance = velocityFactor + scannerBonus + pilotingBonus;
+  // Captain command bonus: captain's piloting adds extra evasion
+  const commandEvasionBonus = getCommandPilotingBonus(ship) * 0.15;
+
+  const chance =
+    velocityFactor + scannerBonus + pilotingBonus + commandEvasionBonus;
   const success = Math.random() < chance;
 
   return { success, chance };
