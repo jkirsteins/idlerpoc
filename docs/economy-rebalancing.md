@@ -124,14 +124,13 @@ function calculatePayment(
 
 See `docs/quest-reward-balancing.md` for the full design rationale.
 
-| Quest Type       | Multiplier      | Rationale                                                     |
-| ---------------- | --------------- | ------------------------------------------------------------- |
-| Passenger        | 2.0x            | Highest active premium: tightest deadline (3d), quarters req. |
-| Delivery         | 1.5x            | High active premium: one-shot, 7d expiry                      |
-| Supply           | 2.5x total      | High commitment: large bulk contract, 30d expiry, lump sum    |
-| Freight          | 1.2x per trip   | Semi-active: multi-trip with 14d deadline                     |
-| Standing Freight | 0.6x per trip   | Passive: infinite, automatable — modest but always profitable |
-| Trade Route      | 120% cost floor | Baseline passive income: permanent, deterministic, automated  |
+| Quest Type  | Multiplier      | Rationale                                                     |
+| ----------- | --------------- | ------------------------------------------------------------- |
+| Passenger   | 2.0x            | Highest active premium: tightest deadline (3d), quarters req. |
+| Delivery    | 1.5x            | High active premium: one-shot, 7d deadline                    |
+| Supply      | 2.5x total      | High commitment: large bulk contract, 30d deadline, lump sum  |
+| Freight     | 1.2x per trip   | Semi-active: multi-trip with 14d deadline                     |
+| Trade Route | 120% cost floor | Baseline passive income: permanent, deterministic, automated  |
 
 ### Expected Outcomes
 

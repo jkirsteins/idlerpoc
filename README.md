@@ -65,8 +65,9 @@ npm run dev
   - **Mid-flight redirect**: change destination while in flight — distances, threat levels, and fuel estimates update live from the ship's current position in space
   - Redirect replots a fresh burn-coast-burn trajectory from the ship's interpolated position (not available during contracts or mining routes)
 - **Quest & Contract System**:
-  - Accept delivery, passenger, freight, supply, and standing freight contracts
-  - **Active vs passive income**: Finite contracts (delivery, passenger) pay ~2-3x more than automated trade routes — rewarding attentive play while keeping idle income reliable (see `docs/quest-reward-balancing.md`)
+  - Accept delivery, passenger, freight, and supply contracts with completion deadlines
+  - **Active vs passive income**: Finite contracts pay ~2-3x more than automated trade routes — rewarding attentive play while keeping idle income reliable (see `docs/quest-reward-balancing.md`)
+  - **Contract deadlines**: Accepted contracts must be completed within their deadline (3-30 days depending on type) or they expire
   - **Persistent trade routes** at every location with trade service — permanent, automatable, modest-but-steady background income
   - Trade route pay scales with distance, route danger, and location economic power
   - Trade goods derived from location type (planets export manufactured goods, stations export tech components, etc.)

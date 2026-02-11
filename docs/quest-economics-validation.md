@@ -511,14 +511,9 @@ if (route includes refueling stop at hub station) {
 }
 ```
 
-### 3. Standing Freight Route Adjustments
+### 3. Standing Freight Removed
 
-Standing freight now uses 0.6x multiplier (down from 0.7x) as part of the active vs passive income rebalancing (see `docs/quest-reward-balancing.md`). This creates a clear ~2x pay gap between active contracts and passive automation while keeping standing freight always profitable (0.6 × 1.3 = 0.78x costs at worst).
-
-- Firebrand Meridian standing freight: Payment × 0.6 = 638,000 - 982,000 cr
-- Always profitable but modest margins — intended as background income, not primary earnings
-
-**Future consideration** (BACKLOG.md): Distance-based multiplier scaling (0.6x short → 0.8x long) could reward players who seek out longer standing freight routes.
+Standing freight was removed as a quest type — it was redundant with trade routes (both were infinite, automatable routes). Trade routes alone now fill the "passive income" role at 120% cost floor. See `docs/quest-reward-balancing.md` for the active vs passive income design.
 
 ### 4. Fusion Ship Short-Route Inefficiency
 
@@ -577,17 +572,7 @@ const fuelPrice = getLocationFuelPrice(currentLocation);
 const fuelCost = fuelCostKg * 2 * fuelPrice; // Round trip
 ```
 
-2. **Add standing freight distance multiplier** (optional):
-
-```typescript
-if (questType === 'standing_freight') {
-  if (distanceKm > 100000) multiplier = 0.9;
-  else if (distanceKm > 10000) multiplier = 0.8;
-  else multiplier = 0.7;
-}
-```
-
-3. **Add fuel cost display to quest cards** (UI task):
+2. **Add fuel cost display to quest cards** (UI task):
 
 ```typescript
 const estimatedFuelKg = calculateFuelCostKg(distanceKm, ship) * 2;

@@ -36,7 +36,7 @@ import {
   GAME_SECONDS_PER_TICK,
   TICKS_PER_DAY,
 } from './timeSystem';
-import { refreshExpiredQuests } from './questGen';
+import { generateAllLocationQuests } from './questGen';
 import {
   acceptQuest,
   pauseContract,
@@ -866,13 +866,10 @@ const callbacks: RendererCallbacks = {
       'Advanced one day'
     );
 
-    // Refresh expired quests (keep unexpired ones, fill empty slots)
-    const currentDay = getDaysSinceEpoch(state.gameData.gameTime);
-    state.gameData.availableQuests = refreshExpiredQuests(
+    // Regenerate quests for all locations
+    state.gameData.availableQuests = generateAllLocationQuests(
       ship,
-      state.gameData.world,
-      state.gameData.availableQuests,
-      currentDay
+      state.gameData.world
     );
     state.gameData.lastQuestRegenDay = getDaysSinceEpoch(
       state.gameData.gameTime

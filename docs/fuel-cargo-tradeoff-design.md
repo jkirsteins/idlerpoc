@@ -289,7 +289,7 @@ This creates **emergent gameplay** - players must plan refueling stops for long 
 
 **Answer: NO** - The cost-based floor system already accounts for fuel costs. If fuel costs increase (kg-based), the floor increases proportionally. No manual quest rebalancing needed.
 
-**Exception**: Standing freight routes (0.7x multiplier) may become unprofitable on fuel-expensive routes. Consider increasing multiplier to 0.85x for long-distance standing routes.
+**Note**: Trade routes use a 120% cost floor, so they track fuel cost changes automatically. See `docs/quest-reward-balancing.md` for the active vs passive income design.
 
 ## Crew Mass Accounting
 
