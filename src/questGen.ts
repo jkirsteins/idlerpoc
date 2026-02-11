@@ -306,7 +306,7 @@ function generateDeliveryQuest(
     : 1000;
   const cargoKg = Math.round(Math.min(1000 + Math.random() * 9000, maxCargo));
 
-  const payment = calculatePayment(ship, distanceKm, cargoKg);
+  const payment = Math.round(calculatePayment(ship, distanceKm, cargoKg) * 1.5); // Active premium: finite quest, 7d expiry
   const estimatedTime = estimateTripTime(ship, distanceKm);
   const fuelKgRequired = calculateTripFuelKg(ship, distanceKm);
 
@@ -340,7 +340,7 @@ function generatePassengerQuest(
   const passengerName =
     PASSENGER_NAMES[Math.floor(Math.random() * PASSENGER_NAMES.length)];
 
-  const payment = calculatePayment(ship, distanceKm);
+  const payment = Math.round(calculatePayment(ship, distanceKm) * 2.0); // Highest active premium: tightest deadline (3d), quarters required
   const estimatedTime = estimateTripTime(ship, distanceKm);
   const fuelKgRequired = calculateTripFuelKg(ship, distanceKm);
 
@@ -385,8 +385,8 @@ function generateFreightQuest(
   const trips = Math.floor(2 + Math.random() * 4); // 2-5 trips
 
   const paymentPerTrip = Math.round(
-    calculatePayment(ship, distanceKm, cargoKg) * 0.8
-  ); // 80% of one-off rate
+    calculatePayment(ship, distanceKm, cargoKg) * 1.2
+  ); // Semi-active premium: multi-trip with 14d expiry
   const estimatedTime = estimateTripTime(ship, distanceKm);
   const fuelKgRequired = calculateTripFuelKg(ship, distanceKm);
 
@@ -428,8 +428,8 @@ function generateSupplyQuest(
   const cargoPerTrip = Math.min(availableCargoSupply * 0.8, 10000); // Use 80% of available cargo
 
   const payment = Math.round(
-    calculatePayment(ship, distanceKm, totalCargoKg) * 1.5
-  ); // 150% bonus for bulk
+    calculatePayment(ship, distanceKm, totalCargoKg) * 2.5
+  ); // High commitment premium: large bulk contract, 30d expiry, lump sum
   const estimatedTime = estimateTripTime(ship, distanceKm);
   const fuelKgRequired = calculateTripFuelKg(ship, distanceKm);
 
@@ -446,48 +446,6 @@ function generateSupplyQuest(
     paymentPerTrip: 0,
     paymentOnCompletion: payment,
     expiresAfterDays: 30,
-    estimatedFuelPerTrip: fuelKgRequired * 2, // Round trip in kg
-    estimatedTripTicks: gameSecondsToTicks(estimatedTime * 2),
-  };
-}
-
-/**
- * Generate a standing freight quest
- */
-function generateStandingFreightQuest(
-  ship: Ship,
-  origin: WorldLocation,
-  destination: WorldLocation
-): Quest {
-  const distanceKm = getDistanceBetween(origin, destination);
-  const cargoType = CARGO_TYPES[Math.floor(Math.random() * CARGO_TYPES.length)];
-
-  const shipClassSF = getShipClass(ship.classId);
-  const maxCargoSF = shipClassSF
-    ? Math.floor(
-        calculateAvailableCargoCapacity(shipClassSF.cargoCapacity) * 0.8
-      )
-    : 1000;
-  const cargoKg = Math.round(Math.min(1000 + Math.random() * 9000, maxCargoSF));
-  const paymentPerTrip = Math.round(
-    calculatePayment(ship, distanceKm, cargoKg) * 0.7
-  ); // 70% of one-off rate
-  const estimatedTime = estimateTripTime(ship, distanceKm);
-  const fuelKgRequired = calculateTripFuelKg(ship, distanceKm);
-
-  return {
-    id: generateId(),
-    type: 'standing_freight',
-    title: `Standing freight: ${origin.name} → ${destination.name}`,
-    description: `Ongoing freight runs: ${cargoKg.toLocaleString()} kg of ${cargoType} per trip, no trip limit`,
-    origin: origin.id,
-    destination: destination.id,
-    cargoRequired: cargoKg,
-    totalCargoRequired: 0,
-    tripsRequired: -1, // Indefinite
-    paymentPerTrip,
-    paymentOnCompletion: 0,
-    expiresAfterDays: 0, // Never expires
     estimatedFuelPerTrip: fuelKgRequired * 2, // Round trip in kg
     estimatedTripTicks: gameSecondsToTicks(estimatedTime * 2),
   };
@@ -586,8 +544,9 @@ function calculateTradeRoutePayment(
   const fuelCost = fuelKgRequired * 2 * FUEL_PRICE_PER_KG; // Round trip in kg
   const totalCost = crewCost + fuelCost;
 
-  // Fixed at 150% of operating costs (no randomness unlike regular quests)
-  const costFloor = totalCost * 1.5;
+  // Fixed at 120% of operating costs (no randomness unlike regular quests)
+  // Trade routes are the baseline passive income — always profitable but modest
+  const costFloor = totalCost * 1.2;
 
   // 2. Distance bonus for long hauls
   let distanceBonus = 0;
@@ -700,7 +659,8 @@ export function generatePersistentTradeRoutes(
 }
 
 /**
- * Generate quests for all locations in the world
+ * Generate quests for all locations in the world.
+ * All non-trade-route quests are regenerated fresh each day.
  */
 export function generateAllLocationQuests(
   ship: Ship,
@@ -737,13 +697,7 @@ export function generateQuestsForLocation(
   }
 
   // Generate diverse quest types
-  const questTypes = [
-    'delivery',
-    'passenger',
-    'freight',
-    'supply',
-    'standing_freight',
-  ];
+  const questTypes = ['delivery', 'passenger', 'freight', 'supply'];
 
   for (let i = 0; i < count; i++) {
     const destination =
@@ -765,9 +719,6 @@ export function generateQuestsForLocation(
         break;
       case 'supply':
         quest = generateSupplyQuest(ship, location, destination);
-        break;
-      case 'standing_freight':
-        quest = generateStandingFreightQuest(ship, location, destination);
         break;
       default:
         quest = generateDeliveryQuest(ship, location, destination);

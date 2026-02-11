@@ -19,14 +19,14 @@ export function setAcceptQuestFn(fn: AcceptQuestFn): void {
 /**
  * Route Assignment System
  *
- * Enables ships to run automated standing freight routes indefinitely
+ * Enables ships to run automated trade routes indefinitely
  */
 
 /**
- * Assign ship to automated standing freight route
+ * Assign ship to automated trade route
  *
  * CONSTRAINTS:
- * - Only standing_freight quests (tripsRequired === -1)
+ * - Only trade_route quests (tripsRequired === -1)
  * - Ship must be docked at origin location
  * - Ship must have no active contract
  * - Quest must pass canAcceptQuest() validation
@@ -52,11 +52,11 @@ export function assignShipToRoute(
     return { success: false, error: 'Quest not found at this location' };
   }
 
-  // Validation: Must be standing freight or trade route
-  if (quest.type !== 'standing_freight' && quest.type !== 'trade_route') {
+  // Validation: Must be a trade route
+  if (quest.type !== 'trade_route') {
     return {
       success: false,
-      error: 'Only standing freight and trade route quests can be automated',
+      error: 'Only trade route quests can be automated',
     };
   }
 
@@ -243,11 +243,9 @@ export function autoRestartRouteTrip(
 
   // Create a new quest instance for the next trip, carrying forward the
   // payment and cargo values from the previous quest.
-  const questType =
-    previousQuest?.type === 'trade_route' ? 'trade_route' : 'standing_freight';
   const nextQuest: Quest = {
     id: generateId(),
-    type: questType,
+    type: 'trade_route',
     title: `Freight: ${originLoc.name} → ${destLoc.name}`,
     description: `Automated freight route`,
     origin: assignment.originId,

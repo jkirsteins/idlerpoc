@@ -310,7 +310,7 @@ export interface Ship {
   oreCargo: OreCargoItem[]; // mined ore in cargo hold
   miningAccumulator: Record<string, number>; // fractional ore per OreId
   activeContract: ActiveContract | null;
-  routeAssignment: RouteAssignment | null; // Automated route for standing freight
+  routeAssignment: RouteAssignment | null; // Automated route for trade routes
   miningRoute: MiningRoute | null; // Automated mine → sell → return loop
   lastEncounterTime?: number; // gameTime of last encounter (for cooldown)
   metrics: ShipMetrics; // Performance tracking for fleet management
@@ -324,7 +324,6 @@ export type QuestType =
   | 'passenger'
   | 'freight'
   | 'supply'
-  | 'standing_freight'
   | 'trade_route';
 
 export interface Quest {
@@ -339,7 +338,7 @@ export interface Quest {
   tripsRequired: number; // 1 for one-off, N for freight, -1 for indefinite
   paymentPerTrip: number; // credits (0 if lump sum only)
   paymentOnCompletion: number; // credits (0 if per-trip only)
-  expiresAfterDays: number; // 0 = no expiry
+  expiresAfterDays: number; // 0 = no deadline; N = days to complete once accepted
   estimatedFuelPerTrip: number; // display only
   estimatedTripTicks: number; // display only
 }
@@ -352,10 +351,11 @@ export interface ActiveContract {
   leg: 'outbound' | 'inbound';
   paused: boolean; // docked mid-contract
   abandonRequested?: boolean; // deferred abandon — applied on next arrival
+  acceptedOnDay?: number; // game day when contract was accepted (for deadline enforcement)
 }
 
 export interface RouteAssignment {
-  questId: string; // Standing freight quest being automated
+  questId: string; // Trade route quest being automated
   originId: string; // Route origin location
   destinationId: string; // Route destination location
   autoRefuel: boolean; // Auto-purchase fuel at stations
@@ -383,6 +383,7 @@ export type LogEntryType =
   | 'payment'
   | 'contract_accepted'
   | 'contract_abandoned'
+  | 'contract_expired'
   | 'day_advanced'
   | 'refueled'
   | 'salary_paid'

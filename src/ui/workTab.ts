@@ -1033,11 +1033,8 @@ export function createWorkTab(
     if (canAccept) {
       refs.buttonContainer.style.display = 'flex';
       refs.reasonDiv.style.display = 'none';
-      // Show assign button only for standing freight and trade routes
-      refs.assignBtn.style.display =
-        quest.type === 'standing_freight' || quest.type === 'trade_route'
-          ? ''
-          : 'none';
+      // Show assign button only for trade routes
+      refs.assignBtn.style.display = quest.type === 'trade_route' ? '' : 'none';
     } else {
       refs.buttonContainer.style.display = 'none';
       if (reason) {

@@ -93,7 +93,8 @@ function getDockedLocationIds(gameData: GameData): string[] {
 }
 
 /**
- * Regenerate quests if we've crossed a day boundary
+ * Regenerate quests if we've crossed a day boundary.
+ * All non-trade-route quests are regenerated fresh each day.
  */
 function regenerateQuestsIfNewDay(gameData: GameData, ship: Ship): void {
   const currentDay = getDaysSinceEpoch(gameData.gameTime);
@@ -244,6 +245,7 @@ export function acceptQuest(
     creditsEarned: 0,
     leg: 'outbound',
     paused: false,
+    acceptedOnDay: getDaysSinceEpoch(gameTime),
   };
 
   ship.activeContract = contract;
@@ -472,6 +474,28 @@ export function completeLeg(gameData: GameData, ship: Ship): void {
     removeUnpaidCrew(gameData, ship);
     regenerateQuestsIfNewDay(gameData, ship);
     return;
+  }
+
+  // ── Deadline check — expire contract if past deadline ──────────
+  if (quest.expiresAfterDays > 0 && activeContract.acceptedOnDay != null) {
+    const currentDay = getDaysSinceEpoch(gameTime);
+    const daysElapsed = currentDay - activeContract.acceptedOnDay;
+    if (daysElapsed >= quest.expiresAfterDays) {
+      const earned = activeContract.creditsEarned;
+      addLog(
+        gameData.log,
+        gameTime,
+        'contract_expired',
+        `Contract expired: ${quest.title}. Deadline of ${quest.expiresAfterDays} days reached.${earned > 0 ? ` Kept ${earned.toLocaleString()} credits earned from completed trips.` : ''}`,
+        ship.name
+      );
+      dockShipAtLocation(ship, arrivalLocation.id);
+      ship.activeContract = null;
+      checkFirstArrival(gameData, ship, arrivalLocation.id);
+      removeUnpaidCrew(gameData, ship);
+      regenerateQuestsIfNewDay(gameData, ship);
+      return;
+    }
   }
 
   // ── Outbound leg ───────────────────────────────────────────────

@@ -120,15 +120,17 @@ function calculatePayment(
 }
 ```
 
-### Quest Type Multipliers (unchanged)
+### Quest Type Multipliers (active vs passive balancing)
 
-| Quest Type       | Multiplier    | Rationale                           |
-| ---------------- | ------------- | ----------------------------------- |
-| Delivery         | 1.0x          | Standard one-off contract           |
-| Passenger        | 1.0x          | Standard one-off transport          |
-| Freight          | 0.8x per trip | Volume discount for repeat business |
-| Supply           | 1.5x total    | Bulk premium for large commitment   |
-| Standing Freight | 0.7x per trip | Reliability discount, infinite work |
+See `docs/quest-reward-balancing.md` for the full design rationale.
+
+| Quest Type  | Multiplier      | Rationale                                                     |
+| ----------- | --------------- | ------------------------------------------------------------- |
+| Passenger   | 2.0x            | Highest active premium: tightest deadline (3d), quarters req. |
+| Delivery    | 1.5x            | High active premium: one-shot, 7d deadline                    |
+| Supply      | 2.5x total      | High commitment: large bulk contract, 30d deadline, lump sum  |
+| Freight     | 1.2x per trip   | Semi-active: multi-trip with 14d deadline                     |
+| Trade Route | 120% cost floor | Baseline passive income: permanent, deterministic, automated  |
 
 ### Expected Outcomes
 

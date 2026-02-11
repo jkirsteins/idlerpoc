@@ -192,6 +192,7 @@ function matchesFilter(type: LogEntryType, filter: LogFilter): boolean {
     'contract_accepted',
     'contract_complete',
     'contract_abandoned',
+    'contract_expired',
   ];
 
   const crewTypes: LogEntryType[] = [

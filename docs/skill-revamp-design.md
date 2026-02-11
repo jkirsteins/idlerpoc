@@ -153,7 +153,7 @@ Commerce level determines what trade contracts you can access and economic bonus
 | 10    | Freight contracts                                  |
 | 15    | Passenger contracts                                |
 | 25    | +5% quest payment, -5% fuel cost, Supply contracts |
-| 35    | Standing freight routes                            |
+| 35    | Trade route automation                             |
 | 50    | +10% quest payment, -10% fuel cost                 |
 | 65    | Premium contracts (higher pay, longer routes)      |
 | 75    | +15% quest payment, -15% fuel cost                 |
