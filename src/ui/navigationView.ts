@@ -1,4 +1,4 @@
-import type { GameData, WorldLocation } from '../models';
+import type { GameData, WorldLocation, Quest, Ship } from '../models';
 import { getActiveShip } from '../models';
 import { getLocationTypeTemplate } from '../spaceLocations';
 import {
@@ -6,7 +6,7 @@ import {
   getUnreachableReason,
   getDistanceBetween,
 } from '../worldGen';
-import { formatDistance } from '../formatting';
+import { formatDistance, formatCredits } from '../formatting';
 import { getGravityDegradationLevel } from '../gravitySystem';
 import {
   getShipPositionKm,
@@ -34,6 +34,56 @@ const NAV_SERVICE_LABELS: Record<string, { icon: string; label: string }> = {
   mine: { icon: '\u26CF\uFE0F', label: 'Mine' },
 };
 
+const QUEST_TYPE_ICONS: Record<string, string> = {
+  delivery: '\uD83D\uDCE6',
+  passenger: '\uD83D\uDC65',
+  freight: '\uD83D\uDE9A',
+  trade_route: '\uD83D\uDD04',
+  rescue: '\uD83C\uDD98',
+};
+
+interface NavContractInfo {
+  quest: Quest;
+  relationship: 'from here' | 'to here';
+  isActive: boolean;
+}
+
+function getContractsForLocation(
+  locationId: string,
+  gameData: GameData,
+  ship: Ship
+): NavContractInfo[] {
+  const result: NavContractInfo[] = [];
+
+  // Active contract
+  if (ship.activeContract) {
+    const q = ship.activeContract.quest;
+    if (q.origin === locationId) {
+      result.push({ quest: q, relationship: 'from here', isActive: true });
+    } else if (q.destination === locationId) {
+      result.push({ quest: q, relationship: 'to here', isActive: true });
+    }
+  }
+
+  // Available contracts originating from this location
+  const fromHere = gameData.availableQuests[locationId] || [];
+  for (const q of fromHere) {
+    result.push({ quest: q, relationship: 'from here', isActive: false });
+  }
+
+  // Available contracts destined for this location (from other origins)
+  for (const [originId, quests] of Object.entries(gameData.availableQuests)) {
+    if (originId === locationId) continue;
+    for (const q of quests) {
+      if (q.destination === locationId) {
+        result.push({ quest: q, relationship: 'to here', isActive: false });
+      }
+    }
+  }
+
+  return result;
+}
+
 export interface NavigationViewCallbacks {
   onToggleNavigation: () => void;
   onStartTrip?: (destinationId: string) => void;
@@ -56,6 +106,7 @@ interface LegendItemRefs {
   description: HTMLElement;
   riskLine: HTMLElement;
   gravityWarning: HTMLElement;
+  contractsContainer: HTMLElement;
   // Action area — all possible children, toggled via display
   currentBadge: HTMLElement;
   destBadge: HTMLElement;
@@ -253,6 +304,12 @@ export function createNavigationView(
     description.style.color = '#aaa';
     item.appendChild(description);
 
+    // Contracts container — compact contract lines, updated on tick
+    const contractsContainer = document.createElement('div');
+    contractsContainer.className = 'nav-contracts-summary';
+    contractsContainer.style.display = 'none';
+    item.appendChild(contractsContainer);
+
     const riskLine = document.createElement('div');
     riskLine.style.marginTop = '6px';
     riskLine.style.display = 'none';
@@ -306,6 +363,7 @@ export function createNavigationView(
       distance,
       travelInfo,
       description,
+      contractsContainer,
       riskLine,
       gravityWarning,
       currentBadge,
@@ -508,6 +566,84 @@ export function createNavigationView(
         legendRefs.gravityWarning.style.display = '';
       } else {
         legendRefs.gravityWarning.style.display = 'none';
+      }
+
+      // Contracts relevant to this location
+      const contracts = getContractsForLocation(location.id, gameData, ship);
+
+      if (contracts.length > 0) {
+        legendRefs.contractsContainer.style.display = '';
+
+        const contractKey = contracts
+          .map((c) => `${c.quest.id}:${c.isActive}:${c.relationship}`)
+          .join('|');
+        const prevKey = legendRefs.contractsContainer.getAttribute(
+          'data-contracts-cache'
+        );
+
+        if (contractKey !== prevKey) {
+          while (legendRefs.contractsContainer.firstChild) {
+            legendRefs.contractsContainer.removeChild(
+              legendRefs.contractsContainer.firstChild
+            );
+          }
+
+          const cHeader = document.createElement('div');
+          cHeader.style.cssText =
+            'font-size: 0.8em; color: #4a9eff; margin-bottom: 4px; font-weight: 600;';
+          cHeader.textContent = 'Contracts:';
+          legendRefs.contractsContainer.appendChild(cHeader);
+
+          for (const info of contracts) {
+            const line = document.createElement('div');
+            line.style.cssText =
+              'font-size: 0.8em; color: #ccc; padding: 2px 0; display: flex; align-items: center; gap: 4px;';
+
+            const icon = QUEST_TYPE_ICONS[info.quest.type] || '\u2753';
+
+            const iconSpan = document.createElement('span');
+            iconSpan.textContent = icon;
+            line.appendChild(iconSpan);
+
+            const titleSpan = document.createElement('span');
+            titleSpan.style.cssText =
+              'flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;';
+            titleSpan.textContent = info.quest.title;
+            line.appendChild(titleSpan);
+
+            const paySpan = document.createElement('span');
+            paySpan.style.cssText =
+              'color: #4ade80; white-space: nowrap; font-size: 0.85em;';
+            const totalPay =
+              info.quest.paymentPerTrip > 0
+                ? info.quest.paymentPerTrip
+                : info.quest.paymentOnCompletion;
+            paySpan.textContent = formatCredits(totalPay);
+            line.appendChild(paySpan);
+
+            if (info.isActive) {
+              const badge = document.createElement('span');
+              badge.style.cssText =
+                'font-size: 0.7em; padding: 1px 4px; border-radius: 3px; background: #4a9eff; color: #fff; font-weight: 700;';
+              badge.textContent = 'ACTIVE';
+              line.appendChild(badge);
+            } else {
+              const relSpan = document.createElement('span');
+              relSpan.style.cssText = 'font-size: 0.7em; color: #888;';
+              relSpan.textContent = info.relationship;
+              line.appendChild(relSpan);
+            }
+
+            legendRefs.contractsContainer.appendChild(line);
+          }
+
+          legendRefs.contractsContainer.setAttribute(
+            'data-contracts-cache',
+            contractKey
+          );
+        }
+      } else {
+        legendRefs.contractsContainer.style.display = 'none';
       }
 
       // --- Action area: toggle visibility of the correct element ---

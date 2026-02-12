@@ -9,8 +9,8 @@ import {
   getEffectiveHeatDissipation,
 } from '../equipment';
 import { getShipClass } from '../shipClasses';
-import { formatGameDate } from '../timeSystem';
-import { formatCredits } from '../formatting';
+import { formatGameDate, TICKS_PER_DAY } from '../timeSystem';
+import { formatCredits, formatMass } from '../formatting';
 import { calculateDailyLedger } from '../dailyLedger';
 import { getRoomDefinition } from '../rooms';
 import { renderStatBar } from './components/statBar';
@@ -21,6 +21,11 @@ import {
   calculateFuelPercentage,
   getFuelColorClass,
 } from './fuelFormatting';
+import { getProvisionsColorClass } from './provisionsFormatting';
+import {
+  getMaxProvisionsKg,
+  getProvisionsSurvivalTicks,
+} from '../provisionsSystem';
 import { isHelmManned } from '../jobSlots';
 
 interface SidebarCallbacks {
@@ -115,6 +120,19 @@ export function createLeftSidebar(
   fuelSection.appendChild(fuelBarSlot);
 
   sidebar.appendChild(fuelSection);
+
+  // ── PROVISIONS SECTION ──
+  const provisionsSection = document.createElement('div');
+  provisionsSection.className = 'sidebar-section';
+
+  const provisionsLabel = document.createElement('h3');
+  provisionsLabel.textContent = 'Provisions';
+  provisionsSection.appendChild(provisionsLabel);
+
+  const provisionsBarSlot = document.createElement('div');
+  provisionsSection.appendChild(provisionsBarSlot);
+
+  sidebar.appendChild(provisionsSection);
 
   // ── POWER SECTION ──
   const powerSection = document.createElement('div');
@@ -237,6 +255,39 @@ export function createLeftSidebar(
     });
     if (fuelBarSlot.firstChild) fuelBarSlot.removeChild(fuelBarSlot.firstChild);
     fuelBarSlot.appendChild(newFuelBar);
+
+    // Provisions bar
+    const maxProvisions = getMaxProvisionsKg(ship);
+    const provisionsPercentage =
+      maxProvisions > 0
+        ? Math.min(100, (ship.provisionsKg / maxProvisions) * 100)
+        : 0;
+    const provisionsSurvivalTicks = getProvisionsSurvivalTicks(ship);
+    const provisionsSurvivalDays = provisionsSurvivalTicks / TICKS_PER_DAY;
+
+    let provisionsLabelText: string;
+    if (ship.crew.length === 0) {
+      provisionsLabelText = formatMass(Math.round(ship.provisionsKg));
+    } else if (provisionsSurvivalDays < Infinity) {
+      provisionsLabelText = `${formatMass(Math.round(ship.provisionsKg))} (${Math.ceil(provisionsSurvivalDays)}d)`;
+    } else {
+      provisionsLabelText = formatMass(Math.round(ship.provisionsKg));
+    }
+
+    const provisionsColorClass =
+      ship.crew.length === 0
+        ? 'bar-inactive'
+        : getProvisionsColorClass(provisionsPercentage);
+
+    const newProvisionsBar = renderStatBar({
+      label: provisionsLabelText,
+      percentage: provisionsPercentage,
+      colorClass: provisionsColorClass,
+      mode: 'compact',
+    });
+    if (provisionsBarSlot.firstChild)
+      provisionsBarSlot.removeChild(provisionsBarSlot.firstChild);
+    provisionsBarSlot.appendChild(newProvisionsBar);
 
     // Power bar
     const powerStatus = computePowerStatus(ship);

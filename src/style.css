@@ -1347,6 +1347,12 @@ button.small-button:hover {
   margin-top: 4px;
 }
 
+.nav-contracts-summary {
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  padding-top: 6px;
+  margin-top: 6px;
+}
+
 .nav-travel-button {
   width: 100%;
   margin-top: 8px;

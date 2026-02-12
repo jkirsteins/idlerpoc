@@ -42,6 +42,7 @@ import {
   calculateFuelPercentage,
   getFuelColorClass,
 } from './fuelFormatting';
+import { getProvisionsColorClass } from './provisionsFormatting';
 import { createFlightStatusComponent } from './flightStatus';
 import {
   getRoomJobSlots,
@@ -1058,10 +1059,7 @@ function renderProvisionsBar(gameData: GameData): HTMLElement {
       ? Math.min(100, (ship.provisionsKg / maxProvisions) * 100)
       : 0;
 
-  let colorClass: string;
-  if (percentage <= 10) colorClass = 'bar-danger';
-  else if (percentage <= 30) colorClass = 'bar-warning';
-  else colorClass = 'bar-good';
+  const colorClass = getProvisionsColorClass(percentage);
 
   const survivalTicks = getProvisionsSurvivalTicks(ship);
   const survivalDays = survivalTicks / TICKS_PER_DAY;
