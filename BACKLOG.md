@@ -110,6 +110,56 @@ Current ship equipment (20 items) is dominated by mandatory survival systems. "F
 - **Event Gain Scaling**: Scale flat event gains inversely to rank bracket to prevent high-level spikiness (combat +3.0 is huge at skill 95).
 - **Stronger Match Bonus**: Consider increasing SKILL_MATCH_MULTIPLIER from 1.5x to 3x to make crew assignment more impactful.
 
+## Combat Contracts & Tactics Skill
+
+Combat-focused quest types and a dedicated space combat skill, parallel to the existing trade/mining systems.
+
+### Tactics Skill (Split from Piloting)
+
+- **Rationale**: Piloting currently covers navigation AND combat. Splitting into Piloting (evasion, navigation, ship class gates) and Tactics (weapons, defense score, boarding) creates real crew specialization — a pilot is not a gunner.
+- **Tactics affects**: PD effectiveness (currently piloting), armory crew defense score (currently piloting/10 → tactics/10), boarding defense, weapon accuracy (future offensive weapons).
+- **Piloting keeps**: Evasion chance, encounter probability reduction, ship class unlocks, route mastery.
+- **Training**: Job slots `fire_control`, `targeting`, `arms_maint` switch from piloting to tactics training. Combat event gains (victory +3.0, harassment +1.0) go to tactics; evasion event gains stay with piloting.
+- **Crew composition pressure**: Combat ships need helm crew (piloting for evasion) AND weapons crew (tactics for defense). Can't stack one skill.
+- **Skill gates**: Weapon tier access gated by tactics level (parallel to mining equipment gated by mining skill). Combat contract acceptance requires minimum tactics skill.
+
+### Ship Class Combat Mastery (Tactics Item Mastery)
+
+- **Item mastery for tactics**: Per ship class the crew fights aboard (keyed by ship class ID, ~7 items — similar count to ore types).
+- **Concept**: A gunner who fights 100 encounters on a Corsair knows its turret angles, hull geometry, defensive maneuvers. That expertise doesn't transfer to a Dreadnought.
+- **Bonuses**: +defense score, +evasion during combat, -equipment degradation from combat, +bounty rewards — scaling with mastery level.
+- **Personnel tension**: Moving an expert Corsair gunner (mastery 60) to a new Dreadnought resets their combat mastery to 0. The Dreadnought is inherently stronger, but the crew is worse on it for weeks. Same tradeoff pattern as switching trade routes.
+
+### Combat Contract Types
+
+**Escort Contract (≈ Passenger equivalent)**:
+- 1 trip, A→B, 3-5 day deadline, 2.0-2.5x pay multiplier.
+- Elevated encounter rate (2-3x normal). Protecting an NPC convoy.
+- Gated by minimum defense score (not cargo capacity or quarters).
+- Boarding = convoy lost = contract failure. Victory/harassment/evasion are fine.
+- High attention, high reward. Natural fit for combat-fitted ships (Firebrand, Dreadnought).
+
+**Security Patrol (≈ Trade Route equivalent)**:
+- Permanent automated patrol between two locations, like trade routes.
+- Elevated encounter rate. Base stipend covers operating costs + per-encounter bounty.
+- Variable income (depends on encounter outcomes) vs trade route's deterministic income.
+- Gated by minimum defense score. Auto-restarts like trade routes.
+- Passive combat income — the "set and forget" combat option.
+
+### Salvage System (Combat-Exclusive Resource)
+
+- Combat victories drop **salvage** — a resource that trading cannot generate.
+- Uses: repair components (bypass slow in-flight repair), weapon parts (required for offensive weapon upgrades), intel data (unlock higher-tier contracts or hidden quest locations).
+- Creates a two-currency economy: credits (from trade) + salvage (from combat). Need both to fully progress.
+- Cross-incentive: trade funds combat equipment, combat generates salvage for upgrades that benefit all ships.
+
+### Combat Contract Reward Balancing
+
+- Escort: 2.0-2.5x costs (active, tight deadline — matches passenger tier).
+- Security Patrol: stipend + variable bounties (passive — matches trade route tier with upside variance).
+- Tactics skill gates prevent traders from trivially accepting combat contracts. Commerce skill bonuses prevent combat specialists from matching trader income. Hard gates, not soft bonuses.
+- See `docs/quest-reward-balancing.md` for the existing attention-reward spectrum these must fit within.
+
 ## Piracy System
 
 Player-initiated offensive combat — flipping from defender to attacker on trade routes.
@@ -147,7 +197,7 @@ Remaining follow-up:
 - **Equipment Repair at Stations**: Degraded equipment cannot currently be repaired (in-flight repair now via job slots).
 - **Morale System**: Morale is initialized on crew members but never modified or used. No decay, recovery, or gameplay effects. Galley and rest slots reference morale in design but provide no morale effect in code.
 - **Loyalty Skill Thresholds**: Three loyalty thresholds (morale decay reduction at 25, salary discount at 50, departure delay at 75) are documented in `skillRanks.ts` comments but none are implemented. Loyalty is not a current skill.
-- **Additional Skills**: Astrogation, Engineering, Strength, Charisma, and Loyalty skills are designed in WORLDRULES.md but not implemented. Only Piloting, Mining, and Commerce exist.
+- **Additional Skills**: Astrogation, Engineering, Strength, Charisma, and Loyalty skills are designed in WORLDRULES.md but not implemented. Only Piloting, Mining, and Commerce exist. See also "Combat Contracts & Tactics Skill" section for the Tactics skill design (splitting combat from piloting).
 - **Health Recovery Mechanic**: Health can decrease; patient job slot provides in-flight recovery. Station recovery not yet implemented.
 - **Ship Unlocking**: All ships except Station Keeper are locked. Need unlock progression system.
 - **Cargo Weight Estimation**: Currently hardcoded `* 100`. Need proper cargo weight tracking.
