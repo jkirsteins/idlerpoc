@@ -121,7 +121,7 @@ npm run dev
   - Station atmosphere resupply when docked
 - **Provisions System**:
   - Crew consume provisions (food & water) at 30 kg/crew/day — tracked as ship cargo mass
-  - Provisions bar on Ship tab shows current supply, max capacity, and days remaining
+  - Provisions bar on Ship tab, left sidebar, and mobile header shows current supply and days remaining
   - Auto-resupply when docked at trade stations (targets 30 days of supplies)
   - Pricing scales with distance from Earth (0.50 cr/kg inner system → 1.25 cr/kg outer)
   - Starvation health damage when provisions run out — crew can die

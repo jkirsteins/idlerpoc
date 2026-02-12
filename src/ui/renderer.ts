@@ -22,6 +22,13 @@ import {
   getFuelColorHex,
   formatFuelMass,
 } from './fuelFormatting';
+import { getProvisionsColorHex } from './provisionsFormatting';
+import {
+  getMaxProvisionsKg,
+  getProvisionsSurvivalTicks,
+} from '../provisionsSystem';
+import { TICKS_PER_DAY } from '../timeSystem';
+import { formatMass } from '../formatting';
 import type { PlayingTab } from './types';
 
 export type { PlayingTab } from './types';
@@ -526,6 +533,21 @@ function buildMobileHeaderBarChildren(
   const fuelColor = getFuelColorHex(fuelPercentage);
   fuel.innerHTML = `<span class="mobile-header-label">FUEL</span> <span class="mobile-header-value" style="color:${fuelColor}">${formatFuelMass(ship.fuelKg)}</span>`;
 
+  const provisions = document.createElement('div');
+  provisions.className = 'mobile-header-stat';
+  const maxProv = getMaxProvisionsKg(ship);
+  const provPct =
+    maxProv > 0 ? Math.min(100, (ship.provisionsKg / maxProv) * 100) : 0;
+  const provColor =
+    ship.crew.length === 0 ? '#555' : getProvisionsColorHex(provPct);
+  const provSurvival = getProvisionsSurvivalTicks(ship);
+  const provDays = provSurvival / TICKS_PER_DAY;
+  const provLabel =
+    ship.crew.length > 0 && provDays < Infinity
+      ? `${Math.ceil(provDays)}d`
+      : formatMass(Math.round(ship.provisionsKg));
+  provisions.innerHTML = `<span class="mobile-header-label">PROV</span> <span class="mobile-header-value" style="color:${provColor}">${provLabel}</span>`;
+
   const playPause = document.createElement('button');
   playPause.className = 'mobile-header-playpause';
   playPause.textContent = gameData.isPaused ? '\u25B6' : '\u23F8';
@@ -533,7 +555,7 @@ function buildMobileHeaderBarChildren(
     if (callbacks.onTogglePause) callbacks.onTogglePause();
   });
 
-  return [hamburger, credits, fuel, playPause];
+  return [hamburger, credits, fuel, provisions, playPause];
 }
 
 function renderNoGame(callbacks: RendererCallbacks): HTMLElement {
