@@ -27,6 +27,10 @@ import {
   TICKS_PER_DAY,
 } from '../timeSystem';
 import { formatLargeNumber, getRangeLabel, formatMass } from '../formatting';
+import {
+  getMaxProvisionsKg,
+  getProvisionsSurvivalTicks,
+} from '../provisionsSystem';
 
 /** Ticks per game hour (used to convert per-tick rates to per-hour for display) */
 const TICKS_PER_HOUR = TICKS_PER_DAY / 24;
@@ -188,6 +192,7 @@ export function createShipTab(
 
   // ── Stat bar slots (leaf helpers, re-rendered via slot pattern) ──
   const fuelBarSlot = document.createElement('div');
+  const provisionsBarSlot = document.createElement('div');
   const powerBarSlot = document.createElement('div');
   const oxygenBarSlot = document.createElement('div');
   const radiationBarSlot = document.createElement('div');
@@ -244,6 +249,7 @@ export function createShipTab(
   // Assemble ship content
   shipContent.append(
     fuelBarSlot,
+    provisionsBarSlot,
     powerBarSlot,
     oxygenBarSlot,
     radiationBarSlot,
@@ -890,6 +896,10 @@ export function createShipTab(
     if (fuelBarSlot.firstChild) fuelBarSlot.removeChild(fuelBarSlot.firstChild);
     fuelBarSlot.appendChild(renderFuelBar(gameData));
 
+    if (provisionsBarSlot.firstChild)
+      provisionsBarSlot.removeChild(provisionsBarSlot.firstChild);
+    provisionsBarSlot.appendChild(renderProvisionsBar(gameData));
+
     if (powerBarSlot.firstChild)
       powerBarSlot.removeChild(powerBarSlot.firstChild);
     powerBarSlot.appendChild(renderPowerBar(gameData));
@@ -1035,6 +1045,37 @@ function renderFuelBar(gameData: GameData): HTMLElement {
     label: 'FUEL',
     percentage: fuelPercentage,
     valueLabel: `${formatFuelMass(ship.fuelKg)} / ${formatFuelMass(ship.maxFuelKg)}`,
+    colorClass,
+    mode: 'full',
+  });
+}
+
+function renderProvisionsBar(gameData: GameData): HTMLElement {
+  const ship = getActiveShip(gameData);
+  const maxProvisions = getMaxProvisionsKg(ship);
+  const percentage =
+    maxProvisions > 0
+      ? Math.min(100, (ship.provisionsKg / maxProvisions) * 100)
+      : 0;
+
+  let colorClass: string;
+  if (percentage <= 10) colorClass = 'bar-danger';
+  else if (percentage <= 30) colorClass = 'bar-warning';
+  else colorClass = 'bar-good';
+
+  const survivalTicks = getProvisionsSurvivalTicks(ship);
+  const survivalDays = survivalTicks / TICKS_PER_DAY;
+  const survivalLabel =
+    ship.crew.length === 0
+      ? ''
+      : survivalDays < Infinity
+        ? ` (${Math.ceil(survivalDays)} days)`
+        : '';
+
+  return renderStatBar({
+    label: 'PROVISIONS',
+    percentage,
+    valueLabel: `${formatMass(Math.round(ship.provisionsKg))} / ${formatMass(Math.round(maxProvisions))}${survivalLabel}`,
     colorClass,
     mode: 'full',
   });

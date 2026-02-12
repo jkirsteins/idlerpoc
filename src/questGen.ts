@@ -4,6 +4,7 @@ import { getShipClass } from './shipClasses';
 import { getDistanceBetween, canShipAccessLocation } from './worldGen';
 import {
   calculateAvailableCargoCapacity,
+  calculateShipAvailableCargo,
   calculateDeltaV,
   calculateDryMass,
   calculateFuelMassRequired,
@@ -18,6 +19,8 @@ import { getCrewForJobType, isHelmManned } from './jobSlots';
 import { getFuelPricePerKg } from './ui/refuelDialog';
 import { formatFuelMass } from './ui/fuelFormatting';
 import { formatMass } from './formatting';
+import { canAcceptRescueQuest } from './rescueSystem';
+import { getProvisionsPerCrewPerTick } from './provisionsSystem';
 
 // Fallback fuel price for payment calculations when no location is available
 const FUEL_PRICE_PER_KG_FALLBACK = 2.0;
@@ -735,6 +738,29 @@ export function resolveQuestForShip(
   // Stable cost floor factor derived from quest ID (deterministic per quest)
   const costFloorFactor = 1.3 + stableHashFraction(quest.id) * 0.7;
 
+  // Rescue quests have fixed cargo (fuel payload), not resolved per-ship
+  if (quest.type === 'rescue') {
+    const rescueBurnFraction = ship.flightProfileBurnFraction;
+    const rescueFuelKg = calculateTripFuelKg(
+      ship,
+      distanceKm,
+      rescueBurnFraction
+    );
+    const rescueTripTime = estimateTripTime(
+      ship,
+      distanceKm,
+      rescueBurnFraction
+    );
+    return {
+      ...quest,
+      origin:
+        ship.location.dockedAt || ship.location.orbitingAt || quest.origin,
+      cargoRequired: quest.rescueFuelKg || 0,
+      estimatedFuelPerTrip: rescueFuelKg * 2,
+      estimatedTripTicks: gameSecondsToTicks(rescueTripTime * 2),
+    };
+  }
+
   // Compute payment based on quest type
   let paymentOnCompletion = 0;
   let paymentPerTrip = 0;
@@ -834,7 +860,15 @@ export function canAcceptQuest(
   ship: Ship,
   quest: Quest,
   world?: World
-): { canAccept: boolean; reason?: string } {
+): { canAccept: boolean; reason?: string; warnings?: string[] } {
+  // Rescue quests have special acceptance validation
+  if (quest.type === 'rescue' && world) {
+    const rescueResult = canAcceptRescueQuest(ship, quest, world);
+    if (!rescueResult.canAccept) {
+      return rescueResult;
+    }
+  }
+
   // Helm must be manned to depart on a contract
   if (!isHelmManned(ship)) {
     return {
@@ -865,10 +899,8 @@ export function canAcceptQuest(
   // Resolve quest for this ship to get per-ship cargo/fuel values
   const resolved = world ? resolveQuestForShip(quest, ship, world) : quest;
 
-  // Check cargo capacity (available space after fuel allocation)
-  const availableCargo = calculateAvailableCargoCapacity(
-    shipClass.cargoCapacity
-  );
+  // Check cargo capacity (available space after fuel allocation and provisions)
+  const availableCargo = calculateShipAvailableCargo(ship);
   if (resolved.cargoRequired > availableCargo) {
     return {
       canAccept: false,
@@ -895,5 +927,46 @@ export function canAcceptQuest(
     }
   }
 
-  return { canAccept: true };
+  // ── Soft warnings (don't block acceptance) ──────────────────────
+  const warnings: string[] = [];
+
+  if (world) {
+    const destLoc = world.locations.find((l) => l.id === quest.destination);
+
+    // Warn if destination has no refueling
+    if (destLoc && !destLoc.services.includes('refuel')) {
+      warnings.push(
+        `${destLoc.name} has no refueling service — ensure you have enough fuel for the return trip.`
+      );
+    }
+
+    // Warn if fuel is tight for round trip (< 20% margin)
+    if (resolved.estimatedFuelPerTrip > ship.fuelKg * 0.8) {
+      warnings.push(
+        `Fuel margin is thin — estimated round-trip fuel is close to current supply.`
+      );
+    }
+
+    // Warn if provisions won't last the round trip
+    if (ship.crew.length > 0 && resolved.estimatedTripTicks > 0) {
+      const provisionsNeeded =
+        ship.crew.length *
+        getProvisionsPerCrewPerTick() *
+        resolved.estimatedTripTicks;
+      if (provisionsNeeded > ship.provisionsKg) {
+        warnings.push(
+          `Insufficient provisions for this trip — crew may starve before returning.`
+        );
+      } else if (provisionsNeeded > ship.provisionsKg * 0.8) {
+        warnings.push(
+          `Provisions margin is thin — trip will consume most of the ship's food supply.`
+        );
+      }
+    }
+  }
+
+  return {
+    canAccept: true,
+    warnings: warnings.length > 0 ? warnings : undefined,
+  };
 }

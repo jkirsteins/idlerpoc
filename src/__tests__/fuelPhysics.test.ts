@@ -106,12 +106,13 @@ describe('Fuel Physics - Tsiolkovsky Rocket Equation', () => {
       const shipClass = getShipClass(ship.classId)!;
       const totalMass = getCurrentShipMass(ship);
 
-      // Expected: hull + fuel + cargo + crew
+      // Expected: hull + fuel + cargo + crew + provisions
       const expectedMass =
         shipClass.mass +
         10000 +
         CARGO_ITEM_MASS_KG +
-        ship.crew.length * CREW_MASS_KG;
+        ship.crew.length * CREW_MASS_KG +
+        (ship.provisionsKg || 0);
 
       expect(totalMass).toBe(expectedMass);
     });
@@ -336,9 +337,9 @@ describe('Fuel Physics - Edge Cases', () => {
     const mass = getCurrentShipMass(ship);
     const shipClass = getShipClass(ship.classId)!;
 
-    // Should equal dry mass + crew + cargo
+    // Should equal dry mass + crew + cargo + provisions (no fuel)
     expect(mass).toBeGreaterThan(shipClass.mass);
-    expect(mass).toBeLessThan(shipClass.mass + 1000); // No significant fuel
+    expect(mass).toBeLessThan(shipClass.mass + 3000); // Crew + provisions, no fuel
   });
 
   it('should handle maximum capacity', () => {

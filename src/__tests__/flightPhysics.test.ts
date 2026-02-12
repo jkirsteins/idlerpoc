@@ -93,9 +93,12 @@ describe('flightPhysics', () => {
 
       const shipClass = getShipClass(ship.classId)!;
       const engineDef = getEngineDefinition(ship.engine.definitionId);
-      // Use total mass (dry + fuel + cargo + crew) like initializeFlight does
+      // Use total mass (dry + fuel + cargo + crew + provisions) like initializeFlight does
       const totalMass =
-        shipClass.mass + ship.fuelKg + ship.crew.length * CREW_MASS_KG;
+        shipClass.mass +
+        ship.fuelKg +
+        ship.crew.length * CREW_MASS_KG +
+        (ship.provisionsKg || 0);
       const acceleration = engineDef.thrust / totalMass;
 
       // Create two very close locations
@@ -173,7 +176,10 @@ describe('flightPhysics', () => {
 
       // With realistic physics, delta-v comes from Tsiolkovsky equation
       // Calculate expected delta-v with current fuel
-      const dryMass = shipClass.mass + ship.crew.length * CREW_MASS_KG;
+      const dryMass =
+        shipClass.mass +
+        ship.crew.length * CREW_MASS_KG +
+        (ship.provisionsKg || 0);
       const wetMass = dryMass + ship.fuelKg;
       const specificImpulse = 900; // NTR-200 from WORLDRULES.md
       const G0 = 9.81;

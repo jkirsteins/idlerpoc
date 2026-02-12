@@ -27,6 +27,9 @@ import { applyPassiveTraining, logSkillUps } from './skillProgression';
 import { getCommandTrainingMultiplier } from './captainBonus';
 import { getCrewForJobType, isRoomStaffed, getCrewJobSlot } from './jobSlots';
 import { applyOxygenTick, getOxygenHealthDamage } from './lifeSupportSystem';
+import { applyProvisionsTick } from './provisionsSystem';
+import { processCrewDeaths } from './crewDeath';
+import { checkStrandedShips } from './strandedSystem';
 import { applyMiningTick } from './miningSystem';
 import { checkMiningRouteDeparture } from './miningRoute';
 import { addLog } from './logSystem';
@@ -470,6 +473,11 @@ function applyShipTick(gameData: GameData, ship: Ship): boolean {
     }
   }
 
+  // Provisions consumption (all ship states — crew eat whether docked or flying)
+  if (applyProvisionsTick(ship, gameData)) {
+    changed = true;
+  }
+
   // Gravity exposure (during flight and orbiting)
   if (
     ship.location.status === 'in_flight' ||
@@ -640,6 +648,12 @@ function applyShipTick(gameData: GameData, ship: Ship): boolean {
     changed = true;
   }
 
+  // Crew death check — runs after all health modifications (radiation, oxygen,
+  // starvation, combat). Captain health floors at 1 (player avatar).
+  if (processCrewDeaths(ship, gameData)) {
+    changed = true;
+  }
+
   return changed;
 }
 
@@ -727,6 +741,9 @@ export function applyTick(
 
   // Fleet-wide salary deduction (global time system)
   deductFleetSalaries(gameData, 1);
+
+  // Check for stranded ships (log warnings, auto-pause)
+  checkStrandedShips(gameData);
 
   return changed;
 }

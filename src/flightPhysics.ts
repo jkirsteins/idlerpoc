@@ -33,7 +33,7 @@ export const FUEL_CARGO_SPLIT = 0.7;
 
 /**
  * Calculate the dry mass of a ship — everything except fuel.
- * Includes hull, crew, and cargo.
+ * Includes hull, crew, cargo, and provisions.
  */
 export function calculateDryMass(ship: Ship): number {
   const shipClass = getShipClass(ship.classId);
@@ -41,7 +41,8 @@ export function calculateDryMass(ship: Ship): number {
   return (
     shipClass.mass +
     ship.crew.length * CREW_MASS_KG +
-    ship.cargo.reduce((sum) => sum + CARGO_ITEM_MASS_KG, 0)
+    ship.cargo.reduce((sum) => sum + CARGO_ITEM_MASS_KG, 0) +
+    (ship.provisionsKg || 0)
   );
 }
 
@@ -76,6 +77,18 @@ export function calculateFuelTankCapacity(
  */
 export function calculateAvailableCargoCapacity(cargoCapacity: number): number {
   return cargoCapacity * (1 - FUEL_CARGO_SPLIT);
+}
+
+/**
+ * Calculate available cargo capacity for a specific ship, after subtracting
+ * provisions mass from the cargo hold. This is what's actually available
+ * for quest cargo.
+ */
+export function calculateShipAvailableCargo(ship: Ship): number {
+  const shipClass = getShipClass(ship.classId);
+  if (!shipClass) return 0;
+  const totalCargo = calculateAvailableCargoCapacity(shipClass.cargoCapacity);
+  return Math.max(0, totalCargo - (ship.provisionsKg || 0));
 }
 
 /**
