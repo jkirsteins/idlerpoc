@@ -1642,9 +1642,11 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
       {
         heading: 'How Mining Works',
         paragraphs: [
-          'Mining happens automatically while your ship is orbiting a location that provides a mine service. Crew assigned to the mining_ops [[job-slots|job slot]] in the mining bay operate the ship-mounted mining equipment. The ship must have mining equipment installed — without it, miners cannot extract ore.',
-          'Extraction rate depends on [[ship-equipment|ship mining equipment]] quality, [[skill-system|mining]] skill, and [[mastery-system|ore mastery]]. Miners automatically target the highest-value ore they can extract at the current location.',
-          "Extracted ore is stored in your ship's cargo hold. When cargo is full, mining pauses. Sell ore at any station with a trade service to convert it into [[credits-economy|credits]]. Sell prices vary by location type and improve with the [[skill-system|commerce]] skill.",
+          'Mining happens automatically while your ship is orbiting a location that provides a mine service. The ship must have mining equipment installed — without it, no ore can be extracted.',
+          'With mining equipment but no crew, the ship mines at a reduced base rate (25% speed), restricted to basic ores (Mining 0). Assigning crew to the mining_ops [[job-slots|job slot]] in the mining bay significantly increases extraction speed and unlocks higher-tier ores based on their [[skill-system|mining]] skill.',
+          'Use the ore material picker in the mining panel to choose which ore to extract. By default the highest-value ore is selected automatically, but you can override this to focus on a specific material. Locked ores (requiring higher mining skill) are shown but cannot be selected until your crew levels up.',
+          'Extraction rate depends on [[ship-equipment|ship mining equipment]] quality, [[skill-system|mining]] skill, and [[mastery-system|ore mastery]]. The mining panel shows real-time extraction rates and estimated time to fill cargo.',
+          "Extracted ore is stored in your ship's cargo hold. The cargo progress bar shows fill level at a glance. When cargo is full, mining pauses. Sell ore at any station with a trade service to convert it into [[credits-economy|credits]]. Sell prices vary by location type and improve with the [[skill-system|commerce]] skill.",
         ],
       },
       {
@@ -1704,10 +1706,10 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
       {
         heading: 'Auto-Sell Mining Routes',
         paragraphs: [
-          'For fully idle mining, set up an auto-sell route from the mining panel while orbiting a mining location. Select a trade station to sell ore at, and the ship will automatically:',
-          '1. Mine until cargo is full\n2. Fly to the trade station and dock\n3. Sell all ore and auto-refuel if needed\n4. Fly back to the mining location and resume mining',
-          'The route repeats indefinitely until cancelled or funds run out for refueling. The mining panel shows route stats including trips completed and total credits earned.',
-          'Choose your sell destination carefully — closer stations reduce transit time but may offer lower prices. Sell price multipliers are shown in the destination picker. The piloting skill gate still applies: you can only pick stations your crew can reach.',
+          'For fully idle mining, set up an auto-sell route from the mining panel while orbiting a mining location. The destination picker shows each reachable trade station with estimated profitability: sell price per unit, round-trip travel time, and projected credits per hour.',
+          'Once a route is established, the ship automatically:\n1. Mines until cargo is full\n2. Flies to the trade station and docks\n3. Sells all ore and auto-refuels if needed\n4. Flies back to the mining location and resumes mining',
+          'The route repeats indefinitely until cancelled or funds run out for refueling. The mining panel shows route stats including trips completed, total credits earned, and average credits per hour.',
+          'Choose your sell destination carefully — closer stations reduce transit time but may offer lower prices. The profitability estimate accounts for both fill time and travel time, so the best destination balances sell price against distance. The piloting skill gate still applies: you can only pick stations your crew can reach.',
         ],
       },
     ],

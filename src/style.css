@@ -2948,6 +2948,16 @@ button:disabled:hover {
   }
 }
 
+@keyframes mining-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
 /* Stats Display */
 .stat-row {
   display: flex;

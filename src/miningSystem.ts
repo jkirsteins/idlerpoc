@@ -4,13 +4,17 @@
  * Handles ore extraction during orbiting at mine-enabled locations.
  * Mining requires:
  *   1. Ship orbiting a location with 'mine' service
- *   2. Crew assigned to mining_ops job slot (from mining_bay room)
- *   3. Ship-mounted mining equipment installed (e.g. mining_laser)
- *   4. Crew mining skill sufficient to operate the equipment
- *   5. Available cargo space
+ *   2. Ship-mounted mining equipment installed (e.g. mining_laser)
+ *   3. Available cargo space
  *
- * Per-tick yield formula:
- *   orePerTick = BASE_RATE × equipmentRate × skillFactor × (1 + masteryYield) × (1 + poolYield)
+ * Crew assigned to mining_ops improves speed and unlocks higher-tier ores.
+ * Without crew, equipment operates at a reduced base rate on tier-0 ores.
+ *
+ * Per-tick yield formula (with crew):
+ *   orePerTick = BASE_RATE × equipmentRate × skillFactor × (1 + masteryYield) × (1 + poolYield) × captainBonus
+ *
+ * Per-tick yield formula (without crew):
+ *   orePerTick = BASE_RATE × equipmentRate × CREWLESS_RATE_MULT
  *
  * Fractional ore accumulates in ship.miningAccumulator and converts to whole
  * units in ship.oreCargo when >= 1.0.
@@ -37,6 +41,7 @@ import { addLog } from './logSystem';
 import { calculateAvailableCargoCapacity } from './flightPhysics';
 import { getShipClass } from './shipClasses';
 import { formatCredits } from './formatting';
+import { GAME_SECONDS_PER_TICK, GAME_SECONDS_PER_HOUR } from './timeSystem';
 
 // ─── Constants ──────────────────────────────────────────────────
 
@@ -70,6 +75,13 @@ const MINING_WEAR_PER_TICK = 0.005;
  */
 const MINING_EFFECTIVENESS_DIVISOR = 200;
 
+/**
+ * Rate multiplier when mining without crew (equipment operates autonomously).
+ * At 0.25x, crew-less mining is viable but significantly slower — a soft gate
+ * encouraging players to assign crew without completely blocking progress.
+ */
+const CREWLESS_MINING_RATE_MULT = 0.25;
+
 // ─── Core Mining Logic ──────────────────────────────────────────
 
 export interface MiningTickResult {
@@ -90,24 +102,38 @@ function getSkillFactor(miningSkill: number): number {
 }
 
 /**
- * Select the best ore to mine at a location for a given crew member.
- * Picks the highest-value ore the miner can access.
+ * Select the ore to mine at a location for a given skill level.
+ *
+ * If selectedOreId is provided and the miner can access it at this location,
+ * that ore is returned. Otherwise falls back to auto-selecting the
+ * highest-value ore the miner can access.
  */
 function selectOreToMine(
   location: WorldLocation,
-  miningSkill: number
+  miningSkill: number,
+  selectedOreId?: OreId
 ): OreDefinition | null {
   if (!location.availableOres || location.availableOres.length === 0) {
     return null;
   }
 
+  // If player selected a specific ore, try to honour it
+  if (selectedOreId && location.availableOres.includes(selectedOreId)) {
+    const ore = getOreDefinition(selectedOreId);
+    if (Math.floor(miningSkill) >= ore.miningLevelRequired) {
+      return ore;
+    }
+    // Miner can't mine the selected ore — sit idle (don't fallback)
+    return null;
+  }
+
+  // Auto-select: pick highest-value ore the miner can access
   const minableAtLocation = location.availableOres
     .map((id) => getOreDefinition(id))
     .filter((ore) => Math.floor(miningSkill) >= ore.miningLevelRequired);
 
   if (minableAtLocation.length === 0) return null;
 
-  // Pick highest value ore
   return minableAtLocation.reduce((best, ore) =>
     ore.baseValue > best.baseValue ? ore : best
   );
@@ -143,7 +169,9 @@ export function getRemainingOreCapacity(ship: Ship): number {
 /**
  * Apply one tick of mining for a ship orbiting a mine-enabled location.
  *
- * Returns null if the ship cannot mine (wrong location, no miners, no equipment).
+ * Returns null if the ship cannot mine (wrong location, no equipment).
+ * Mining works without crew at a reduced base rate (CREWLESS_MINING_RATE_MULT),
+ * restricted to tier-0 ores.
  */
 export function applyMiningTick(
   ship: Ship,
@@ -151,10 +179,6 @@ export function applyMiningTick(
 ): MiningTickResult | null {
   // Verify location has mine service
   if (!location.services.includes('mine')) return null;
-
-  // Get miners assigned to mining_ops
-  const miners = getCrewForJobType(ship, 'mining_ops');
-  if (miners.length === 0) return null;
 
   const result: MiningTickResult = {
     oreExtracted: {} as Record<OreId, number>,
@@ -197,141 +221,207 @@ export function applyMiningTick(
   // Track which equipment instances were actively used this tick (for wear)
   const usedEquipmentIds = new Set<string>();
 
-  for (const miner of miners) {
-    // Find the best ship mining equipment this miner can operate
-    const usableGear = shipMiningGear.filter(
-      (item) =>
-        Math.floor(miner.skills.mining) >= (item.def.miningLevelRequired ?? 0)
-    );
-    if (usableGear.length === 0) continue; // Skill too low for all equipment
+  // Get miners assigned to mining_ops
+  const miners = getCrewForJobType(ship, 'mining_ops');
+  const selectedOreId = ship.selectedMiningOreId;
 
-    const bestGear = usableGear.reduce((best, current) =>
+  if (miners.length === 0) {
+    // ── Crew-less base-rate mining ──────────────────────────────
+    // Equipment operates autonomously at reduced rate, only tier-0 ores
+    const bestGear = shipMiningGear.reduce((best, current) =>
       (current.def.miningRate ?? 0) > (best.def.miningRate ?? 0)
         ? current
         : best
     );
 
-    // Select best ore for this miner
-    const ore = selectOreToMine(location, miner.skills.mining);
-    if (!ore) continue;
+    // Crew-less mining uses skill 0 — only tier-0 ores accessible
+    const ore = selectOreToMine(location, 0, selectedOreId);
+    if (!ore) return result; // Selected ore needs crew, or no tier-0 ores here
 
-    // Calculate yield — degradation reduces mining equipment effectiveness
     const baseEquipRate = bestGear.def.miningRate ?? 1.0;
     const equipEffectiveness =
       1 - bestGear.instance.degradation / MINING_EFFECTIVENESS_DIVISOR;
     const equipRate = baseEquipRate * equipEffectiveness;
 
-    // Mark this equipment as actively used
     usedEquipmentIds.add(bestGear.instance.id);
-    const skillFactor = getSkillFactor(miner.skills.mining);
 
-    // Mastery bonuses
-    const masteryState = miner.mastery?.mining;
-    const itemMastery = masteryState?.itemMasteries[ore.id];
-    const masteryLevel = itemMastery?.level ?? 0;
-    const masteryYieldBonus = getOreMasteryYieldBonus(masteryLevel);
+    // Reduced yield: no skill factor, no mastery, no captain bonus
+    const oreYield = BASE_MINING_RATE * equipRate * CREWLESS_MINING_RATE_MULT;
 
-    // Pool bonuses
-    const pool = masteryState?.pool ?? { xp: 0, maxXp: 0 };
-    const poolYieldBonus = getMiningPoolYieldBonus(pool);
-    const doubleDropChance = getMiningPoolDoubleChance(pool);
-
-    // Captain command bonus (ship-wide multiplier from captain's mining skill)
-    const captainMiningMultiplier = 1 + getCommandMiningBonus(ship);
-
-    // Final yield per tick
-    const oreYield =
-      BASE_MINING_RATE *
-      equipRate *
-      skillFactor *
-      (1 + masteryYieldBonus) *
-      (1 + poolYieldBonus) *
-      captainMiningMultiplier;
-
-    // Accumulate fractional ore
     const prevAccum = ship.miningAccumulator[ore.id] ?? 0;
     let newAccum = prevAccum + oreYield;
-
-    // Convert whole units
     let wholeUnits = Math.floor(newAccum);
     newAccum -= wholeUnits;
 
-    // Double drop chance (per whole unit, iterate over the original count)
-    if (doubleDropChance > 0 && wholeUnits > 0) {
-      const originalUnits = wholeUnits;
-      for (let i = 0; i < originalUnits; i++) {
-        if (Math.random() < doubleDropChance) {
-          wholeUnits++;
-        }
-      }
-    }
-
-    // Enforce cargo capacity
     if (wholeUnits > 0) {
       const weightPerUnit = ore.weightPerUnit;
       const maxUnitsFromCapacity = Math.floor(
         (remainingCapacityKg - weightAddedThisTick) / weightPerUnit
       );
-
       if (maxUnitsFromCapacity <= 0) {
         result.cargoFull = true;
-        ship.miningAccumulator[ore.id] = prevAccum; // Don't accumulate
-        continue;
-      }
-
-      if (wholeUnits > maxUnitsFromCapacity) {
-        wholeUnits = maxUnitsFromCapacity;
-        newAccum = 0; // Reset accumulator — cargo is full
-        result.cargoFull = true;
-      }
-
-      // Add to ore cargo
-      const existing = ship.oreCargo.find((c) => c.oreId === ore.id);
-      if (existing) {
-        existing.quantity += wholeUnits;
+        ship.miningAccumulator[ore.id] = prevAccum;
       } else {
-        ship.oreCargo.push({ oreId: ore.id, quantity: wholeUnits });
+        if (wholeUnits > maxUnitsFromCapacity) {
+          wholeUnits = maxUnitsFromCapacity;
+          newAccum = 0;
+          result.cargoFull = true;
+        }
+        const existing = ship.oreCargo.find((c) => c.oreId === ore.id);
+        if (existing) {
+          existing.quantity += wholeUnits;
+        } else {
+          ship.oreCargo.push({ oreId: ore.id, quantity: wholeUnits });
+        }
+        weightAddedThisTick += wholeUnits * weightPerUnit;
+        result.oreExtracted[ore.id] =
+          (result.oreExtracted[ore.id] ?? 0) + wholeUnits;
+        ship.miningAccumulator[ore.id] = newAccum;
       }
+    } else {
+      ship.miningAccumulator[ore.id] = newAccum;
+    }
+  } else {
+    // ── Crew-operated mining ─────────────────────────────────────
+    for (const miner of miners) {
+      // Find the best ship mining equipment this miner can operate
+      const usableGear = shipMiningGear.filter(
+        (item) =>
+          Math.floor(miner.skills.mining) >= (item.def.miningLevelRequired ?? 0)
+      );
+      if (usableGear.length === 0) continue; // Skill too low for all equipment
 
-      weightAddedThisTick += wholeUnits * weightPerUnit;
+      const bestGear = usableGear.reduce((best, current) =>
+        (current.def.miningRate ?? 0) > (best.def.miningRate ?? 0)
+          ? current
+          : best
+      );
 
-      // Track extraction
-      result.oreExtracted[ore.id] =
-        (result.oreExtracted[ore.id] ?? 0) + wholeUnits;
+      // Select ore for this miner (respects player selection)
+      const ore = selectOreToMine(location, miner.skills.mining, selectedOreId);
+      if (!ore) continue;
 
-      // Award mastery XP
-      if (masteryState) {
-        const xpPerUnit = MASTERY_XP_PER_ORE;
-        const totalXp = xpPerUnit * wholeUnits;
-        const masteryResult = awardMasteryXp(
-          masteryState,
-          ore.id,
-          totalXp,
-          Math.floor(miner.skills.mining),
-          totalOreCount
-        );
+      // Calculate yield — degradation reduces mining equipment effectiveness
+      const baseEquipRate = bestGear.def.miningRate ?? 1.0;
+      const equipEffectiveness =
+        1 - bestGear.instance.degradation / MINING_EFFECTIVENESS_DIVISOR;
+      const equipRate = baseEquipRate * equipEffectiveness;
 
-        if (masteryResult.leveledUp) {
-          result.masteryLevelUps.push({
-            crewName: miner.name,
-            oreName: ore.name,
-            newLevel: masteryResult.newLevel,
-          });
+      // Mark this equipment as actively used
+      usedEquipmentIds.add(bestGear.instance.id);
+      const skillFactor = getSkillFactor(miner.skills.mining);
+
+      // Mastery bonuses
+      const masteryState = miner.mastery?.mining;
+      const itemMastery = masteryState?.itemMasteries[ore.id];
+      const masteryLevel = itemMastery?.level ?? 0;
+      const masteryYieldBonus = getOreMasteryYieldBonus(masteryLevel);
+
+      // Pool bonuses
+      const pool = masteryState?.pool ?? { xp: 0, maxXp: 0 };
+      const poolYieldBonus = getMiningPoolYieldBonus(pool);
+      const doubleDropChance = getMiningPoolDoubleChance(pool);
+
+      // Captain command bonus (ship-wide multiplier from captain's mining skill)
+      const captainMiningMultiplier = 1 + getCommandMiningBonus(ship);
+
+      // Final yield per tick
+      const oreYield =
+        BASE_MINING_RATE *
+        equipRate *
+        skillFactor *
+        (1 + masteryYieldBonus) *
+        (1 + poolYieldBonus) *
+        captainMiningMultiplier;
+
+      // Accumulate fractional ore
+      const prevAccum = ship.miningAccumulator[ore.id] ?? 0;
+      let newAccum = prevAccum + oreYield;
+
+      // Convert whole units
+      let wholeUnits = Math.floor(newAccum);
+      newAccum -= wholeUnits;
+
+      // Double drop chance (per whole unit, iterate over the original count)
+      if (doubleDropChance > 0 && wholeUnits > 0) {
+        const originalUnits = wholeUnits;
+        for (let i = 0; i < originalUnits; i++) {
+          if (Math.random() < doubleDropChance) {
+            wholeUnits++;
+          }
         }
       }
-    }
 
-    ship.miningAccumulator[ore.id] = newAccum;
+      // Enforce cargo capacity
+      if (wholeUnits > 0) {
+        const weightPerUnit = ore.weightPerUnit;
+        const maxUnitsFromCapacity = Math.floor(
+          (remainingCapacityKg - weightAddedThisTick) / weightPerUnit
+        );
+
+        if (maxUnitsFromCapacity <= 0) {
+          result.cargoFull = true;
+          ship.miningAccumulator[ore.id] = prevAccum; // Don't accumulate
+          continue;
+        }
+
+        if (wholeUnits > maxUnitsFromCapacity) {
+          wholeUnits = maxUnitsFromCapacity;
+          newAccum = 0; // Reset accumulator — cargo is full
+          result.cargoFull = true;
+        }
+
+        // Add to ore cargo
+        const existing = ship.oreCargo.find((c) => c.oreId === ore.id);
+        if (existing) {
+          existing.quantity += wholeUnits;
+        } else {
+          ship.oreCargo.push({ oreId: ore.id, quantity: wholeUnits });
+        }
+
+        weightAddedThisTick += wholeUnits * weightPerUnit;
+
+        // Track extraction
+        result.oreExtracted[ore.id] =
+          (result.oreExtracted[ore.id] ?? 0) + wholeUnits;
+
+        // Award mastery XP
+        if (masteryState) {
+          const xpPerUnit = MASTERY_XP_PER_ORE;
+          const totalXp = xpPerUnit * wholeUnits;
+          const masteryResult = awardMasteryXp(
+            masteryState,
+            ore.id,
+            totalXp,
+            Math.floor(miner.skills.mining),
+            totalOreCount
+          );
+
+          if (masteryResult.leveledUp) {
+            result.masteryLevelUps.push({
+              crewName: miner.name,
+              oreName: ore.name,
+              newLevel: masteryResult.newLevel,
+            });
+          }
+        }
+      }
+
+      ship.miningAccumulator[ore.id] = newAccum;
+    }
   }
 
   // Apply wear to mining equipment that was actively used this tick
   if (usedEquipmentIds.size > 0) {
-    // Mining pool mastery can reduce wear
-    const bestMiner = miners.reduce((best, m) =>
-      m.skills.mining > best.skills.mining ? m : best
-    );
-    const pool = bestMiner.mastery?.mining?.pool ?? { xp: 0, maxXp: 0 };
-    const wearReduction = getMiningPoolWearReduction(pool);
+    // Mining pool mastery can reduce wear (only with crew)
+    let wearReduction = 0;
+    if (miners.length > 0) {
+      const bestMiner = miners.reduce((best, m) =>
+        m.skills.mining > best.skills.mining ? m : best
+      );
+      const pool = bestMiner.mastery?.mining?.pool ?? { xp: 0, maxXp: 0 };
+      wearReduction = getMiningPoolWearReduction(pool);
+    }
 
     const wearRate = MINING_WEAR_PER_TICK * (1 - wearReduction);
 
@@ -469,4 +559,133 @@ export function sellAllOre(
     );
   }
   return totalCredits;
+}
+
+// ─── Mining Rate Calculation Helpers ─────────────────────────────
+
+/**
+ * Get the maximum ore cargo capacity in kg (total minus crew equipment weight).
+ */
+export function getMaxOreCargoCapacity(ship: Ship): number {
+  const shipClass = getShipClass(ship.classId);
+  if (!shipClass) return 0;
+  const maxCargo = calculateAvailableCargoCapacity(shipClass.cargoCapacity);
+  const equipmentWeight = ship.cargo.length * 5;
+  return Math.max(0, maxCargo - equipmentWeight);
+}
+
+/**
+ * Estimate the mining yield in ore units per game hour for a specific ore,
+ * given the current ship state (crew, equipment, mastery, captain bonus).
+ *
+ * Returns 0 if the ship cannot mine that ore.
+ */
+export function getMiningYieldPerHour(
+  ship: Ship,
+  location: WorldLocation,
+  ore: OreDefinition
+): number {
+  // Ore must be available at this location
+  if (location.availableOres && !location.availableOres.includes(ore.id)) {
+    return 0;
+  }
+
+  const ticksPerHour = GAME_SECONDS_PER_HOUR / GAME_SECONDS_PER_TICK;
+
+  const shipMiningGear = ship.equipment
+    .map((eq) => ({
+      instance: eq,
+      def: getEquipmentDefinition(eq.definitionId),
+    }))
+    .filter(
+      (
+        item
+      ): item is { instance: typeof item.instance; def: EquipmentDefinition } =>
+        item.def !== undefined && item.def.category === 'mining'
+    );
+
+  if (shipMiningGear.length === 0) return 0;
+
+  const miners = getCrewForJobType(ship, 'mining_ops');
+
+  if (miners.length === 0) {
+    // Crew-less base rate — only tier-0 ores
+    if (ore.miningLevelRequired > 0) return 0;
+
+    const bestGear = shipMiningGear.reduce((best, current) =>
+      (current.def.miningRate ?? 0) > (best.def.miningRate ?? 0)
+        ? current
+        : best
+    );
+    const baseEquipRate = bestGear.def.miningRate ?? 1.0;
+    const equipEffectiveness =
+      1 - bestGear.instance.degradation / MINING_EFFECTIVENESS_DIVISOR;
+    const yieldPerTick =
+      BASE_MINING_RATE *
+      baseEquipRate *
+      equipEffectiveness *
+      CREWLESS_MINING_RATE_MULT;
+    return yieldPerTick * ticksPerHour;
+  }
+
+  // Sum yield across all miners that can mine this ore
+  let totalYieldPerTick = 0;
+  for (const miner of miners) {
+    if (Math.floor(miner.skills.mining) < ore.miningLevelRequired) continue;
+
+    const usableGear = shipMiningGear.filter(
+      (item) =>
+        Math.floor(miner.skills.mining) >= (item.def.miningLevelRequired ?? 0)
+    );
+    if (usableGear.length === 0) continue;
+
+    const bestGear = usableGear.reduce((best, current) =>
+      (current.def.miningRate ?? 0) > (best.def.miningRate ?? 0)
+        ? current
+        : best
+    );
+
+    const baseEquipRate = bestGear.def.miningRate ?? 1.0;
+    const equipEffectiveness =
+      1 - bestGear.instance.degradation / MINING_EFFECTIVENESS_DIVISOR;
+    const equipRate = baseEquipRate * equipEffectiveness;
+    const skillFactor = getSkillFactor(miner.skills.mining);
+
+    const masteryState = miner.mastery?.mining;
+    const itemMastery = masteryState?.itemMasteries[ore.id];
+    const masteryLevel = itemMastery?.level ?? 0;
+    const masteryYieldBonus = getOreMasteryYieldBonus(masteryLevel);
+    const pool = masteryState?.pool ?? { xp: 0, maxXp: 0 };
+    const poolYieldBonus = getMiningPoolYieldBonus(pool);
+
+    const captainMiningMultiplier = 1 + getCommandMiningBonus(ship);
+
+    totalYieldPerTick +=
+      BASE_MINING_RATE *
+      equipRate *
+      skillFactor *
+      (1 + masteryYieldBonus) *
+      (1 + poolYieldBonus) *
+      captainMiningMultiplier;
+  }
+
+  return totalYieldPerTick * ticksPerHour;
+}
+
+/**
+ * Estimate game seconds to fill remaining cargo capacity at current mining rate.
+ * Returns Infinity if mining rate is 0.
+ */
+export function getTimeToFillCargo(
+  ship: Ship,
+  location: WorldLocation,
+  ore: OreDefinition
+): number {
+  const yieldPerHour = getMiningYieldPerHour(ship, location, ore);
+  if (yieldPerHour <= 0) return Infinity;
+
+  const remainingKg = getRemainingOreCapacity(ship);
+  const remainingUnits = remainingKg / ore.weightPerUnit;
+  const hoursToFill = remainingUnits / yieldPerHour;
+  return hoursToFill * GAME_SECONDS_PER_HOUR;
 }
