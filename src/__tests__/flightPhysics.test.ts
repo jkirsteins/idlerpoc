@@ -37,9 +37,9 @@ describe('flightPhysics', () => {
       const shortFlight = initializeFlight(ship, earth, gatewayStation);
       const longFlight = initializeFlight(ship, earth, meridianDepot);
 
-      // Verify distances
-      expect(shortFlight.totalDistance).toBe(400_000); // 400 km in meters
-      expect(longFlight.totalDistance).toBe(35_786_000); // 35,786 km in meters
+      // Verify distances (approximate due to 2D orbital Euclidean distance)
+      expect(shortFlight.totalDistance).toBeCloseTo(400_000, -2); // ~400 km in meters
+      expect(longFlight.totalDistance).toBeCloseTo(35_786_000, -2); // ~35,786 km in meters
 
       // Long flight should take significantly more time
       expect(longFlight.totalTime).toBeGreaterThan(shortFlight.totalTime);

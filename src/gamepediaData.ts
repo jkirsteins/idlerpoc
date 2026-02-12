@@ -83,7 +83,12 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
         ],
       },
     ],
-    relatedArticles: ['contracts', 'flight-physics', 'encounters'],
+    relatedArticles: [
+      'contracts',
+      'flight-physics',
+      'orbital-mechanics',
+      'encounters',
+    ],
   },
 
   {
@@ -256,6 +261,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
     relatedArticles: [
       'credits-economy',
       'flight-physics',
+      'launch-windows',
       'navigation',
       'commerce-skill',
     ],
@@ -922,7 +928,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
         heading: 'Class II: Inner System Vessels',
         paragraphs: [
           'Range: Earth-Moon, Earth-Mars, Asteroid Belt. Uses nuclear fission thermal rockets.',
-          'Can achieve escape velocity. Effective range ~3 AU. Travel time: days to weeks. Requires [[navigation|orbital mechanics planning]].',
+          'Can achieve escape velocity. Effective range ~3 AU. Travel time: days to weeks. Requires [[orbital-mechanics|orbital mechanics]] planning and [[launch-windows|launch window]] awareness.',
         ],
       },
       {
@@ -944,6 +950,8 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
     relatedArticles: [
       'engines',
       'flight-physics',
+      'orbital-mechanics',
+      'launch-windows',
       'skill-system',
       'ship-equipment',
     ],
@@ -1047,8 +1055,22 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
           'Real-time g-force is displayed on the Ship tab during flight.',
         ],
       },
+      {
+        heading: 'Intercept Trajectories',
+        paragraphs: [
+          'Because all destinations follow [[orbital-mechanics|orbital paths]], ships do not fly toward where a target currently is — they aim at where it will be when they arrive. The flight computer iteratively solves for the intercept point, recalculating until the predicted arrival position converges.',
+          'This means travel distance and fuel cost depend on the relative motion of origin and destination. A trip to Mars during a close approach is far shorter and cheaper than the same trip when Mars is on the opposite side of the Sun. Check the [[launch-windows|launch window]] indicator on the Nav tab before committing to long-haul routes.',
+        ],
+      },
     ],
-    relatedArticles: ['engines', 'zero-g-exposure', 'contracts', 'time-system'],
+    relatedArticles: [
+      'engines',
+      'zero-g-exposure',
+      'contracts',
+      'time-system',
+      'orbital-mechanics',
+      'launch-windows',
+    ],
   },
 
   {
@@ -1263,8 +1285,9 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
     sections: [
       {
         paragraphs: [
-          "The navigation chart shows all known locations, their distances from your ship's current position, and available services. Access it via the Nav tab.",
+          "The navigation chart shows all known locations, their distances from your ship's current position, and available services. Access it via the Nav tab. The chart includes an orrery map that visualizes the 2D [[orbital-mechanics|orbital positions]] of all bodies in real time.",
           'Locations provide different services: refueling, hiring, trade, [[mining-system|mining]], and repair. Planning your route to hit needed services is key to efficient operations.',
+          'Because all bodies follow [[orbital-mechanics|orbital paths]], distances between locations change continuously. The Nav tab updates distances every tick, reflecting the current orbital configuration. A destination that is nearby today may be far away in a few months — check [[launch-windows|launch window]] alignment before committing to long voyages.',
         ],
       },
       {
@@ -1295,6 +1318,8 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
     ],
     relatedArticles: [
       'flight-physics',
+      'orbital-mechanics',
+      'launch-windows',
       'encounters',
       'factions',
       'contracts',
@@ -1481,6 +1506,138 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
       'mining-system',
       'ore-types',
       'ship-classes',
+      'orbital-mechanics',
+      'launch-windows',
+    ],
+  },
+
+  {
+    id: 'orbital-mechanics',
+    title: 'Orbital Mechanics',
+    category: 'Space',
+    summary:
+      'How celestial bodies move in 2D circular orbits, dynamic distances, and hierarchical orbit systems.',
+    sections: [
+      {
+        paragraphs: [
+          'Every location in the solar system follows a circular orbit. Planets and distant stations orbit the Sun, while near-Earth locations (Gateway Station, Meridian Depot, etc.) orbit Earth. These [[navigation|positions]] update every tick, so distances between locations change continuously as bodies move along their orbital paths.',
+          'The game uses a 2D orbital model with the Sun at the coordinate origin (0, 0). Each body has an orbital radius (distance from its parent), an orbital period (time to complete one full circle), and a starting angle. The current position is calculated from these parameters and the elapsed game time.',
+        ],
+      },
+      {
+        heading: 'Sun-Centric Orbits',
+        paragraphs: [
+          'Mars, the asteroid belt stations (Vesta, The Crucible, Ceres), and Jupiter Station all orbit the Sun directly. Their orbital periods range from months to years of game time, matching realistic proportions. Mars completes an orbit in roughly 687 game days, while Jupiter takes nearly 12 game years.',
+          'Because these bodies orbit at vastly different speeds and radii, the distance between any two of them changes dramatically over time. Earth-to-Mars distance can vary from roughly 55 million km at closest approach to over 400 million km at opposition. This variation directly affects travel time, fuel cost, and [[contracts|contract]] feasibility.',
+        ],
+      },
+      {
+        heading: 'Earth-Centric Orbits',
+        paragraphs: [
+          "Near-Earth locations — Gateway Station, Meridian Depot, Forge Station, Graveyard Drift, Tycho Colony, Freeport Station, and The Scatter — orbit Earth rather than the Sun. Their positions are computed hierarchically: first Earth's position relative to the Sun is calculated, then the local orbital offset is added.",
+          'Earth-orbiting locations have much shorter orbital periods (hours to days) and smaller radii (hundreds to thousands of km). Distances between Earth satellites and each other change quickly but within a small range, so [[launch-windows|launch window]] timing matters less for these short hops.',
+        ],
+      },
+      {
+        heading: 'Dynamic Distances',
+        paragraphs: [
+          'The distanceFromEarth value for every location is recomputed each tick based on current orbital positions. This means the [[navigation|Nav tab]] distance readouts are always live — they reflect where bodies actually are right now, not static reference distances.',
+          'For route planning, this has major implications. A trip to Mars during a close approach might take days and consume modest fuel. The same trip at opposition could take weeks and require far more fuel — or be out of range entirely for smaller [[ship-classes|ships]]. Always check current distances and [[launch-windows|alignment quality]] before launching on long-haul routes.',
+        ],
+      },
+      {
+        heading: 'The Orrery Map',
+        paragraphs: [
+          'The [[navigation|Nav tab]] includes an orrery — a 2D map showing all orbital paths and current body positions. The orrery provides a visual overview of the solar system layout, letting you see at a glance which destinations are currently close together and which are far apart.',
+          'Use the orrery to build spatial intuition about orbital timing. When two destinations are on the same side of their parent body, travel between them is short. When they are on opposite sides, the trip is much longer.',
+        ],
+      },
+    ],
+    relatedArticles: [
+      'navigation',
+      'launch-windows',
+      'flight-physics',
+      'ship-classes',
+      'time-system',
+    ],
+  },
+
+  {
+    id: 'launch-windows',
+    title: 'Launch Windows',
+    category: 'Space',
+    summary:
+      'Timing departures for optimal alignment — alignment quality, synodic periods, and trip planning.',
+    sections: [
+      {
+        paragraphs: [
+          'Because destinations move along [[orbital-mechanics|orbital paths]], the distance between any two locations varies over time. A launch window is the period when two locations are well-aligned — close together — making travel faster, cheaper, and more fuel-efficient.',
+          'The [[navigation|Nav tab]] displays alignment quality for each destination, helping you decide whether to depart now or wait for a better window.',
+        ],
+      },
+      {
+        heading: 'Alignment Quality',
+        paragraphs: [
+          'Alignment is classified by where the current distance falls within the historical min-max range for that pair of locations:',
+        ],
+        table: {
+          headers: ['Rating', 'Distance Position', 'Meaning'],
+          rows: [
+            [
+              'Excellent',
+              'Within 20% of minimum',
+              'Near closest approach — ideal departure time',
+            ],
+            [
+              'Good',
+              '20-45% of range',
+              'Favorable conditions — efficient travel',
+            ],
+            [
+              'Moderate',
+              '45-70% of range',
+              'Acceptable but not optimal — expect higher fuel use',
+            ],
+            [
+              'Poor',
+              'Above 70% of range',
+              'Far from optimal — long trip, high fuel cost, consider waiting',
+            ],
+          ],
+        },
+      },
+      {
+        heading: 'Synodic Periods',
+        paragraphs: [
+          'The synodic period is the time between successive close approaches of two orbiting bodies. It depends on both orbital periods: bodies with similar periods have long synodic cycles (they rarely lap each other), while bodies with very different periods realign frequently.',
+          'For Earth-to-Mars trips, the synodic period is roughly 780 game days (~2.1 game years). This means excellent launch windows to Mars come around approximately every two years. Missing a window means waiting a long time for the next one — or accepting a much longer, more expensive trip.',
+          'Earth satellite-to-satellite routes (e.g. Gateway to Meridian) have very short synodic periods because the orbital radii differ greatly at small scales. Alignment changes rapidly, so waiting more than a few game days for a better window is rarely necessary.',
+        ],
+      },
+      {
+        heading: 'Planning Strategy',
+        paragraphs: [
+          'For short inner-system hops between Earth satellites, alignment barely matters — distances vary by thousands of km, not millions. Depart whenever you are ready.',
+          'For Mars trips, alignment is critical. At closest approach (~55M km), a [[ship-classes|Class II]] vessel can make the trip in days. At opposition (~400M km), the same ship may not even have enough fuel range. Check alignment before accepting [[contracts|contracts]] headed to Mars or beyond.',
+          'For Jupiter, distances are enormous regardless of alignment (588M-967M km), so [[ship-classes|Class III]] vessels are always required. But even for torch ships, an excellent window saves substantial fuel and travel time. Plan Jupiter [[mining-system|mining]] expeditions around favorable windows whenever possible.',
+          'The Nav tab shows the estimated time until the next optimal window (in game days and real time). If alignment is poor and the next window is only a few real-time minutes away, it may be worth pausing operations and waiting for a better departure.',
+        ],
+      },
+      {
+        heading: 'Intercept Trajectories',
+        paragraphs: [
+          'When you launch toward a moving target, the [[flight-physics|flight computer]] calculates an intercept trajectory — aiming at where the destination will be when you arrive, not where it is now. This intercept calculation accounts for orbital motion automatically.',
+          'This means the actual travel distance may differ from the straight-line distance shown on the Nav tab. For slow ships and fast-orbiting targets, the difference can be significant. The fuel and time estimates on the Nav tab already account for interception, so the numbers you see are accurate for decision-making.',
+        ],
+      },
+    ],
+    relatedArticles: [
+      'orbital-mechanics',
+      'navigation',
+      'flight-physics',
+      'contracts',
+      'ship-classes',
+      'time-system',
     ],
   },
 

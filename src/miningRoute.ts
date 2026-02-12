@@ -146,7 +146,9 @@ export function checkMiningRouteDeparture(
     mineLocation,
     sellLocation,
     true, // dock on arrival so we can sell
-    ship.flightProfileBurnFraction
+    ship.flightProfileBurnFraction,
+    gameData.gameTime,
+    gameData.world
   );
 
   if (!departed) {
@@ -244,7 +246,9 @@ function handleSellArrival(
     sellLocation,
     mineLocation,
     false, // orbit on arrival (not dock)
-    ship.flightProfileBurnFraction
+    ship.flightProfileBurnFraction,
+    gameData.gameTime,
+    gameData.world
   );
 
   if (!departed) {

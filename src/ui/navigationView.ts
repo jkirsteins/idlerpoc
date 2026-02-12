@@ -25,6 +25,10 @@ import {
   createFlightProfileControl,
   updateFlightProfileControl,
 } from './flightProfileControl';
+import {
+  computeLaunchWindow,
+  type AlignmentQuality,
+} from '../orbitalMechanics';
 
 const NAV_SERVICE_LABELS: Record<string, { icon: string; label: string }> = {
   refuel: { icon: '\u26FD', label: 'Fuel' },
@@ -39,11 +43,66 @@ export interface NavigationViewCallbacks {
   onStartTrip?: (destinationId: string) => void;
 }
 
-/** Per-location refs for the map marker */
+/** Per-location refs for the SVG orrery marker */
 interface MarkerRefs {
-  marker: HTMLElement;
-  dot: HTMLElement;
-  label: HTMLElement;
+  dot: SVGCircleElement; // the body dot
+  label: SVGTextElement; // name label
+  hitArea: SVGCircleElement; // invisible click target
+}
+
+/** Ship flight trajectory line and moving dot */
+interface FlightLineRefs {
+  line: SVGLineElement;
+  shipDot: SVGCircleElement;
+}
+
+// SVG namespace
+const SVG_NS = 'http://www.w3.org/2000/svg';
+const ORRERY_SIZE = 400; // viewBox is -200..200
+const ORRERY_HALF = ORRERY_SIZE / 2;
+
+/**
+ * Map an orbital radius (km) to SVG visual radius.
+ * Logarithmic scaling so Earth-orbit (~150M km) and Jupiter (~778M km)
+ * are both visible, while inner Earth-system bodies cluster near Earth.
+ */
+function orbitalRadiusToSvg(radiusKm: number): number {
+  if (radiusKm <= 0) return 0;
+  const logMin = Math.log10(100_000_000); // ~0.67 AU
+  const logMax = Math.log10(900_000_000); // ~6 AU
+  const logR = Math.log10(Math.max(radiusKm, 100_000_000));
+  const t = (logR - logMin) / (logMax - logMin);
+  return 30 + t * 150; // 30..180 SVG units from center
+}
+
+/**
+ * Project a location's real km position (x,y from Sun) to SVG coordinates.
+ * Uses the angle from the real position but log-scales the radius
+ * to keep the solar system viewable.
+ */
+function projectToSvg(xKm: number, yKm: number): { x: number; y: number } {
+  const distFromSun = Math.sqrt(xKm * xKm + yKm * yKm);
+  if (distFromSun < 1000) {
+    // At origin (Sun) — center of SVG
+    return { x: 0, y: 0 };
+  }
+  const angle = Math.atan2(yKm, xKm);
+  const r = orbitalRadiusToSvg(distFromSun);
+  return { x: r * Math.cos(angle), y: r * Math.sin(angle) };
+}
+
+/** Get alignment badge color */
+function alignmentColor(alignment: AlignmentQuality): string {
+  switch (alignment) {
+    case 'excellent':
+      return '#4caf50';
+    case 'good':
+      return '#8bc34a';
+    case 'moderate':
+      return '#ffc107';
+    case 'poor':
+      return '#f44336';
+  }
 }
 
 /** Per-location refs for the legend item */
@@ -52,6 +111,7 @@ interface LegendItemRefs {
   name: HTMLElement;
   badgesContainer: HTMLElement;
   distance: HTMLElement;
+  alignmentLine: HTMLElement; // launch window alignment badge
   travelInfo: HTMLElement;
   description: HTMLElement;
   riskLine: HTMLElement;
@@ -129,9 +189,90 @@ export function createNavigationView(
 
   container.appendChild(header);
 
-  // Map area
+  // Orrery SVG map area
   const mapArea = document.createElement('div');
   mapArea.className = 'nav-map';
+
+  const svg = document.createElementNS(SVG_NS, 'svg');
+  svg.setAttribute(
+    'viewBox',
+    `${-ORRERY_HALF} ${-ORRERY_HALF} ${ORRERY_SIZE} ${ORRERY_SIZE}`
+  );
+  svg.setAttribute('width', '100%');
+  svg.setAttribute('height', '100%');
+  svg.style.display = 'block';
+
+  // Background ring layer (behind dots)
+  const ringLayer = document.createElementNS(SVG_NS, 'g');
+  ringLayer.setAttribute('class', 'orrery-rings');
+  svg.appendChild(ringLayer);
+
+  // Orbit rings — one per unique Sun-orbiting radius
+  const sunOrbitRadii = new Set<number>();
+  for (const loc of gameData.world.locations) {
+    if (loc.orbital && !loc.orbital.parentId) {
+      sunOrbitRadii.add(loc.orbital.orbitalRadiusKm);
+    }
+  }
+  for (const radiusKm of sunOrbitRadii) {
+    const r = orbitalRadiusToSvg(radiusKm);
+    const ring = document.createElementNS(SVG_NS, 'circle');
+    ring.setAttribute('cx', '0');
+    ring.setAttribute('cy', '0');
+    ring.setAttribute('r', String(r));
+    ring.setAttribute('fill', 'none');
+    ring.setAttribute('stroke', 'rgba(15, 52, 96, 0.5)');
+    ring.setAttribute('stroke-width', '0.5');
+    ring.setAttribute('stroke-dasharray', '3,3');
+    ringLayer.appendChild(ring);
+  }
+
+  // Sun marker at center
+  const sunDot = document.createElementNS(SVG_NS, 'circle');
+  sunDot.setAttribute('cx', '0');
+  sunDot.setAttribute('cy', '0');
+  sunDot.setAttribute('r', '4');
+  sunDot.setAttribute('fill', '#ffd700');
+  svg.appendChild(sunDot);
+  const sunLabel = document.createElementNS(SVG_NS, 'text');
+  sunLabel.setAttribute('x', '0');
+  sunLabel.setAttribute('y', '10');
+  sunLabel.setAttribute('text-anchor', 'middle');
+  sunLabel.setAttribute('fill', '#888');
+  sunLabel.setAttribute('font-size', '5');
+  sunLabel.textContent = 'Sun';
+  svg.appendChild(sunLabel);
+
+  // Body dots layer
+  const bodyLayer = document.createElementNS(SVG_NS, 'g');
+  bodyLayer.setAttribute('class', 'orrery-bodies');
+  svg.appendChild(bodyLayer);
+
+  // Flight trajectory layer (on top of rings, below labels)
+  const flightLayer = document.createElementNS(SVG_NS, 'g');
+  flightLayer.setAttribute('class', 'orrery-flights');
+  svg.appendChild(flightLayer);
+
+  // Flight line + ship dot (created once, updated each tick)
+  const flightLine = document.createElementNS(SVG_NS, 'line');
+  flightLine.setAttribute('stroke', '#e94560');
+  flightLine.setAttribute('stroke-width', '1');
+  flightLine.setAttribute('stroke-dasharray', '4,2');
+  flightLine.setAttribute('stroke-opacity', '0.6');
+  flightLine.style.display = 'none';
+  flightLayer.appendChild(flightLine);
+
+  const shipDot = document.createElementNS(SVG_NS, 'circle');
+  shipDot.setAttribute('r', '3');
+  shipDot.setAttribute('fill', '#e94560');
+  shipDot.setAttribute('stroke', '#fff');
+  shipDot.setAttribute('stroke-width', '0.5');
+  shipDot.style.display = 'none';
+  flightLayer.appendChild(shipDot);
+
+  const flightRefs: FlightLineRefs = { line: flightLine, shipDot };
+
+  mapArea.appendChild(svg);
   container.appendChild(mapArea);
 
   // Profile slot — always in the DOM, visibility toggled
@@ -155,25 +296,47 @@ export function createNavigationView(
   const legendMap = new Map<string, LegendItemRefs>();
 
   for (const location of gameData.world.locations) {
-    // --- Marker ---
-    const marker = document.createElement('div');
-    marker.className = 'nav-marker';
-    marker.style.left = `${location.x}%`;
-    marker.style.top = `${location.y}%`;
+    // --- SVG marker ---
+    const pos = projectToSvg(location.x, location.y);
 
     const template = getLocationTypeTemplate(location.type);
-    const dot = document.createElement('div');
-    dot.className = 'nav-marker-dot';
-    dot.textContent = template.icon;
-    marker.appendChild(dot);
+    const isEarthSatellite = location.orbital?.parentId === 'earth';
+    const dotRadius =
+      location.id === 'earth' || location.id === 'mars'
+        ? 5
+        : isEarthSatellite
+          ? 2.5
+          : 3.5;
 
-    const markerLabel = document.createElement('div');
-    markerLabel.className = 'nav-marker-label';
+    const dot = document.createElementNS(SVG_NS, 'circle');
+    dot.setAttribute('cx', String(pos.x));
+    dot.setAttribute('cy', String(pos.y));
+    dot.setAttribute('r', String(dotRadius));
+    dot.setAttribute('fill', template.color ?? '#0f3460');
+    dot.setAttribute('stroke', '#0f3460');
+    dot.setAttribute('stroke-width', '1');
+    bodyLayer.appendChild(dot);
+
+    const markerLabel = document.createElementNS(SVG_NS, 'text');
+    markerLabel.setAttribute('x', String(pos.x));
+    markerLabel.setAttribute('y', String(pos.y + dotRadius + 6));
+    markerLabel.setAttribute('text-anchor', 'middle');
+    markerLabel.setAttribute('fill', '#ccc');
+    markerLabel.setAttribute('font-size', isEarthSatellite ? '4' : '5');
     markerLabel.textContent = location.name;
-    marker.appendChild(markerLabel);
+    bodyLayer.appendChild(markerLabel);
+
+    // Invisible hit area for click events
+    const hitArea = document.createElementNS(SVG_NS, 'circle');
+    hitArea.setAttribute('cx', String(pos.x));
+    hitArea.setAttribute('cy', String(pos.y));
+    hitArea.setAttribute('r', '10');
+    hitArea.setAttribute('fill', 'transparent');
+    hitArea.style.cursor = 'pointer';
+    bodyLayer.appendChild(hitArea);
 
     // Click handler — checks conditions against latestGameData at click time
-    marker.addEventListener('click', () => {
+    hitArea.addEventListener('click', () => {
       if (!callbacks.onStartTrip) return;
       const gd = latestGameData;
       const s = getActiveShip(gd);
@@ -209,8 +372,7 @@ export function createNavigationView(
       callbacks.onStartTrip(location.id);
     });
 
-    mapArea.appendChild(marker);
-    markerMap.set(location.id, { marker, dot, label: markerLabel });
+    markerMap.set(location.id, { dot, label: markerLabel, hitArea });
 
     // --- Legend item ---
     const item = document.createElement('div');
@@ -239,6 +401,12 @@ export function createNavigationView(
 
     const distance = document.createElement('div');
     item.appendChild(distance);
+
+    const alignmentLine = document.createElement('div');
+    alignmentLine.style.fontSize = '0.85em';
+    alignmentLine.style.marginTop = '0.15rem';
+    alignmentLine.style.display = 'none';
+    item.appendChild(alignmentLine);
 
     const travelInfo = document.createElement('div');
     travelInfo.style.fontSize = '0.85em';
@@ -304,6 +472,7 @@ export function createNavigationView(
       name,
       badgesContainer,
       distance,
+      alignmentLine,
       travelInfo,
       description,
       riskLine,
@@ -375,24 +544,40 @@ export function createNavigationView(
       const isFlightDest = location.id === flightDestinationId;
       const isOtherDestination = !isCurrent && !isFlightDest && reachable;
 
-      // --- Update marker ---
-      refs.marker.classList.toggle('current', isCurrent || isFlightDest);
-      refs.marker.classList.toggle('unreachable', !reachable);
-      refs.marker.classList.toggle(
-        'clickable',
-        canStartTrips &&
-          reachable &&
-          !isCurrent &&
-          !isFlightDest &&
-          !!callbacks.onStartTrip
-      );
+      // --- Update SVG marker position ---
+      const svgPos = projectToSvg(location.x, location.y);
+      const isEarthSat = location.orbital?.parentId === 'earth';
+      const dotR =
+        location.id === 'earth' || location.id === 'mars'
+          ? 5
+          : isEarthSat
+            ? 2.5
+            : 3.5;
 
-      if (canStartTrips && reachable && !isCurrent && !isFlightDest) {
-        refs.marker.title = isInFlight
-          ? `Click to redirect to ${location.name}`
-          : `Click to travel to ${location.name}`;
+      refs.dot.setAttribute('cx', String(svgPos.x));
+      refs.dot.setAttribute('cy', String(svgPos.y));
+      refs.label.setAttribute('x', String(svgPos.x));
+      refs.label.setAttribute('y', String(svgPos.y + dotR + 6));
+      refs.hitArea.setAttribute('cx', String(svgPos.x));
+      refs.hitArea.setAttribute('cy', String(svgPos.y));
+
+      // Visual state
+      if (isCurrent || isFlightDest) {
+        refs.dot.setAttribute('stroke', '#e94560');
+        refs.dot.setAttribute('stroke-width', '2');
+        refs.label.setAttribute('fill', '#fff');
+      } else if (!reachable) {
+        refs.dot.setAttribute('stroke', '#333');
+        refs.dot.setAttribute('stroke-width', '1');
+        refs.dot.setAttribute('opacity', '0.4');
+        refs.label.setAttribute('fill', '#666');
+        refs.label.setAttribute('opacity', '0.4');
       } else {
-        refs.marker.title = '';
+        refs.dot.setAttribute('stroke', '#0f3460');
+        refs.dot.setAttribute('stroke-width', '1');
+        refs.dot.removeAttribute('opacity');
+        refs.label.setAttribute('fill', '#ccc');
+        refs.label.removeAttribute('opacity');
       }
 
       // Threat coloring on the dot
@@ -404,28 +589,71 @@ export function createNavigationView(
           gameData.world
         );
         const threatLevel = getThreatLevel(routeRisk);
-        if (threatLevel !== 'clear') {
-          refs.dot.setAttribute('data-threat', threatLevel);
+        if (threatLevel === 'critical') {
+          refs.dot.setAttribute('fill', '#f44336');
+        } else if (threatLevel === 'danger') {
+          refs.dot.setAttribute('fill', '#ff9800');
+        } else if (threatLevel === 'caution') {
+          refs.dot.setAttribute('fill', '#ffc107');
         } else {
-          refs.dot.removeAttribute('data-threat');
+          const template = getLocationTypeTemplate(location.type);
+          refs.dot.setAttribute('fill', template.color ?? '#0f3460');
         }
-      } else {
-        refs.dot.removeAttribute('data-threat');
+      } else if (!isCurrent && !isFlightDest) {
+        const template = getLocationTypeTemplate(location.type);
+        refs.dot.setAttribute('fill', template.color ?? '#0f3460');
       }
 
       // --- Update legend item ---
       legendRefs.item.classList.toggle('unreachable', !reachable);
 
-      // Distance
-      const distanceFromCurrent = Math.abs(
-        location.distanceFromEarth - currentKm
-      );
+      // Distance (uses 2D Euclidean via getDistanceBetween)
+      const distanceFromCurrent = getDistanceBetween(virtualOrigin, location);
       const distText =
         distanceFromCurrent < 0.5
           ? 'Current Location'
           : `Distance: ${formatDistance(distanceFromCurrent)}`;
       if (legendRefs.distance.textContent !== distText) {
         legendRefs.distance.textContent = distText;
+      }
+
+      // Launch window alignment
+      if (isOtherDestination && virtualOrigin.orbital && location.orbital) {
+        const window = computeLaunchWindow(
+          virtualOrigin,
+          location,
+          gameData.gameTime,
+          gameData.world
+        );
+        if (window) {
+          const distRange = window.maxDistanceKm - window.minDistanceKm;
+          const rangeRatio = distRange / Math.max(window.minDistanceKm, 1);
+          // Only show alignment when distance variation exceeds 10%
+          if (rangeRatio > 0.1) {
+            const color = alignmentColor(window.alignment);
+            const label =
+              window.alignment.charAt(0).toUpperCase() +
+              window.alignment.slice(1);
+            let alignText = `Alignment: <span style="color:${color};font-weight:600">${label}</span>`;
+            if (
+              window.alignment !== 'excellent' &&
+              window.nextOptimalInDays > 1
+            ) {
+              const nextOptDays = Math.round(window.nextOptimalInDays);
+              alignText += ` | Next optimal: ${formatDualTime(nextOptDays * 86400)}`;
+            }
+            if (legendRefs.alignmentLine.innerHTML !== alignText) {
+              legendRefs.alignmentLine.innerHTML = alignText;
+            }
+            legendRefs.alignmentLine.style.display = '';
+          } else {
+            legendRefs.alignmentLine.style.display = 'none';
+          }
+        } else {
+          legendRefs.alignmentLine.style.display = 'none';
+        }
+      } else {
+        legendRefs.alignmentLine.style.display = 'none';
       }
 
       // Travel info
@@ -554,6 +782,53 @@ export function createNavigationView(
           legendRefs.unreachableReason.style.display = '';
         }
       }
+    }
+
+    // --- Update flight trajectory line on orrery ---
+    if (isInFlight && ship.activeFlightPlan) {
+      const fp = ship.activeFlightPlan;
+      // Use originPos and interceptPos if available, otherwise approximate from locations
+      let originSvg: { x: number; y: number };
+      let destSvg: { x: number; y: number };
+      let shipSvg: { x: number; y: number };
+
+      if (fp.originPos && fp.interceptPos && fp.shipPos) {
+        originSvg = projectToSvg(fp.originPos.x, fp.originPos.y);
+        destSvg = projectToSvg(fp.interceptPos.x, fp.interceptPos.y);
+        shipSvg = projectToSvg(fp.shipPos.x, fp.shipPos.y);
+      } else {
+        // Legacy flight — approximate from location positions
+        const originLoc = gameData.world.locations.find(
+          (l) => l.id === fp.origin
+        );
+        const destLoc = gameData.world.locations.find(
+          (l) => l.id === fp.destination
+        );
+        originSvg = originLoc
+          ? projectToSvg(originLoc.x, originLoc.y)
+          : { x: 0, y: 0 };
+        destSvg = destLoc ? projectToSvg(destLoc.x, destLoc.y) : { x: 0, y: 0 };
+        // Interpolate ship position
+        const progress =
+          fp.totalDistance > 0 ? fp.distanceCovered / fp.totalDistance : 0;
+        shipSvg = {
+          x: originSvg.x + (destSvg.x - originSvg.x) * progress,
+          y: originSvg.y + (destSvg.y - originSvg.y) * progress,
+        };
+      }
+
+      flightRefs.line.setAttribute('x1', String(originSvg.x));
+      flightRefs.line.setAttribute('y1', String(originSvg.y));
+      flightRefs.line.setAttribute('x2', String(destSvg.x));
+      flightRefs.line.setAttribute('y2', String(destSvg.y));
+      flightRefs.line.style.display = '';
+
+      flightRefs.shipDot.setAttribute('cx', String(shipSvg.x));
+      flightRefs.shipDot.setAttribute('cy', String(shipSvg.y));
+      flightRefs.shipDot.style.display = '';
+    } else {
+      flightRefs.line.style.display = 'none';
+      flightRefs.shipDot.style.display = 'none';
     }
   }
 
