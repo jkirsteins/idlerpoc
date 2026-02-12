@@ -84,5 +84,14 @@ export default tseslint.config(
       'max-depth': ['warn', 9],
       'max-params': ['warn', 7],
     },
+  },
+  // Pure data files: exempt from line-count caps since they grow with game
+  // content (articles, catalogs) and splitting them would hurt discoverability.
+  {
+    files: ['src/gamepediaData.ts'],
+    rules: {
+      'max-lines': 'off',
+      'max-lines-per-function': 'off',
+    },
   }
 );
