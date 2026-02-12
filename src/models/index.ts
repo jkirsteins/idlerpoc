@@ -149,7 +149,8 @@ export type OreId =
   | 'titanium_ore'
   | 'platinum_ore'
   | 'helium3'
-  | 'exotic_matter';
+  | 'exotic_matter'
+  | 'water_ice';
 
 export type MiningEquipmentId =
   | 'basic_mining_laser'
@@ -197,6 +198,11 @@ export interface CrewEquipmentInstance {
   definitionId: CrewEquipmentId;
 }
 
+export interface LocationOre {
+  oreId: OreId;
+  yieldMultiplier?: number; // defaults to 1.0 if omitted
+}
+
 export interface WorldLocation {
   id: string;
   name: string;
@@ -209,7 +215,7 @@ export interface WorldLocation {
   services: LocationService[];
   size: number; // quest count per day
   pilotingRequirement: number; // minimum piloting skill to travel here
-  availableOres?: OreId[]; // ores mineable at this location
+  availableOres?: LocationOre[]; // ores mineable at this location, with optional yield multiplier
 }
 
 export interface World {

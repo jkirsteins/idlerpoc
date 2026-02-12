@@ -13,7 +13,7 @@ const BACKUP_KEY = 'spaceship_game_data_backup';
  *
  * See docs/save-migration.md for the full migration architecture.
  */
-export const CURRENT_SAVE_VERSION = 5;
+export const CURRENT_SAVE_VERSION = 6;
 
 /** Whether the last save attempt failed (used for UI warnings). */
 let _lastSaveFailed = false;
@@ -318,6 +318,152 @@ const migrations: Record<number, MigrationFn> = {
     }
 
     data.saveVersion = 5;
+    return data;
+  },
+
+  /**
+   * v5 → v6: World location reconfiguration.
+   * - Regenerate world with 13 realistic locations (replaces 11 old ones)
+   * - Relocate ships at removed locations (debris_field_alpha, scrapyard_ring,
+   *   nea_2247, meo_depot) to earth (or geo_depot for meo_depot successor)
+   * - Cancel flights, contracts, routes referencing removed locations
+   * - Clean up quests, hireable crew, visited locations
+   * - Clear selectedMiningOreId (ore distributions changed globally)
+   */
+  5: (data: RawSave): RawSave => {
+    const REMOVED_LOCATIONS = new Set([
+      'debris_field_alpha',
+      'scrapyard_ring',
+      'nea_2247',
+      'meo_depot',
+    ]);
+
+    // meo_depot is renamed to geo_depot — redirect ships there instead of earth
+    const REMAP: Record<string, string> = { meo_depot: 'geo_depot' };
+
+    function relocateTarget(oldId: string): string {
+      return REMAP[oldId] ?? 'earth';
+    }
+
+    // 1. Regenerate world
+    data.world = generateWorld() as unknown as RawSave;
+
+    // 2. Process ships
+    const ships = data.ships as Array<Record<string, unknown>> | undefined;
+    if (ships) {
+      for (const ship of ships) {
+        const location = ship.location as Record<string, unknown> | undefined;
+
+        // 2a. Relocate ships at removed locations
+        if (location) {
+          if (
+            typeof location.dockedAt === 'string' &&
+            REMOVED_LOCATIONS.has(location.dockedAt)
+          ) {
+            location.dockedAt = relocateTarget(location.dockedAt);
+          }
+          if (
+            typeof location.orbitingAt === 'string' &&
+            REMOVED_LOCATIONS.has(location.orbitingAt)
+          ) {
+            location.status = 'docked';
+            const target = relocateTarget(location.orbitingAt);
+            location.orbitingAt = undefined;
+            location.dockedAt = target;
+          }
+        }
+
+        // 2b. Cancel flights to/from removed locations
+        const flight = ship.activeFlightPlan as
+          | Record<string, unknown>
+          | undefined;
+        if (flight) {
+          const origin = flight.origin as string;
+          const dest = flight.destination as string;
+          if (REMOVED_LOCATIONS.has(origin) || REMOVED_LOCATIONS.has(dest)) {
+            ship.activeFlightPlan = undefined;
+            if (location) {
+              location.status = 'docked';
+              location.dockedAt = 'earth';
+              location.orbitingAt = undefined;
+            }
+          }
+        }
+
+        // 2c. Cancel contracts referencing removed locations
+        const contract = ship.activeContract as Record<string, unknown> | null;
+        if (contract) {
+          const quest = contract.quest as Record<string, unknown> | undefined;
+          if (quest) {
+            const qOrigin = quest.origin as string;
+            const qDest = quest.destination as string;
+            if (
+              REMOVED_LOCATIONS.has(qOrigin) ||
+              REMOVED_LOCATIONS.has(qDest)
+            ) {
+              ship.activeContract = null;
+            }
+          }
+        }
+
+        // 2d. Cancel trade routes referencing removed locations
+        const route = ship.routeAssignment as Record<string, unknown> | null;
+        if (route) {
+          const rOrigin = route.originId as string;
+          const rDest = route.destinationId as string;
+          if (REMOVED_LOCATIONS.has(rOrigin) || REMOVED_LOCATIONS.has(rDest)) {
+            ship.routeAssignment = null;
+          }
+        }
+
+        // 2e. Cancel mining routes referencing removed locations
+        const mRoute = ship.miningRoute as Record<string, unknown> | null;
+        if (mRoute) {
+          const mineLoc = mRoute.mineLocationId as string;
+          const sellLoc = mRoute.sellLocationId as string;
+          if (
+            REMOVED_LOCATIONS.has(mineLoc) ||
+            REMOVED_LOCATIONS.has(sellLoc)
+          ) {
+            ship.miningRoute = null;
+          }
+        }
+
+        // 2f. Clear selectedMiningOreId — ore distributions changed
+        ship.selectedMiningOreId = undefined;
+      }
+    }
+
+    // 3. Clean availableQuests for removed locations
+    const quests = data.availableQuests as Record<string, unknown> | undefined;
+    if (quests) {
+      for (const locId of REMOVED_LOCATIONS) {
+        delete quests[locId];
+      }
+    }
+
+    // 4. Clean hireableCrewByLocation for removed locations
+    const crews = data.hireableCrewByLocation as
+      | Record<string, unknown>
+      | undefined;
+    if (crews) {
+      for (const locId of REMOVED_LOCATIONS) {
+        delete crews[locId];
+      }
+    }
+
+    // 5. Clean visitedLocations — remove deleted IDs, remap meo_depot→geo_depot
+    const visited = data.visitedLocations as string[] | undefined;
+    if (visited) {
+      const hadMeoDepot = visited.includes('meo_depot');
+      const cleaned = visited.filter((id) => !REMOVED_LOCATIONS.has(id));
+      if (hadMeoDepot && !cleaned.includes('geo_depot')) {
+        cleaned.push('geo_depot');
+      }
+      data.visitedLocations = [...new Set(cleaned)];
+    }
+
+    data.saveVersion = 6;
     return data;
   },
 };

@@ -1,4 +1,4 @@
-import type { OreId } from './models';
+import type { OreId, LocationOre } from './models';
 
 export interface OreDefinition {
   id: OreId;
@@ -17,7 +17,7 @@ export const ORE_DEFINITIONS: OreDefinition[] = [
     description:
       'Common ferrous mineral. Primary structural material for station construction.',
     icon: '⛏️',
-    baseValue: 5,
+    baseValue: 8,
     miningLevelRequired: 0,
     weightPerUnit: 10,
   },
@@ -27,7 +27,7 @@ export const ORE_DEFINITIONS: OreDefinition[] = [
     description:
       'Silicon-rich mineral used in electronics and solar panel manufacturing.',
     icon: '💎',
-    baseValue: 3,
+    baseValue: 5,
     miningLevelRequired: 0,
     weightPerUnit: 8,
   },
@@ -37,9 +37,19 @@ export const ORE_DEFINITIONS: OreDefinition[] = [
     description:
       'Essential conductive material for wiring and electronics systems.',
     icon: '🟤',
-    baseValue: 8,
+    baseValue: 15,
     miningLevelRequired: 10,
     weightPerUnit: 12,
+  },
+  {
+    id: 'water_ice',
+    name: 'Water Ice',
+    description:
+      'Frozen water from regolith and subsurface deposits. Essential for hydrogen fuel production, life support, and radiation shielding.',
+    icon: '🧊',
+    baseValue: 12,
+    miningLevelRequired: 5,
+    weightPerUnit: 15,
   },
   {
     id: 'rare_earth',
@@ -47,7 +57,7 @@ export const ORE_DEFINITIONS: OreDefinition[] = [
     description:
       'Critical minerals for advanced magnets, sensors, and fusion components.',
     icon: '✨',
-    baseValue: 15,
+    baseValue: 35,
     miningLevelRequired: 10,
     weightPerUnit: 5,
   },
@@ -57,7 +67,7 @@ export const ORE_DEFINITIONS: OreDefinition[] = [
     description:
       'High-strength, low-mass alloy precursor. Premium shipbuilding material.',
     icon: '🔩',
-    baseValue: 25,
+    baseValue: 60,
     miningLevelRequired: 25,
     weightPerUnit: 15,
   },
@@ -67,7 +77,7 @@ export const ORE_DEFINITIONS: OreDefinition[] = [
     description:
       'Precious metal used in catalytic systems and high-end electronics.',
     icon: '🪙',
-    baseValue: 50,
+    baseValue: 120,
     miningLevelRequired: 40,
     weightPerUnit: 8,
   },
@@ -77,7 +87,7 @@ export const ORE_DEFINITIONS: OreDefinition[] = [
     description:
       'Fusion fuel isotope extracted from regolith and gas giant atmospheres.',
     icon: '⚛️',
-    baseValue: 80,
+    baseValue: 250,
     miningLevelRequired: 60,
     weightPerUnit: 2,
   },
@@ -87,7 +97,7 @@ export const ORE_DEFINITIONS: OreDefinition[] = [
     description:
       'Anomalous material with negative energy density. Used in experimental gap drive research.',
     icon: '🌀',
-    baseValue: 200,
+    baseValue: 500,
     miningLevelRequired: 90,
     weightPerUnit: 1,
   },
@@ -120,4 +130,31 @@ export function getMinableOres(miningSkill: number): OreDefinition[] {
   return ORE_DEFINITIONS.filter(
     (ore) => Math.floor(miningSkill) >= ore.miningLevelRequired
   );
+}
+
+// ─── LocationOre helpers ────────────────────────────────────────
+
+/** Extract ore IDs from a location's availableOres array. */
+export function getLocationOreIds(availableOres?: LocationOre[]): OreId[] {
+  if (!availableOres) return [];
+  return availableOres.map((o) => o.oreId);
+}
+
+/** Get the yield multiplier for a specific ore at a location (default 1.0). */
+export function getLocationOreYieldMultiplier(
+  availableOres: LocationOre[] | undefined,
+  oreId: OreId
+): number {
+  if (!availableOres) return 1.0;
+  const entry = availableOres.find((o) => o.oreId === oreId);
+  return entry?.yieldMultiplier ?? 1.0;
+}
+
+/** Check if an ore is available at a location. */
+export function isOreAvailableAtLocation(
+  availableOres: LocationOre[] | undefined,
+  oreId: OreId
+): boolean {
+  if (!availableOres) return false;
+  return availableOres.some((o) => o.oreId === oreId);
 }

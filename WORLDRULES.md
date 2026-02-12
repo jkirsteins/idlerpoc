@@ -371,6 +371,41 @@ Higher-class ships require more equipment categories to operate safely, consumin
 
 ---
 
+## World Geography
+
+### Realistic Placement
+
+All locations correspond to real solar system bodies, Lagrange points, or plausible orbital zones. Distances use Earth-centric scalars in km. Outer system bodies (Mars, Jupiter) use near-closest-approach values. Examples: Gateway Station at LEO (400 km), Meridian Depot at GEO (35,786 km), Forge Station at Earth-Moon L1 (326,000 km), Tycho Colony on the lunar surface (384,400 km), Freeport Station at Sun-Earth L2 (1,500,000 km).
+
+### Progressive Mining Value
+
+Ore availability and effective value increase with distance from Earth. Expanding outward is always rewarded:
+
+- **Cislunar** (Graveyard Drift, Tycho Colony): Basic and mid-tier ores — max effective value ~60 cr (Titanium)
+- **Near-Earth extended** (The Scatter): Mid-tier ores — Titanium, Rare Earth, Iron
+- **Mars / Inner Belt** (Mars, Vesta Station): Trade hub gateways with supplementary mining
+- **Mid-Belt** (The Crucible): First access to Platinum (120 cr) — dense metallic asteroid swarm
+- **Outer Belt** (Ceres Station): Platinum, Rare Earth, Water Ice hub
+- **Jupiter** (Jupiter Station): Endgame resources — Helium-3 (250 cr), Exotic Matter (500 cr)
+
+### Science-Based Resources
+
+Ore distribution reflects real planetary science:
+
+- **Lunar ilmenite** → Titanium (Tycho Colony)
+- **KREEP basalt** → Rare Earth Elements (Tycho Colony)
+- **Polar crater ice** → Water Ice (Tycho, Mars, Vesta, Ceres)
+- **Metallic asteroid cores** → Platinum (The Crucible, Ceres — M-type asteroids from protoplanetary differentiation)
+- **Gas giant atmospheric scooping** → Helium-3 (Jupiter Station)
+- **Magnetosphere anomalies** → Exotic Matter (Jupiter Station)
+- **Captured minimoons** → Iron, Titanium, Rare Earth (The Scatter — small S/C-type NEAs, too small for concentrated PGMs)
+
+### Yield Multipliers
+
+Locations can have reduced yield for specific ores, reflecting real-world concentration differences. The `yieldMultiplier` field on `LocationOre` defaults to 1.0 and is applied exactly once as a final multiplier in the extraction chain. Example: lunar regolith Helium-3 at 0.1x yield (Tycho Colony) vs industrial atmospheric scooping at 1.0x (Jupiter Station). The auto-select system uses `baseValue × yieldMultiplier` to rank ores, preventing dilute ores from being auto-selected over more profitable alternatives.
+
+---
+
 ## Design Philosophy
 
 This ruleset balances:
@@ -500,7 +535,7 @@ A 4-person crew of green recruits costs **0.3 credits/tick** or **144 credits/da
 
 ### Crew Hiring
 
-When docked at stations with **'hire'** service (Earth, Forge Station, Freeport Station, Mars), players can recruit additional crew members.
+When docked at stations with **'hire'** service (Earth, Forge Station, Freeport Station, Mars), players can recruit additional crew members. These are the four locations in the world with the hire service.
 
 **Candidate Generation:**
 

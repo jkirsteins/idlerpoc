@@ -50,7 +50,7 @@ npm run dev
 - **Mining System**:
   - Orbit locations with `mine` service to extract ore — mining equipment operates at a base rate even without crew; assigning crew to mining_ops dramatically increases speed and unlocks rare ores
   - **Ore material picker**: select which ore to mine from the mining panel; auto-select defaults to highest value; locked ores shown with skill requirements
-  - 8 ore types from Iron (common, 5 cr) to Exotic Matter (rare, 200 cr) — mining skill level gates access
+  - 9 ore types from Iron (common, 8 cr) to Exotic Matter (rare, 500 cr) — mining skill level gates access; ore value increases with distance from Earth
   - 4 tiers of ship-mounted mining equipment: Mining Laser Array (1.0x), Industrial Mining Rig (2.0x), Deep Core System (3.5x), Quantum Resonance Array (5.0x)
   - Equipment purchased/upgraded at Station Store → Ship Equipment tab; trade-in old gear for 50% credit
   - Extraction rate scales with equipment tier, mining skill, and per-ore mastery bonuses
@@ -61,9 +61,9 @@ npm run dev
   - **Auto-sell mining routes**: set up idle-friendly mine→sell→return loop; destination picker shows profitability estimates (cr/hr) per station accounting for fill time and round-trip travel
   - Route stats show trips, earnings, status, and average cr/hr
   - Active mining feedback: pulsing indicator when mining, status badges (MINING / IN TRANSIT / CARGO FULL / DOCKED / IDLE)
-  - Near-Earth mining destinations reachable by Class II ships (Debris Field Alpha, Scrapyard Ring, NEA-2247)
+  - 8 mining locations from cislunar space (Graveyard Drift, Tycho Colony) through the Belt (The Crucible, Ceres) to Jupiter, with progressively valuable ores rewarding outward expansion
 - **Navigation System**:
-  - World map with 11 locations including 3 new near-Earth mining destinations
+  - World map with 13 locations from LEO to Jupiter at realistic orbital distances
   - Visual navigation chart showing distances, piloting requirements, and reachable locations
   - Destinations gated by piloting skill level (10 for nearby, 75+ for outer system)
   - Dynamic reachability based on ship range, fuel, and piloting skill
@@ -177,10 +177,10 @@ npm run dev
   - 9 room types (bridge, engine room, reactor room, point defense station, etc.)
   - 3 factions (Terran Alliance, Free Traders Guild, Kreth Collective)
   - 15 crew equipment items (weapons, tools, accessories, armor, gravity countermeasures, 6 mining equipment tiers)
-  - 8 ore types with mining level requirements and location availability
+  - 9 ore types with mining level requirements and location availability
   - Progressive XP/leveling system (20 levels)
   - 3-skill mastery system with per-item progression and mastery pool checkpoints (see `docs/skill-revamp-design.md`)
-  - 11 world locations including 3 near-Earth mining destinations
+  - 13 world locations from LEO to Jupiter with realistic orbital placements
 
 ## Code Quality
 

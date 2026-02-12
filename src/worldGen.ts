@@ -127,7 +127,11 @@ export function canShipAccessLocation(
 }
 
 /**
- * Generate the initial world with locations including mining destinations
+ * Generate the initial world with locations including mining destinations.
+ *
+ * All distances are Earth-centric scalars in km. Orbital basis notes explain
+ * *why* a location sits at that distance (Lagrange points, real bodies, etc.)
+ * but travel remains 1-D via getDistanceBetween() = |distA - distB|.
  */
 export function generateWorld(): World {
   const locations: WorldLocation[] = [
@@ -161,142 +165,211 @@ export function generateWorld(): World {
       pilotingRequirement: 0,
     },
 
-    // ─── Near-Earth Mining Destinations (Station Keeper range) ───
+    // ─── Near-Earth / Cislunar ───────────────────────────────────
     {
-      id: 'debris_field_alpha',
-      name: 'Debris Field Alpha',
-      type: 'asteroid_belt',
-      factionId: 'terran_alliance',
-      description:
-        'Dense cluster of orbital debris and micro-asteroids. Rich in iron and silicate deposits from old station breakups.',
-      distanceFromEarth: 300,
-      x: 48,
-      y: 46,
-      services: ['mine'],
-      size: 1,
-      pilotingRequirement: 10,
-      availableOres: ['iron_ore', 'silicate'],
-    },
-    {
-      id: 'scrapyard_ring',
-      name: 'Scrapyard Ring',
-      type: 'orbital',
-      factionId: 'free_traders_guild',
-      description:
-        'Salvage operators have turned this decommissioned station graveyard into an unofficial mining hub. Good copper veins in the old hull plating.',
-      distanceFromEarth: 800,
-      x: 54,
-      y: 53,
-      services: ['mine', 'trade'],
-      size: 1,
-      pilotingRequirement: 10,
-      availableOres: ['iron_ore', 'copper_ore'],
-    },
-    {
-      id: 'nea_2247',
-      name: 'Near-Earth Asteroid 2247',
-      type: 'asteroid_belt',
-      factionId: 'terran_alliance',
-      description:
-        'A captured near-Earth asteroid rich in titanium and rare earth elements. Terran Alliance mining concession.',
-      distanceFromEarth: 1500,
-      x: 46,
-      y: 44,
-      services: ['mine'],
-      size: 1,
-      pilotingRequirement: 25,
-      availableOres: ['iron_ore', 'rare_earth', 'titanium_ore'],
-    },
-
-    // ─── Inner System ────────────────────────────────────────────
-    {
-      id: 'meo_depot',
+      // Geostationary orbit — real-world logistics/communications altitude
+      id: 'geo_depot',
       name: 'Meridian Depot',
       type: 'orbital',
       factionId: 'terran_alliance',
       description:
-        'Medium Earth orbit supply depot. Supports satellite maintenance operations.',
-      distanceFromEarth: 20_000,
+        'Geostationary orbit supply depot. Supports satellite servicing and communications relay operations.',
+      distanceFromEarth: 35_786,
       x: 55,
       y: 52,
-      services: ['refuel', 'repair'],
-      size: 1,
-      pilotingRequirement: 20,
+      services: ['refuel', 'trade', 'repair'],
+      size: 2,
+      pilotingRequirement: 10,
     },
     {
+      // Earth-Moon L1 Lagrange point — gravitational saddle between Earth and Moon
       id: 'forge_station',
       name: 'Forge Station',
       type: 'space_station',
       factionId: 'terran_alliance',
       description:
-        'Military shipyard in lunar orbit. Specializes in repairs and refitting.',
-      distanceFromEarth: 384_400,
-      x: 60,
-      y: 45,
+        'Shipyard at the Earth-Moon L1 point. Gateway to cislunar space, specializing in repairs and refitting.',
+      distanceFromEarth: 326_000,
+      x: 58,
+      y: 47,
       services: ['refuel', 'trade', 'repair', 'hire'],
       size: 3,
-      pilotingRequirement: 35,
+      pilotingRequirement: 20,
     },
     {
+      // Earth-Moon L4 leading Trojan point — gravitational debris trap
+      id: 'graveyard_drift',
+      name: 'Graveyard Drift',
+      type: 'asteroid_belt',
+      factionId: 'free_traders_guild',
+      description:
+        "Decommissioned hulls and debris accumulated at the Moon's leading Trojan point. Salvage crews strip iron, silicates from solar panels, and copper wiring from old station modules.",
+      distanceFromEarth: 384_400,
+      x: 48,
+      y: 44,
+      services: ['mine'],
+      size: 1,
+      pilotingRequirement: 15,
+      availableOres: [
+        { oreId: 'iron_ore' },
+        { oreId: 'silicate' },
+        { oreId: 'copper_ore' },
+      ],
+    },
+    {
+      // Lunar surface — Tycho crater, near South Pole KREEP basalt deposits
+      id: 'tycho_colony',
+      name: 'Tycho Colony',
+      type: 'moon',
+      factionId: 'terran_alliance',
+      description:
+        'Lunar surface settlement at Tycho crater. Ilmenite deposits yield titanium, KREEP basalt provides rare earths, and polar craters hold water ice. Trace helium-3 in the regolith.',
+      distanceFromEarth: 384_400,
+      x: 62,
+      y: 48,
+      services: ['refuel', 'trade', 'mine'],
+      size: 2,
+      pilotingRequirement: 30,
+      availableOres: [
+        { oreId: 'titanium_ore' },
+        { oreId: 'rare_earth' },
+        { oreId: 'water_ice' },
+        { oreId: 'helium3', yieldMultiplier: 0.1 },
+      ],
+    },
+    {
+      // Sun-Earth L2 Lagrange point — beyond Earth's shadow
       id: 'freeport_station',
       name: 'Freeport Station',
       type: 'space_station',
       factionId: 'free_traders_guild',
       description:
-        'Independent trading hub beyond the Moon. No questions asked, neutral ground.',
-      distanceFromEarth: 1_200_000,
+        'Independent trading hub at the Sun-Earth L2 point. No questions asked, neutral ground beyond Alliance jurisdiction.',
+      distanceFromEarth: 1_500_000,
       x: 68,
       y: 55,
       services: ['refuel', 'trade', 'hire'],
       size: 3,
-      pilotingRequirement: 45,
+      pilotingRequirement: 40,
     },
     {
+      // Captured near-Earth asteroid cluster (minimoons) orbiting 1-3M km from Earth
       id: 'the_scatter',
       name: 'The Scatter',
       type: 'asteroid_belt',
       factionId: 'free_traders_guild',
       description:
-        'Dense asteroid field in cislunar space. Lawless mining operations with platinum and titanium veins.',
-      distanceFromEarth: 2_500_000,
-      x: 40,
-      y: 60,
-      services: ['mine', 'trade'],
+        "Cluster of captured minimoons — small S-type and C-type asteroids temporarily trapped in Earth's Hill sphere. Iron-nickel bodies with titanium deposits and rare earth minerals.",
+      distanceFromEarth: 1_800_000,
+      x: 38,
+      y: 62,
+      services: ['refuel', 'mine', 'trade'],
       size: 2,
       pilotingRequirement: 45,
-      availableOres: ['titanium_ore', 'platinum_ore', 'rare_earth'],
+      availableOres: [
+        { oreId: 'iron_ore' },
+        { oreId: 'titanium_ore' },
+        { oreId: 'rare_earth' },
+      ],
     },
 
     // ─── Outer System ────────────────────────────────────────────
     {
+      // Mars — near closest Earth approach (~55M km)
       id: 'mars',
       name: 'Mars',
       type: 'planet',
       factionId: 'terran_alliance',
       description:
-        'Red planet with growing terraforming colonies. Helium-3 extraction from regolith.',
-      distanceFromEarth: 54_600_000,
-      x: 75,
-      y: 40,
+        'Red planet with growing settlement colonies. Iron oxide surface, volcanic rare earth deposits, and subsurface water ice at the poles.',
+      distanceFromEarth: 55_000_000,
+      x: 78,
+      y: 38,
       services: ['refuel', 'trade', 'repair', 'hire', 'mine'],
       size: 3,
-      pilotingRequirement: 60,
-      availableOres: ['iron_ore', 'rare_earth', 'helium3'],
+      pilotingRequirement: 55,
+      availableOres: [
+        { oreId: 'iron_ore' },
+        { oreId: 'rare_earth' },
+        { oreId: 'water_ice' },
+      ],
     },
     {
+      // 4 Vesta orbit (~2.36 AU) — second-largest asteroid belt body
+      id: 'vesta_station',
+      name: 'Vesta Station',
+      type: 'space_station',
+      factionId: 'terran_alliance',
+      description:
+        'Orbital station above 4 Vesta, a differentiated rocky body in the inner asteroid belt. Basaltic crust yields iron and titanium; Dawn-confirmed hydrated minerals provide water ice.',
+      distanceFromEarth: 110_000_000,
+      x: 82,
+      y: 42,
+      services: ['refuel', 'trade', 'mine'],
+      size: 2,
+      pilotingRequirement: 60,
+      availableOres: [
+        { oreId: 'iron_ore' },
+        { oreId: 'titanium_ore' },
+        { oreId: 'water_ice' },
+      ],
+    },
+    {
+      // Dense metallic asteroid swarm in the mid-belt (~2.9 AU)
+      id: 'the_crucible',
+      name: 'The Crucible',
+      type: 'asteroid_belt',
+      factionId: 'free_traders_guild',
+      description:
+        'Dense cluster of metallic asteroids — exposed iron-nickel cores from ancient protoplanetary collisions. The richest source of platinum group metals in the Belt.',
+      distanceFromEarth: 155_000_000,
+      x: 84,
+      y: 46,
+      services: ['refuel', 'mine'],
+      size: 2,
+      pilotingRequirement: 68,
+      availableOres: [
+        { oreId: 'iron_ore' },
+        { oreId: 'platinum_ore' },
+        { oreId: 'rare_earth' },
+      ],
+    },
+    {
+      // Ceres — dwarf planet (~2.77 AU), near closest Earth approach
+      id: 'ceres_station',
+      name: 'Ceres Station',
+      type: 'planetoid',
+      factionId: 'free_traders_guild',
+      description:
+        'Settlement on Ceres, the Belt capital. Twenty-five percent water ice crust over a chondritic core. Hub for deep-belt mining operations and Free Traders Guild commerce.',
+      distanceFromEarth: 265_000_000,
+      x: 87,
+      y: 50,
+      services: ['refuel', 'trade', 'mine'],
+      size: 3,
+      pilotingRequirement: 75,
+      availableOres: [
+        { oreId: 'water_ice' },
+        { oreId: 'iron_ore' },
+        { oreId: 'platinum_ore' },
+        { oreId: 'rare_earth' },
+      ],
+    },
+    {
+      // Jupiter — near closest Earth approach (~588M km, ~3.93 AU)
       id: 'jupiter_station',
       name: 'Jupiter Station',
       type: 'space_station',
       factionId: 'terran_alliance',
       description:
-        'Distant gas giant station. Helium-3 fuel depot and exotic matter research facility.',
-      distanceFromEarth: 628_000_000,
-      x: 85,
-      y: 30,
+        "Orbital station in Jupiter's system. Atmospheric scooping operations extract helium-3 at industrial scale. Magnetosphere anomalies yield exotic matter for gap drive research.",
+      distanceFromEarth: 588_000_000,
+      x: 92,
+      y: 32,
       services: ['refuel', 'trade', 'mine'],
       size: 2,
-      pilotingRequirement: 75,
-      availableOres: ['helium3', 'exotic_matter'],
+      pilotingRequirement: 85,
+      availableOres: [{ oreId: 'helium3' }, { oreId: 'exotic_matter' }],
     },
   ];
 

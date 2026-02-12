@@ -10,7 +10,7 @@ import {
 import { getRemainingOreCapacity } from '../miningSystem';
 
 // Use real world locations from generateWorld()
-const MINE_LOCATION_ID = 'debris_field_alpha'; // mine service, no trade
+const MINE_LOCATION_ID = 'graveyard_drift'; // mine service, no trade
 const TRADE_LOCATION_ID = 'earth'; // trade + refuel
 
 describe('Mining Route System', () => {

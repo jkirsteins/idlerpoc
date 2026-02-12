@@ -26,25 +26,25 @@ describe('calculatePositionDanger', () => {
 
   it('returns low danger near Earth (0 km)', () => {
     const danger = calculatePositionDanger(0, world);
-    // Scrapyard Ring (lawless, 800 km) is within LAWLESS_RADIUS, boosting danger
-    // dangerFromAlliance=0.1 * lawlessBonus≈3.0 ≈ 0.3
-    expect(danger).toBeCloseTo(0.3, 1);
+    // Graveyard Drift (lawless, 384K km) is within LAWLESS_RADIUS, boosting danger
+    // dangerFromAlliance=0.1 * lawlessBonus≈2.23 ≈ 0.22
+    expect(danger).toBeCloseTo(0.22, 1);
   });
 
-  it('returns minimum danger near Mars (54.6M km)', () => {
-    const danger = calculatePositionDanger(54_600_000, world);
+  it('returns minimum danger near Mars (55M km)', () => {
+    const danger = calculatePositionDanger(55_000_000, world);
     expect(danger).toBeCloseTo(0.1, 1);
   });
 
   it('returns low danger near Gateway Station (400 km)', () => {
     const danger = calculatePositionDanger(400, world);
-    // Scrapyard Ring (lawless, 800 km) is within LAWLESS_RADIUS, boosting danger
-    expect(danger).toBeCloseTo(0.3, 1);
+    // Graveyard Drift (lawless, 384K km) is within LAWLESS_RADIUS, boosting danger
+    expect(danger).toBeCloseTo(0.22, 1);
   });
 
   it('returns maximum danger in deep space midway Earth-Mars', () => {
-    // 27.3M km from Earth, nearest TA location is Mars at 54.6M = 27.3M away
-    const danger = calculatePositionDanger(27_300_000, world);
+    // 27.5M km from Earth, nearest TA location is Mars at 55M = 27.5M away
+    const danger = calculatePositionDanger(27_500_000, world);
     expect(danger).toBeGreaterThanOrEqual(ENCOUNTER_CONSTANTS.DANGER_MAX);
   });
 
@@ -69,7 +69,7 @@ describe('calculatePositionDanger', () => {
   });
 
   it('near Jupiter Station (TA faction) danger is low', () => {
-    const danger = calculatePositionDanger(628_000_000, world);
+    const danger = calculatePositionDanger(588_000_000, world);
     expect(danger).toBeCloseTo(0.1, 1);
   });
 
@@ -295,7 +295,7 @@ describe('getShipPositionKm', () => {
         origin: 'earth',
         destination: 'mars',
         distanceCovered: 0,
-        totalDistance: 54_600_000_000,
+        totalDistance: 55_000_000_000,
       }),
     });
     const posKm = getShipPositionKm(ship, world);
@@ -310,12 +310,12 @@ describe('getShipPositionKm', () => {
       activeFlightPlan: createTestFlight({
         origin: 'earth',
         destination: 'mars',
-        distanceCovered: 54_600_000_000,
-        totalDistance: 54_600_000_000,
+        distanceCovered: 55_000_000_000,
+        totalDistance: 55_000_000_000,
       }),
     });
     const posKm = getShipPositionKm(ship, world);
-    expect(posKm).toBeCloseTo(54_600_000, 0); // Mars is at 54.6M km
+    expect(posKm).toBeCloseTo(55_000_000, 0); // Mars is at 55M km
   });
 
   it('returns midpoint at halfway through flight', () => {
@@ -326,12 +326,12 @@ describe('getShipPositionKm', () => {
       activeFlightPlan: createTestFlight({
         origin: 'earth',
         destination: 'mars',
-        distanceCovered: 27_300_000_000,
-        totalDistance: 54_600_000_000,
+        distanceCovered: 27_500_000_000,
+        totalDistance: 55_000_000_000,
       }),
     });
     const posKm = getShipPositionKm(ship, world);
-    expect(posKm).toBeCloseTo(27_300_000, 0);
+    expect(posKm).toBeCloseTo(27_500_000, 0);
   });
 
   it('handles reverse routes (Mars to Earth)', () => {
@@ -342,13 +342,13 @@ describe('getShipPositionKm', () => {
       activeFlightPlan: createTestFlight({
         origin: 'mars',
         destination: 'earth',
-        distanceCovered: 27_300_000_000,
-        totalDistance: 54_600_000_000,
+        distanceCovered: 27_500_000_000,
+        totalDistance: 55_000_000_000,
       }),
     });
     const posKm = getShipPositionKm(ship, world);
-    // Midpoint of Mars(54.6M) → Earth(0): 54.6M + (0 - 54.6M) * 0.5 = 27.3M
-    expect(posKm).toBeCloseTo(27_300_000, 0);
+    // Midpoint of Mars(55M) → Earth(0): 55M + (0 - 55M) * 0.5 = 27.5M
+    expect(posKm).toBeCloseTo(27_500_000, 0);
   });
 });
 
