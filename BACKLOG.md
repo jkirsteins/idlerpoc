@@ -127,6 +127,17 @@ Remaining follow-up:
 
 - **Move `getFuelPricePerKg` out of `ui/refuelDialog.ts`**: This is pure game logic; it should live in a non-UI module so `fleetAnalytics.ts` can import it without cross-layer dependency.
 
+## Bounty Hunting Mechanic
+
+- **Bounty Hunting System**: A gameplay loop where players can accept contracts to track down and capture/eliminate specific targets. Would involve:
+  - Bounty board at stations with posted contracts (target, reward, location hints)
+  - Target tracking/hunting mechanics (search, pursuit, interception)
+  - Combat encounters with bounty targets (higher difficulty than random encounters)
+  - Reputation system with bounty-issuing factions
+  - Risk/reward scaling based on target difficulty
+  - Requires combat equipment and skilled crew
+  - Could tie into encounter system, combat mechanics, and reputation/faction features
+
 ## Other Known Gaps
 
 - ~~**Equipment Repair at Stations**~~: Resolved — repair job slots now work in all ship states (docked, in flight, orbiting).
