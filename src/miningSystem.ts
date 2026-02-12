@@ -26,7 +26,12 @@ import {
   getCommandMiningBonus,
   getFleetAuraIncomeMultiplier,
 } from './captainBonus';
-import { getOreDefinition, type OreDefinition } from './oreTypes';
+import {
+  getOreDefinition,
+  isOreAvailableAtLocation,
+  getLocationOreYieldMultiplier,
+  type OreDefinition,
+} from './oreTypes';
 import { getEquipmentDefinition, type EquipmentDefinition } from './equipment';
 import { getCrewForJobType } from './jobSlots';
 import {
@@ -118,7 +123,10 @@ function selectOreToMine(
   }
 
   // If player selected a specific ore, try to honour it
-  if (selectedOreId && location.availableOres.includes(selectedOreId)) {
+  if (
+    selectedOreId &&
+    isOreAvailableAtLocation(location.availableOres, selectedOreId)
+  ) {
     const ore = getOreDefinition(selectedOreId);
     if (Math.floor(miningSkill) >= ore.miningLevelRequired) {
       return ore;
@@ -127,16 +135,22 @@ function selectOreToMine(
     return null;
   }
 
-  // Auto-select: pick highest-value ore the miner can access
+  // Auto-select: pick highest effective-value ore (baseValue × yieldMultiplier)
   const minableAtLocation = location.availableOres
-    .map((id) => getOreDefinition(id))
+    .map((entry) => getOreDefinition(entry.oreId))
     .filter((ore) => Math.floor(miningSkill) >= ore.miningLevelRequired);
 
   if (minableAtLocation.length === 0) return null;
 
-  return minableAtLocation.reduce((best, ore) =>
-    ore.baseValue > best.baseValue ? ore : best
-  );
+  return minableAtLocation.reduce((best, ore) => {
+    const bestEffective =
+      best.baseValue *
+      getLocationOreYieldMultiplier(location.availableOres, best.id);
+    const oreEffective =
+      ore.baseValue *
+      getLocationOreYieldMultiplier(location.availableOres, ore.id);
+    return oreEffective > bestEffective ? ore : best;
+  });
 }
 
 /**
@@ -246,7 +260,12 @@ export function applyMiningTick(
     usedEquipmentIds.add(bestGear.instance.id);
 
     // Reduced yield: no skill factor, no mastery, no captain bonus
-    const oreYield = BASE_MINING_RATE * equipRate * CREWLESS_MINING_RATE_MULT;
+    const yieldMult = getLocationOreYieldMultiplier(
+      location.availableOres,
+      ore.id
+    );
+    const oreYield =
+      BASE_MINING_RATE * equipRate * CREWLESS_MINING_RATE_MULT * yieldMult;
 
     const prevAccum = ship.miningAccumulator[ore.id] ?? 0;
     let newAccum = prevAccum + oreYield;
@@ -325,6 +344,12 @@ export function applyMiningTick(
       // Captain command bonus (ship-wide multiplier from captain's mining skill)
       const captainMiningMultiplier = 1 + getCommandMiningBonus(ship);
 
+      // Location-specific yield multiplier (e.g. dilute lunar He-3 at 0.1×)
+      const yieldMult = getLocationOreYieldMultiplier(
+        location.availableOres,
+        ore.id
+      );
+
       // Final yield per tick
       const oreYield =
         BASE_MINING_RATE *
@@ -332,7 +357,8 @@ export function applyMiningTick(
         skillFactor *
         (1 + masteryYieldBonus) *
         (1 + poolYieldBonus) *
-        captainMiningMultiplier;
+        captainMiningMultiplier *
+        yieldMult;
 
       // Accumulate fractional ore
       const prevAccum = ship.miningAccumulator[ore.id] ?? 0;
@@ -586,7 +612,10 @@ export function getMiningYieldPerHour(
   ore: OreDefinition
 ): number {
   // Ore must be available at this location
-  if (location.availableOres && !location.availableOres.includes(ore.id)) {
+  if (
+    location.availableOres &&
+    !isOreAvailableAtLocation(location.availableOres, ore.id)
+  ) {
     return 0;
   }
 
@@ -620,11 +649,16 @@ export function getMiningYieldPerHour(
     const baseEquipRate = bestGear.def.miningRate ?? 1.0;
     const equipEffectiveness =
       1 - bestGear.instance.degradation / MINING_EFFECTIVENESS_DIVISOR;
+    const yieldMult = getLocationOreYieldMultiplier(
+      location.availableOres,
+      ore.id
+    );
     const yieldPerTick =
       BASE_MINING_RATE *
       baseEquipRate *
       equipEffectiveness *
-      CREWLESS_MINING_RATE_MULT;
+      CREWLESS_MINING_RATE_MULT *
+      yieldMult;
     return yieldPerTick * ticksPerHour;
   }
 
@@ -660,13 +694,19 @@ export function getMiningYieldPerHour(
 
     const captainMiningMultiplier = 1 + getCommandMiningBonus(ship);
 
+    const yieldMult = getLocationOreYieldMultiplier(
+      location.availableOres,
+      ore.id
+    );
+
     totalYieldPerTick +=
       BASE_MINING_RATE *
       equipRate *
       skillFactor *
       (1 + masteryYieldBonus) *
       (1 + poolYieldBonus) *
-      captainMiningMultiplier;
+      captainMiningMultiplier *
+      yieldMult;
   }
 
   return totalYieldPerTick * ticksPerHour;

@@ -22,8 +22,8 @@ function createMineLocation(
   overrides: Partial<WorldLocation> = {}
 ): WorldLocation {
   return {
-    id: 'debris_field_alpha',
-    name: 'Debris Field Alpha',
+    id: 'graveyard_drift',
+    name: 'Graveyard Drift',
     type: 'asteroid_belt',
     description: 'Asteroid belt with iron and silicate deposits.',
     distanceFromEarth: 80_000,
@@ -32,7 +32,7 @@ function createMineLocation(
     services: ['mine'],
     size: 1,
     pilotingRequirement: 10,
-    availableOres: ['iron_ore', 'silicate'] as OreId[],
+    availableOres: [{ oreId: 'iron_ore' }, { oreId: 'silicate' }],
     ...overrides,
   };
 }
@@ -80,7 +80,7 @@ describe('Mining System', () => {
 
     it('mines at base rate when no crew are assigned (crew-less mining)', () => {
       const ship = createTestShip({
-        location: { status: 'orbiting', orbitingAt: 'debris_field_alpha' },
+        location: { status: 'orbiting', orbitingAt: 'graveyard_drift' },
       });
       const location = createMineLocation();
       // Ship has mining_laser by default but no crew in mining_ops
@@ -98,7 +98,7 @@ describe('Mining System', () => {
       });
       const ship = createTestShip({
         crew: [miner],
-        location: { status: 'orbiting', orbitingAt: 'debris_field_alpha' },
+        location: { status: 'orbiting', orbitingAt: 'graveyard_drift' },
         // Override equipment to exclude mining equipment
         equipment: [
           { id: 'eq-ls', definitionId: 'life_support', degradation: 0 },
@@ -117,7 +117,7 @@ describe('Mining System', () => {
       const miner = createMinerCrew(0); // skill 0
       const ship = createTestShip({
         crew: [miner],
-        location: { status: 'orbiting', orbitingAt: 'debris_field_alpha' },
+        location: { status: 'orbiting', orbitingAt: 'graveyard_drift' },
       });
       assignCrewToJob(ship, miner.id, 'mining_ops');
 
@@ -141,15 +141,15 @@ describe('Mining System', () => {
     });
 
     it('mines the highest-value ore available at the location', () => {
-      const miner = createMinerCrew(0); // skill 0 — can mine iron (5cr) and silicate (3cr)
+      const miner = createMinerCrew(0); // skill 0 — can mine iron (8cr) and silicate (5cr)
       const ship = createTestShip({
         crew: [miner],
-        location: { status: 'orbiting', orbitingAt: 'debris_field_alpha' },
+        location: { status: 'orbiting', orbitingAt: 'graveyard_drift' },
       });
       assignCrewToJob(ship, miner.id, 'mining_ops');
 
       const location = createMineLocation({
-        availableOres: ['iron_ore', 'silicate'] as OreId[],
+        availableOres: [{ oreId: 'iron_ore' }, { oreId: 'silicate' }],
       });
 
       // Run enough ticks to extract some ore
@@ -169,13 +169,13 @@ describe('Mining System', () => {
 
       const lowSkillShip = createTestShip({
         crew: [lowSkillMiner],
-        location: { status: 'orbiting', orbitingAt: 'debris_field_alpha' },
+        location: { status: 'orbiting', orbitingAt: 'graveyard_drift' },
       });
       assignCrewToJob(lowSkillShip, lowSkillMiner.id, 'mining_ops');
 
       const highSkillShip = createTestShip({
         crew: [highSkillMiner],
-        location: { status: 'orbiting', orbitingAt: 'debris_field_alpha' },
+        location: { status: 'orbiting', orbitingAt: 'graveyard_drift' },
       });
       assignCrewToJob(highSkillShip, highSkillMiner.id, 'mining_ops');
 
@@ -201,7 +201,7 @@ describe('Mining System', () => {
       const miner = createMinerCrew(0);
       const ship = createTestShip({
         crew: [miner],
-        location: { status: 'orbiting', orbitingAt: 'debris_field_alpha' },
+        location: { status: 'orbiting', orbitingAt: 'graveyard_drift' },
         // Pre-fill cargo near capacity
         oreCargo: [{ oreId: 'iron_ore' as OreId, quantity: 10000 }],
       });
@@ -218,13 +218,13 @@ describe('Mining System', () => {
       const miner = createMinerCrew(5); // skill 5, can't mine copper (req 10)
       const ship = createTestShip({
         crew: [miner],
-        location: { status: 'orbiting', orbitingAt: 'scrapyard_ring' },
+        location: { status: 'orbiting', orbitingAt: 'graveyard_drift' },
       });
       assignCrewToJob(ship, miner.id, 'mining_ops');
 
       const location = createMineLocation({
-        id: 'scrapyard_ring',
-        availableOres: ['copper_ore'] as OreId[], // only copper, requires mining 10
+        id: 'graveyard_drift',
+        availableOres: [{ oreId: 'copper_ore' }], // only copper, requires mining 10
       });
 
       for (let i = 0; i < 20; i++) {
@@ -238,11 +238,11 @@ describe('Mining System', () => {
 
     it('crew-less mining only extracts tier-0 ores', () => {
       const ship = createTestShip({
-        location: { status: 'orbiting', orbitingAt: 'debris_field_alpha' },
+        location: { status: 'orbiting', orbitingAt: 'graveyard_drift' },
       });
       // Ship has mining_laser but no miners assigned
       const location = createMineLocation({
-        availableOres: ['iron_ore', 'copper_ore'] as OreId[],
+        availableOres: [{ oreId: 'iron_ore' }, { oreId: 'copper_ore' }],
       });
 
       // Run many ticks
@@ -260,7 +260,7 @@ describe('Mining System', () => {
 
     it('crew-less mining returns null without equipment', () => {
       const ship = createTestShip({
-        location: { status: 'orbiting', orbitingAt: 'debris_field_alpha' },
+        location: { status: 'orbiting', orbitingAt: 'graveyard_drift' },
         equipment: [
           { id: 'eq-ls', definitionId: 'life_support', degradation: 0 },
         ],
@@ -278,7 +278,7 @@ describe('Mining System', () => {
       });
       const ship = createTestShip({
         crew: [miner],
-        location: { status: 'orbiting', orbitingAt: 'debris_field_alpha' },
+        location: { status: 'orbiting', orbitingAt: 'graveyard_drift' },
       });
       assignCrewToJob(ship, miner.id, 'mining_ops');
 
@@ -286,7 +286,7 @@ describe('Mining System', () => {
       ship.selectedMiningOreId = 'silicate' as OreId;
 
       const location = createMineLocation({
-        availableOres: ['iron_ore', 'silicate'] as OreId[],
+        availableOres: [{ oreId: 'iron_ore' }, { oreId: 'silicate' }],
       });
 
       for (let i = 0; i < 30; i++) {
@@ -309,7 +309,7 @@ describe('Mining System', () => {
       });
       const ship = createTestShip({
         crew: [miner],
-        location: { status: 'orbiting', orbitingAt: 'debris_field_alpha' },
+        location: { status: 'orbiting', orbitingAt: 'graveyard_drift' },
       });
       assignCrewToJob(ship, miner.id, 'mining_ops');
 
@@ -317,7 +317,7 @@ describe('Mining System', () => {
       ship.selectedMiningOreId = 'copper_ore' as OreId;
 
       const location = createMineLocation({
-        availableOres: ['iron_ore', 'copper_ore'] as OreId[],
+        availableOres: [{ oreId: 'iron_ore' }, { oreId: 'copper_ore' }],
       });
 
       for (let i = 0; i < 30; i++) {
@@ -358,9 +358,9 @@ describe('Mining System', () => {
       const planetLocation = createTradeLocation({ type: 'planet' });
 
       const price = getOreSellPrice(ore, planetLocation, ship);
-      // Planet = 1.1x, iron base = 5, commerce 0 = 1.0x
-      // 5 * 1.1 * 1.0 = 5.5, rounded = 6
-      expect(price).toBe(6);
+      // Planet = 1.1x, iron base = 8, commerce 0 = 1.0x
+      // 8 * 1.1 * 1.0 = 8.8, rounded = 9
+      expect(price).toBe(9);
     });
 
     it('commerce skill improves sell price', () => {
@@ -372,8 +372,8 @@ describe('Mining System', () => {
       const location = createTradeLocation({ type: 'space_station' }); // 1.0x
 
       const price = getOreSellPrice(ore, location, ship);
-      // 5 * 1.0 * (1 + 50*0.005) = 5 * 1.25 = 6.25, rounded = 6
-      expect(price).toBe(6);
+      // 8 * 1.0 * (1 + 50*0.005) = 8 * 1.25 = 10, rounded = 10
+      expect(price).toBe(10);
     });
   });
 

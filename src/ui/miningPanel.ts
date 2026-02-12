@@ -8,7 +8,12 @@
 
 import type { GameData, Ship, WorldLocation } from '../models';
 import { formatDualTime, GAME_SECONDS_PER_HOUR } from '../timeSystem';
-import { getOreDefinition, canMineOre } from '../oreTypes';
+import {
+  getOreDefinition,
+  canMineOre,
+  isOreAvailableAtLocation,
+  getLocationOreYieldMultiplier,
+} from '../oreTypes';
 import { getCrewForJobType } from '../jobSlots';
 import { getBestShipMiningEquipment } from '../equipment';
 import {
@@ -404,7 +409,8 @@ export function createMiningPanel(callbacks: MiningPanelCallbacks): {
     autoEntry.row.style.opacity = '1';
     autoEntry.radio.disabled = false;
 
-    for (const oreId of availableOres) {
+    for (const oreEntry of availableOres) {
+      const oreId = oreEntry.oreId;
       currentPickerIds.add(oreId);
       const ore = getOreDefinition(oreId);
       const canAccess =
@@ -422,10 +428,13 @@ export function createMiningPanel(callbacks: MiningPanelCallbacks): {
       entry.radio.disabled = !canAccess;
       entry.row.style.opacity = canAccess ? '1' : '0.45';
 
+      const yieldMult = oreEntry.yieldMultiplier ?? 1.0;
+      const yieldSuffix = yieldMult < 1.0 ? ` (${yieldMult}x yield)` : '';
+
       if (canAccess) {
-        entry.nameEl.textContent = `${ore.icon} ${ore.name}`;
+        entry.nameEl.textContent = `${ore.icon} ${ore.name}${yieldSuffix}`;
       } else {
-        entry.nameEl.textContent = `\uD83D\uDD12 ${ore.icon} ${ore.name} (Need Mining ${ore.miningLevelRequired})`;
+        entry.nameEl.textContent = `\uD83D\uDD12 ${ore.icon} ${ore.name}${yieldSuffix} (Need Mining ${ore.miningLevelRequired})`;
       }
 
       if (canAccess && hasEquipment) {
@@ -469,9 +478,17 @@ export function createMiningPanel(callbacks: MiningPanelCallbacks): {
               ? getOreDefinition(targetOreId)
               : null
             : (availableOres
-                .map((id) => getOreDefinition(id))
+                .map((entry) => getOreDefinition(entry.oreId))
                 .filter((o) => miningSkill >= o.miningLevelRequired)
-                .sort((a, b) => b.baseValue - a.baseValue)[0] ?? null);
+                .sort((a, b) => {
+                  const aEff =
+                    a.baseValue *
+                    getLocationOreYieldMultiplier(location.availableOres, a.id);
+                  const bEff =
+                    b.baseValue *
+                    getLocationOreYieldMultiplier(location.availableOres, b.id);
+                  return bEff - aEff;
+                })[0] ?? null);
 
           minerLine.textContent = `${miner.name} (Mining ${miningSkill})`;
           if (targetOre) {
@@ -516,13 +533,21 @@ export function createMiningPanel(callbacks: MiningPanelCallbacks): {
 
     // Rate ore
     const rateOre = selectedOreId
-      ? availableOres.includes(selectedOreId)
+      ? isOreAvailableAtLocation(location.availableOres, selectedOreId)
         ? getOreDefinition(selectedOreId)
         : null
       : (availableOres
-          .map((id) => getOreDefinition(id))
+          .map((entry) => getOreDefinition(entry.oreId))
           .filter((o) => bestMinerSkill >= o.miningLevelRequired)
-          .sort((a, b) => b.baseValue - a.baseValue)[0] ?? null);
+          .sort((a, b) => {
+            const aEff =
+              a.baseValue *
+              getLocationOreYieldMultiplier(location.availableOres, a.id);
+            const bEff =
+              b.baseValue *
+              getLocationOreYieldMultiplier(location.availableOres, b.id);
+            return bEff - aEff;
+          })[0] ?? null);
 
     if (rateOre && hasEquipment && !isDocked) {
       const yieldPerHr = getMiningYieldPerHour(ship, location, rateOre);

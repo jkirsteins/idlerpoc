@@ -20,13 +20,13 @@ describe('flightPhysics', () => {
       });
       const world = generateWorld();
 
-      // Find Gateway Station (400 km) and Meridian Depot (20,000 km)
+      // Find Gateway Station (400 km) and GEO Depot (35,786 km)
       const earth = world.locations.find((loc) => loc.id === 'earth')!;
       const gatewayStation = world.locations.find(
         (loc) => loc.id === 'leo_station'
       )!;
       const meridianDepot = world.locations.find(
-        (loc) => loc.id === 'meo_depot'
+        (loc) => loc.id === 'geo_depot'
       )!;
 
       expect(earth).toBeDefined();
@@ -39,18 +39,18 @@ describe('flightPhysics', () => {
 
       // Verify distances
       expect(shortFlight.totalDistance).toBe(400_000); // 400 km in meters
-      expect(longFlight.totalDistance).toBe(20_000_000); // 20,000 km in meters
+      expect(longFlight.totalDistance).toBe(35_786_000); // 35,786 km in meters
 
       // Long flight should take significantly more time
       expect(longFlight.totalTime).toBeGreaterThan(shortFlight.totalTime);
 
       // The ratio should be meaningful (not close to 1)
-      // 50x distance difference should produce a noticeable time difference
+      // ~89x distance difference should produce a noticeable time difference
       const timeRatio = longFlight.totalTime / shortFlight.totalTime;
       expect(timeRatio).toBeGreaterThan(2); // At minimum, 2x longer
     });
 
-    it('should show that 50x distance difference produces meaningful time difference', () => {
+    it('should show that ~89x distance difference produces meaningful time difference', () => {
       const ship = createTestShip({
         classId: 'wayfarer',
         fuelKg: 28000, // Full tank
@@ -63,13 +63,13 @@ describe('flightPhysics', () => {
         (loc) => loc.id === 'leo_station'
       )!;
       const meridianDepot = world.locations.find(
-        (loc) => loc.id === 'meo_depot'
+        (loc) => loc.id === 'geo_depot'
       )!;
 
-      // 20,000 / 400 = 50x distance difference
+      // 35,786 / 400 = ~89.465x distance difference
       const distanceRatio =
         meridianDepot.distanceFromEarth / gatewayStation.distanceFromEarth;
-      expect(distanceRatio).toBe(50);
+      expect(distanceRatio).toBeCloseTo(89.465, 2);
 
       const shortFlight = initializeFlight(ship, earth, gatewayStation);
       const longFlight = initializeFlight(ship, earth, meridianDepot);
@@ -78,10 +78,10 @@ describe('flightPhysics', () => {
       const timeRatio = longFlight.totalTime / shortFlight.totalTime;
 
       // Both trips are in mini-brachistochrone regime (no coast phase)
-      // Time scales with sqrt(distance), so 50x distance = ~7x time
+      // Time scales with sqrt(distance), so ~89x distance = ~9.5x time
       // The key fix is that they're NOT the same (which was the bug)
       expect(timeRatio).toBeGreaterThan(5);
-      expect(timeRatio).toBeLessThan(10);
+      expect(timeRatio).toBeLessThan(15);
     });
 
     it('should verify mini-brachistochrone branch for very short distances', () => {

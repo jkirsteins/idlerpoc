@@ -341,9 +341,9 @@ describe('getShipLocationId', () => {
 
   it('returns orbiting location', () => {
     const ship = createTestShip({
-      location: { status: 'orbiting', orbitingAt: 'nea_2247' },
+      location: { status: 'orbiting', orbitingAt: 'graveyard_drift' },
     });
-    expect(getShipLocationId(ship)).toBe('nea_2247');
+    expect(getShipLocationId(ship)).toBe('graveyard_drift');
   });
 
   it('returns null for in-flight ships', () => {
@@ -377,23 +377,21 @@ describe('getCaptainLocationId', () => {
 });
 
 describe('areLocationsAdjacent', () => {
-  it('earth and debris_field_alpha are adjacent', () => {
+  it('earth and leo_station are adjacent', () => {
     const gd = createTestGameData();
-    expect(areLocationsAdjacent('earth', 'debris_field_alpha', gd.world)).toBe(
+    expect(areLocationsAdjacent('earth', 'leo_station', gd.world)).toBe(true);
+  });
+
+  it('leo_station and geo_depot are adjacent', () => {
+    const gd = createTestGameData();
+    expect(areLocationsAdjacent('leo_station', 'geo_depot', gd.world)).toBe(
       true
     );
   });
 
-  it('debris_field_alpha and leo_station are adjacent', () => {
+  it('earth and geo_depot are NOT adjacent (leo_station between them)', () => {
     const gd = createTestGameData();
-    expect(
-      areLocationsAdjacent('debris_field_alpha', 'leo_station', gd.world)
-    ).toBe(true);
-  });
-
-  it('earth and leo_station are NOT adjacent (debris between them)', () => {
-    const gd = createTestGameData();
-    expect(areLocationsAdjacent('earth', 'leo_station', gd.world)).toBe(false);
+    expect(areLocationsAdjacent('earth', 'geo_depot', gd.world)).toBe(false);
   });
 
   it('earth and mars are NOT adjacent', () => {
@@ -438,10 +436,10 @@ describe('getFleetAuraBonus', () => {
       crew: [captain],
       location: { status: 'docked', dockedAt: 'earth' },
     });
-    // debris_field_alpha is adjacent to earth
+    // leo_station is adjacent to earth
     const otherShip = createTestShip({
       crew: [createTestCrew({ isCaptain: false })],
-      location: { status: 'docked', dockedAt: 'debris_field_alpha' },
+      location: { status: 'docked', dockedAt: 'leo_station' },
     });
     const gd = createTestGameData({ ships: [captainShip, otherShip] });
     expect(getFleetAuraBonus(otherShip, gd)).toBe(FLEET_AURA_ADJACENT);
