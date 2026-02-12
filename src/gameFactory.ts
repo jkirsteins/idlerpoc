@@ -27,6 +27,10 @@ import { generateAllLocationQuests } from './questGen';
 import { getEquipmentDefinition, canEquipInSlot } from './equipment';
 import { calculateFuelTankCapacity } from './flightPhysics';
 import { getEngineDefinition } from './engines';
+import {
+  PROVISIONS_KG_PER_CREW_PER_DAY,
+  MAX_PROVISION_DAYS,
+} from './provisionsSystem';
 import { generateJobSlotsForShip, autoAssignCrewToJobs } from './jobSlots';
 import { generateId } from './utils';
 
@@ -249,6 +253,8 @@ function createStartingShip(
     jobSlots: [],
     fuelKg: maxFuelKg, // Start with full tank
     maxFuelKg,
+    provisionsKg:
+      crew.length * PROVISIONS_KG_PER_CREW_PER_DAY * MAX_PROVISION_DAYS,
     oxygenLevel: 100, // Start with full atmosphere
     equipment,
     equipmentSlots,
@@ -318,6 +324,7 @@ export function createAdditionalShip(
     jobSlots: [],
     fuelKg: maxFuelKg, // Start with full tank
     maxFuelKg,
+    provisionsKg: 0, // No crew = no provisions; auto-resupplied when crew boards
     oxygenLevel: 100, // Start with full atmosphere
     equipment,
     equipmentSlots,

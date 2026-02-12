@@ -21,6 +21,10 @@ import {
 } from './routeAssignment';
 import { handleMiningRouteArrival } from './miningRoute';
 import { getFuelPricePerKg } from './ui/refuelDialog';
+import {
+  generateFleetRescueQuests,
+  completeRescueDelivery,
+} from './rescueSystem';
 import { recordDailySnapshot } from './dailyLedger';
 import { unassignCrewFromAllSlots, getCrewForJobType } from './jobSlots';
 import { getFleetAuraIncomeMultiplier } from './captainBonus';
@@ -114,12 +118,33 @@ export function regenerateQuestsIfNewDay(gameData: GameData): void {
     );
     gameData.lastQuestRegenDay = currentDay;
 
+    // Inject rescue quests for stranded ships at all locations
+    injectRescueQuests(gameData);
+
     // Regenerate hireable crew only for stations with docked ships
     const dockedIds = getDockedLocationIds(gameData);
     gameData.hireableCrewByLocation = generateHireableCrewByLocation(
       gameData.world,
       dockedIds
     );
+  }
+}
+
+/**
+ * Inject rescue quests for stranded ships into available quests.
+ * Rescue quests appear at every location (fleet emergency broadcast).
+ */
+function injectRescueQuests(gameData: GameData): void {
+  const rescueQuests = generateFleetRescueQuests(gameData);
+  if (rescueQuests.length === 0) return;
+
+  for (const location of gameData.world.locations) {
+    const locationQuests = gameData.availableQuests[location.id] || [];
+    // Remove stale rescue quests for ships that are no longer stranded
+    const filtered = locationQuests.filter((q) => q.type !== 'rescue');
+    // Add current rescue quests
+    filtered.push(...rescueQuests);
+    gameData.availableQuests[location.id] = filtered;
   }
 }
 
@@ -543,6 +568,31 @@ export function completeLeg(gameData: GameData, ship: Ship): void {
 
   // ── Outbound leg ───────────────────────────────────────────────
   if (activeContract.leg === 'outbound') {
+    if (quest.type === 'rescue') {
+      // Rescue quest: deliver fuel to stranded ship, then complete
+      completeRescueDelivery(gameData, ship, quest);
+      activeContract.tripsCompleted = 1;
+
+      ship.metrics.contractsCompleted++;
+      ship.metrics.lastActivityTime = gameTime;
+
+      addLog(
+        gameData.log,
+        gameTime,
+        'contract_complete',
+        `Rescue mission completed: ${quest.title}`,
+        ship.name
+      );
+
+      dockShipAtLocation(ship, arrivalLocation.id);
+      ship.activeContract = null;
+
+      checkFirstArrival(gameData, ship, arrivalLocation.id);
+      removeUnpaidCrew(gameData, ship);
+      regenerateQuestsIfNewDay(gameData);
+      return;
+    }
+
     if (quest.type === 'delivery' || quest.type === 'passenger') {
       // Single-leg contracts complete immediately
       activeContract.tripsCompleted = 1;

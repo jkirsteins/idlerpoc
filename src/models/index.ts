@@ -303,6 +303,7 @@ export interface Ship {
   jobSlots: JobSlot[]; // Crew assignment via job slots
   fuelKg: number; // Current fuel mass in kilograms
   maxFuelKg: number; // Fuel tank capacity in kilograms
+  provisionsKg: number; // Current provisions (food & water) mass in kg
   oxygenLevel: number; // 0-100% atmosphere oxygen level
   equipment: EquipmentInstance[];
   equipmentSlots: EquipmentSlotDef[];
@@ -322,7 +323,12 @@ export interface Ship {
   selectedMiningOreId?: OreId; // Player-chosen ore to mine (undefined = auto-select highest value)
 }
 
-export type QuestType = 'delivery' | 'passenger' | 'freight' | 'trade_route';
+export type QuestType =
+  | 'delivery'
+  | 'passenger'
+  | 'freight'
+  | 'trade_route'
+  | 'rescue';
 
 export interface Quest {
   id: string;
@@ -341,6 +347,8 @@ export interface Quest {
   estimatedTripTicks: number; // display only — resolved per-ship
   cargoFraction?: number; // 0–1 fraction of available hold to fill (set at generation, resolved per-ship)
   cargoTypeName?: string; // e.g. "medical supplies" — used to generate description per-ship
+  rescueShipId?: string; // for rescue quests: the stranded ship's ID
+  rescueFuelKg?: number; // for rescue quests: kg of fuel to deliver to stranded ship
 }
 
 export interface ActiveContract {
@@ -405,7 +413,11 @@ export type LogEntryType =
   | 'ore_sold'
   | 'cargo_full'
   | 'mining_route'
-  | 'radiation_warning';
+  | 'radiation_warning'
+  | 'provisions_warning'
+  | 'crew_death'
+  | 'stranded'
+  | 'rescue';
 
 export interface LogEntry {
   gameTime: number;

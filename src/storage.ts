@@ -13,7 +13,7 @@ const BACKUP_KEY = 'spaceship_game_data_backup';
  *
  * See docs/save-migration.md for the full migration architecture.
  */
-export const CURRENT_SAVE_VERSION = 4;
+export const CURRENT_SAVE_VERSION = 5;
 
 /** Whether the last save attempt failed (used for UI warnings). */
 let _lastSaveFailed = false;
@@ -292,6 +292,32 @@ const migrations: Record<number, MigrationFn> = {
     }
 
     data.saveVersion = 4;
+    return data;
+  },
+
+  /**
+   * v4 → v5: Provisions system.
+   * - Add provisionsKg to all ships, fully stocked (30 days per crew).
+   * - Existing ships start with full provisions so crew won't starve on load.
+   */
+  4: (data: RawSave): RawSave => {
+    const ships = data.ships as Array<Record<string, unknown>> | undefined;
+    if (ships) {
+      // Matches PROVISIONS_KG_PER_CREW_PER_DAY * MAX_PROVISION_DAYS
+      const KG_PER_CREW_PER_DAY = 30;
+      const MAX_DAYS = 30;
+
+      for (const ship of ships) {
+        if (ship.provisionsKg === undefined) {
+          const crew = ship.crew as Array<unknown> | undefined;
+          const crewCount = crew?.length ?? 0;
+          // Full 30-day supply for existing crew
+          ship.provisionsKg = crewCount * KG_PER_CREW_PER_DAY * MAX_DAYS;
+        }
+      }
+    }
+
+    data.saveVersion = 5;
     return data;
   },
 };

@@ -67,6 +67,7 @@ interface QuestCardRefs {
   buttonContainer: HTMLDivElement;
   acceptBtn: HTMLButtonElement;
   assignBtn: HTMLButtonElement;
+  warningsDiv: HTMLDivElement;
   reasonDiv: HTMLDivElement;
 }
 
@@ -632,6 +633,18 @@ export function createWorkTab(
 
     card.appendChild(buttonContainer);
 
+    // Warnings div (soft warnings that don't block acceptance)
+    const warningsDiv = document.createElement('div');
+    warningsDiv.className = 'quest-warnings';
+    warningsDiv.style.color = '#fbbf24';
+    warningsDiv.style.fontSize = '0.85em';
+    warningsDiv.style.marginTop = '0.5rem';
+    warningsDiv.style.padding = '0.4rem 0.6rem';
+    warningsDiv.style.background = 'rgba(251, 191, 36, 0.08)';
+    warningsDiv.style.borderLeft = '3px solid #fbbf24';
+    warningsDiv.style.display = 'none';
+    card.appendChild(warningsDiv);
+
     // Reason div (for when quest can't be accepted)
     const reasonDiv = document.createElement('div');
     reasonDiv.className = 'quest-reason';
@@ -661,6 +674,7 @@ export function createWorkTab(
       buttonContainer,
       acceptBtn,
       assignBtn,
+      warningsDiv,
       reasonDiv,
     };
     updateQuestCardRefs(refs, quest, gd);
@@ -680,7 +694,19 @@ export function createWorkTab(
 
     // Resolve quest template into per-ship values (cargo, payment, fuel, time)
     const resolved = resolveQuestForShip(quest, ship, gd.world);
-    const { canAccept, reason } = canAcceptQuest(ship, quest, gd.world);
+    const { canAccept, reason, warnings } = canAcceptQuest(
+      ship,
+      quest,
+      gd.world
+    );
+
+    // Show soft warnings
+    if (warnings && warnings.length > 0) {
+      refs.warningsDiv.textContent = warnings.join(' ');
+      refs.warningsDiv.style.display = '';
+    } else {
+      refs.warningsDiv.style.display = 'none';
+    }
 
     // Card disabled state
     if (!canAccept) {

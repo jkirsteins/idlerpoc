@@ -37,10 +37,10 @@ Full design in `docs/captain-flagship-design.md`, research sources in `docs/bibl
 ## Deferred Fuel/Cargo System Features
 
 - **Manual Fuel/Cargo Allocation**: Allow players to adjust fuel/cargo split before departure. Needs slider UI, presets, and validation. See `docs/fuel-cargo-tradeoff-design.md` Option 2.
-- **Fuel Reserve System**: Warn when fuel below safety threshold (e.g., 20% of route requirement). Add "Reserve Fuel Lock" toggle.
+- ~~**Fuel Reserve System**~~: **DONE** — Stranded ship detection warns when ships can't reach any refuel station. Soft warnings on quest cards for insufficient fuel/provisions on round trips. Auto-pause on critical alert.
 - **Modular Fuel Tanks**: Purchasable tank upgrades (Extended Range Tank, Cargo Maximizer). Requires equipment installation UI.
 - **Fuel Trading Mechanics**: Buy fuel at low prices, sell at high prices for speculation gameplay. Requires cargo system integration.
-- **Emergency Fuel Delivery**: Rescue mechanic for stranded ships (distress beacon, fuel cost + delivery fee). Currently ships that run dry mid-flight still complete their leg on the pre-computed trajectory — this item would add a "stranded" state with distress beacon, drift to nearest station, and rescue fee.
+- ~~**Emergency Fuel Delivery**~~: **DONE** — Rescue quest type generated when ships are stranded. Fleet emergency broadcast appears at all locations. Rescue ship carries fuel as cargo payload; transfers on arrival. See `src/rescueSystem.ts`, `src/strandedSystem.ts`.
 - **Fuel Efficiency Upgrades**: Engine modifications to reduce fuel consumption (e.g., "Optimized Nozzles" equipment).
 - **Alternative Propellant Support**: Chemical bipropellant vs monopropellant, ion drives, etc. Needs fuel type system per engine.
 - **Hub Station Route Bonuses**: +10% payment for multi-leg routes using major stations as waypoints. Rewards emergent route planning.

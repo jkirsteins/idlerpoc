@@ -119,6 +119,26 @@ npm run dev
   - Air filter degradation creates emergent tension on large ships: as filters wear, O2 balance tips negative
   - Oxygen bar on Ship tab with tooltip showing generation/consumption breakdown
   - Station atmosphere resupply when docked
+- **Provisions System**:
+  - Crew consume provisions (food & water) at 30 kg/crew/day — tracked as ship cargo mass
+  - Provisions bar on Ship tab shows current supply, max capacity, and days remaining
+  - Auto-resupply when docked at trade stations (targets 30 days of supplies)
+  - Pricing scales with distance from Earth (0.50 cr/kg inner system → 1.25 cr/kg outer)
+  - Starvation health damage when provisions run out — crew can die
+  - Provisions mass competes with quest cargo capacity, creating meaningful tradeoffs
+  - Quest cards warn when provisions are insufficient for the round trip
+- **Crew Death**:
+  - Crew members die when health reaches 0 (starvation, oxygen deprivation, radiation, combat)
+  - Captain (player avatar) is exempt — health floors at 1 (incapacitated, never dies)
+  - Dead crew are removed from the ship and unassigned from all job slots
+- **Stranded Ships & Rescue**:
+  - Ships are stranded when they can't reach any refuel station and can't buy fuel locally
+  - Stranded detection runs every tick with log warnings and auto-pause on critical alert
+  - Survival timer derived from remaining provisions
+  - Rescue quest type: appears at all fleet locations as a fleet emergency broadcast
+  - Rescue requires cargo space for fuel payload + own fuel for the round trip
+  - Fuel transfers to stranded ship on arrival — no payment (fleet self-rescue)
+  - Soft warnings on quest cards when departing to locations without refueling service
 - **Gravity & Zero-G Physiology System**:
   - Cumulative zero-g exposure tracking with 5 degradation tiers
   - Progressive strength reduction (0% to -60%) from prolonged zero-g

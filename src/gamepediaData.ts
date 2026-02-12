@@ -113,6 +113,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
           '[[crew-salaries|Crew salaries]] are deducted every day, including during manual day advancement while docked. A typical crew of 1 pilot + 1 miner + 1 trader costs 144 credits per day.',
           'Fuel must be purchased at stations with refueling services. Fuel pricing varies by location.',
           '[[ship-equipment|Equipment]] can be bought at stations with trade services. Selling equipment returns 50% of the retail value.',
+          '[[provisions|Provisions]] (food and water) are auto-purchased when docked at trade stations. At 30 kg per crew per day and 0.50 cr/kg base price, a 4-crew ship costs about 60 cr/day in provisions — more at outer-system stations.',
           'If credits reach zero, crew become unpaid. Unpaid crew will leave the ship at the next port. The captain (you) never leaves.',
         ],
       },
@@ -141,6 +142,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
       'crew-hiring',
       'mining-system',
       'station-services',
+      'provisions',
     ],
   },
 
@@ -181,6 +183,12 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
         ],
       },
       {
+        heading: 'Provisions Resupply',
+        paragraphs: [
+          'When docked at a location with trade services, your ship automatically purchases [[provisions|provisions]] (food and water) up to 30 days of supply. This happens silently every tick while docked. Pricing varies by region — outer-system stations charge up to 2.5x the base rate.',
+        ],
+      },
+      {
         heading: 'Flavor Text',
         paragraphs: [
           'Each time you dock, the Station tab shows an atmospheric description of the port — the sights, sounds, and smells of each location type. The text rotates daily so repeat visits feel varied.',
@@ -195,6 +203,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
       'mining-system',
       'ore-types',
       'commerce-skill',
+      'provisions',
     ],
   },
 
@@ -1074,12 +1083,25 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
           'Below 50%: Mild health damage.',
           'Below 25%: Severe health damage.',
           'Below 10%: Critical health damage.',
-          'Air filter degradation creates emergent tension on large ships: as filters wear, the O2 balance can tip negative.',
+          'Air filter degradation creates emergent tension on large ships: as filters wear, the O2 balance can tip negative. Prolonged oxygen deprivation causes [[crew-death|crew death]].',
           'Station docking resupplies atmosphere to full.',
         ],
       },
+      {
+        heading: 'Provisions',
+        paragraphs: [
+          'Alongside oxygen, crew require [[provisions|food and water]] to survive. Provisions are consumed at 30 kg per crew member per day and auto-resupply when docked at trade stations. While oxygen failure is an equipment problem, [[provisions|provision]] depletion is an economic one — running out of [[credits-economy|credits]] means no resupply.',
+        ],
+      },
     ],
-    relatedArticles: ['ship-equipment', 'job-slots', 'ship-classes', 'engines'],
+    relatedArticles: [
+      'ship-equipment',
+      'job-slots',
+      'ship-classes',
+      'engines',
+      'provisions',
+      'crew-death',
+    ],
   },
 
   {
@@ -1297,7 +1319,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
         heading: 'Combat Pipeline',
         paragraphs: [
           'Encounters are auto-resolved through a pipeline: Evade ([[crew-roles|pilot]] [[skill-system|piloting]]) > Negotiate (captain only) > Flee (if outmatched) > Combat > Outcome.',
-          'Possible outcomes: Evasion (clean escape), Negotiation (pay ransom), Fled (emergency escape with minor damage), Victory (bounty reward), Harassment (minor damage), Boarding (major losses).',
+          'Possible outcomes: Evasion (clean escape), Negotiation (pay ransom), Fled (emergency escape with minor damage), Victory (bounty reward), Harassment (minor damage), Boarding (major losses). Severe combat damage can cause [[crew-death|crew death]].',
           '**Negotiation requires the captain.** Only the captain has the authority to broker deals with pirates. Ships without the captain skip the negotiation step entirely and must fight, evade, or flee.',
         ],
       },
@@ -1336,6 +1358,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
       'ship-equipment',
       'skill-system',
       'captain-command',
+      'crew-death',
     ],
   },
 
@@ -1583,7 +1606,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
       {
         heading: 'Cascading Failures',
         paragraphs: [
-          'On fusion-class vessels, systems are interdependent. Degraded containment leads to radiation spikes, which cause crew health drops, which lead to unstaffed stations, which cause further degradation.',
+          'On fusion-class vessels, systems are interdependent. Degraded containment leads to radiation spikes, which cause crew health drops, which lead to unstaffed stations, which cause further degradation. Unchecked radiation can cause [[crew-death|crew death]].',
           'Preventing cascading failures through proper crew management and equipment maintenance is the core challenge of torch ship operations.',
         ],
       },
@@ -1593,6 +1616,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
       'engines',
       'ship-equipment',
       'waste-heat',
+      'crew-death',
     ],
   },
 
@@ -1793,6 +1817,301 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
       'mining-system',
       'mining-destinations',
       'credits-economy',
+    ],
+  },
+
+  // ═══════════════════════════════════════════════════════════
+  // SURVIVAL
+  // ═══════════════════════════════════════════════════════════
+  {
+    id: 'provisions',
+    title: 'Provisions',
+    category: 'Health & Environment',
+    summary:
+      'Food and water supply for crew survival, consumption rates, auto-resupply, and starvation.',
+    sections: [
+      {
+        paragraphs: [
+          'Provisions represent the food, water, and basic consumables your crew needs to survive. Every ship carries provisions measured in kilograms, and every crew member consumes them continuously. Running out of provisions causes [[crew-death|starvation damage]] that can kill crew members.',
+        ],
+      },
+      {
+        heading: 'Consumption Rate',
+        paragraphs: [
+          'Each crew member consumes 30 kg of provisions per game day, regardless of activity. This covers food, water, and basic life necessities. A ship with 4 crew burns through 120 kg per day.',
+          'Provisions mass counts against your available cargo capacity — a fully provisioned ship has less room for [[contracts|contract]] cargo and [[ore-types|mined ore]]. Managing the balance between provisions and cargo space is part of route planning.',
+        ],
+      },
+      {
+        heading: 'Auto-Resupply',
+        paragraphs: [
+          'When docked at a location with trade services, provisions are automatically purchased up to 30 days of supply for your current crew count. Resupply happens every tick while docked, so provisions stay topped up without manual intervention.',
+          'If your [[credits-economy|credits]] are insufficient for a full resupply, the ship buys as much as it can afford. Partial resupply is logged so you know the ship departed without full provisions.',
+        ],
+      },
+      {
+        heading: 'Pricing',
+        paragraphs: [
+          'Provisions pricing varies by distance from Earth. Inner-system stations charge the base rate, while outer-system locations charge significantly more.',
+        ],
+        table: {
+          headers: ['Region', 'Distance from Earth', 'Price per kg'],
+          rows: [
+            ['Inner system', '< 100,000 km', '0.50 cr'],
+            ['Mid system', '100,000 - 1,000,000 km', '0.75 cr'],
+            ['Outer system', '> 1,000,000 km', '1.25 cr'],
+          ],
+        },
+      },
+      {
+        heading: 'Starvation',
+        paragraphs: [
+          'When provisions reach zero, all crew take 3.0 health damage per tick — aggressive damage that will kill unprotected crew within days. The captain is exempt from [[crew-death|death]] (health floors at 1) but still suffers damage effects.',
+          'Starvation warnings appear at 7 days and 3 days remaining. At zero provisions, a critical alert fires and the game auto-pauses if critical alert pausing is enabled.',
+          'Provisions are the survival clock for [[stranded-ships|stranded ships]] — when fuel runs out and provisions deplete, crew begin dying.',
+        ],
+      },
+      {
+        heading: 'Strategy',
+        paragraphs: [
+          'On short inner-system routes, provisions are a minor concern — auto-resupply handles everything. On long outer-system voyages, provisions mass becomes significant: a 5-crew ship needs 4,500 kg for a 30-day trip, reducing available cargo substantially.',
+          'When planning [[mining-system|mining]] routes or long-haul [[contracts|contracts]], factor in provisions mass. A ship loaded with 30 days of food for a large crew has less room for profitable cargo.',
+        ],
+      },
+    ],
+    relatedArticles: [
+      'crew-death',
+      'stranded-ships',
+      'credits-economy',
+      'life-support',
+      'contracts',
+      'station-services',
+    ],
+  },
+
+  {
+    id: 'stranded-ships',
+    title: 'Stranded Ships',
+    category: 'Health & Environment',
+    summary:
+      'What makes a ship stranded, the survival countdown, and how to get rescued.',
+    sections: [
+      {
+        paragraphs: [
+          'A ship becomes stranded when it has no way to refuel — it cannot reach any station with refueling service using its remaining fuel, and cannot buy fuel at its current location (either no refuel service or zero [[credits-economy|credits]]). Being stranded is one of the most dangerous situations in the game.',
+        ],
+      },
+      {
+        heading: 'Stranded Conditions',
+        paragraphs: [
+          'All four of these must be true simultaneously for a ship to be stranded:',
+        ],
+        table: {
+          headers: ['Condition', 'Description'],
+          rows: [
+            [
+              'Not in flight',
+              'Ship is docked or orbiting (committed trajectories play out)',
+            ],
+            ['Crew aboard', 'Empty ships are not considered stranded'],
+            [
+              'Cannot buy fuel locally',
+              'Current location has no refuel service, or you have zero credits',
+            ],
+            [
+              'Cannot reach any refuel station',
+              'Remaining fuel is insufficient to fly to any location with refueling',
+            ],
+          ],
+        },
+      },
+      {
+        heading: 'Survival Timer',
+        paragraphs: [
+          'Once stranded, the crew survives on remaining [[provisions|provisions]]. The survival timer shows how many days of food and water remain. When provisions run out, [[crew-death|starvation]] begins killing crew.',
+          'The game auto-pauses when a ship is first detected as stranded (if critical alert pausing is enabled), giving you time to plan a [[rescue-missions|rescue]].',
+        ],
+      },
+      {
+        heading: 'Distress Beacon',
+        paragraphs: [
+          'Stranded ships automatically broadcast a distress beacon. This triggers [[rescue-missions|rescue quest]] generation across all other fleet locations, allowing any of your other ships to mount a rescue mission.',
+          'The fleet panel shows stranded ships with a distress indicator, including their location and remaining provisions.',
+        ],
+      },
+      {
+        heading: 'Avoiding Stranding',
+        paragraphs: [
+          'Plan fuel carefully before departure. The [[navigation|Nav tab]] shows fuel cost estimates for each destination at your current [[flight-physics|flight profile]]. Locations shown as unreachable are beyond your fuel range.',
+          'Keep a fuel reserve rather than flying on fumes. Economy [[flight-physics|flight profiles]] use less fuel, extending your effective range. Maintain a credit reserve so you can always buy fuel when docked.',
+          'If stranding seems imminent, consider redirecting to a closer station mid-flight (available on manual flights only).',
+        ],
+      },
+    ],
+    relatedArticles: [
+      'provisions',
+      'rescue-missions',
+      'crew-death',
+      'navigation',
+      'flight-physics',
+      'credits-economy',
+    ],
+  },
+
+  {
+    id: 'crew-death',
+    title: 'Crew Death',
+    category: 'Health & Environment',
+    summary:
+      'How crew die, what causes fatal health loss, and what happens when crew are lost.',
+    sections: [
+      {
+        paragraphs: [
+          "Crew members die when their health reaches zero. Death is permanent — dead crew are removed from the ship and cannot be recovered. The captain is the sole exception: as the player avatar, the captain's health floors at 1 and they can never die.",
+        ],
+      },
+      {
+        heading: 'Causes of Death',
+        paragraphs: ['Multiple hazards can reduce crew health to zero:'],
+        table: {
+          headers: ['Hazard', 'Source', 'Prevention'],
+          rows: [
+            [
+              'Starvation',
+              '[[provisions|Provisions]] depleted — 3.0 damage/tick',
+              'Keep provisions stocked; auto-resupply at trade stations',
+            ],
+            [
+              'Oxygen deprivation',
+              '[[life-support|Oxygen]] below safe levels',
+              'Maintain [[ship-equipment|life support equipment]]; repair [[ship-equipment|air filters]]',
+            ],
+            [
+              'Radiation',
+              '[[radiation|Radiation exposure]] from fusion drives',
+              'Install [[ship-equipment|radiation shielding]]; staff reactor room',
+            ],
+            [
+              'Combat',
+              '[[encounters|Pirate encounters]] — boarding and harassment',
+              'Equip [[crew-equipment|weapons/armor]]; install [[ship-equipment|point defense]]',
+            ],
+          ],
+        },
+      },
+      {
+        heading: 'Captain Immunity',
+        paragraphs: [
+          "The captain (player character) cannot die. When the captain's health would drop to zero, it is floored at 1 instead. The captain still suffers all negative effects of low health but will always survive.",
+          'This means that even in the worst catastrophe — total crew loss on a [[stranded-ships|stranded ship]] — the captain survives alone, waiting for [[rescue-missions|rescue]] or a lucky break.',
+        ],
+      },
+      {
+        heading: 'Consequences of Crew Death',
+        paragraphs: [
+          'When a crew member dies, they are immediately removed from the ship roster. All [[job-slots|job slot]] assignments for that crew member are cleared — their station becomes unmanned.',
+          'On ships with tight crew counts, a single death can cascade: losing the engineer stops repairs, equipment degrades faster, life support fails, and more crew die. On [[ship-classes|fusion-class vessels]], this cascade can be rapid and devastating.',
+          'A death event is logged and a notification appears. Dead crew cannot be replaced until you dock at a station with [[crew-hiring|hiring]] services and recruit replacements.',
+        ],
+      },
+      {
+        heading: 'Prevention',
+        paragraphs: [
+          'Keep [[provisions|provisions]] stocked and [[life-support|oxygen]] flowing. Maintain [[ship-equipment|equipment]] — especially air filters and radiation shielding on fusion ships. Equip crew with [[crew-equipment|personal gear]] (medkits, rebreathers, armor) for survivability.',
+          'Monitor health bars on the Crew tab. If health is trending down, identify the cause (check Ship tab status bars for oxygen, radiation, provisions) and address it before it becomes fatal.',
+        ],
+      },
+    ],
+    relatedArticles: [
+      'provisions',
+      'life-support',
+      'radiation',
+      'encounters',
+      'stranded-ships',
+      'crew-hiring',
+      'job-slots',
+    ],
+  },
+
+  {
+    id: 'rescue-missions',
+    title: 'Rescue Missions',
+    category: 'Health & Environment',
+    summary:
+      'Fleet self-rescue quests for stranded ships: fuel delivery, requirements, and urgency.',
+    sections: [
+      {
+        paragraphs: [
+          'When a ship in your fleet becomes [[stranded-ships|stranded]], rescue quests automatically appear at all other locations where you have ships. Rescue missions are fleet self-rescue operations — another of your ships delivers fuel to the stranded vessel.',
+        ],
+      },
+      {
+        heading: 'How It Works',
+        paragraphs: [
+          'The rescue system calculates how much fuel the stranded ship needs to reach the nearest refueling station, adds a 20% safety buffer, and generates a rescue quest requiring that amount of fuel as cargo payload.',
+          "Any of your other ships can accept the rescue quest. The rescuer flies to the stranded ship's location, transfers the fuel payload on arrival, then returns. The stranded ship receives enough fuel to fly to a station and refuel properly.",
+        ],
+      },
+      {
+        heading: 'Requirements',
+        paragraphs: [
+          'A ship must meet these requirements to accept a rescue quest:',
+        ],
+        table: {
+          headers: ['Requirement', 'Details'],
+          rows: [
+            [
+              'Cargo space',
+              "Must have room for the fuel payload (fuel is carried as cargo, not in the rescuer's fuel tanks)",
+            ],
+            [
+              'Own fuel',
+              "Must have enough fuel for a round trip to the stranded ship's location and back",
+            ],
+            [
+              'Helm crew',
+              'Must have a crew member assigned to the [[job-slots|helm]] (standard departure requirement)',
+            ],
+            ['Not self-rescue', 'A stranded ship cannot rescue itself'],
+          ],
+        },
+      },
+      {
+        heading: 'Urgency Levels',
+        paragraphs: [
+          "Rescue quests display urgency based on the stranded ship's remaining [[provisions|provisions]]:",
+        ],
+        table: {
+          headers: ['Urgency', 'Provisions Remaining'],
+          rows: [
+            ['URGENT', 'Less than 7 days'],
+            ['Priority', '7 - 14 days'],
+            ['Standard', 'More than 14 days'],
+          ],
+        },
+      },
+      {
+        heading: 'Payment',
+        paragraphs: [
+          'Rescue missions pay nothing — they are fleet self-rescue operations, not commercial contracts. The reward is saving your crew and ship from destruction. The fuel delivered and the fuel spent on the round trip are both real costs.',
+          'Despite the zero payment, rescue missions are often the most important quest available. A [[stranded-ships|stranded ship]] with a trained crew and valuable [[ship-equipment|equipment]] is worth far more than the fuel cost of a rescue.',
+        ],
+      },
+      {
+        heading: 'Strategy',
+        paragraphs: [
+          'Keep at least one ship in the fleet with spare fuel capacity and cargo room to serve as a potential rescuer. Ships on short inner-system routes make good rescue platforms since they dock frequently and stay fueled.',
+          "When a stranding alert fires, check the rescue quest details: fuel payload required, round-trip distance, and the stranded ship's survival timer. If the rescuer cannot reach the stranded ship before provisions run out, the crew will start dying from [[crew-death|starvation]] during the wait.",
+        ],
+      },
+    ],
+    relatedArticles: [
+      'stranded-ships',
+      'provisions',
+      'crew-death',
+      'contracts',
+      'flight-physics',
+      'navigation',
     ],
   },
 ];
