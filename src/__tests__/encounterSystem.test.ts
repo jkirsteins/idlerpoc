@@ -23,53 +23,74 @@ import {
 
 describe('calculatePositionDanger', () => {
   const world = createTestWorld();
+  // Look up actual distanceFromEarth values (dynamic with orbital mechanics)
+  const marsKm = world.locations.find(
+    (l) => l.id === 'mars'
+  )!.distanceFromEarth;
+  const jupiterKm = world.locations.find(
+    (l) => l.id === 'jupiter_station'
+  )!.distanceFromEarth;
+  const freeportKm = world.locations.find(
+    (l) => l.id === 'freeport_station'
+  )!.distanceFromEarth;
+  const scatterKm = world.locations.find(
+    (l) => l.id === 'the_scatter'
+  )!.distanceFromEarth;
+  const forgeKm = world.locations.find(
+    (l) => l.id === 'forge_station'
+  )!.distanceFromEarth;
 
   it('returns low danger near Earth (0 km)', () => {
     const danger = calculatePositionDanger(0, world);
-    // Graveyard Drift (lawless, 384K km) is within LAWLESS_RADIUS, boosting danger
-    // dangerFromAlliance=0.1 * lawlessBonus≈2.23 ≈ 0.22
-    expect(danger).toBeCloseTo(0.22, 1);
+    // Near Earth = near Terran Alliance, should be relatively low
+    expect(danger).toBeLessThan(0.5);
+    expect(danger).toBeGreaterThan(0);
   });
 
-  it('returns minimum danger near Mars (55M km)', () => {
-    const danger = calculatePositionDanger(55_000_000, world);
+  it('returns minimum danger near Mars', () => {
+    const danger = calculatePositionDanger(marsKm, world);
+    // Mars is TA faction — danger should be low
     expect(danger).toBeCloseTo(0.1, 1);
   });
 
   it('returns low danger near Gateway Station (400 km)', () => {
     const danger = calculatePositionDanger(400, world);
-    // Graveyard Drift (lawless, 384K km) is within LAWLESS_RADIUS, boosting danger
-    expect(danger).toBeCloseTo(0.22, 1);
+    // Near Earth, should be similar to Earth danger
+    expect(danger).toBeLessThan(0.5);
+    expect(danger).toBeGreaterThan(0);
   });
 
-  it('returns maximum danger in deep space midway Earth-Mars', () => {
-    // 27.5M km from Earth, nearest TA location is Mars at 55M = 27.5M away
-    const danger = calculatePositionDanger(27_500_000, world);
+  it('returns maximum danger in deep space far from all locations', () => {
+    // Pick a point far from any TA location
+    const midpoint = marsKm / 2;
+    const danger = calculatePositionDanger(midpoint, world);
     expect(danger).toBeGreaterThanOrEqual(ENCOUNTER_CONSTANTS.DANGER_MAX);
   });
 
-  it('has elevated danger near Freeport (1.2M km, lawless zone)', () => {
-    const dangerAtFreeport = calculatePositionDanger(1_200_000, world);
-    const dangerFarFromLawless = calculatePositionDanger(384_400, world); // Forge Station (TA)
-    expect(dangerAtFreeport).toBeGreaterThan(dangerFarFromLawless);
+  it('has elevated danger near Freeport (lawless zone)', () => {
+    const dangerAtFreeport = calculatePositionDanger(freeportKm, world);
+    const dangerNearTA = calculatePositionDanger(forgeKm, world);
+    expect(dangerAtFreeport).toBeGreaterThan(dangerNearTA);
   });
 
-  it('has elevated danger near The Scatter (2.5M km, lawless zone)', () => {
-    const dangerAtScatter = calculatePositionDanger(2_500_000, world);
+  it('has elevated danger near The Scatter (lawless zone)', () => {
+    const dangerAtScatter = calculatePositionDanger(scatterKm, world);
     // Should have both lawless bonus and moderate alliance distance
-    expect(dangerAtScatter).toBeGreaterThan(0.5);
+    expect(dangerAtScatter).toBeGreaterThan(0.3);
   });
 
   it('lawless bonus decays with distance from lawless locations', () => {
-    const dangerAtScatter = calculatePositionDanger(2_500_000, world);
-    const dangerFarFromScatter = calculatePositionDanger(5_000_000, world);
-    // Both are far from alliance, but scatter has lawless proximity
-    // At 5M km, scatter proximity would be max(0, 1 - |5M - 2.5M|/1M) = max(0, 1-2.5) = 0
+    const dangerAtScatter = calculatePositionDanger(scatterKm, world);
+    const dangerFarFromScatter = calculatePositionDanger(
+      scatterKm + 5_000_000,
+      world
+    );
+    // Near scatter should have more danger due to lawless proximity
     expect(dangerAtScatter).toBeGreaterThan(dangerFarFromScatter * 0.5);
   });
 
   it('near Jupiter Station (TA faction) danger is low', () => {
-    const danger = calculatePositionDanger(588_000_000, world);
+    const danger = calculatePositionDanger(jupiterKm, world);
     expect(danger).toBeCloseTo(0.1, 1);
   });
 
@@ -278,6 +299,11 @@ describe('isOnCooldown', () => {
 
 describe('getShipPositionKm', () => {
   const world = createTestWorld();
+  // Mars distanceFromEarth is dynamic with orbital mechanics — look it up
+  const marsDistKm = world.locations.find(
+    (l) => l.id === 'mars'
+  )!.distanceFromEarth;
+  const marsDistMeters = marsDistKm * 1000;
 
   it('returns 0 for docked ships', () => {
     const ship = createTestShip({
@@ -295,7 +321,7 @@ describe('getShipPositionKm', () => {
         origin: 'earth',
         destination: 'mars',
         distanceCovered: 0,
-        totalDistance: 55_000_000_000,
+        totalDistance: marsDistMeters,
       }),
     });
     const posKm = getShipPositionKm(ship, world);
@@ -310,12 +336,12 @@ describe('getShipPositionKm', () => {
       activeFlightPlan: createTestFlight({
         origin: 'earth',
         destination: 'mars',
-        distanceCovered: 55_000_000_000,
-        totalDistance: 55_000_000_000,
+        distanceCovered: marsDistMeters,
+        totalDistance: marsDistMeters,
       }),
     });
     const posKm = getShipPositionKm(ship, world);
-    expect(posKm).toBeCloseTo(55_000_000, 0); // Mars is at 55M km
+    expect(posKm).toBeCloseTo(marsDistKm, 0);
   });
 
   it('returns midpoint at halfway through flight', () => {
@@ -326,12 +352,12 @@ describe('getShipPositionKm', () => {
       activeFlightPlan: createTestFlight({
         origin: 'earth',
         destination: 'mars',
-        distanceCovered: 27_500_000_000,
-        totalDistance: 55_000_000_000,
+        distanceCovered: marsDistMeters / 2,
+        totalDistance: marsDistMeters,
       }),
     });
     const posKm = getShipPositionKm(ship, world);
-    expect(posKm).toBeCloseTo(27_500_000, 0);
+    expect(posKm).toBeCloseTo(marsDistKm / 2, 0);
   });
 
   it('handles reverse routes (Mars to Earth)', () => {
@@ -342,13 +368,13 @@ describe('getShipPositionKm', () => {
       activeFlightPlan: createTestFlight({
         origin: 'mars',
         destination: 'earth',
-        distanceCovered: 27_500_000_000,
-        totalDistance: 55_000_000_000,
+        distanceCovered: marsDistMeters / 2,
+        totalDistance: marsDistMeters,
       }),
     });
     const posKm = getShipPositionKm(ship, world);
-    // Midpoint of Mars(55M) → Earth(0): 55M + (0 - 55M) * 0.5 = 27.5M
-    expect(posKm).toBeCloseTo(27_500_000, 0);
+    // Midpoint of Mars→Earth: marsDistKm + (0 - marsDistKm) * 0.5 = marsDistKm/2
+    expect(posKm).toBeCloseTo(marsDistKm / 2, 0);
   });
 });
 

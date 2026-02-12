@@ -12,6 +12,7 @@ export interface LocationTypeTemplate {
   type: LocationType;
   name: string;
   icon: string;
+  color: string; // SVG fill color for orrery map
   defaultServices: LocationService[];
   canDock: boolean;
   description: string;
@@ -22,6 +23,7 @@ export const LOCATION_TYPE_TEMPLATES: LocationTypeTemplate[] = [
     type: 'planet',
     name: 'Planet',
     icon: '🌍',
+    color: '#4fc3f7',
     defaultServices: ['refuel', 'trade', 'repair', 'hire'],
     canDock: true,
     description: 'Major planetary body with full orbital infrastructure.',
@@ -30,6 +32,7 @@ export const LOCATION_TYPE_TEMPLATES: LocationTypeTemplate[] = [
     type: 'space_station',
     name: 'Space Station',
     icon: '🛰️',
+    color: '#81c784',
     defaultServices: ['refuel', 'trade', 'repair', 'hire'],
     canDock: true,
     description: 'Orbital station with comprehensive services.',
@@ -38,6 +41,7 @@ export const LOCATION_TYPE_TEMPLATES: LocationTypeTemplate[] = [
     type: 'asteroid_belt',
     name: 'Asteroid Belt',
     icon: '☄️',
+    color: '#a1887f',
     defaultServices: ['mine'],
     canDock: false,
     description: 'Mineral-rich asteroid field. Mining operations only.',
@@ -46,6 +50,7 @@ export const LOCATION_TYPE_TEMPLATES: LocationTypeTemplate[] = [
     type: 'planetoid',
     name: 'Planetoid',
     icon: '🪨',
+    color: '#b0bec5',
     defaultServices: ['refuel', 'trade'],
     canDock: true,
     description: 'Small planetary body with limited infrastructure.',
@@ -54,6 +59,7 @@ export const LOCATION_TYPE_TEMPLATES: LocationTypeTemplate[] = [
     type: 'moon',
     name: 'Moon',
     icon: '🌙',
+    color: '#e0e0e0',
     defaultServices: ['refuel', 'mine'],
     canDock: true,
     description: 'Natural satellite with mining and refueling capability.',
@@ -62,6 +68,7 @@ export const LOCATION_TYPE_TEMPLATES: LocationTypeTemplate[] = [
     type: 'orbital',
     name: 'Orbital Platform',
     icon: '🔧',
+    color: '#ffb74d',
     defaultServices: ['repair', 'refuel'],
     canDock: true,
     description: 'Specialized orbital maintenance facility.',

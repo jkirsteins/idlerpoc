@@ -116,9 +116,9 @@ Current ship equipment (20 items) is dominated by mandatory survival systems. "F
 
 ## Deferred Spatial Model Features
 
-- **2D/3D Coordinate System**: Replace the current 1D distance-from-Earth model with proper 2D (or 3D) coordinates for world locations. Would enable meaningful off-corridor routes, orbital mechanics, and spatial awareness beyond a single line. Prerequisite for: patrol corridor system, off-route danger scaling, orbital position tracking.
+- ~~**2D/3D Coordinate System**~~: **DONE** — All 13 locations have 2D circular orbital parameters. Sun-orbiting bodies (Mars, belt, Jupiter) and Earth-orbiting satellites follow circular orbits with realistic radii and periods. Distances computed dynamically each tick via `updateWorldPositions()`. See `src/orbitalMechanics.ts`.
 - **Patrol Corridor System**: Define patrolled routes between major locations. Ships traveling along established corridors get reduced encounter rates; deviating into unpatrolled space increases danger. Only meaningful with 2D+ coordinates where "off-corridor" is spatially distinct from "on-corridor."
-- **Orbital Position Drift**: Planets and stations move over time (orbital periods). Distance between locations changes dynamically, creating seasonal trade routes and variable travel times.
+- ~~**Orbital Position Drift**~~: **DONE** — All bodies move on circular orbits each tick. Earth-Mars distance varies ~55M–400M km. Launch window alignment system classifies timing quality. See `src/orbitalMechanics.ts`, `computeLaunchWindow()`.
 
 ## Duplicate Logic Consolidation (DONE)
 

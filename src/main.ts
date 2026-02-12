@@ -775,7 +775,9 @@ const callbacks: RendererCallbacks = {
         currentKm,
         dest,
         ship.activeFlightPlan?.dockOnArrival ?? false,
-        ship.flightProfileBurnFraction
+        ship.flightProfileBurnFraction,
+        state.gameData.gameTime,
+        state.gameData.world
       );
 
       saveGame(state.gameData);
@@ -925,7 +927,9 @@ const callbacks: RendererCallbacks = {
           currentKm,
           destination,
           true,
-          ship.flightProfileBurnFraction
+          ship.flightProfileBurnFraction,
+          state.gameData.gameTime,
+          state.gameData.world
         );
 
         if (!redirected) return;
@@ -969,7 +973,9 @@ const callbacks: RendererCallbacks = {
         origin,
         destination,
         true,
-        ship.flightProfileBurnFraction
+        ship.flightProfileBurnFraction,
+        state.gameData.gameTime,
+        state.gameData.world
       );
 
       if (!departed) return; // Helm unmanned — UI already reflects this

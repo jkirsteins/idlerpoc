@@ -33,6 +33,7 @@ import { checkStrandedShips } from './strandedSystem';
 import { applyMiningTick } from './miningSystem';
 import { checkMiningRouteDeparture } from './miningRoute';
 import { addLog } from './logSystem';
+import { updateWorldPositions } from './orbitalMechanics';
 import {
   awardMasteryXp,
   getEquipmentRepairMasteryBonus,
@@ -731,6 +732,9 @@ export function applyTick(
 
   // Advance game time once per tick (global time system)
   gameData.gameTime += GAME_SECONDS_PER_TICK;
+
+  // Update orbital positions for all world locations
+  updateWorldPositions(gameData.world, gameData.gameTime);
 
   // Apply per-ship tick logic
   for (const ship of gameData.ships) {

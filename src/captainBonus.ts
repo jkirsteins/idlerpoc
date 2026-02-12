@@ -25,6 +25,7 @@
  */
 
 import type { CrewMember, Ship, GameData, World } from './models';
+import { getDistanceBetween } from './utils';
 
 /** Fraction of full bonus that an acting captain provides. */
 const ACTING_CAPTAIN_FRACTION = 0.25;
@@ -287,24 +288,34 @@ export function getCaptainLocationId(gameData: GameData): string | null {
 
 /**
  * Are two locations adjacent? Adjacency is derived from the world layout:
- * locations sorted by distance from Earth are adjacent if they are
- * consecutive in the sorted order (no other location between them).
+ * Two locations are "adjacent" if no other location is closer to both
+ * of them — i.e. there's no intermediate waypoint between them.
  *
- * This is emergent from the 1D distance model — the nav chart's natural
- * topology defines what "one hop away" means.
+ * With dynamic 2D orbital positions, this checks whether locA is one
+ * of locB's nearest neighbors (or vice versa) by current distance.
  */
 export function areLocationsAdjacent(
   locIdA: string,
   locIdB: string,
   world: World
 ): boolean {
-  const sorted = [...world.locations].sort(
-    (a, b) => a.distanceFromEarth - b.distanceFromEarth
-  );
-  const indexA = sorted.findIndex((l) => l.id === locIdA);
-  const indexB = sorted.findIndex((l) => l.id === locIdB);
-  if (indexA < 0 || indexB < 0) return false;
-  return Math.abs(indexA - indexB) === 1;
+  const locA = world.locations.find((l) => l.id === locIdA);
+  const locB = world.locations.find((l) => l.id === locIdB);
+  if (!locA || !locB) return false;
+
+  const distAB = getDistanceBetween(locA, locB);
+
+  // Check if any other location is closer to both A and B than they are to each other
+  // If so, that location is "between" them and they aren't adjacent
+  for (const loc of world.locations) {
+    if (loc.id === locIdA || loc.id === locIdB) continue;
+    const distToA = getDistanceBetween(loc, locA);
+    const distToB = getDistanceBetween(loc, locB);
+    if (distToA < distAB && distToB < distAB) {
+      return false;
+    }
+  }
+  return true;
 }
 
 /**
