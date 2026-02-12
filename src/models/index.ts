@@ -504,6 +504,7 @@ export type CatchUpShipActivity =
   | { type: 'trade_route'; routeName: string; tripsCompleted: number }
   | { type: 'mining_route'; routeName: string; tripsCompleted: number }
   | { type: 'completed_trips'; tripsCompleted: number }
+  | { type: 'arrived'; destination: string }
   | { type: 'en_route'; destination: string }
   | { type: 'idle'; location: string };
 

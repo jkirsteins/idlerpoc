@@ -164,6 +164,14 @@ export function buildCatchUpReport(
       contractAbandonedByShip.add(entry.shipName);
   }
 
+  // Track ships that arrived during catch-up (manual / non-route flights)
+  const arrivalsByShip = new Set<string>();
+  for (const entry of newLogs) {
+    if (entry.type === 'arrival' && entry.shipName) {
+      arrivalsByShip.add(entry.shipName);
+    }
+  }
+
   // --- Build one summary per ship ---
   const shipSummaries: CatchUpShipSummary[] = [];
 
@@ -205,6 +213,16 @@ export function buildCatchUpReport(
       activity = {
         type: 'en_route',
         destination: destLoc?.name ?? ship.activeFlightPlan.destination,
+      };
+    } else if (arrivalsByShip.has(ship.name)) {
+      // Ship arrived during catch-up (manual / non-route trip)
+      const locId = ship.location.dockedAt ?? ship.location.orbitingAt;
+      const loc = locId
+        ? gameData.world.locations.find((l) => l.id === locId)
+        : undefined;
+      activity = {
+        type: 'arrived',
+        destination: loc?.name ?? locId ?? 'Unknown',
       };
     } else {
       // Idle / docked or orbiting
@@ -256,8 +274,9 @@ export function buildCatchUpReport(
     trade_route: 0,
     mining_route: 1,
     completed_trips: 2,
-    en_route: 3,
-    idle: 4,
+    arrived: 3,
+    en_route: 4,
+    idle: 5,
   };
   shipSummaries.sort(
     (a, b) =>
