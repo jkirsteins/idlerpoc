@@ -48,7 +48,8 @@ npm run dev
   - Hire new crew at stations with hiring services — each candidate has an archetype (Pilot/Miner/Trader) with randomized skill distribution; hire cost and salary scale with total skills; candidate quality varies from green recruits to rare elite veterans
   - **Crew profiles** with ranked titles (e.g. "Competent Pilot"), service records showing ship tenure, company tenure, current assignment, and recruitment origin
 - **Mining System**:
-  - Orbit locations with `mine` service to extract ore (crew in mining_ops slots operate ship-mounted mining equipment from the mining bay)
+  - Orbit locations with `mine` service to extract ore — mining equipment operates at a base rate even without crew; assigning crew to mining_ops dramatically increases speed and unlocks rare ores
+  - **Ore material picker**: select which ore to mine from the mining panel; auto-select defaults to highest value; locked ores shown with skill requirements
   - 8 ore types from Iron (common, 5 cr) to Exotic Matter (rare, 200 cr) — mining skill level gates access
   - 4 tiers of ship-mounted mining equipment: Mining Laser Array (1.0x), Industrial Mining Rig (2.0x), Deep Core System (3.5x), Quantum Resonance Array (5.0x)
   - Equipment purchased/upgraded at Station Store → Ship Equipment tab; trade-in old gear for 50% credit
@@ -56,8 +57,10 @@ npm run dev
   - Mining is a Class II+ activity — Station Keeper has no mining bay, requires upgrading to Wayfarer or better
   - Mastery pool bonuses at 10/25/50/95% full: XP boost, yield bonus, wear reduction, double-drop chance
   - Sell ore at any station with trade service — prices vary by location type and commerce skill
-  - Cargo capacity limits: ore has weight, mining pauses when hold is full
-  - **Auto-sell mining routes**: set up idle-friendly mine→sell→return loop from the mining panel; auto-sells ore, auto-refuels, returns to mine
+  - **Cargo progress bar**: visual fill level with mining rate, ETA to fill, and color-coded thresholds
+  - **Auto-sell mining routes**: set up idle-friendly mine→sell→return loop; destination picker shows profitability estimates (cr/hr) per station accounting for fill time and round-trip travel
+  - Route stats show trips, earnings, status, and average cr/hr
+  - Active mining feedback: pulsing indicator when mining, status badges (MINING / IN TRANSIT / CARGO FULL / DOCKED / IDLE)
   - Near-Earth mining destinations reachable by Class II ships (Debris Field Alpha, Scrapyard Ring, NEA-2247)
 - **Navigation System**:
   - World map with 11 locations including 3 new near-Earth mining destinations

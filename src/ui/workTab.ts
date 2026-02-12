@@ -1,4 +1,4 @@
-import type { GameData, Quest, Ship, WorldLocation } from '../models';
+import type { GameData, Quest, Ship } from '../models';
 import { getActiveShip } from '../models';
 import {
   formatDualTime,
@@ -15,13 +15,8 @@ import {
 import { renderThreatBadge } from './threatBadge';
 import type { Component } from './component';
 import { formatFuelMass, calculateFuelPercentage } from './fuelFormatting';
-import { getDistanceBetween, canShipAccessLocation } from '../worldGen';
 import { getFuelPricePerKg } from './refuelDialog';
 import { createFlightStatusComponent } from './flightStatus';
-import { getOreDefinition, canMineOre } from '../oreTypes';
-import { getCrewForJobType } from '../jobSlots';
-import { getBestShipMiningEquipment } from '../equipment';
-import { getOreCargoWeight, getRemainingOreCapacity } from '../miningSystem';
 import {
   getCommandCommerceBonus,
   getHypotheticalCaptainBonus,
@@ -31,6 +26,7 @@ import {
   createFlightProfileControl,
   updateFlightProfileControl,
 } from './flightProfileControl';
+import { createMiningPanel } from './miningPanel';
 
 export interface WorkTabCallbacks {
   onAcceptQuest: (questId: string) => void;
@@ -44,6 +40,7 @@ export interface WorkTabCallbacks {
   onFlightProfileChange: () => void;
   onStartMiningRoute: (sellLocationId: string) => void;
   onCancelMiningRoute: () => void;
+  onSelectMiningOre: (oreId: string | null) => void;
 }
 
 // ─── Quest Card Refs ──────────────────────────────────────────
@@ -71,34 +68,6 @@ interface QuestCardRefs {
   acceptBtn: HTMLButtonElement;
   assignBtn: HTMLButtonElement;
   reasonDiv: HTMLDivElement;
-}
-
-// ─── Mining Status Refs ───────────────────────────────────────
-interface MiningStatusRefs {
-  panel: HTMLDivElement;
-  title: HTMLSpanElement;
-  statusBadge: HTMLSpanElement;
-  undockPrompt: HTMLDivElement;
-  oresSection: HTMLDivElement;
-  oresLabel: HTMLDivElement;
-  oreTagsContainer: HTMLDivElement;
-  minersSection: HTMLDivElement;
-  cargoSection: HTMLDivElement;
-  breakdownSection: HTMLDivElement;
-  routeSection: HTMLDivElement;
-  // Active route refs
-  activeRouteContainer: HTMLDivElement;
-  activeRouteLabel: HTMLSpanElement;
-  activeRouteCancelBtn: HTMLButtonElement;
-  activeRouteStats: HTMLDivElement;
-  // Setup route refs
-  setupRouteContainer: HTMLDivElement;
-  setupRouteLabel: HTMLDivElement;
-  noTradeMsg: HTMLDivElement;
-  setupRow: HTMLDivElement;
-  miningRouteSelect: HTMLSelectElement;
-  startRouteBtn: HTMLButtonElement;
-  setupHint: HTMLDivElement;
 }
 
 // ─── Route Assignment Info Refs ───────────────────────────────
@@ -206,16 +175,8 @@ export function createWorkTab(
   const tradeQuestCards = new Map<string, QuestCardRefs>();
   const regularQuestCards = new Map<string, QuestCardRefs>();
 
-  // Mining status panel refs (created lazily, but only once)
-  let miningRefs: MiningStatusRefs | null = null;
-  // Map of ore tag elements for reconciliation
-  const oreTagMap = new Map<string, HTMLSpanElement>();
-  // Map of miner line elements for reconciliation
-  const minerLineMap = new Map<string, HTMLDivElement>();
-  // Map of ore cargo breakdown lines
-  const oreCargoLineMap = new Map<string, HTMLDivElement>();
-  // Map of mining route select options
-  const miningSelectOptionMap = new Map<string, HTMLOptionElement>();
+  // Mining status panel — self-contained component (created lazily)
+  let miningPanel: ReturnType<typeof createMiningPanel> | null = null;
 
   // ── Factory: No Contract Content ────────────────────────────
   function createNoContractContent(): NoContractRefs {
@@ -567,173 +528,6 @@ export function createWorkTab(
     }
   }
 
-  // ── Factory: Mining Status Panel ────────────────────────────
-  function createMiningStatusRefs(): MiningStatusRefs {
-    const panel = document.createElement('div');
-    panel.className = 'mining-status-panel';
-    panel.style.cssText = `
-      margin-bottom: 1rem;
-      padding: 0.75rem;
-      background: rgba(255, 165, 0, 0.08);
-      border: 1px solid #b87333;
-      border-radius: 4px;
-    `;
-
-    // Header
-    const header = document.createElement('div');
-    header.style.cssText =
-      'display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;';
-    const title = document.createElement('span');
-    title.style.cssText = 'font-weight: bold; font-size: 1rem; color: #ffa500;';
-    header.appendChild(title);
-
-    const statusBadge = document.createElement('span');
-    statusBadge.style.cssText =
-      'font-size: 0.8rem; padding: 2px 8px; border-radius: 3px;';
-    header.appendChild(statusBadge);
-    panel.appendChild(header);
-
-    // Undock prompt
-    const undockPrompt = document.createElement('div');
-    undockPrompt.style.cssText =
-      'padding: 0.5rem; margin-bottom: 0.5rem; background: rgba(74,158,255,0.1); border: 1px solid #4a9eff; border-radius: 4px; font-size: 0.85rem; color: #4a9eff;';
-    undockPrompt.textContent =
-      'Undock to enter orbit and begin mining operations. Mining equipment operates while orbiting.';
-    undockPrompt.style.display = 'none';
-    panel.appendChild(undockPrompt);
-
-    // Available ores
-    const oresSection = document.createElement('div');
-    oresSection.style.cssText = 'margin-bottom: 0.5rem;';
-    const oresLabel = document.createElement('div');
-    oresLabel.style.cssText =
-      'font-size: 0.85rem; color: #aaa; margin-bottom: 0.25rem;';
-    oresLabel.textContent = 'Available Ores:';
-    oresSection.appendChild(oresLabel);
-
-    const oreTagsContainer = document.createElement('div');
-    oresSection.appendChild(oreTagsContainer);
-    panel.appendChild(oresSection);
-
-    // Miners section
-    const minersSection = document.createElement('div');
-    minersSection.style.cssText = 'margin-bottom: 0.5rem; font-size: 0.85rem;';
-    panel.appendChild(minersSection);
-
-    // Cargo section
-    const cargoSection = document.createElement('div');
-    cargoSection.style.cssText = 'font-size: 0.85rem; color: #aaa;';
-    panel.appendChild(cargoSection);
-
-    // Ore cargo breakdown
-    const breakdownSection = document.createElement('div');
-    breakdownSection.style.cssText =
-      'margin-top: 0.35rem; font-size: 0.8rem; color: #888;';
-    panel.appendChild(breakdownSection);
-
-    // Mining route controls
-    const routeSection = document.createElement('div');
-    routeSection.style.cssText =
-      'margin-top: 0.75rem; padding-top: 0.5rem; border-top: 1px solid #444;';
-
-    // Active route sub-container
-    const activeRouteContainer = document.createElement('div');
-    activeRouteContainer.style.display = 'none';
-
-    const activeRouteHeader = document.createElement('div');
-    activeRouteHeader.style.cssText =
-      'display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;';
-
-    const activeRouteLabel = document.createElement('span');
-    activeRouteLabel.style.cssText = 'font-size: 0.85rem; color: #4caf50;';
-    activeRouteHeader.appendChild(activeRouteLabel);
-
-    const activeRouteCancelBtn = document.createElement('button');
-    activeRouteCancelBtn.textContent = 'Cancel Route';
-    activeRouteCancelBtn.style.cssText =
-      'font-size: 0.75rem; padding: 2px 8px;';
-    activeRouteCancelBtn.addEventListener('click', () =>
-      callbacks.onCancelMiningRoute()
-    );
-    activeRouteHeader.appendChild(activeRouteCancelBtn);
-    activeRouteContainer.appendChild(activeRouteHeader);
-
-    const activeRouteStats = document.createElement('div');
-    activeRouteStats.style.cssText = 'font-size: 0.8rem; color: #888;';
-    activeRouteContainer.appendChild(activeRouteStats);
-    routeSection.appendChild(activeRouteContainer);
-
-    // Setup route sub-container
-    const setupRouteContainer = document.createElement('div');
-    setupRouteContainer.style.display = 'none';
-
-    const setupRouteLabel = document.createElement('div');
-    setupRouteLabel.style.cssText =
-      'font-size: 0.85rem; color: #aaa; margin-bottom: 0.35rem;';
-    setupRouteLabel.textContent = '\u{1F504} Auto-Sell Route (idle mining)';
-    setupRouteContainer.appendChild(setupRouteLabel);
-
-    const noTradeMsg = document.createElement('div');
-    noTradeMsg.style.cssText = 'font-size: 0.8rem; color: #888;';
-    noTradeMsg.textContent =
-      'No reachable trade stations available for auto-sell.';
-    noTradeMsg.style.display = 'none';
-    setupRouteContainer.appendChild(noTradeMsg);
-
-    const setupRow = document.createElement('div');
-    setupRow.style.cssText =
-      'display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;';
-
-    const miningRouteSelect = document.createElement('select');
-    miningRouteSelect.style.cssText =
-      'font-size: 0.8rem; padding: 3px 6px; background: #1a1a2e; color: #eee; border: 1px solid #444; border-radius: 3px;';
-    setupRow.appendChild(miningRouteSelect);
-
-    const startRouteBtn = document.createElement('button');
-    startRouteBtn.textContent = 'Start Route';
-    startRouteBtn.style.cssText = 'font-size: 0.8rem; padding: 3px 10px;';
-    startRouteBtn.addEventListener('click', () =>
-      callbacks.onStartMiningRoute(miningRouteSelect.value)
-    );
-    setupRow.appendChild(startRouteBtn);
-    setupRouteContainer.appendChild(setupRow);
-
-    const setupHint = document.createElement('div');
-    setupHint.style.cssText =
-      'font-size: 0.75rem; color: #666; margin-top: 0.25rem;';
-    setupHint.textContent =
-      'When cargo fills, ship auto-flies to sell ore, refuels, then returns to mine.';
-    setupRouteContainer.appendChild(setupHint);
-    routeSection.appendChild(setupRouteContainer);
-
-    panel.appendChild(routeSection);
-
-    return {
-      panel,
-      title,
-      statusBadge,
-      undockPrompt,
-      oresSection,
-      oresLabel,
-      oreTagsContainer,
-      minersSection,
-      cargoSection,
-      breakdownSection,
-      routeSection,
-      activeRouteContainer,
-      activeRouteLabel,
-      activeRouteCancelBtn,
-      activeRouteStats,
-      setupRouteContainer,
-      setupRouteLabel,
-      noTradeMsg,
-      setupRow,
-      miningRouteSelect,
-      startRouteBtn,
-      setupHint,
-    };
-  }
-
   // ── Factory: Quest Card ─────────────────────────────────────
   function createQuestCardRefs(quest: Quest, gd: GameData): QuestCardRefs {
     const card = document.createElement('div');
@@ -1081,7 +875,15 @@ export function createWorkTab(
     // Mining status
     if (locationData.services.includes('mine')) {
       noContractRefs.miningSlot.style.display = '';
-      updateMiningStatus(gd, ship, locationData);
+      if (!miningPanel) {
+        miningPanel = createMiningPanel({
+          onStartMiningRoute: callbacks.onStartMiningRoute,
+          onCancelMiningRoute: callbacks.onCancelMiningRoute,
+          onSelectMiningOre: callbacks.onSelectMiningOre,
+        });
+        noContractRefs.miningSlot.appendChild(miningPanel.el);
+      }
+      miningPanel.update(gd, ship, locationData);
     } else {
       noContractRefs.miningSlot.style.display = 'none';
     }
@@ -1208,273 +1010,6 @@ export function createWorkTab(
       const refs = cardMap.get(quest.id);
       if (refs) {
         parentEl.appendChild(refs.card);
-      }
-    }
-  }
-
-  // ── Update: Mining Status ───────────────────────────────────
-  function updateMiningStatus(
-    gd: GameData,
-    ship: Ship,
-    location: WorldLocation
-  ): void {
-    if (!miningRefs) {
-      miningRefs = createMiningStatusRefs();
-      noContractRefs.miningSlot.appendChild(miningRefs.panel);
-    }
-
-    const refs = miningRefs;
-
-    refs.title.textContent = `\u26CF\uFE0F Mining at ${location.name}`;
-
-    // Status badge
-    const isDocked = ship.location.status === 'docked';
-    const miners = getCrewForJobType(ship, 'mining_ops');
-    const shipMiningEquip = getBestShipMiningEquipment(ship);
-    const hasActiveMiner = shipMiningEquip !== undefined && miners.length > 0;
-
-    if (isDocked) {
-      refs.statusBadge.style.cssText =
-        'font-size: 0.8rem; padding: 2px 8px; border-radius: 3px; background: rgba(74,158,255,0.15); color: #4a9eff; border: 1px solid #4a9eff;';
-      refs.statusBadge.textContent = 'DOCKED';
-    } else if (hasActiveMiner && getRemainingOreCapacity(ship) > 0) {
-      refs.statusBadge.style.cssText =
-        'font-size: 0.8rem; padding: 2px 8px; border-radius: 3px; background: rgba(76,175,80,0.2); color: #4caf50; border: 1px solid #4caf50;';
-      refs.statusBadge.textContent = 'ACTIVE';
-    } else if (hasActiveMiner) {
-      refs.statusBadge.style.cssText =
-        'font-size: 0.8rem; padding: 2px 8px; border-radius: 3px; background: rgba(233,69,96,0.2); color: #e94560; border: 1px solid #e94560;';
-      refs.statusBadge.textContent = 'CARGO FULL';
-    } else {
-      refs.statusBadge.style.cssText =
-        'font-size: 0.8rem; padding: 2px 8px; border-radius: 3px; background: rgba(255,165,0,0.15); color: #ffa500; border: 1px solid #b87333;';
-      refs.statusBadge.textContent = 'IDLE';
-    }
-
-    // Undock prompt
-    refs.undockPrompt.style.display = isDocked ? '' : 'none';
-
-    // Available ores — reconcile tags
-    const availableOres = location.availableOres ?? [];
-    const currentOreIds = new Set<string>();
-
-    for (const oreId of availableOres) {
-      currentOreIds.add(oreId);
-      const ore = getOreDefinition(oreId);
-      const someMinerCanMine = miners.some((m) =>
-        canMineOre(m.skills.mining, oreId)
-      );
-
-      let tag = oreTagMap.get(oreId);
-      if (!tag) {
-        tag = document.createElement('span');
-        tag.style.cssText = `
-          display: inline-block; margin: 2px 4px 2px 0; padding: 2px 8px;
-          border-radius: 3px; font-size: 0.8rem;
-          background: rgba(255,165,0,0.15); border: 1px solid #665533;
-        `;
-        oreTagMap.set(oreId, tag);
-        refs.oreTagsContainer.appendChild(tag);
-      }
-
-      if (!someMinerCanMine) {
-        tag.style.opacity = '0.5';
-        tag.title = `Requires Mining ${ore.miningLevelRequired}`;
-        tag.textContent = `${ore.icon} ${ore.name} (${ore.baseValue} cr) [Mining ${ore.miningLevelRequired}]`;
-      } else {
-        tag.style.opacity = '1';
-        tag.title = '';
-        tag.textContent = `${ore.icon} ${ore.name} (${ore.baseValue} cr)`;
-      }
-    }
-
-    // Remove tags for ores no longer available
-    for (const [id, tag] of oreTagMap) {
-      if (!currentOreIds.has(id)) {
-        tag.remove();
-        oreTagMap.delete(id);
-      }
-    }
-
-    // Miners section — reconcile
-    refs.minersSection.textContent = '';
-    minerLineMap.clear();
-
-    if (miners.length === 0) {
-      const noMiners = document.createElement('div');
-      noMiners.style.color = '#e94560';
-      noMiners.textContent =
-        'No crew assigned to Mining Ops. Assign crew in the Ship tab.';
-      refs.minersSection.appendChild(noMiners);
-    } else if (!shipMiningEquip) {
-      const noEquip = document.createElement('div');
-      noEquip.style.color = '#e94560';
-      noEquip.textContent =
-        'No mining equipment installed on ship. Purchase at a station store.';
-      refs.minersSection.appendChild(noEquip);
-    } else {
-      // Show ship equipment info
-      const equipInfo = document.createElement('div');
-      equipInfo.style.cssText =
-        'margin-bottom: 4px; color: #6c6; font-size: 0.8rem;';
-      let equipText = `Ship Equipment: ${shipMiningEquip.name} (${shipMiningEquip.miningRate}x)`;
-      if (
-        shipMiningEquip.miningLevelRequired &&
-        shipMiningEquip.miningLevelRequired > 0
-      ) {
-        equipText += ` \u00B7 Requires Mining ${shipMiningEquip.miningLevelRequired}`;
-      }
-      equipInfo.textContent = equipText;
-      refs.minersSection.appendChild(equipInfo);
-
-      for (const miner of miners) {
-        const minerLine = document.createElement('div');
-        minerLine.style.cssText = 'margin-bottom: 2px; color: #ccc;';
-        const miningSkill = Math.floor(miner.skills.mining);
-
-        if (miningSkill < (shipMiningEquip.miningLevelRequired ?? 0)) {
-          minerLine.style.color = '#ffa500';
-          minerLine.textContent = `${miner.name} (Mining ${miningSkill}) \u2014 Skill too low to operate equipment`;
-        } else {
-          const bestOre = availableOres
-            .map((id) => getOreDefinition(id))
-            .filter((o) => miningSkill >= o.miningLevelRequired)
-            .sort((a, b) => b.baseValue - a.baseValue)[0];
-
-          minerLine.textContent = `${miner.name} (Mining ${miningSkill})`;
-          if (bestOre) {
-            minerLine.textContent += ` \u2192 ${bestOre.icon} ${bestOre.name}`;
-          }
-        }
-        refs.minersSection.appendChild(minerLine);
-        minerLineMap.set(miner.id, minerLine);
-      }
-    }
-
-    // Cargo status
-    const oreWeight = getOreCargoWeight(ship);
-    const remaining = getRemainingOreCapacity(ship);
-    const totalOreUnits = ship.oreCargo.reduce(
-      (sum, item) => sum + item.quantity,
-      0
-    );
-
-    let cargoText = `Ore Cargo: ${totalOreUnits} units (${formatMass(oreWeight)})`;
-    if (remaining <= 0) {
-      cargoText += ' \u2014 FULL';
-      refs.cargoSection.style.color = '#e94560';
-    } else {
-      cargoText += ` \u2014 ${formatMass(remaining)} remaining`;
-      refs.cargoSection.style.color = '#aaa';
-    }
-    refs.cargoSection.textContent = cargoText;
-
-    // Ore cargo breakdown — reconcile
-    const currentOreCargoIds = new Set<string>();
-    refs.breakdownSection.textContent = '';
-    oreCargoLineMap.clear();
-
-    if (ship.oreCargo.length > 0) {
-      refs.breakdownSection.style.display = '';
-      for (const item of ship.oreCargo) {
-        currentOreCargoIds.add(item.oreId);
-        const ore = getOreDefinition(item.oreId);
-        const line = document.createElement('div');
-        line.textContent = `  ${ore.icon} ${ore.name}: ${item.quantity} units`;
-        refs.breakdownSection.appendChild(line);
-        oreCargoLineMap.set(item.oreId, line);
-      }
-    } else {
-      refs.breakdownSection.style.display = 'none';
-    }
-
-    // Mining route controls
-    if (ship.miningRoute) {
-      refs.activeRouteContainer.style.display = '';
-      refs.setupRouteContainer.style.display = 'none';
-
-      const route = ship.miningRoute;
-      const sellLoc = gd.world.locations.find(
-        (l) => l.id === route.sellLocationId
-      );
-
-      refs.activeRouteLabel.textContent = `\u{1F504} Auto-sell route \u2192 ${sellLoc?.name ?? 'Unknown'}`;
-      refs.activeRouteStats.textContent = `Trips: ${route.totalTrips} \u00B7 Earned: ${formatCredits(route.totalCreditsEarned)} \u00B7 Status: ${route.status}`;
-    } else {
-      refs.activeRouteContainer.style.display = 'none';
-      refs.setupRouteContainer.style.display = '';
-
-      // Find reachable trade locations
-      const tradeLocations = gd.world.locations.filter(
-        (l) =>
-          l.id !== location.id &&
-          l.services.includes('trade') &&
-          canShipAccessLocation(ship, l)
-      );
-
-      if (tradeLocations.length === 0) {
-        refs.noTradeMsg.style.display = '';
-        refs.setupRow.style.display = 'none';
-        refs.setupHint.style.display = 'none';
-      } else {
-        refs.noTradeMsg.style.display = 'none';
-        refs.setupRow.style.display = 'flex';
-        refs.setupHint.style.display = '';
-
-        // Sort by distance (nearest first)
-        const sorted = tradeLocations
-          .map((loc) => ({
-            loc,
-            dist: getDistanceBetween(location, loc),
-          }))
-          .sort((a, b) => a.dist - b.dist);
-
-        // Reconcile select options
-        const currentLocIds = new Set<string>();
-        for (const { loc, dist } of sorted) {
-          currentLocIds.add(loc.id);
-
-          const distLabel =
-            dist < 1e9
-              ? `${(dist / 1e6).toFixed(0)} Mm`
-              : `${(dist / 1e9).toFixed(1)} Gm`;
-          const priceHint =
-            loc.type === 'planet'
-              ? '1.1\u00D7'
-              : loc.type === 'space_station'
-                ? '1.0\u00D7'
-                : loc.type === 'orbital'
-                  ? '0.85\u00D7'
-                  : loc.type === 'moon'
-                    ? '0.9\u00D7'
-                    : '0.8\u00D7';
-          const optText = `${loc.name} (${distLabel}, ${priceHint} price)`;
-
-          let opt = miningSelectOptionMap.get(loc.id);
-          if (!opt) {
-            opt = document.createElement('option');
-            opt.value = loc.id;
-            miningSelectOptionMap.set(loc.id, opt);
-            refs.miningRouteSelect.appendChild(opt);
-          }
-          opt.textContent = optText;
-        }
-
-        // Remove options no longer reachable
-        for (const [id, opt] of miningSelectOptionMap) {
-          if (!currentLocIds.has(id)) {
-            opt.remove();
-            miningSelectOptionMap.delete(id);
-          }
-        }
-
-        // Ensure correct order
-        for (const { loc } of sorted) {
-          const opt = miningSelectOptionMap.get(loc.id);
-          if (opt) {
-            refs.miningRouteSelect.appendChild(opt);
-          }
-        }
       }
     }
   }

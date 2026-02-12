@@ -1371,6 +1371,14 @@ const callbacks: RendererCallbacks = {
     saveGame(state.gameData);
     renderApp();
   },
+
+  onSelectMiningOre: (oreId: string | null) => {
+    if (state.phase !== 'playing') return;
+    const ship = getActiveShip(state.gameData);
+    ship.selectedMiningOreId = (oreId as import('./models').OreId) || undefined;
+    saveGame(state.gameData);
+    renderApp();
+  },
 };
 
 // ── Module initialisation ──

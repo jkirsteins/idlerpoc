@@ -78,13 +78,16 @@ describe('Mining System', () => {
       expect(result).toBeNull();
     });
 
-    it('returns null when no crew are assigned to mining_ops', () => {
+    it('mines at base rate when no crew are assigned (crew-less mining)', () => {
       const ship = createTestShip({
         location: { status: 'orbiting', orbitingAt: 'debris_field_alpha' },
       });
       const location = createMineLocation();
+      // Ship has mining_laser by default but no crew in mining_ops
       const result = applyMiningTick(ship, location);
-      expect(result).toBeNull();
+      expect(result).not.toBeNull();
+      expect(result!.cargoFull).toBe(false);
+      // Should mine at reduced base rate (not null)
     });
 
     it('returns null when ship has no mining equipment installed', () => {
@@ -231,6 +234,98 @@ describe('Mining System', () => {
       // Should not have mined copper
       const copperCargo = ship.oreCargo.find((c) => c.oreId === 'copper_ore');
       expect(copperCargo).toBeUndefined();
+    });
+
+    it('crew-less mining only extracts tier-0 ores', () => {
+      const ship = createTestShip({
+        location: { status: 'orbiting', orbitingAt: 'debris_field_alpha' },
+      });
+      // Ship has mining_laser but no miners assigned
+      const location = createMineLocation({
+        availableOres: ['iron_ore', 'copper_ore'] as OreId[],
+      });
+
+      // Run many ticks
+      for (let i = 0; i < 50; i++) {
+        applyMiningTick(ship, location);
+      }
+
+      // Should have mined iron (tier 0) but not copper (tier 10)
+      const ironCargo = ship.oreCargo.find((c) => c.oreId === 'iron_ore');
+      const copperCargo = ship.oreCargo.find((c) => c.oreId === 'copper_ore');
+      expect(ironCargo).toBeDefined();
+      expect(ironCargo!.quantity).toBeGreaterThan(0);
+      expect(copperCargo).toBeUndefined();
+    });
+
+    it('crew-less mining returns null without equipment', () => {
+      const ship = createTestShip({
+        location: { status: 'orbiting', orbitingAt: 'debris_field_alpha' },
+        equipment: [
+          { id: 'eq-ls', definitionId: 'life_support', degradation: 0 },
+        ],
+      });
+      const location = createMineLocation();
+      const result = applyMiningTick(ship, location);
+      expect(result).toBeNull();
+    });
+
+    it('respects selectedMiningOreId when set', () => {
+      const miner = createTestCrew({
+        name: 'Miner',
+        role: 'miner',
+        skills: { piloting: 5, mining: 15, commerce: 0, repairs: 0 },
+      });
+      const ship = createTestShip({
+        crew: [miner],
+        location: { status: 'orbiting', orbitingAt: 'debris_field_alpha' },
+      });
+      assignCrewToJob(ship, miner.id, 'mining_ops');
+
+      // Select silicate (lower value than iron, but we want it)
+      ship.selectedMiningOreId = 'silicate' as OreId;
+
+      const location = createMineLocation({
+        availableOres: ['iron_ore', 'silicate'] as OreId[],
+      });
+
+      for (let i = 0; i < 30; i++) {
+        applyMiningTick(ship, location);
+      }
+
+      // Should have mined silicate, not iron
+      const silicateCargo = ship.oreCargo.find((c) => c.oreId === 'silicate');
+      const ironCargo = ship.oreCargo.find((c) => c.oreId === 'iron_ore');
+      expect(silicateCargo).toBeDefined();
+      expect(silicateCargo!.quantity).toBeGreaterThan(0);
+      expect(ironCargo).toBeUndefined();
+    });
+
+    it('miner sits idle when selected ore requires higher skill', () => {
+      const miner = createTestCrew({
+        name: 'Miner',
+        role: 'miner',
+        skills: { piloting: 5, mining: 5, commerce: 0, repairs: 0 },
+      });
+      const ship = createTestShip({
+        crew: [miner],
+        location: { status: 'orbiting', orbitingAt: 'debris_field_alpha' },
+      });
+      assignCrewToJob(ship, miner.id, 'mining_ops');
+
+      // Select copper (requires mining 10, miner has mining 5)
+      ship.selectedMiningOreId = 'copper_ore' as OreId;
+
+      const location = createMineLocation({
+        availableOres: ['iron_ore', 'copper_ore'] as OreId[],
+      });
+
+      for (let i = 0; i < 30; i++) {
+        applyMiningTick(ship, location);
+      }
+
+      // Miner should sit idle — no ore mined at all
+      expect(ship.oreCargo.length).toBe(0);
     });
   });
 

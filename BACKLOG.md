@@ -103,7 +103,7 @@ Current ship equipment (20 items) is dominated by mandatory survival systems. "F
 - **Mastery Pool Spending UI**: Allow players to spend mastery pool XP to boost specific item mastery levels. Core mechanic designed in `docs/skill-revamp-design.md` but UI not built.
 - **Mastery Pool Checkpoint Bonuses (Active)**: The mastery pool checkpoint definitions exist in `masterySystem.ts` but actual gameplay effects (auto-refuel at 95%, preserve ore on fail at 50%, etc.) are not wired into game systems yet.
 - **Item Mastery Bonuses (Active)**: Per-item mastery bonuses for routes and trade routes are defined but not applied during gameplay calculations. Mining ore mastery yield bonuses are now active.
-- **Mining Ore Selection UI**: Miners auto-select the highest-value ore. A future UI could let players choose which ore to mine per-miner.
+- ~~**Mining Ore Selection UI**~~: **DONE** — Ore material picker allows selecting which ore to mine per-ship. Auto-select defaults to highest-value ore. See mining panel in Work tab.
 - **Mining Equipment Slot Management**: Ship mining equipment can now be bought/upgraded at the Station Store (Ship Equipment tab). A future UI could allow selecting which equipment slot to install in, or allow uninstalling equipment to free slots.
 - **Mastery Traits**: Award a permanent crew trait when reaching skill 100 (Master rank).
 - **Prestige/Reset Loop**: Long-term engagement mechanic — "retire" experienced crew for permanent bonuses on future hires.

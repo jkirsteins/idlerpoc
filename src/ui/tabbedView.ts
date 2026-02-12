@@ -382,6 +382,7 @@ export function createTabbedView(
           onFlightProfileChange: callbacks.onFlightProfileChange,
           onStartMiningRoute: callbacks.onStartMiningRoute,
           onCancelMiningRoute: callbacks.onCancelMiningRoute,
+          onSelectMiningOre: callbacks.onSelectMiningOre,
         });
       case 'nav':
         return createNavigationView(gameData, {

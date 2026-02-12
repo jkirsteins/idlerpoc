@@ -319,6 +319,7 @@ export interface Ship {
   role?: 'courier' | 'freighter' | 'scout' | 'combat' | 'luxury'; // Player-assigned specialization
   activeFlightPlan?: FlightState; // Current flight plan (replaces location.flight)
   flightProfileBurnFraction: number; // 0.1-1.0: per-ship flight profile setting (1.0 = max speed, lower = more coasting, less fuel)
+  selectedMiningOreId?: OreId; // Player-chosen ore to mine (undefined = auto-select highest value)
 }
 
 export type QuestType = 'delivery' | 'passenger' | 'freight' | 'trade_route';
