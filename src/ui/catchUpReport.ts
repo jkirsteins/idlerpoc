@@ -178,6 +178,10 @@ export function renderCatchUpReport(
           activityEl.textContent = `Made ${summary.activity.tripsCompleted} trip${summary.activity.tripsCompleted > 1 ? 's' : ''}`;
           activityEl.style.color = '#4caf50';
           break;
+        case 'arrived':
+          activityEl.textContent = `Arrived at ${summary.activity.destination}`;
+          activityEl.style.color = '#4caf50';
+          break;
         case 'en_route':
           activityEl.textContent = `En route to ${summary.activity.destination}`;
           activityEl.style.color = '#a0a0b0';
