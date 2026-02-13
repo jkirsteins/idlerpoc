@@ -121,8 +121,16 @@ export function createRefuelDialog(
     margin-bottom: 1rem;
   `;
 
+  const fuelLabel = document.createElement('label');
+  fuelLabel.textContent = 'Fuel amount (kg)';
+  fuelLabel.htmlFor = 'refuel-amount-input';
+  fuelLabel.style.cssText =
+    'position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0);';
+  inputGroup.appendChild(fuelLabel);
+
   const fuelInput = document.createElement('input');
   fuelInput.type = 'number';
+  fuelInput.id = 'refuel-amount-input';
   fuelInput.min = '0';
   fuelInput.max = maxPurchaseKg.toString();
   fuelInput.step = '100';
@@ -140,8 +148,15 @@ export function createRefuelDialog(
   inputGroup.appendChild(fuelInput);
 
   // Slider (created before buttons so button click handlers can reference it)
+  const sliderLabel = document.createElement('label');
+  sliderLabel.textContent = 'Fuel amount slider';
+  sliderLabel.htmlFor = 'refuel-amount-slider';
+  sliderLabel.style.cssText =
+    'position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0);';
+
   const slider = document.createElement('input');
   slider.type = 'range';
+  slider.id = 'refuel-amount-slider';
   slider.min = '0';
   slider.max = maxPurchaseKg.toString();
   slider.step = '100';
@@ -208,7 +223,8 @@ export function createRefuelDialog(
 
   inputSection.appendChild(inputGroup);
 
-  // Append slider after input group
+  // Append slider label + slider after input group
+  inputSection.appendChild(sliderLabel);
   inputSection.appendChild(slider);
 
   // Sync slider and input

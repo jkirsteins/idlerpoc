@@ -189,7 +189,44 @@ export function createTabbedView(
 
   statsDiv.appendChild(netDiv);
 
+  // Ledger breakdown (collapsible — surfaces right sidebar info for tablet/mobile)
+  const ledgerToggle = document.createElement('button');
+  ledgerToggle.className = 'ledger-toggle small-button';
+  ledgerToggle.textContent = '\u25B6';
+  ledgerToggle.title = 'Show daily ledger breakdown';
+  ledgerToggle.style.padding = '2px 6px';
+  ledgerToggle.style.fontSize = '10px';
+  ledgerToggle.style.verticalAlign = 'middle';
+  ledgerToggle.style.marginLeft = '6px';
+  netDiv.appendChild(ledgerToggle);
+
+  const ledgerBreakdown = document.createElement('div');
+  ledgerBreakdown.className = 'ledger-breakdown';
+  ledgerBreakdown.style.display = 'none';
+
+  const ledgerIncomeSpan = document.createElement('span');
+  ledgerIncomeSpan.className = 'ledger-item';
+  const ledgerCrewSpan = document.createElement('span');
+  ledgerCrewSpan.className = 'ledger-item';
+  const ledgerFuelSpan = document.createElement('span');
+  ledgerFuelSpan.className = 'ledger-item';
+
+  ledgerBreakdown.appendChild(ledgerIncomeSpan);
+  ledgerBreakdown.appendChild(ledgerCrewSpan);
+  ledgerBreakdown.appendChild(ledgerFuelSpan);
+
+  let ledgerOpen = false;
+  ledgerToggle.addEventListener('click', () => {
+    ledgerOpen = !ledgerOpen;
+    ledgerBreakdown.style.display = ledgerOpen ? '' : 'none';
+    ledgerToggle.textContent = ledgerOpen ? '\u25BC' : '\u25B6';
+    ledgerToggle.title = ledgerOpen
+      ? 'Hide daily ledger breakdown'
+      : 'Show daily ledger breakdown';
+  });
+
   statusBar.appendChild(statsDiv);
+  statusBar.appendChild(ledgerBreakdown);
 
   // Right side: Action buttons
   const actionsDiv = document.createElement('div');
@@ -547,6 +584,25 @@ export function createTabbedView(
     }
     netDiv.style.opacity =
       ledger.totalExpensePerDay > 0 || ledger.incomePerDay > 0 ? '' : '0.4';
+
+    // Ledger breakdown items (updated even when collapsed, cheap text updates)
+    const incText = `Income: ${formatCredits(Math.round(ledger.incomePerDay))}/day`;
+    if (ledgerIncomeSpan.textContent !== incText) {
+      ledgerIncomeSpan.textContent = incText;
+      ledgerIncomeSpan.style.color = '#4ade80';
+    }
+    const crewCostText = `Crew: -${formatCredits(Math.round(ledger.crewCostPerDay))}/day`;
+    if (ledgerCrewSpan.textContent !== crewCostText) {
+      ledgerCrewSpan.textContent = crewCostText;
+      ledgerCrewSpan.style.color =
+        ledger.crewCostPerDay > 0 ? '#ffa500' : '#888';
+    }
+    const fuelCostText = `Fuel: -${formatCredits(Math.round(ledger.fuelCostPerDay))}/day`;
+    if (ledgerFuelSpan.textContent !== fuelCostText) {
+      ledgerFuelSpan.textContent = fuelCostText;
+      ledgerFuelSpan.style.color =
+        ledger.fuelCostPerDay > 0 ? '#ffa500' : '#888';
+    }
 
     // ── Status text ──────────────────────────────────────────────────
     if (ship.location.status === 'docked') {

@@ -4,6 +4,27 @@ export interface TooltipOptions {
 }
 
 let activeTooltip: HTMLElement | null = null;
+let activeTrigger: HTMLElement | null = null;
+
+// Register a document-level touch dismiss listener (once)
+let dismissRegistered = false;
+function ensureTouchDismiss(): void {
+  if (dismissRegistered) return;
+  dismissRegistered = true;
+  document.addEventListener(
+    'touchstart',
+    (e: TouchEvent) => {
+      if (!activeTooltip) return;
+      const target = e.target as Node;
+      if (!activeTooltip.contains(target) && !activeTrigger?.contains(target)) {
+        activeTooltip.classList.remove('visible');
+        activeTooltip = null;
+        activeTrigger = null;
+      }
+    },
+    { passive: true }
+  );
+}
 
 export function attachTooltip(
   element: HTMLElement,
@@ -13,6 +34,29 @@ export function attachTooltip(
   tooltip.className = 'custom-tooltip';
   tooltip.innerHTML = options.content;
   document.body.appendChild(tooltip);
+
+  // Mark element as having a tooltip (for CSS touch target sizing)
+  element.setAttribute('data-has-tooltip', '');
+
+  const positionNearElement = (tip: HTMLElement, elem: HTMLElement) => {
+    const elemRect = elem.getBoundingClientRect();
+    const tipRect = tip.getBoundingClientRect();
+
+    let left = elemRect.left;
+    let top = elemRect.bottom + 8;
+
+    // Prevent tooltip from going off-screen
+    if (left + tipRect.width > window.innerWidth) {
+      left = window.innerWidth - tipRect.width - 16;
+    }
+    if (left < 8) left = 8;
+    if (top + tipRect.height > window.innerHeight) {
+      top = elemRect.top - tipRect.height - 8;
+    }
+
+    tip.style.left = `${left}px`;
+    tip.style.top = `${top}px`;
+  };
 
   const updateTooltipPosition = (
     e: MouseEvent,
@@ -39,23 +83,7 @@ export function attachTooltip(
       tip.style.left = `${left}px`;
       tip.style.top = `${top}px`;
     } else {
-      // Position near element
-      const elemRect = elem.getBoundingClientRect();
-      const tipRect = tip.getBoundingClientRect();
-
-      let left = elemRect.left;
-      let top = elemRect.bottom + 8;
-
-      // Prevent tooltip from going off-screen
-      if (left + tipRect.width > window.innerWidth) {
-        left = window.innerWidth - tipRect.width - 16;
-      }
-      if (top + tipRect.height > window.innerHeight) {
-        top = elemRect.top - tipRect.height - 8;
-      }
-
-      tip.style.left = `${left}px`;
-      tip.style.top = `${top}px`;
+      positionNearElement(tip, elem);
     }
   };
 
@@ -63,15 +91,18 @@ export function attachTooltip(
     tooltip.classList.add('visible');
     updateTooltipPosition(e, tooltip, element, options.followMouse ?? false);
     activeTooltip = tooltip;
+    activeTrigger = element;
   };
 
   const hideTooltip = () => {
     tooltip.classList.remove('visible');
     if (activeTooltip === tooltip) {
       activeTooltip = null;
+      activeTrigger = null;
     }
   };
 
+  // Mouse events (hover — desktop)
   element.addEventListener('mouseenter', showTooltip);
   element.addEventListener('mousemove', (e) => {
     if (tooltip.classList.contains('visible') && options.followMouse) {
@@ -79,6 +110,38 @@ export function attachTooltip(
     }
   });
   element.addEventListener('mouseleave', hideTooltip);
+
+  // Touch events (tap to toggle — mobile)
+  element.addEventListener(
+    'touchstart',
+    () => {
+      ensureTouchDismiss();
+
+      if (tooltip.classList.contains('visible')) {
+        // Tap again to dismiss
+        tooltip.classList.remove('visible');
+        if (activeTooltip === tooltip) {
+          activeTooltip = null;
+          activeTrigger = null;
+        }
+        return;
+      }
+
+      // Dismiss any other active tooltip
+      if (activeTooltip && activeTooltip !== tooltip) {
+        activeTooltip.classList.remove('visible');
+      }
+
+      // Show this tooltip
+      tooltip.classList.add('visible');
+      activeTooltip = tooltip;
+      activeTrigger = element;
+
+      // Position anchored to element (not mouse)
+      positionNearElement(tooltip, element);
+    },
+    { passive: true }
+  );
 
   // Clean up tooltip when element is removed
   const observer = new MutationObserver((mutations) => {

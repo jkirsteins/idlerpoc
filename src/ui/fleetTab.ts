@@ -1212,9 +1212,17 @@ function createShipPurchase(
     buyContainer.style.gap = '0.5rem';
     buyContainer.style.alignItems = 'center';
 
+    const nameLabel = document.createElement('label');
+    nameLabel.textContent = 'Ship name';
+    nameLabel.style.cssText =
+      'position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0);';
+    buyContainer.appendChild(nameLabel);
+
     const nameInput = document.createElement('input');
     nameInput.type = 'text';
     nameInput.placeholder = 'Ship name...';
+    nameInput.id = 'fleet-ship-name-input';
+    nameLabel.htmlFor = nameInput.id;
     nameInput.style.flex = '1';
     nameInput.style.minWidth = '0';
     nameInput.style.padding = '0.5rem';

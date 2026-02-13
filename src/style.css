@@ -101,6 +101,26 @@ body {
   padding: 0.5rem 1rem;
 }
 
+/* Ledger breakdown (collapsible) */
+.ledger-breakdown {
+  display: flex;
+  gap: 1rem;
+  flex-basis: 100%;
+  padding: 6px 8px;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 4px;
+  font-size: 12px;
+  flex-wrap: wrap;
+}
+
+.ledger-item {
+  white-space: nowrap;
+}
+
+.ledger-toggle {
+  min-height: auto !important;
+}
+
 /* Ship Capabilities Grid */
 .ship-capabilities-grid {
   display: grid;
@@ -279,6 +299,53 @@ button.small-button {
 
 button.small-button:hover {
   background: #1a4a7a;
+}
+
+/* ── Focus-visible states (keyboard navigation) ── */
+button:focus-visible,
+[role='button']:focus-visible,
+select:focus-visible,
+input:focus-visible,
+.tab-button:focus-visible,
+.shop-tab:focus-visible,
+.crew-list-item:focus-visible,
+.nav-legend-item:focus-visible,
+.ship-class-option:focus-visible,
+.action-radio-card:focus-visible,
+.gamepedia-topic-item:focus-visible,
+.gamepedia-cat-btn:focus-visible,
+.filter-btn:focus-visible {
+  outline: 2px solid #4a9eff;
+  outline-offset: 2px;
+}
+
+/* ── Active states (touch feedback) ── */
+button:active:not(:disabled) {
+  transform: scale(0.97);
+  filter: brightness(0.85);
+}
+
+.tab-button:active {
+  background: rgba(74, 158, 255, 0.3) !important;
+  transform: scale(0.97);
+}
+
+.crew-list-item:active {
+  background: rgba(74, 158, 255, 0.2);
+}
+
+.room-card:active {
+  border-color: #4a9eff;
+}
+
+.mobile-hamburger:active {
+  background: rgba(255, 255, 255, 0.15);
+  transform: scale(0.95);
+}
+
+.mobile-header-playpause:active {
+  background: rgba(74, 158, 255, 0.4);
+  transform: scale(0.95);
 }
 
 /* Shop sub-tabs (station store) */
@@ -1928,6 +1995,11 @@ button:disabled:hover {
   font-style: italic;
 }
 
+/* Quest details toggle (hidden on desktop, shown on mobile) */
+.quest-details-toggle {
+  display: none;
+}
+
 .active-contract,
 .paused-contract {
   padding: 16px 0;
@@ -3383,6 +3455,124 @@ button:disabled:hover {
     background: rgba(74, 158, 255, 0.3);
   }
 
+  /* Mobile header: allow second row */
+  .mobile-header-bar {
+    flex-wrap: wrap;
+    gap: 8px 12px;
+  }
+
+  /* Net rate indicator next to credits */
+  .mobile-header-rate {
+    font-size: 10px;
+    font-weight: 600;
+    margin-left: 2px;
+  }
+
+  /* Fuel status text (LOW / CRITICAL) */
+  .mobile-header-fuel-status {
+    font-size: 9px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  /* Mobile header second row: date | location | speed */
+  .mobile-header-info-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-basis: 100%;
+    padding-top: 6px;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    gap: 8px;
+  }
+
+  .mobile-header-date {
+    color: #4a9eff;
+    font-size: 11px;
+    font-weight: 600;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  .mobile-header-location {
+    color: #ccc;
+    font-size: 11px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1;
+    min-width: 0;
+    text-align: center;
+  }
+
+  .mobile-header-speed {
+    display: flex;
+    gap: 3px;
+    flex-shrink: 0;
+  }
+
+  .mobile-speed-btn {
+    padding: 3px 8px;
+    font-size: 11px;
+    font-weight: 700;
+    border-radius: 3px;
+    border: 1px solid #666;
+    background: rgba(0, 0, 0, 0.3);
+    color: #aaa;
+    cursor: pointer;
+    line-height: 1;
+    min-height: 24px;
+  }
+
+  .mobile-speed-btn.active {
+    background: #4a9eff;
+    border-color: #4a9eff;
+    color: white;
+  }
+
+  .mobile-speed-btn:active {
+    transform: scale(0.93);
+  }
+
+  /* ── Touch targets: minimum 44px effective area ── */
+  button,
+  .tab-button,
+  .shop-tab,
+  select,
+  .filter-btn,
+  .gamepedia-cat-btn,
+  .gamepedia-topic-item {
+    min-height: 44px;
+  }
+
+  .mobile-hamburger {
+    padding: 10px 12px;
+  }
+
+  .mobile-header-playpause {
+    padding: 10px 14px;
+  }
+
+  .crew-list-item {
+    min-height: 44px;
+  }
+
+  button.small-button {
+    min-height: 44px;
+    padding: 8px 12px;
+    font-size: 12px;
+  }
+
+  .room-action-btn {
+    min-height: 44px;
+    padding: 8px 12px;
+  }
+
+  .crew-select {
+    min-height: 44px;
+  }
+
   /* Mobile drawer overlay */
   .mobile-drawer-overlay {
     display: block;
@@ -3522,9 +3712,66 @@ button:disabled:hover {
     text-align: center;
   }
 
-  /* Quest card compact */
+  /* Quest card: reorder for mobile — payment + buttons above details */
+  .quest-card {
+    display: flex;
+    flex-direction: column;
+  }
+
   .quest-title {
+    order: 1;
     font-size: 16px;
+  }
+
+  .quest-description {
+    order: 2;
+  }
+
+  .quest-payment {
+    order: 3;
+  }
+
+  .quest-buttons {
+    order: 4;
+  }
+
+  .quest-details-toggle {
+    display: block;
+    order: 5;
+    background: transparent;
+    border: 1px solid #444;
+    color: #888;
+    padding: 6px 8px;
+    font-size: 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    margin-top: 8px;
+    text-align: center;
+    width: 100%;
+  }
+
+  .quest-details-toggle:active {
+    background: rgba(255, 255, 255, 0.05);
+  }
+
+  .quest-details {
+    order: 6;
+    margin-top: 8px;
+    margin-bottom: 0;
+    /* Hidden by default on mobile; toggle shows via expanded class */
+    display: none;
+  }
+
+  .quest-details.quest-details-expanded {
+    display: flex;
+  }
+
+  .quest-warnings {
+    order: 7;
+  }
+
+  .quest-reason {
+    order: 8;
   }
 
   /* Nav map: shorter */
@@ -3703,7 +3950,7 @@ button:disabled:hover {
 
   /* Mobile header bar: tighter */
   .mobile-header-bar {
-    gap: 8px;
+    gap: 6px 8px;
     padding: 6px 8px;
   }
 
@@ -3715,9 +3962,32 @@ button:disabled:hover {
     font-size: 12px;
   }
 
+  .mobile-header-rate {
+    font-size: 9px;
+  }
+
+  .mobile-header-info-row {
+    font-size: 10px;
+    padding-top: 4px;
+    gap: 6px;
+  }
+
+  .mobile-header-date {
+    font-size: 10px;
+  }
+
+  .mobile-header-location {
+    font-size: 10px;
+  }
+
+  .mobile-speed-btn {
+    padding: 2px 6px;
+    font-size: 10px;
+  }
+
   /* Tab bar: even more compact */
   .tab-button {
-    padding: 6px 10px;
+    padding: 8px 10px;
     font-size: 12px;
   }
 

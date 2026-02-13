@@ -127,7 +127,7 @@ export function createGamepediaTab(
 
   function rebuildTopicList(): void {
     const filtered = getFilteredArticles();
-    topicList.replaceChildren();
+    while (topicList.firstChild) topicList.removeChild(topicList.firstChild);
 
     if (filtered.length === 0) {
       const empty = document.createElement('div');
@@ -217,7 +217,7 @@ export function createGamepediaTab(
   }
 
   function rebuildArticle(): void {
-    mainArea.replaceChildren();
+    while (mainArea.firstChild) mainArea.removeChild(mainArea.firstChild);
 
     if (!selectedArticleId) {
       // Welcome / landing state
