@@ -25,6 +25,7 @@ import {
   createFlightProfileControl,
   updateFlightProfileControl,
 } from './flightProfileControl';
+import { setupMapZoomPan } from './mapZoomPan';
 import {
   computeLaunchWindow,
   getLocationPosition,
@@ -558,6 +559,10 @@ export function createNavigationView(
   }
 
   mapArea.appendChild(svg);
+
+  // Zoom/pan gesture handling (pinch, drag, wheel)
+  setupMapZoomPan(svg, mapArea);
+
   container.appendChild(mapArea);
 
   // Profile slot — always in the DOM, visibility toggled
@@ -647,8 +652,10 @@ export function createNavigationView(
       if (selectedLocationId !== location.id) {
         dot.setAttribute('stroke', '#0f3460');
         dot.setAttribute('stroke-width', '1');
+        hideTooltip();
       }
-      hideTooltip();
+      // When selectedLocationId === location.id, keep tooltip visible
+      // so that tap-to-select on mobile shows the tooltip persistently
     });
 
     markerMap.set(location.id, {

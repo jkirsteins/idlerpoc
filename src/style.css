@@ -1245,7 +1245,29 @@ button.small-button:hover {
   border: 2px solid #0f3460;
   margin-bottom: 20px;
   overflow: hidden;
-  touch-action: manipulation;
+  touch-action: none;
+}
+
+.nav-map svg {
+  transform-origin: 0 0;
+}
+
+.nav-map-reset-zoom {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  padding: 4px 10px;
+  font-size: 11px;
+  background: rgba(15, 52, 96, 0.85);
+  color: #4a9eff;
+  border: 1px solid #4a9eff;
+  border-radius: 4px;
+  cursor: pointer;
+  z-index: 1;
+}
+
+.nav-map-reset-zoom:hover {
+  background: rgba(74, 158, 255, 0.2);
 }
 
 .nav-legend {
