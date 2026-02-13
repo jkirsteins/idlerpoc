@@ -850,6 +850,7 @@ export function loadGame(): GameData | null {
     backfillRepairsSkill(migrated);
     backfillCrewFields(migrated);
     backfillGameDataFields(migrated);
+    backfillFlightOriginBodyId(migrated);
 
     return migrated;
   } catch (e) {
@@ -989,6 +990,7 @@ export function importGame(json: string): GameData | null {
   backfillRepairsSkill(migrated);
   backfillCrewFields(migrated);
   backfillGameDataFields(migrated);
+  backfillFlightOriginBodyId(migrated);
 
   // Reset timestamp so the game doesn't try to catch up for offline time
   migrated.lastTickTimestamp = Date.now();
@@ -1102,6 +1104,21 @@ function backfillGameDataFields(gameData: GameData): void {
   // Fix NaN that may have already propagated from the missing field
   if (Number.isNaN(gameData.lifetimeCreditsEarned)) {
     (gameData as unknown as Record<string, unknown>).lifetimeCreditsEarned = 0;
+  }
+}
+
+/**
+ * Additive backfill for FlightState.originBodyId.
+ * Existing in-flight ships from older saves are body-origin flights, so
+ * backfill originBodyId from flight.origin to preserve course correction.
+ * No version bump needed — additive optional field.
+ */
+function backfillFlightOriginBodyId(gameData: GameData): void {
+  for (const ship of gameData.ships) {
+    const fp = ship.activeFlightPlan;
+    if (fp && fp.originBodyId === undefined) {
+      fp.originBodyId = fp.origin;
+    }
   }
 }
 

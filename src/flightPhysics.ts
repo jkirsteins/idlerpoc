@@ -486,6 +486,10 @@ export function initializeFlight(
     interceptPos: flightInterceptPos,
     shipPos: flightOriginPos ? { ...flightOriginPos } : undefined,
     estimatedArrivalGameTime,
+    // Set for normal flights (origin is a real body whose position can be
+    // recomputed at any time). Left undefined for redirects where the origin
+    // is a fixed point in space. The caller (redirectShipFlight) clears this.
+    originBodyId: origin.id,
   };
 }
 
@@ -555,25 +559,47 @@ export function redirectShipFlight(
   } as WorldLocation;
 
   // Compute ship's current 2D position in current-time coordinates.
+  //
   // The stored shipPos is interpolated between originPos and interceptPos,
-  // which are both at the *arrival* time of the original flight. Using that
-  // directly would compare an arrival-time position against the destination's
-  // current-time position, producing a phantom distance (and absurd ETAs)
-  // when the destination is nearby but the original flight was long.
-  // Fix: re-interpolate using origin/destination positions at current gameTime.
+  // which may be at the *arrival* time of the original flight (for body-origin
+  // flights). Using arrival-time coordinates directly would compare against the
+  // destination's current-time position, producing a phantom distance.
+  //
+  // Strategy:
+  //  - Body-origin flight (originBodyId set): re-interpolate between origin and
+  //    destination positions at current gameTime → accurate current-time position.
+  //  - Redirect flight (originBodyId unset): originPos is already a fixed point
+  //    in space at redirect time. Interpolate between it and destination's current
+  //    position → approximately correct (small drift from time of last redirect).
   let currentShipPos: Vec2 | undefined;
   const flight = ship.activeFlightPlan;
-  if (flight && gameTime !== undefined && world) {
-    const originLoc = world.locations.find((l) => l.id === flight.origin);
+  if (flight && gameTime !== undefined && world && flight.totalDistance > 0) {
     const destLoc = world.locations.find((l) => l.id === flight.destination);
-    if (originLoc && destLoc && flight.totalDistance > 0) {
-      const originPosNow = getLocationPosition(originLoc, gameTime, world);
+    if (destLoc) {
       const destPosNow = getLocationPosition(destLoc, gameTime, world);
       const progress = Math.min(
         1,
         flight.distanceCovered / flight.totalDistance
       );
-      currentShipPos = lerpVec2(originPosNow, destPosNow, progress);
+
+      let originPosNow: Vec2 | undefined;
+      if (flight.originBodyId) {
+        // Normal flight: origin is a real body — get its current position
+        const originLoc = world.locations.find(
+          (l) => l.id === flight.originBodyId
+        );
+        if (originLoc) {
+          originPosNow = getLocationPosition(originLoc, gameTime, world);
+        }
+      }
+      // Redirect flight or body not found: originPos is a fixed point in space
+      if (!originPosNow) {
+        originPosNow = flight.originPos;
+      }
+
+      if (originPosNow) {
+        currentShipPos = lerpVec2(originPosNow, destPosNow, progress);
+      }
     }
   }
   // Fallback to stored shipPos if we couldn't compute current-time position
@@ -594,6 +620,9 @@ export function redirectShipFlight(
 
   // Override originKm to the exact interpolated position
   ship.activeFlightPlan.originKm = currentKm;
+
+  // Mark as a redirect: origin is a point in space, not a real body
+  ship.activeFlightPlan.originBodyId = undefined;
 
   // Engine is already running — no warmup needed
   if (ship.engine.state !== 'online') {

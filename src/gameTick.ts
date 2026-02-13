@@ -86,7 +86,11 @@ function applyCourseCorrection(
   // Compute origin position at the same future time so that co-orbiting
   // bodies' shared motion cancels out (e.g. LEO station and Earth both
   // orbit the Sun together — their relative distance stays ~400 km).
-  const originLoc = gameData.world.locations.find((l) => l.id === fp.origin);
+  // For redirect flights (originBodyId unset), the origin is a fixed point
+  // in space — don't project it forward via a stale body ID.
+  const originLoc = fp.originBodyId
+    ? gameData.world.locations.find((l) => l.id === fp.originBodyId)
+    : undefined;
   const originFuturePos = originLoc
     ? getLocationPosition(originLoc, futureArrival, gameData.world)
     : fp.originPos;
