@@ -3,7 +3,6 @@ import { getCommandCommerceBonus } from './captainBonus';
 import { getShipClass } from './shipClasses';
 import { getDistanceBetween, canShipAccessLocation } from './worldGen';
 import {
-  calculateAvailableCargoCapacity,
   calculateShipAvailableCargo,
   calculateDeltaV,
   calculateDryMass,
@@ -580,9 +579,7 @@ export function calculateTradeRouteCargo(
   _origin: WorldLocation
 ): number {
   const shipClass = getShipClass(ship.classId);
-  return shipClass
-    ? Math.floor(calculateAvailableCargoCapacity(shipClass.cargoCapacity) * 0.8)
-    : 1000;
+  return shipClass ? Math.floor(shipClass.cargoCapacity * 0.8) : 1000;
 }
 
 /**
@@ -736,9 +733,7 @@ export function resolveQuestForShip(
   if (quest.cargoFraction == null) return quest;
 
   const shipClass = getShipClass(ship.classId);
-  const availableCargo = shipClass
-    ? calculateAvailableCargoCapacity(shipClass.cargoCapacity)
-    : 1000;
+  const availableCargo = shipClass ? shipClass.cargoCapacity : 1000;
   const maxCargo = Math.floor(availableCargo * 0.8);
   const cargoRequired =
     quest.cargoFraction > 0

@@ -6,10 +6,7 @@ import { getEngineDefinition } from '../engines';
 import { formatTradeRouteName } from '../utils';
 import { getRoomDefinition } from '../rooms';
 import { getEquipmentDefinition } from '../equipment';
-import {
-  calculateAvailableCargoCapacity,
-  computeMaxRange,
-} from '../flightPhysics';
+import { computeMaxRange } from '../flightPhysics';
 import { calculateTripFuelKg } from '../questGen';
 import { getDistanceBetween } from '../worldGen';
 import { createFleetPanel } from './fleetPanel';
@@ -1125,9 +1122,7 @@ function createShipPurchase(
     const rangeLabel = getRangeLabel(maxRangeKm);
     const rangeFormatted = formatLargeNumber(maxRangeKm);
 
-    const availableCargoKg = Math.floor(
-      calculateAvailableCargoCapacity(shipClass.cargoCapacity)
-    );
+    const availableCargoKg = Math.floor(shipClass.cargoCapacity);
 
     // #3: Slot breakdown — standard vs structural-capable
     const structuralSlots = shipClass.equipmentSlotDefs.filter((s) =>

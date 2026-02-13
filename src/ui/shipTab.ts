@@ -18,11 +18,7 @@ import { getCommandBonusBreakdown } from '../captainBonus';
 import { getEngineDefinition } from '../engines';
 import { createNavigationView } from './navigationView';
 import { getGravitySource } from '../gravitySystem';
-import {
-  calculateAvailableCargoCapacity,
-  computeMaxRange,
-} from '../flightPhysics';
-import { getOreCargoWeight } from '../miningSystem';
+import { computeMaxRange, getCargoUsedKg } from '../flightPhysics';
 import { getOreDefinition } from '../oreTypes';
 import {
   formatDualTime,
@@ -585,13 +581,8 @@ export function createShipTab(
     // Cargo section
     if (refs.cargoCapacity && refs.cargoFill) {
       const shipClass = getShipClass(ship.classId);
-      const maxCapacity = shipClass
-        ? Math.floor(calculateAvailableCargoCapacity(shipClass.cargoCapacity))
-        : 0;
-      const equipmentWeight = ship.cargo.length * 100;
-      const oreWeight = getOreCargoWeight(ship);
-      const provisionsWeight = ship.provisionsKg || 0;
-      const currentCargo = equipmentWeight + oreWeight + provisionsWeight;
+      const maxCapacity = shipClass ? shipClass.cargoCapacity : 0;
+      const currentCargo = getCargoUsedKg(ship);
       const cargoPercent =
         maxCapacity > 0 ? (currentCargo / maxCapacity) * 100 : 0;
       refs.cargoCapacity.textContent = `Cargo: ${formatMass(currentCargo)} / ${formatMass(maxCapacity)}`;
