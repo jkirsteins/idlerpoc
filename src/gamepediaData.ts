@@ -1059,6 +1059,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
         heading: 'Intercept Trajectories',
         paragraphs: [
           'Because all destinations follow [[orbital-mechanics|orbital paths]], ships do not fly toward where a target currently is — they aim at where it will be when they arrive. The flight computer iteratively solves for the intercept point, recalculating until the predicted arrival position converges.',
+          "On long flights, the destination continues to move along its orbit. The flight computer periodically recalculates the intercept point to correct for orbital drift, silently adjusting the ship's trajectory. This keeps the ship on course for months-long journeys to Mars or Jupiter where the target may have shifted significantly from the initial prediction.",
           'This means travel distance and fuel cost depend on the relative motion of origin and destination. A trip to Mars during a close approach is far shorter and cheaper than the same trip when Mars is on the opposite side of the Sun. Check the [[launch-windows|launch window]] indicator on the Nav tab before committing to long-haul routes.',
         ],
       },
@@ -1516,18 +1517,18 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
     title: 'Orbital Mechanics',
     category: 'Space',
     summary:
-      'How celestial bodies move in 2D circular orbits, dynamic distances, and hierarchical orbit systems.',
+      'How celestial bodies move in 2D orbits (circular and elliptical), dynamic distances, and hierarchical orbit systems.',
     sections: [
       {
         paragraphs: [
-          'Every location in the solar system follows a circular orbit. Planets and distant stations orbit the Sun, while near-Earth locations (Gateway Station, Meridian Depot, etc.) orbit Earth. These [[navigation|positions]] update every tick, so distances between locations change continuously as bodies move along their orbital paths.',
-          'The game uses a 2D orbital model with the Sun at the coordinate origin (0, 0). Each body has an orbital radius (distance from its parent), an orbital period (time to complete one full circle), and a starting angle. The current position is calculated from these parameters and the elapsed game time.',
+          'Every location in the solar system follows an orbital path. Most near-Earth locations use circular orbits, while outer bodies (Mars, Jupiter, belt stations) follow elliptical orbits with realistic eccentricities. Planets and distant stations orbit the Sun, while near-Earth locations (Gateway Station, Meridian Depot, etc.) orbit Earth. These [[navigation|positions]] update every tick, so distances between locations change continuously as bodies move along their orbital paths.',
+          "The game uses a 2D Keplerian orbital model with the Sun at the coordinate origin (0, 0). Each body has a semi-major axis (average distance from its parent), an orbital period, an eccentricity (how elongated the ellipse is), and a starting angle. For elliptical orbits, the body moves faster near perihelion (closest approach) and slower near aphelion (farthest point), following Kepler's laws. The current position is calculated from these parameters and the elapsed game time.",
         ],
       },
       {
         heading: 'Sun-Centric Orbits',
         paragraphs: [
-          'Mars, the asteroid belt stations (Vesta, The Crucible, Ceres), and Jupiter Station all orbit the Sun directly. Their orbital periods range from months to years of game time, matching realistic proportions. Mars completes an orbit in roughly 687 game days, while Jupiter takes nearly 12 game years.',
+          'Mars, the asteroid belt stations (Vesta, The Crucible, Ceres), and Jupiter Station all orbit the Sun directly on elliptical paths. Mars has the highest eccentricity (0.09), meaning its distance from the Sun varies by about 19% between perihelion and aphelion. Belt stations have moderate eccentricities (0.05–0.08), while Jupiter is nearly circular (0.05). Their orbital periods range from months to years of game time, matching realistic proportions. Mars completes an orbit in roughly 687 game days, while Jupiter takes nearly 12 game years.',
           'Because these bodies orbit at vastly different speeds and radii, the distance between any two of them changes dramatically over time. Earth-to-Mars distance can vary from roughly 55 million km at closest approach to over 400 million km at opposition. This variation directly affects travel time, fuel cost, and [[contracts|contract]] feasibility.',
         ],
       },

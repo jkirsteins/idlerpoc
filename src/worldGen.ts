@@ -135,13 +135,15 @@ function orbit(
   parentId: string | null,
   radiusKm: number,
   periodDays: number,
-  initialAngleRad: number
+  initialAngleRad: number,
+  eccentricity?: number
 ): OrbitalParams {
   return {
     parentId,
     orbitalRadiusKm: radiusKm,
     orbitalPeriodSec: periodDays * GAME_SECONDS_PER_DAY,
     initialAngleRad,
+    ...(eccentricity ? { eccentricity } : {}),
   };
 }
 
@@ -173,7 +175,7 @@ export function generateWorld(): World {
       services: ['refuel', 'trade', 'repair', 'hire'],
       size: 5,
       pilotingRequirement: 0,
-      orbital: orbit(null, 149_597_870, 365.25, rng()),
+      orbital: orbit(null, 149_597_870, 365.25, rng(), 0.0167),
     },
     {
       id: 'leo_station',
@@ -325,7 +327,7 @@ export function generateWorld(): World {
         { oreId: 'rare_earth' },
         { oreId: 'water_ice' },
       ],
-      orbital: orbit(null, 227_939_200, 687, rng()),
+      orbital: orbit(null, 227_939_200, 687, rng(), 0.0934),
     },
     {
       // 4 Vesta orbit (~2.36 AU)
@@ -346,7 +348,7 @@ export function generateWorld(): World {
         { oreId: 'titanium_ore' },
         { oreId: 'water_ice' },
       ],
-      orbital: orbit(null, 353_000_000, 1325, rng()),
+      orbital: orbit(null, 353_000_000, 1325, rng(), 0.0536),
     },
     {
       // Dense metallic asteroid swarm in the mid-belt (~2.9 AU)
@@ -367,7 +369,7 @@ export function generateWorld(): World {
         { oreId: 'platinum_ore' },
         { oreId: 'rare_earth' },
       ],
-      orbital: orbit(null, 434_000_000, 1804, rng()),
+      orbital: orbit(null, 434_000_000, 1804, rng(), 0.0785),
     },
     {
       // Ceres — dwarf planet (~2.77 AU)
@@ -389,7 +391,7 @@ export function generateWorld(): World {
         { oreId: 'platinum_ore' },
         { oreId: 'rare_earth' },
       ],
-      orbital: orbit(null, 414_000_000, 1682, rng()),
+      orbital: orbit(null, 414_000_000, 1682, rng(), 0.0758),
     },
     {
       // Jupiter (~5.2 AU)
@@ -406,7 +408,7 @@ export function generateWorld(): World {
       size: 2,
       pilotingRequirement: 85,
       availableOres: [{ oreId: 'helium3' }, { oreId: 'exotic_matter' }],
-      orbital: orbit(null, 778_570_000, 4333, rng()),
+      orbital: orbit(null, 778_570_000, 4333, rng(), 0.0489),
     },
   ];
 

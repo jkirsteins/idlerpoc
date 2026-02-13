@@ -373,9 +373,15 @@ Higher-class ships require more equipment categories to operate safely, consumin
 
 ## World Geography
 
-### Realistic Placement
+### Realistic Placement & 2D Orbital Mechanics
 
-All locations correspond to real solar system bodies, Lagrange points, or plausible orbital zones. Distances use Earth-centric scalars in km. Outer system bodies (Mars, Jupiter) use near-closest-approach values. Examples: Gateway Station at LEO (400 km), Meridian Depot at GEO (35,786 km), Forge Station at Earth-Moon L1 (326,000 km), Tycho Colony on the lunar surface (384,400 km), Freeport Station at Sun-Earth L2 (1,500,000 km).
+All locations correspond to real solar system bodies, Lagrange points, or plausible orbital zones. Bodies follow 2D orbital paths — planets and belt stations orbit the Sun, while near-Earth locations (Gateway Station, Meridian Depot, Forge Station, Graveyard Drift, Tycho Colony) orbit Earth in a hierarchical model. Freeport Station and The Scatter orbit the Sun at near-Earth distances (S-E L2 and NEA cluster respectively).
+
+Orbits use Keplerian mechanics with eccentricity for outer bodies (Mars e=0.0934, Jupiter e=0.0489, belt objects e=0.05–0.08). Earth satellites use circular orbits. Positions are recomputed every game tick, so distances between any two locations change continuously as bodies move along their orbital paths.
+
+Earth-to-Mars distance varies from ~55M km (close approach) to ~400M km (opposition). This creates launch windows — optimal departure periods when destinations are well-aligned. Ships use intercept trajectories, aiming at where the destination will be at arrival, not where it is at departure. Mid-flight course corrections adjust the intercept point periodically to account for orbital drift on long flights.
+
+Examples of orbital radii (semi-major axes): Gateway Station at LEO (400 km from Earth), Meridian Depot at GEO (35,786 km), Forge Station at Earth-Moon L1 (326,000 km), Tycho Colony on the lunar surface (384,400 km), Freeport Station at S-E L2 (~151M km from Sun), Mars at 1.52 AU (~228M km), Jupiter at 5.2 AU (~779M km).
 
 ### Progressive Mining Value
 
