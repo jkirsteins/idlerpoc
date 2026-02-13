@@ -682,13 +682,13 @@ const migrations: Record<number, MigrationFn> = {
       // If active ship was removed, switch to first remaining ship
       if (removedIds.includes(data.activeShipId as string)) {
         const remaining = data.ships as Array<Record<string, unknown>>;
-        if (remaining.length > 0) {
-          data.activeShipId = remaining[0].id;
-        }
+        data.activeShipId = remaining.length > 0 ? remaining[0].id : undefined;
       }
 
-      // Clear quests/routes referencing removed ships
-      // (availableQuests is per-location, shouldn't reference ships directly)
+      // Clear selectedMiningOreId — ore distributions changed (Scatter: rare_earth → platinum_ore)
+      for (const ship of data.ships as Array<Record<string, unknown>>) {
+        ship.selectedMiningOreId = undefined;
+      }
 
       // Update Dreadnought and Leviathan rooms: armory → mining_bay
       for (const ship of data.ships as Array<Record<string, unknown>>) {
