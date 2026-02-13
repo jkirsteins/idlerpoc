@@ -8,7 +8,8 @@ export type EquipmentCategory =
   | 'navigation'
   | 'structural'
   | 'gravity'
-  | 'mining';
+  | 'mining'
+  | 'medical';
 
 export interface EquipmentDefinition {
   id: EquipmentId;
@@ -25,6 +26,7 @@ export interface EquipmentDefinition {
   miningRate?: number; // extraction rate multiplier (ship-mounted mining equipment)
   miningLevelRequired?: number; // min crew mining skill to operate
   provisionsRecyclingPerCrewPerDay?: number; // kg of provisions recycled per crew per day
+  healthRegenPerTick?: number; // HP restored per tick to all crew when powered
   value?: number; // purchase price in credits
 }
 
@@ -208,6 +210,20 @@ export const EQUIPMENT_DEFINITIONS: EquipmentDefinition[] = [
     hasDegradation: false,
     requiredTags: ['standard'],
   },
+  // Medical Equipment
+  {
+    id: 'medical_station',
+    name: 'Medical Station',
+    description:
+      'Automated medical diagnostics and treatment facility. Provides continuous health regeneration to all crew when powered.',
+    icon: '🏥',
+    category: 'medical',
+    powerDraw: 6,
+    hasDegradation: true,
+    requiredTags: ['standard'],
+    healthRegenPerTick: 2.0,
+    value: 5000,
+  },
   // Mining Equipment (ship-mounted, operated by crew from mining bay)
   {
     id: 'mining_laser',
@@ -302,6 +318,8 @@ export function getCategoryLabel(category: EquipmentCategory): string {
       return 'GRAVITY';
     case 'mining':
       return 'MINING';
+    case 'medical':
+      return 'MEDICAL';
   }
 }
 

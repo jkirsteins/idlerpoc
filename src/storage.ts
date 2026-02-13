@@ -18,7 +18,7 @@ const BACKUP_KEY = 'spaceship_game_data_backup';
  *
  * See docs/save-migration.md for the full migration architecture.
  */
-export const CURRENT_SAVE_VERSION = 12;
+export const CURRENT_SAVE_VERSION = 13;
 
 /** Whether the last save attempt failed (used for UI warnings). */
 let _lastSaveFailed = false;
@@ -806,6 +806,50 @@ const migrations: Record<number, MigrationFn> = {
     }
 
     data.saveVersion = 12;
+    return data;
+  },
+
+  /**
+   * v12 → v13: Add medical_station equipment to all ships.
+   * Medical equipment now provides automatic healing to all crew when powered,
+   * removing the need for manual patient job slot assignments.
+   */
+  12: (data: RawSave): RawSave => {
+    const ships = data.ships as Array<Record<string, unknown>> | undefined;
+    if (ships) {
+      for (const ship of ships) {
+        const equipment = ship.equipment as
+          | Array<Record<string, unknown>>
+          | undefined;
+        const equipmentSlots = ship.equipmentSlots as
+          | Array<Record<string, unknown>>
+          | undefined;
+
+        if (equipment && equipmentSlots) {
+          // Check if ship already has medical_station
+          const hasMedical = equipment.some(
+            (eq) => (eq.definitionId as string) === 'medical_station'
+          );
+
+          if (!hasMedical) {
+            // Add medical_station equipment
+            equipment.push({
+              id: generateId(),
+              definitionId: 'medical_station',
+              degradation: 0,
+            });
+
+            // Add an extra equipment slot to accommodate the new equipment
+            equipmentSlots.push({
+              id: generateId(),
+              tags: ['standard'],
+            });
+          }
+        }
+      }
+    }
+
+    data.saveVersion = 13;
     return data;
   },
 };

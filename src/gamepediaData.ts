@@ -884,7 +884,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
         heading: 'Skill Training',
         paragraphs: [
           'Each job slot trains specific [[skill-system|skills]]. Assigning crew to jobs that match their [[crew-roles|role]] skill gives a 1.5x training speed bonus.',
-          'Passive slots (Patient, Rest) benefit crew without training skills, allowing health recovery and rest.',
+          'Some slots (like Rest) provide passive benefits without training skills. Health recovery is handled automatically by Medical Station equipment when the ship has power.',
         ],
       },
       {
@@ -1997,7 +1997,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
         heading: 'Monitoring Radiation',
         paragraphs: [
           'The Ship tab displays a RADIATION status bar showing net exposure (engine output minus shielding). Hover over it for a detailed breakdown including per-crew health loss rate and containment status.',
-          "Each crew member's detail panel in the Crew tab shows their individual radiation exposure status, including effective damage rate and whether medbay treatment is reducing it.",
+          "Each crew member's detail panel in the Crew tab shows their individual radiation exposure status, including effective damage rate. Medical Station equipment provides automatic healing to counter radiation damage when the ship has power.",
           'When containment integrity drops below 70%, 50%, or 30%, the ship log records warnings and a toast notification alerts you. Keep the reactor room staffed to slow containment degradation.',
         ],
       },
@@ -2294,7 +2294,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
         heading: 'Starvation',
         paragraphs: [
           'When provisions reach zero, crew begin starving — losing health gradually over 7 game days. As health drops, crew become less effective: [[mining-system|mining]] yield, [[skill-system|skill training]] speed, and repair output all scale with crew health. The penalty follows a curve where minor injuries barely matter but serious damage becomes debilitating — a crew member at 50% health works at roughly 71% efficiency, while one at 25% health works at only 50%.',
-          'The captain is exempt from [[crew-death|death]] (health floors at 1) but still suffers reduced efficiency. Assigning starving crew to the [[job-slots|medbay]] can keep them alive — healing outpaces starvation damage — but medbay slots are limited, forcing triage decisions with a large crew.',
+          'The captain is exempt from [[crew-death|death]] (health floors at 1) but still suffers reduced efficiency. Ships equipped with a Medical Station automatically heal all crew at 2 HP per tick when powered — healing outpaces starvation damage, keeping crew alive even at zero provisions as long as the ship has power.',
           'Health-based efficiency applies to all sources of damage, not just starvation — crew injured by [[radiation|radiation]], [[encounters|combat]], or oxygen deprivation also work at reduced capacity until healed.',
           'Starvation warnings appear at 7 days and 3 days remaining. At zero provisions, a critical alert fires and the game auto-pauses if critical alert pausing is enabled.',
           'Provisions are the survival clock for [[stranded-ships|stranded ships]] — when fuel runs out and provisions deplete, crew begin dying.',

@@ -85,6 +85,7 @@ export const SHIP_CLASSES: ShipClass[] = [
       { tags: ['standard'] },
       { tags: ['standard'] },
       { tags: ['standard'] },
+      { tags: ['standard'] },
     ],
     features: [],
     defaultEquipment: [
@@ -92,6 +93,7 @@ export const SHIP_CLASSES: ShipClass[] = [
       'air_filters',
       'mining_laser',
       'rad_shield_basic',
+      'medical_station',
     ],
     defaultEngineId: 'ntr_mk1',
     mass: 200000, // kg
