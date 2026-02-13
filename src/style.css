@@ -2753,6 +2753,7 @@ button:disabled:hover {
   align-items: center;
   gap: 4px;
   width: 100%;
+  flex-wrap: wrap;
 }
 
 .fleet-row-minibar {
@@ -3925,6 +3926,12 @@ button:disabled:hover {
 
   .fleet-row-minibar {
     width: 40px;
+    margin-left: 0;
+  }
+
+  .fleet-row-flight-pct {
+    white-space: normal;
+    flex-shrink: 1;
   }
 
   /* Version badge: smaller */
