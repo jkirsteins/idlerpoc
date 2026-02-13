@@ -44,6 +44,7 @@ import {
   initContractExec,
   regenerateQuestsIfNewDay,
 } from './contractExec';
+import { initProvisionsEvents } from './provisionsSystem';
 import { getSkillRank } from './skillRanks';
 import { assignShipToRoute, unassignShipFromRoute } from './routeAssignment';
 import { addLog } from './logSystem';
@@ -459,7 +460,7 @@ const callbacks: RendererCallbacks = {
       return;
     }
 
-    dockShipAtLocation(ship, dockLocation);
+    dockShipAtLocation(state.gameData, ship, dockLocation);
 
     // Clear route assignment if manually docking
     if (ship.routeAssignment) {
@@ -643,7 +644,7 @@ const callbacks: RendererCallbacks = {
 
     if (ship.location.status === 'orbiting' && ship.location.orbitingAt) {
       // Orbiting — dock immediately at the orbited location
-      dockShipAtLocation(ship, ship.location.orbitingAt);
+      dockShipAtLocation(state.gameData, ship, ship.location.orbitingAt);
     } else {
       // In flight (warming up or moving) — pause contract, dock on arrival
       pauseContract(ship);
@@ -1331,6 +1332,7 @@ function init(): void {
   // Register cross-module callbacks
   initCombatSystem();
   initContractExec();
+  initProvisionsEvents();
 
   try {
     state = initializeState();

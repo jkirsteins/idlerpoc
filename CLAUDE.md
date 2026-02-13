@@ -92,6 +92,19 @@ When adding a new mechanic, consider:
 
 If a new mechanic genuinely cannot interact with skills (e.g. a pure UI feature or meta-system), document why in the PR description.
 
+# State Transition Events
+
+**Use the event bus (`src/gameEvents.ts`) for cross-cutting side effects that must fire on state transitions.** See `docs/game-events.md` for the full architecture.
+
+Ship state transitions (docked, orbiting, in_flight) can happen mid-tick during synchronous call chains (e.g. `completeLeg` → dock → `autoRestartRouteTrip` → depart). Systems that rely on **polling** ship status during tick processing will miss transient transitions. Instead, subscribe to events emitted by the canonical transition function.
+
+When adding new mechanics that react to state transitions:
+
+- **Subscribe via `on()`** in the event bus, not via status checks in tick functions. Register handlers in an `init*Events()` function called from `main.ts::init()`.
+- **Never skip the canonical transition function.** Even if the ship will immediately depart again, call `dockShipAtLocation()` first so event subscribers run. Status polling in tick functions should only be used for ongoing effects (like consumption), not for transition-triggered behaviour.
+- **Keep handlers idempotent.** They may fire multiple times for the same logical event (e.g. dock → fail to depart → dock again at the same location).
+- **The event bus module (`src/gameEvents.ts`) must have zero game-system imports** (only type imports from `models`). Game systems subscribe from their own init functions to avoid circular dependencies.
+
 # Additional rules
 
 - Consult README for project scope before starting work. See if any other markdown files (\*.md pattern, in root and in docs/ folder) might be relevant. If so, read them.

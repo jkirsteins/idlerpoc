@@ -2162,7 +2162,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
       {
         heading: 'Auto-Resupply',
         paragraphs: [
-          'When docked at a location with trade services, provisions are automatically purchased up to 30 days of supply for your current crew count. Since crew eat station-side at trade stations, your ship provisions remain at the level they were resupplied to until departure. At locations without trade services (such as asteroid mining sites), provisions continue to be consumed normally — plan accordingly for extended mining operations.',
+          'When docked at a location with trade services, provisions are automatically purchased up to 30 days of supply for your current crew count. This includes automated stops — ships on [[route-assignment|trade routes]] restock at each waypoint turnaround, and [[mining-system|mining route]] ships restock when selling ore at a trade station. Since crew eat station-side at trade stations, your ship provisions remain at the level they were resupplied to until departure. At locations without trade services (such as asteroid mining sites), provisions continue to be consumed normally — plan accordingly for extended mining operations.',
           'If your [[credits-economy|credits]] are insufficient for a full resupply, the ship buys as much as it can afford. Partial resupply is logged so you know the ship departed without full provisions.',
         ],
       },
