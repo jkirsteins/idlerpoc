@@ -52,10 +52,9 @@ describe('calculateTickTraining', () => {
     expect(result).toBeNull();
   });
 
-  it('returns null for passive job slots (patient, rest)', () => {
+  it('returns null for passive job slots (patient)', () => {
     const crew = createMinerCrew();
     expect(calculateTickTraining(crew, 'patient')).toBeNull();
-    expect(calculateTickTraining(crew, 'rest')).toBeNull();
   });
 });
 

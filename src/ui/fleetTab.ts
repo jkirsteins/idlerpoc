@@ -47,7 +47,6 @@ const DIFFERENTIATING_ROOMS: RoomType[] = [
   'mining_bay',
   'armory',
   'medbay',
-  'quarters',
   'reactor_room',
   'point_defense_station',
 ];
