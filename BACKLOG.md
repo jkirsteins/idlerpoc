@@ -47,6 +47,10 @@ Full design in `docs/captain-flagship-design.md`.
 - **Hub Station Route Bonuses**: +10% payment for multi-leg routes using major stations as waypoints. Rewards emergent route planning.
 - **Trade Route Distance Multiplier**: Scale trade route base pay by distance (120% short → 140% long). See `docs/quest-reward-balancing.md`.
 
+## Deferred Mining Improvements
+
+- **Track actual mining route costs in model**: Add `totalFuelCost` and `totalSalaryCost` fields to `MiningRoute` interface for accurate historical profit tracking. Currently mining profit is estimated from current ship state (crew salary rate, fuel prices). Requires save migration.
+
 ## Ship Equipment Variety (Build Differentiation)
 
 Current ship equipment (20 items) is dominated by mandatory survival systems. "Free choice" slots have limited options for specialization. Key gaps:
