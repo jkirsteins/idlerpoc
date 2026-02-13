@@ -4,6 +4,7 @@ import { getShipClass, type ShipClass } from './shipClasses';
 import { getDistanceBetween } from './utils';
 import { GAME_SECONDS_PER_TICK } from './timeSystem';
 import { isHelmManned } from './jobSlots';
+import { PROVISIONS_KG_PER_CREW_PER_DAY } from './provisionsSystem';
 
 /**
  * Flight Physics
@@ -156,7 +157,6 @@ export function getSpecificImpulse(engineDef: EngineDefinition): number {
  * Constants for mission endurance calculations
  */
 const CONSUMABLE_FRACTION = 0.3; // 30% of cargo capacity reserved for consumables
-const KG_PER_CREW_PER_DAY = 30; // 30 kg per crew member per day (food, water, air reserves)
 
 /**
  * Compute mission endurance based on consumable supplies and crew size
@@ -164,12 +164,7 @@ const KG_PER_CREW_PER_DAY = 30; // 30 kg per crew member per day (food, water, a
  */
 export function computeMissionEndurance(shipClass: ShipClass): number {
   const consumablesKg = shipClass.cargoCapacity * CONSUMABLE_FRACTION;
-  let ratePerCrew = KG_PER_CREW_PER_DAY;
-
-  // Cook reduces waste by 20%
-  if (shipClass.rooms.includes('cantina')) {
-    ratePerCrew *= 0.8;
-  }
+  const ratePerCrew = PROVISIONS_KG_PER_CREW_PER_DAY;
 
   const enduranceDays = consumablesKg / (shipClass.maxCrew * ratePerCrew);
   return enduranceDays * 86400; // Convert to game seconds

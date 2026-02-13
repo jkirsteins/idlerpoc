@@ -19,14 +19,6 @@ export const ROOM_DEFINITIONS: RoomDefinition[] = [
     alwaysPowered: false,
   },
   {
-    type: 'cantina',
-    name: 'Cantina',
-    description: 'Where the crew eats and relaxes.',
-    icon: '\u{1F37A}', // beer mug
-    powerDraw: 3,
-    alwaysPowered: false,
-  },
-  {
     type: 'engine_room',
     name: 'Engine Room',
     description: 'The heart of the ship that keeps it running.',

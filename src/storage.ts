@@ -13,7 +13,7 @@ const BACKUP_KEY = 'spaceship_game_data_backup';
  *
  * See docs/save-migration.md for the full migration architecture.
  */
-export const CURRENT_SAVE_VERSION = 6;
+export const CURRENT_SAVE_VERSION = 7;
 
 /** Whether the last save attempt failed (used for UI warnings). */
 let _lastSaveFailed = false;
@@ -464,6 +464,43 @@ const migrations: Record<number, MigrationFn> = {
     }
 
     data.saveVersion = 6;
+    return data;
+  },
+
+  /**
+   * v6 → v7: Provisions rate rework + cantina removal.
+   * - Provisions consumption changed from 30 to effective ~5 kg/crew/day
+   *   (15 kg base minus 10 kg life support recycling).
+   *   Scale existing provisionsKg by 5/30 to preserve survival days.
+   * - Remove cantina rooms and galley job slots (feature removed).
+   */
+  6: (data: RawSave): RawSave => {
+    const ships = data.ships as Array<Record<string, unknown>> | undefined;
+    if (ships) {
+      const SCALE = 5 / 30;
+      for (const ship of ships) {
+        // Scale provisions to match new effective rate
+        if (typeof ship.provisionsKg === 'number') {
+          ship.provisionsKg = ship.provisionsKg * SCALE;
+        }
+
+        // Remove cantina rooms
+        const rooms = ship.rooms as Array<Record<string, unknown>> | undefined;
+        if (rooms) {
+          ship.rooms = rooms.filter((r) => r.type !== 'cantina');
+        }
+
+        // Remove galley job slots
+        const jobSlots = ship.jobSlots as
+          | Array<Record<string, unknown>>
+          | undefined;
+        if (jobSlots) {
+          ship.jobSlots = jobSlots.filter((j) => j.type !== 'galley');
+        }
+      }
+    }
+
+    data.saveVersion = 7;
     return data;
   },
 };

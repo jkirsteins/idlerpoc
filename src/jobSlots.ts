@@ -93,20 +93,6 @@ export const JOB_SLOT_DEFINITIONS: JobSlotDefinition[] = [
     sourceRoomType: 'reactor_room',
   },
 
-  // === Cantina jobs ===
-  {
-    type: 'galley',
-    name: 'Galley',
-    description: 'Meal preparation and crew welfare.',
-    icon: '🍳',
-    skill: null,
-    required: false,
-    trainRate: 0,
-    bonusDescription: 'Crew welfare',
-    source: 'room',
-    sourceRoomType: 'cantina',
-  },
-
   // === Medbay jobs ===
   {
     type: 'patient',
@@ -233,7 +219,6 @@ const ROOM_JOB_COUNTS: Partial<
   ],
   engine_room: [{ type: 'drive_ops', count: 3 }],
   reactor_room: [{ type: 'containment', count: 2 }],
-  cantina: [{ type: 'galley', count: 1 }],
   medbay: [{ type: 'patient', count: 2 }],
   armory: [{ type: 'arms_maint', count: 2 }],
   point_defense_station: [{ type: 'fire_control', count: 1 }],

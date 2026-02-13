@@ -25,9 +25,8 @@ import {
 import { getProvisionsColorHex } from './provisionsFormatting';
 import {
   getMaxProvisionsKg,
-  getProvisionsSurvivalTicks,
+  getProvisionsSurvivalDays,
 } from '../provisionsSystem';
-import { TICKS_PER_DAY } from '../timeSystem';
 import { formatMass } from '../formatting';
 import type { PlayingTab } from './types';
 
@@ -540,8 +539,7 @@ function buildMobileHeaderBarChildren(
     maxProv > 0 ? Math.min(100, (ship.provisionsKg / maxProv) * 100) : 0;
   const provColor =
     ship.crew.length === 0 ? '#555' : getProvisionsColorHex(provPct);
-  const provSurvival = getProvisionsSurvivalTicks(ship);
-  const provDays = provSurvival / TICKS_PER_DAY;
+  const provDays = getProvisionsSurvivalDays(ship);
   const provLabel =
     ship.crew.length > 0 && provDays < Infinity
       ? `${Math.ceil(provDays)}d`

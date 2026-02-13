@@ -2,7 +2,6 @@ export type CrewRole = 'captain' | 'pilot' | 'miner' | 'trader' | 'engineer';
 
 export type RoomType =
   | 'bridge'
-  | 'cantina'
   | 'engine_room'
   | 'reactor_room'
   | 'medbay'
@@ -259,7 +258,7 @@ export interface Room {
 
 /**
  * Job slot types - each represents a specific crew position.
- * Room-sourced: helm, comms, drive_ops, containment, galley, patient, arms_maint, fire_control, rest
+ * Room-sourced: helm, comms, drive_ops, containment, patient, arms_maint, fire_control, rest
  * Equipment-sourced: scanner (nav_scanner), targeting (point_defense)
  * Ship-wide: repair
  */
@@ -269,7 +268,6 @@ export type JobSlotType =
   | 'comms'
   | 'drive_ops'
   | 'containment'
-  | 'galley'
   | 'patient'
   | 'arms_maint'
   | 'fire_control'

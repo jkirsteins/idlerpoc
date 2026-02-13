@@ -29,7 +29,7 @@ import {
 import { formatLargeNumber, getRangeLabel, formatMass } from '../formatting';
 import {
   getMaxProvisionsKg,
-  getProvisionsSurvivalTicks,
+  getProvisionsSurvivalDays,
 } from '../provisionsSystem';
 
 /** Ticks per game hour (used to convert per-tick rates to per-hour for display) */
@@ -1061,8 +1061,7 @@ function renderProvisionsBar(gameData: GameData): HTMLElement {
 
   const colorClass = getProvisionsColorClass(percentage);
 
-  const survivalTicks = getProvisionsSurvivalTicks(ship);
-  const survivalDays = survivalTicks / TICKS_PER_DAY;
+  const survivalDays = getProvisionsSurvivalDays(ship);
   const survivalLabel =
     ship.crew.length === 0
       ? ''
