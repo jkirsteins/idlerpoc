@@ -11,7 +11,7 @@
  * Without crew, equipment operates at a reduced base rate on tier-0 ores.
  *
  * Per-tick yield formula (with crew):
- *   orePerTick = BASE_RATE × equipmentRate × skillFactor × (1 + masteryYield) × (1 + poolYield) × captainBonus
+ *   orePerTick = BASE_RATE × equipmentRate × skillFactor × (1 + masteryYield) × (1 + poolYield) × captainBonus × healthEfficiency
  *
  * Per-tick yield formula (without crew):
  *   orePerTick = BASE_RATE × equipmentRate × CREWLESS_RATE_MULT
@@ -49,6 +49,7 @@ import { calculateAvailableCargoCapacity } from './flightPhysics';
 import { getShipClass } from './shipClasses';
 import { formatCredits } from './formatting';
 import { GAME_SECONDS_PER_TICK, GAME_SECONDS_PER_HOUR } from './timeSystem';
+import { getCrewHealthEfficiency } from './provisionsSystem';
 
 // ─── Constants ──────────────────────────────────────────────────
 
@@ -355,6 +356,9 @@ export function applyMiningTick(
         ore.id
       );
 
+      // Health efficiency — injured/starving crew work slower
+      const healthEfficiency = getCrewHealthEfficiency(miner.health);
+
       // Final yield per tick
       const oreYield =
         BASE_MINING_RATE *
@@ -363,7 +367,8 @@ export function applyMiningTick(
         (1 + masteryYieldBonus) *
         (1 + poolYieldBonus) *
         captainMiningMultiplier *
-        yieldMult;
+        yieldMult *
+        healthEfficiency;
 
       // Accumulate fractional ore
       const prevAccum = ship.miningAccumulator[ore.id] ?? 0;
@@ -703,6 +708,8 @@ export function getMiningYieldPerHour(
       ore.id
     );
 
+    const healthEfficiency = getCrewHealthEfficiency(miner.health);
+
     totalYieldPerTick +=
       BASE_MINING_RATE *
       equipRate *
@@ -710,7 +717,8 @@ export function getMiningYieldPerHour(
       (1 + masteryYieldBonus) *
       (1 + poolYieldBonus) *
       captainMiningMultiplier *
-      yieldMult;
+      yieldMult *
+      healthEfficiency;
   }
 
   return totalYieldPerTick * ticksPerHour;

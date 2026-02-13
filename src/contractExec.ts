@@ -22,6 +22,9 @@ import {
 import { handleMiningRouteArrival } from './miningRoute';
 import { emit } from './gameEvents';
 import { getFuelPricePerKg } from './ui/refuelDialog';
+import { getProvisionsSurvivalTicks } from './provisionsSystem';
+import { estimateFlightDurationTicks } from './flightPhysics';
+import { getDistanceBetween } from './utils';
 import {
   generateFleetRescueQuests,
   completeRescueDelivery,
@@ -377,7 +380,7 @@ export function dockShipAtLocation(
 /**
  * Try to refuel and depart for the next contract leg.
  *
- * Gates checked in order: player pause → fuel → helm.
+ * Gates checked in order: player pause → fuel → provisions → helm.
  * On any failure the ship docks at departFrom and the contract pauses.
  * On success the ship is in-flight toward departTo.
  */
@@ -422,6 +425,35 @@ function tryDepartNextLeg(
     checkFirstArrival(gameData, ship, departFrom.id);
     removeUnpaidCrew(gameData, ship);
     return;
+  }
+
+  // Provisions check — ensure crew has enough food for this leg
+  const survivalTicks = getProvisionsSurvivalTicks(ship);
+  if (Number.isFinite(survivalTicks)) {
+    const legDistanceKm = getDistanceBetween(departFrom, departTo);
+    const legFlightTicks = estimateFlightDurationTicks(
+      ship,
+      legDistanceKm,
+      ship.flightProfileBurnFraction
+    );
+    const safetyBufferTicks = TICKS_PER_DAY * 2;
+
+    if (survivalTicks <= legFlightTicks + safetyBufferTicks) {
+      activeContract.paused = true;
+      gameData.isPaused = true;
+      dockShipAtLocation(gameData, ship, departFrom.id);
+      const survivalDays = Math.ceil(survivalTicks / TICKS_PER_DAY);
+      addLog(
+        gameData.log,
+        gameTime,
+        'provisions_warning',
+        `Low provisions at ${departFrom.name} (${survivalDays} days remaining)! Contract "${questTitle}" paused — resupply to continue.`,
+        ship.name
+      );
+      checkFirstArrival(gameData, ship, departFrom.id);
+      removeUnpaidCrew(gameData, ship);
+      return;
+    }
   }
 
   // Try to depart

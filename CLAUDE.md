@@ -105,6 +105,35 @@ When adding new mechanics that react to state transitions:
 - **Keep handlers idempotent.** They may fire multiple times for the same logical event (e.g. dock → fail to depart → dock again at the same location).
 - **The event bus module (`src/gameEvents.ts`) must have zero game-system imports** (only type imports from `models`). Game systems subscribe from their own init functions to avoid circular dependencies.
 
+# Automated Safety Gates (Soft-Lock Prevention)
+
+**Any automated action that could strand, damage, or kill the player's crew must include a pre-departure safety check.** Automated systems (trade routes, mining routes, contracts) must verify viability before committing to an action that could put the ship or crew at risk.
+
+Required safety gates before automated departures:
+
+| Gate           | Check                                                          | On failure                            |
+| -------------- | -------------------------------------------------------------- | ------------------------------------- |
+| **Fuel**       | Can the ship afford a full refuel?                             | Pause contract/route, auto-pause game |
+| **Provisions** | Will provisions last through the flight + 2-day safety buffer? | Pause contract/route, auto-pause game |
+| **Helm**       | Is the helm manned?                                            | Pause contract/route, stay docked     |
+
+Gate order matters: player pause → fuel → provisions → helm. Each gate returns early with appropriate logging if it fails.
+
+When adding new automated actions or new resource systems:
+
+- **Always add a viability check** before the ship departs. Use `estimateFlightDurationTicks()` to predict travel time and compare against resource survival ticks.
+- **Pause, don't cancel.** Soft-lock the route/contract so the player can fix the issue (buy fuel, resupply provisions, assign helm crew) and resume. Cancelling loses route state and frustrates players.
+- **Auto-pause the game** for critical resource failures (fuel, provisions) so the player notices during idle play. Helm-unmanned is less critical (player may be reassigning crew).
+- **Log a clear warning** with the resource name, remaining quantity, and what to do: `"Low provisions at {location} ({N} days remaining)! Contract paused — resupply to continue."`
+- **Mining routes use early departure** instead of pausing: when provisions are low, the ship auto-returns to the sell station to resupply, even if cargo isn't full. This preserves the idle loop without player intervention.
+
+Implementation references:
+
+- Contract/trade route gates: `tryDepartNextLeg()` in `src/contractExec.ts`
+- Mining route provisions return: `checkMiningRouteProvisionsReturn()` in `src/miningRoute.ts`
+- Flight time estimation: `estimateFlightDurationTicks()` in `src/flightPhysics.ts`
+- Provisions survival: `getProvisionsSurvivalTicks()` in `src/provisionsSystem.ts`
+
 # Additional rules
 
 - Consult README for project scope before starting work. See if any other markdown files (\*.md pattern, in root and in docs/ folder) might be relevant. If so, read them.

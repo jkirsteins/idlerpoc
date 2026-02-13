@@ -11,6 +11,7 @@ import { addLog } from './logSystem';
 import { getCrewJobSlot, getJobSlotDefinition } from './jobSlots';
 import { checkRankCrossing } from './skillRanks';
 import { getSpecializationMultiplier } from './skillRanks';
+import { getCrewHealthEfficiency } from './provisionsSystem';
 
 /**
  * Direct Skill Training System
@@ -165,7 +166,8 @@ export function applyPassiveTraining(
 
     const training = calculateTickTraining(crew, jobSlotType);
     if (training) {
-      const gain = training.gain * trainingMultiplier;
+      const healthEfficiency = getCrewHealthEfficiency(crew.health);
+      const gain = training.gain * trainingMultiplier * healthEfficiency;
       const skillUp = applyTraining(crew, training.skill, gain);
       if (skillUp) {
         skillUps.push(skillUp);

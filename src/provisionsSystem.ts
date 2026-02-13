@@ -67,11 +67,28 @@ export function getProvisionsSurvivalDays(ship: Ship): number {
   return getProvisionsSurvivalTicks(ship) / TICKS_PER_DAY;
 }
 
+/** Starvation duration: crew die over 7 game days without food. */
+export const STARVATION_DAYS = 7;
+
 /** Health damage per tick from starvation (no provisions). */
 export function getStarvationHealthDamage(provisionsKg: number): number {
   if (provisionsKg > 0) return 0;
-  // Aggressive damage — starvation is serious
-  return 3.0;
+  // Gradual starvation: 100 HP drained over STARVATION_DAYS game days
+  return 100 / (STARVATION_DAYS * TICKS_PER_DAY);
+}
+
+/**
+ * Crew efficiency multiplier based on health.
+ * Unhealthy crew work slower — applies to mining yield, skill training,
+ * and repair output. Uses sqrt curve: forgiving at high health,
+ * increasingly debilitating at low health.
+ *
+ * 100 HP → 1.0 | 75 HP → 0.87 | 50 HP → 0.71
+ * 25 HP → 0.50 | 10 HP → 0.32 | 1 HP → 0.10
+ */
+export function getCrewHealthEfficiency(health: number): number {
+  const normalizedHealth = Math.max(0, Math.min(100, health)) / 100;
+  return Math.sqrt(normalizedHealth);
 }
 
 // ── Tick Logic ───────────────────────────────────────────────────

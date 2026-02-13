@@ -257,6 +257,14 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
           'Accepting a contract requires the [[job-slots|helm]] to be manned — make sure you have crew assigned to the helm before browsing the job board.',
         ],
       },
+      {
+        heading: 'Safety Gates',
+        paragraphs: [
+          'Before each automated departure, the game checks that your ship can safely complete the next leg. If any check fails, the contract pauses automatically and the game auto-pauses so you can fix the issue.',
+          'Three gates are checked in order: fuel (can you afford a refuel?), [[provisions|provisions]] (will food last through the flight plus a 2-day safety buffer?), and helm (is a crew member assigned?). If any gate fails, the ship stays docked and logs a warning explaining what needs to be fixed.',
+          'These safety gates prevent your crew from being stranded or starving during automated operations. You can resume the contract after resupplying fuel or provisions, or assigning crew to the helm.',
+        ],
+      },
     ],
     relatedArticles: [
       'credits-economy',
@@ -264,6 +272,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
       'launch-windows',
       'navigation',
       'commerce-skill',
+      'provisions',
     ],
   },
 
@@ -2024,7 +2033,8 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
         heading: 'Auto-Sell Mining Routes',
         paragraphs: [
           'For fully idle mining, set up an auto-sell route from the mining panel while orbiting a mining location. The destination picker shows each reachable trade station with estimated profitability: sell price per unit, [[crew-salaries|crew]] and fuel costs, round-trip travel time, and projected profit per hour (net of operating costs).',
-          'Once a route is established, the ship automatically:\n1. Mines until cargo is full\n2. Flies to the trade station and docks\n3. Sells all ore and auto-refuels if needed\n4. Flies back to the mining location and resumes mining',
+          'Once a route is established, the ship automatically:\n1. Mines until cargo is full (or [[provisions|provisions]] run low)\n2. Flies to the trade station and docks\n3. Sells all ore, auto-refuels, and resupplies provisions\n4. Flies back to the mining location and resumes mining',
+          "The route also monitors [[provisions|provisions]] — if remaining food won't last through the return trip plus a 2-day safety buffer, the ship departs early to resupply, even if cargo is not full. This prevents crew starvation on extended mining operations.",
           'The route repeats indefinitely until cancelled or funds run out for refueling. The mining panel shows route stats including trips completed, total revenue, and estimated profit per hour (accounting for [[crew-salaries|crew salaries]] and fuel costs).',
           'Choose your sell destination carefully — closer stations reduce transit time but may offer lower prices. The profitability estimate accounts for fill time, travel time, crew salaries, and fuel costs, so the best destination balances sell price against total operating cost. The piloting skill gate still applies: you can only pick stations your crew can reach.',
         ],
@@ -2037,6 +2047,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
       'ship-equipment',
       'skill-system',
       'commerce-skill',
+      'provisions',
     ],
   },
 
@@ -2185,7 +2196,9 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
       {
         heading: 'Starvation',
         paragraphs: [
-          'When provisions reach zero, all crew take 3.0 health damage per day — aggressive damage that will kill unprotected crew within days. The captain is exempt from [[crew-death|death]] (health floors at 1) but still suffers damage effects. Starvation cannot occur at trade stations (crew eat station-side), but can happen at remote mining locations without trade services.',
+          'When provisions reach zero, crew begin starving — losing health gradually over 7 game days. As health drops, crew become less effective: [[mining-system|mining]] yield, [[skill-system|skill training]] speed, and repair output all scale with crew health. The penalty follows a curve where minor injuries barely matter but serious damage becomes debilitating — a crew member at 50% health works at roughly 71% efficiency, while one at 25% health works at only 50%.',
+          'The captain is exempt from [[crew-death|death]] (health floors at 1) but still suffers reduced efficiency. Assigning starving crew to the [[job-slots|medbay]] can keep them alive — healing outpaces starvation damage — but medbay slots are limited, forcing triage decisions with a large crew.',
+          'Health-based efficiency applies to all sources of damage, not just starvation — crew injured by [[radiation|radiation]], [[encounters|combat]], or oxygen deprivation also work at reduced capacity until healed.',
           'Starvation warnings appear at 7 days and 3 days remaining. At zero provisions, a critical alert fires and the game auto-pauses if critical alert pausing is enabled.',
           'Provisions are the survival clock for [[stranded-ships|stranded ships]] — when fuel runs out and provisions deplete, crew begin dying.',
         ],
@@ -2194,7 +2207,8 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
         heading: 'Strategy',
         paragraphs: [
           'On short inner-system routes, provisions are a minor concern — auto-resupply handles everything. On long outer-system voyages, provisions mass becomes significant: a 5-crew ship with functioning life support needs about 750 kg for a 30-day trip. With degraded or missing life support, that figure climbs toward 2,250 kg at the base rate.',
-          'When planning [[mining-system|mining]] routes or long-haul [[contracts|contracts]], factor in provisions mass. A ship loaded with 30 days of food for a large crew has less room for profitable cargo.',
+          "[[mining-system|Mining routes]] automatically monitor provisions — if remaining food won't last through the return trip plus a 2-day safety buffer, the ship departs to the sell station early to resupply, even if cargo is not full. This prevents crew starvation on long mining operations.",
+          'When planning long-haul [[contracts|contracts]], factor in provisions mass. A ship loaded with 30 days of food for a large crew has less room for profitable cargo.',
         ],
       },
     ],
@@ -2205,6 +2219,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
       'life-support',
       'contracts',
       'station-services',
+      'mining-system',
     ],
   },
 
