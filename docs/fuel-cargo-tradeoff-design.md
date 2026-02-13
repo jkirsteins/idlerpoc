@@ -37,7 +37,7 @@ Each ship has a **total capacity** derived from its `cargoCapacity` field (alrea
 
 ### Capacity vs Fuel Requirements
 
-From `/Users/janiskirsteins/Downloads/fuel_analysis.md`, realistic fuel needs are:
+Realistic fuel needs are:
 
 | Trip            | Distance  | Fuel Mass Required |
 | --------------- | --------- | ------------------ |
@@ -458,8 +458,7 @@ Before undocking, check fuel vs route requirement:
 
 ## References
 
-- `/Users/janiskirsteins/Downloads/fuel_analysis.md` - Realistic fuel requirements
-- `/Volumes/X10/Projects/sellgame/WORLDRULES.md` - Physics specifications
-- `/Volumes/X10/Projects/sellgame/docs/economy-rebalancing.md` - Quest payment system
-- `/Volumes/X10/Projects/sellgame/src/shipClasses.ts` - Ship capacity definitions
-- `/Volumes/X10/Projects/sellgame/CLAUDE.md` - Design principles
+- `WORLDRULES.md` - Physics specifications
+- `docs/economy-rebalancing.md` - Quest payment system
+- `src/shipClasses.ts` - Ship capacity definitions
+- `CLAUDE.md` - Design principles
