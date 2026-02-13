@@ -64,7 +64,7 @@ npm run dev
   - 8 mining locations from cislunar space (Graveyard Drift, Tycho Colony) through the Belt (The Crucible, Ceres) to Jupiter, with progressively valuable ores rewarding outward expansion
 - **Navigation System**:
   - World map with 13 locations from LEO to Jupiter in 2D orbital mechanics
-  - **Orrery map**: SVG solar system visualization with bodies orbiting in real-time, logarithmic radius scaling, flight trajectory lines, and moving ship dots
+  - **Orrery map**: SVG solar system visualization with bodies orbiting in real-time, logarithmic radius scaling, flight trajectory lines, and moving ship dots. Click-to-select interaction with bidirectional map/legend linking, SVG hover tooltips, generic label deconfliction for clustered bodies, and accordion legend with collapsible location cards
   - **2D orbital mechanics**: All bodies follow circular orbits — Earth satellites orbit Earth, planets/stations orbit the Sun. Distances change dynamically as bodies move on their orbits
   - **Launch windows**: Alignment quality system (Excellent/Good/Moderate/Poor) shows optimal departure timing. Earth-Mars distance varies from ~55M km to ~400M km over a synodic cycle
   - **Intercept trajectories**: Ships aim at where the destination will be at arrival time, not where it is at departure. Iterative solver converges on moving targets
