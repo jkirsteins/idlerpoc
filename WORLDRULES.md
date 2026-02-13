@@ -699,15 +699,16 @@ This creates equipment trade-offs: installing a centrifuge uses a structural slo
 
 ### Skill-to-Role Mapping
 
-Every skill maps to a role archetype. The current implementation uses 3 skills:
+Every skill maps to a role archetype. The current implementation uses 4 skills:
 
-| Skill        | Role   | Description                                                                         |
-| ------------ | ------ | ----------------------------------------------------------------------------------- |
-| **Piloting** | Pilot  | Ship handling, helm control, combat defense. Handles ship operations during flight. |
-| **Mining**   | Miner  | Resource extraction, ore processing, equipment operation.                           |
-| **Commerce** | Trader | Trade negotiations, route optimization, economic bonuses.                           |
+| Skill        | Role     | Description                                                                         |
+| ------------ | -------- | ----------------------------------------------------------------------------------- |
+| **Piloting** | Pilot    | Ship handling, helm control, combat defense. Handles ship operations during flight. |
+| **Mining**   | Miner    | Resource extraction, ore processing, equipment operation.                           |
+| **Commerce** | Trader   | Trade negotiations, route optimization, economic bonuses.                           |
+| **Repairs**  | Engineer | Equipment maintenance, ship repairs, reactor monitoring.                            |
 
-**Future skills** (designed but not yet implemented): Astrogation, Engineering, Strength, Charisma, Loyalty. See `skillRanks.ts` for design notes.
+**Future skills** (designed but not yet implemented): Astrogation, Strength, Charisma, Loyalty. See `skillRanks.ts` for design notes.
 
 ### Special Cases
 
@@ -717,7 +718,7 @@ Every skill maps to a role archetype. The current implementation uses 3 skills:
 
 1. Calculate highest skill
 2. Assign role based on that skill
-3. If tie, prioritize: Piloting > Mining > Commerce
+3. If tie, prioritize: Piloting > Mining > Commerce > Repairs
 4. Captain is always assigned manually (player character)
 
 ### Initial Stat Distribution

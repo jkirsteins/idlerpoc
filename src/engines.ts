@@ -128,7 +128,7 @@ export const ENGINE_DEFINITIONS: EngineDefinition[] = [
     fuelConsumptionRate: 0.08,
     warmupRate: 10, // 10 ticks to warm up
     selfPowerDraw: 20,
-    thrust: 50000, // 0.05g on typical torch ship
+    thrust: 50000, // 0.006g on 800t Firebrand (wet)
     maxDeltaV: 150000, // m/s
     radiationOutput: 40,
     wasteHeatOutput: 150,
@@ -147,7 +147,7 @@ export const ENGINE_DEFINITIONS: EngineDefinition[] = [
     fuelConsumptionRate: 0.1,
     warmupRate: 8.33, // 12 ticks to warm up
     selfPowerDraw: 30,
-    thrust: 80000, // 0.08g on typical torch ship
+    thrust: 80000, // 0.006g on 1.2Mt Leviathan (wet)
     maxDeltaV: 300000, // m/s
     radiationOutput: 60,
     wasteHeatOutput: 250,
@@ -166,7 +166,7 @@ export const ENGINE_DEFINITIONS: EngineDefinition[] = [
     fuelConsumptionRate: 0.12,
     warmupRate: 6.67, // 15 ticks to warm up
     selfPowerDraw: 40,
-    thrust: 100000, // 0.1g on typical torch ship
+    thrust: 100000, // Not assigned to any current ship class
     maxDeltaV: 500000, // m/s
     radiationOutput: 80,
     wasteHeatOutput: 400,
@@ -186,7 +186,7 @@ export const ENGINE_DEFINITIONS: EngineDefinition[] = [
     fuelConsumptionRate: 0.15,
     warmupRate: 5.0, // 20 ticks to warm up
     selfPowerDraw: 60,
-    thrust: 500000, // 5g+ on cruiser-class vessels
+    thrust: 500000, // Not assigned to any current ship class (Class IV)
     maxDeltaV: 1000000, // m/s
     radiationOutput: 120,
     wasteHeatOutput: 800,

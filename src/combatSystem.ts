@@ -44,7 +44,7 @@ export const COMBAT_CONSTANTS = {
   EVASION_SCANNER_BONUS: 0.15,
   /** Evasion per point of astrogation skill (1-100 scale) */
   EVASION_SKILL_FACTOR: 0.002,
-  /** Charisma skill divisor for negotiation chance (1-100 scale) */
+  /** Commerce skill divisor for negotiation chance (1-100 scale) */
   NEGOTIATION_DIVISOR: 200,
   /** Minimum ransom cost (pirates won't bother for less) */
   NEGOTIATION_MIN_RANSOM: 50,
@@ -193,19 +193,19 @@ export function attemptNegotiation(ship: Ship): {
   negotiatorName: string;
   negotiatorId: string;
 } {
-  let bestPiloting = 0;
+  let bestCommerce = 0;
   let negotiatorName = '';
   let negotiatorId = '';
 
   for (const crew of ship.crew) {
-    if (crew.skills.piloting > bestPiloting) {
-      bestPiloting = crew.skills.piloting;
+    if (crew.skills.commerce > bestCommerce) {
+      bestCommerce = crew.skills.commerce;
       negotiatorName = crew.name;
       negotiatorId = crew.id;
     }
   }
 
-  const chance = bestPiloting / COMBAT_CONSTANTS.NEGOTIATION_DIVISOR;
+  const chance = bestCommerce / COMBAT_CONSTANTS.NEGOTIATION_DIVISOR;
   const success = Math.random() < chance;
 
   return { success, chance, negotiatorName, negotiatorId };

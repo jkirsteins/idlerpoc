@@ -688,6 +688,11 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
             ['[[crew-roles|Pilot]]', '48 cr', 'Essential bridge crew'],
             ['[[crew-roles|Miner]]', '48 cr', 'Resource extraction specialist'],
             ['[[crew-roles|Trader]]', '48 cr', 'Trade and commerce specialist'],
+            [
+              '[[crew-roles|Engineer]]',
+              '48 cr',
+              'Equipment maintenance specialist',
+            ],
           ],
         },
       },
