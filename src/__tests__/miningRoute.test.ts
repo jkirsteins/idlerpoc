@@ -140,6 +140,50 @@ describe('Mining Route System', () => {
       cancelMiningRoute(gameData, ship);
       expect(gameData.log.length).toBe(logBefore);
     });
+
+    it('preserves ore cargo when canceling during mining phase', () => {
+      assignMiningRoute(gameData, ship, TRADE_LOCATION_ID);
+      ship.oreCargo.push({ oreId: 'iron_ore', quantity: 100 });
+
+      cancelMiningRoute(gameData, ship);
+
+      expect(ship.miningRoute).toBeNull();
+      expect(ship.oreCargo.length).toBe(1);
+      expect(ship.oreCargo[0].oreId).toBe('iron_ore');
+      expect(ship.oreCargo[0].quantity).toBe(100);
+    });
+
+    it('clears mining accumulator on cancel', () => {
+      assignMiningRoute(gameData, ship, TRADE_LOCATION_ID);
+      ship.miningAccumulator = {
+        iron_ore: 0.75,
+        _cargoFullLogged: 1,
+      };
+
+      cancelMiningRoute(gameData, ship);
+
+      expect(ship.miningAccumulator).toEqual({});
+    });
+
+    it('logs ore retention info when cargo has ore', () => {
+      assignMiningRoute(gameData, ship, TRADE_LOCATION_ID);
+      ship.oreCargo.push({ oreId: 'iron_ore', quantity: 50 });
+
+      cancelMiningRoute(gameData, ship);
+
+      const lastLog = gameData.log[gameData.log.length - 1];
+      expect(lastLog.message).toContain('retained in cargo');
+    });
+
+    it('does not mention ore retention when cargo is empty', () => {
+      assignMiningRoute(gameData, ship, TRADE_LOCATION_ID);
+      ship.oreCargo = [];
+
+      cancelMiningRoute(gameData, ship);
+
+      const lastLog = gameData.log[gameData.log.length - 1];
+      expect(lastLog.message).not.toContain('retained');
+    });
   });
 
   // ─── checkMiningRouteDeparture ──────────────────────────────

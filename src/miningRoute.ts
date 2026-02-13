@@ -1,12 +1,12 @@
 import type { GameData, Ship, MiningRoute } from './models';
 import { startShipFlight } from './flightPhysics';
 import { sellAllOre } from './miningSystem';
-import { getRemainingOreCapacity } from './miningSystem';
+import { getRemainingOreCapacity, getOreCargoWeight } from './miningSystem';
 import { addLog } from './logSystem';
 import { formatMiningRouteName } from './utils';
 import { getFuelPricePerKg } from './fuelPricing';
 import { formatFuelMass, calculateFuelPercentage } from './ui/fuelFormatting';
-import { formatCredits } from './formatting';
+import { formatCredits, formatMass } from './formatting';
 
 /**
  * Mining Route System
@@ -99,15 +99,24 @@ export function cancelMiningRoute(gameData: GameData, ship: Ship): void {
     (l) => l.id === route.sellLocationId
   );
 
+  // Note ore retained in cargo so the player knows it wasn't lost
+  const oreWeight = getOreCargoWeight(ship);
+  const oreSuffix =
+    oreWeight > 0 ? ` ${formatMass(oreWeight)} of ore retained in cargo.` : '';
+
   addLog(
     gameData.log,
     gameData.gameTime,
     'mining_route',
-    `Mining route ended: ${formatMiningRouteName(mineLoc?.name ?? '?', sellLoc?.name ?? '?')}. ${route.totalTrips} trips, ${formatCredits(route.totalCreditsEarned)} earned.`,
+    `Mining route ended: ${formatMiningRouteName(mineLoc?.name ?? '?', sellLoc?.name ?? '?')}. ${route.totalTrips} trips, ${formatCredits(route.totalCreditsEarned)} earned.${oreSuffix}`,
     ship.name
   );
 
   ship.miningRoute = null;
+
+  // Clear fractional ore accumulator — stale fractions from the old route
+  // should not carry over to future mining sessions
+  ship.miningAccumulator = {};
 }
 
 // ─── Tick Integration: Cargo Full → Depart ──────────────────────
