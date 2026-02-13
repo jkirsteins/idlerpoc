@@ -1775,20 +1775,33 @@ export function createCrewTab(
     updateRadiationSection(crew, ship);
 
     // ── Training indicator ──
-    if (ship.location.status === 'in_flight') {
-      const jobSlot = getCrewJobSlot(ship, crew.id);
-      const trainingResult = calculateTickTraining(crew, jobSlot?.type ?? null);
-      if (trainingResult) {
-        trainingDiv.style.display = '';
-        const skillName =
-          trainingResult.skill.charAt(0).toUpperCase() +
-          trainingResult.skill.slice(1);
-        const jobDef = jobSlot ? getJobSlotDefinition(jobSlot.type) : null;
-        const jobName = jobDef ? jobDef.name : 'Unknown';
-        trainingDiv.textContent = `${jobName}: Training ${skillName}`;
-      } else {
-        trainingDiv.style.display = 'none';
-      }
+    // Training occurs during flight and orbiting; mining_ops is gated to mine locations
+    const isTrainingState =
+      ship.location.status === 'in_flight' ||
+      ship.location.status === 'orbiting';
+    const jobSlot = isTrainingState ? getCrewJobSlot(ship, crew.id) : null;
+    const jobSlotType = jobSlot?.type ?? null;
+    const isGated =
+      jobSlotType === 'mining_ops' &&
+      !(
+        ship.location.status === 'orbiting' &&
+        ship.location.orbitingAt != null &&
+        gameData.world.locations.some(
+          (l) =>
+            l.id === ship.location.orbitingAt && l.services.includes('mine')
+        )
+      );
+    const trainingResult =
+      isTrainingState && !isGated
+        ? calculateTickTraining(crew, jobSlotType)
+        : null;
+    if (trainingResult) {
+      const skillName =
+        trainingResult.skill.charAt(0).toUpperCase() +
+        trainingResult.skill.slice(1);
+      const jobDef = jobSlot ? getJobSlotDefinition(jobSlot.type) : null;
+      trainingDiv.textContent = `${jobDef?.name ?? 'Unknown'}: Training ${skillName}`;
+      trainingDiv.style.display = '';
     } else {
       trainingDiv.style.display = 'none';
     }
