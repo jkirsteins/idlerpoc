@@ -82,11 +82,14 @@ export function getStarvationHealthDamage(provisionsKg: number): number {
 export function applyProvisionsTick(ship: Ship, gameData: GameData): boolean {
   if (ship.crew.length === 0) return false;
 
-  // Auto-resupply when docked at a trade station (runs every tick, but
+  // Auto-resupply when docked at a trade station (tops up on arrival;
   // only actually purchases when provisions are below max)
   if (ship.location.status === 'docked' && ship.location.dockedAt) {
     autoResupplyProvisions(gameData, ship, ship.location.dockedAt);
   }
+
+  // Crew eat station-side while docked — no ship provisions consumed
+  if (ship.location.status === 'docked') return false;
 
   const consumptionPerTick =
     ship.crew.length * getEffectiveConsumptionPerCrewPerTick(ship);

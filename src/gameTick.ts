@@ -542,7 +542,7 @@ function applyShipTick(gameData: GameData, ship: Ship): boolean {
     }
   }
 
-  // Provisions consumption (all ship states — crew eat whether docked or flying)
+  // Provisions consumption (in-flight and orbiting only — crew eat station-side while docked)
   if (applyProvisionsTick(ship, gameData)) {
     changed = true;
   }
