@@ -152,13 +152,16 @@ export function applyTraining(
  */
 export function applyPassiveTraining(
   ship: Ship,
-  trainingMultiplier: number = 1.0
+  trainingMultiplier: number = 1.0,
+  excludeJobTypes?: ReadonlySet<JobSlotType>
 ): SkillUpResult[] {
   const skillUps: SkillUpResult[] = [];
 
   for (const crew of ship.crew) {
     const jobSlot = getCrewJobSlot(ship, crew.id);
     const jobSlotType = jobSlot?.type ?? null;
+
+    if (jobSlotType && excludeJobTypes?.has(jobSlotType)) continue;
 
     const training = calculateTickTraining(crew, jobSlotType);
     if (training) {

@@ -283,7 +283,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
         heading: 'Layer 1: Skill Level (0-99)',
         paragraphs: [
           'The base skill level determines what you can do. Higher levels unlock new capabilities: better [[ship-classes|ship classes]] for piloting, rarer [[ore-types|ores]] for mining, larger trade bonuses for [[commerce-skill|commerce]], and faster repair speed for repairs.',
-          'Skill level trains passively through [[job-slots|job slot]] assignment during flight. Training uses diminishing returns — fast progress early, slow progress at high levels.',
+          'Skill level trains passively through [[job-slots|job slot]] assignment during flight and orbiting. Training uses diminishing returns — fast progress early, slow progress at high levels. Some skills require specific conditions — [[mining-system|mining]] only trains while orbiting a mine-enabled location.',
         ],
       },
       {
@@ -381,7 +381,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
     sections: [
       {
         paragraphs: [
-          'Every crew member has 4 skills on a 0-99 scale. Skills train passively through [[job-slots|job slot]] assignment during flight. Each skill feeds into the [[mastery-system|three-layer mastery system]] for deeper progression.',
+          'Every crew member has 4 skills on a 0-99 scale. Skills train passively through [[job-slots|job slot]] assignment during flight and orbiting. Each skill feeds into the [[mastery-system|three-layer mastery system]] for deeper progression.',
         ],
       },
       {
@@ -420,7 +420,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
         paragraphs: [
           'Skills train passively when crew are assigned to [[job-slots|job slots]] that use that skill. Training speed uses diminishing returns — fast progress early, slow progress at high levels.',
           'When a crew member is assigned to a job that matches their primary [[crew-roles|role]] skill, they receive a 1.5x training bonus.',
-          'Training only occurs during flight. Docked time does not advance skill training.',
+          'Training occurs during flight and orbiting. Docked time does not advance skill training. Activity-gated skills like [[mining-system|mining]] require the ship to be orbiting a location with the relevant service — mining crew will not train during transit.',
         ],
       },
       {

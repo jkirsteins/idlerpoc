@@ -1,4 +1,10 @@
-import type { GameData, Ship, EncounterResult, Toast } from './models';
+import type {
+  GameData,
+  Ship,
+  EncounterResult,
+  Toast,
+  JobSlotType,
+} from './models';
 import { getEngineDefinition } from './engines';
 import {
   advanceFlight,
@@ -53,6 +59,30 @@ import {
   getRepairsPoolBonusChance,
 } from './masterySystem';
 import { getAllEquipmentDefinitions } from './equipment';
+
+/**
+ * Determine which job slot types should NOT train passively given the
+ * ship's current activity state.  Mining ops, for example, only trains
+ * when orbiting a mine-enabled location.
+ */
+function getInactiveTrainingJobTypes(
+  ship: Ship,
+  gameData: GameData
+): ReadonlySet<JobSlotType> {
+  const inactive = new Set<JobSlotType>();
+
+  const isAtMine =
+    ship.location.status === 'orbiting' &&
+    ship.location.orbitingAt != null &&
+    gameData.world.locations.some(
+      (l) => l.id === ship.location.orbitingAt && l.services.includes('mine')
+    );
+  if (!isAtMine) {
+    inactive.add('mining_ops');
+  }
+
+  return inactive;
+}
 
 /**
  * Update a flight's 2D positions (originPos, interceptPos, shipPos) using
@@ -745,10 +775,16 @@ function applyShipTick(gameData: GameData, ship: Ship): boolean {
       }
     }
 
-    // Passive skill training (during flight)
+    // Passive skill training (during flight and orbiting)
     // Captain's ship trains 1.5×; ships near captain get aura training bonus
+    // Activity-gated: mining_ops only trains when orbiting a mine location
     const trainingMultiplier = getCommandTrainingMultiplier(ship, gameData);
-    const skillUps = applyPassiveTraining(ship, trainingMultiplier);
+    const inactiveJobs = getInactiveTrainingJobTypes(ship, gameData);
+    const skillUps = applyPassiveTraining(
+      ship,
+      trainingMultiplier,
+      inactiveJobs
+    );
     if (skillUps.length > 0) {
       logSkillUps(gameData.log, gameData.gameTime, ship.name, skillUps);
     }
