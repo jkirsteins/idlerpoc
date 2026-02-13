@@ -1,8 +1,7 @@
 import type { Ship, GameData, WorldLocation } from './models';
 import { calculateOneLegFuelKg } from './flightPhysics';
 import { getDistanceBetween } from './utils';
-import { getProvisionsSurvivalTicks } from './provisionsSystem';
-import { TICKS_PER_DAY } from './timeSystem';
+import { getProvisionsSurvivalDays } from './provisionsSystem';
 import { addLog } from './logSystem';
 
 /**
@@ -109,7 +108,6 @@ export interface StrandedShipInfo {
   ship: Ship;
   locationId: string;
   location: WorldLocation;
-  survivalTicks: number;
   survivalDays: number;
   nearestRefuel: {
     location: WorldLocation;
@@ -130,7 +128,7 @@ export function getStrandedShipInfo(
   const location = gameData.world.locations.find((l) => l.id === locationId);
   if (!location) return null;
 
-  const survivalTicks = getProvisionsSurvivalTicks(ship);
+  const survivalDays = getProvisionsSurvivalDays(ship);
   const nearestRefuel = findNearestRefuelStation(
     ship,
     location,
@@ -141,8 +139,7 @@ export function getStrandedShipInfo(
     ship,
     locationId,
     location,
-    survivalTicks,
-    survivalDays: survivalTicks / TICKS_PER_DAY,
+    survivalDays,
     nearestRefuel,
   };
 }

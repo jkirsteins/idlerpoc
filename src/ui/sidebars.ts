@@ -9,7 +9,7 @@ import {
   getEffectiveHeatDissipation,
 } from '../equipment';
 import { getShipClass } from '../shipClasses';
-import { formatGameDate, TICKS_PER_DAY } from '../timeSystem';
+import { formatGameDate } from '../timeSystem';
 import { formatCredits, formatMass } from '../formatting';
 import { calculateDailyLedger } from '../dailyLedger';
 import { getRoomDefinition } from '../rooms';
@@ -24,7 +24,7 @@ import {
 import { getProvisionsColorClass } from './provisionsFormatting';
 import {
   getMaxProvisionsKg,
-  getProvisionsSurvivalTicks,
+  getProvisionsSurvivalDays,
 } from '../provisionsSystem';
 import { isHelmManned } from '../jobSlots';
 
@@ -262,8 +262,7 @@ export function createLeftSidebar(
       maxProvisions > 0
         ? Math.min(100, (ship.provisionsKg / maxProvisions) * 100)
         : 0;
-    const provisionsSurvivalTicks = getProvisionsSurvivalTicks(ship);
-    const provisionsSurvivalDays = provisionsSurvivalTicks / TICKS_PER_DAY;
+    const provisionsSurvivalDays = getProvisionsSurvivalDays(ship);
 
     let provisionsLabelText: string;
     if (ship.crew.length === 0) {

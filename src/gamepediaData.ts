@@ -118,7 +118,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
           '[[crew-salaries|Crew salaries]] are deducted every day, including during manual day advancement while docked. A typical crew of 1 pilot + 1 miner + 1 trader costs 144 credits per day.',
           'Fuel must be purchased at stations with refueling services. Fuel pricing varies by location.',
           '[[ship-equipment|Equipment]] can be bought at stations with trade services. Selling equipment returns 50% of the retail value.',
-          '[[provisions|Provisions]] (food and water) are auto-purchased when docked at trade stations. At 30 kg per crew per day and 0.50 cr/kg base price, a 4-crew ship costs about 60 cr/day in provisions — more at outer-system stations.',
+          '[[provisions|Provisions]] (food and water) are auto-purchased when docked at trade stations. Base consumption is 15 kg per crew per day, but [[life-support|life support]] recycling reduces this to ~5 kg effective. At 0.50 cr/kg base price, a 4-crew ship costs about 10 cr/day in provisions — more at outer-system stations.',
           'If credits reach zero, crew become unpaid. Unpaid crew will leave the ship at the next port. The captain (you) never leaves.',
         ],
       },
@@ -1113,7 +1113,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
       {
         heading: 'Provisions',
         paragraphs: [
-          'Alongside oxygen, crew require [[provisions|food and water]] to survive. Provisions are consumed at 30 kg per crew member per day and auto-resupply when docked at trade stations. While oxygen failure is an equipment problem, [[provisions|provision]] depletion is an economic one — running out of [[credits-economy|credits]] means no resupply.',
+          'Alongside oxygen, crew require [[provisions|food and water]] to survive. Base provision consumption is 15 kg per crew member per day, but [[life-support|life support]] equipment recycles a portion — with standard life support, effective consumption drops to ~5 kg per crew per day. Provisions auto-resupply when docked at trade stations. While oxygen failure is an equipment problem, [[provisions|provision]] depletion is an economic one — running out of [[credits-economy|credits]] means no resupply.',
         ],
       },
     ],
@@ -2041,7 +2041,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
       {
         heading: 'Consumption Rate',
         paragraphs: [
-          'Each crew member consumes 30 kg of provisions per game day, regardless of activity. This covers food, water, and basic life necessities. A ship with 4 crew burns through 120 kg per day.',
+          'Each crew member has a base consumption of 15 kg of provisions per game day, covering food, water, and basic life necessities. However, [[life-support|life support]] equipment recycles a significant portion — standard life support recycles 10 kg per crew per day, reducing effective consumption to ~5 kg. A ship with 4 crew and functioning life support burns through about 20 kg per day. If life support degrades, recycling efficiency drops and consumption rises toward the 15 kg base rate.',
           'Provisions mass counts against your available cargo capacity — a fully provisioned ship has less room for [[contracts|contract]] cargo and [[ore-types|mined ore]]. Managing the balance between provisions and cargo space is part of route planning.',
         ],
       },
@@ -2077,7 +2077,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
       {
         heading: 'Strategy',
         paragraphs: [
-          'On short inner-system routes, provisions are a minor concern — auto-resupply handles everything. On long outer-system voyages, provisions mass becomes significant: a 5-crew ship needs 4,500 kg for a 30-day trip, reducing available cargo substantially.',
+          'On short inner-system routes, provisions are a minor concern — auto-resupply handles everything. On long outer-system voyages, provisions mass becomes significant: a 5-crew ship with functioning life support needs about 750 kg for a 30-day trip. With degraded or missing life support, that figure climbs toward 2,250 kg at the base rate.',
           'When planning [[mining-system|mining]] routes or long-haul [[contracts|contracts]], factor in provisions mass. A ship loaded with 30 days of food for a large crew has less room for profitable cargo.',
         ],
       },

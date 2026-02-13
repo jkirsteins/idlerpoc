@@ -2,11 +2,12 @@ import type { Ship, GameData } from './models';
 import { TICKS_PER_DAY } from './timeSystem';
 import { addLog } from './logSystem';
 import { formatMass, formatCredits } from './formatting';
+import { getEffectiveProvisionsRecycling } from './equipment';
 
 // ── Constants ────────────────────────────────────────────────────
 
-/** Kg of provisions consumed per crew member per game day. */
-export const PROVISIONS_KG_PER_CREW_PER_DAY = 30;
+/** Base kg of provisions consumed per crew member per game day (before recycling). */
+export const PROVISIONS_KG_PER_CREW_PER_DAY = 15;
 
 /** Maximum days of provisions auto-purchased when docked. */
 export const MAX_PROVISION_DAYS = 30;
@@ -16,14 +17,27 @@ export const PROVISIONS_PRICE_PER_KG = 0.5;
 
 // ── Helpers ──────────────────────────────────────────────────────
 
-/** Provisions consumed per crew member per tick. */
-export function getProvisionsPerCrewPerTick(): number {
-  return PROVISIONS_KG_PER_CREW_PER_DAY / TICKS_PER_DAY;
+/** Effective consumption per crew per day, accounting for recycling equipment. */
+export function getEffectiveConsumptionPerCrewPerDay(ship: Ship): number {
+  const recycling = getEffectiveProvisionsRecycling(ship);
+  return Math.max(
+    PROVISIONS_KG_PER_CREW_PER_DAY - recycling,
+    PROVISIONS_KG_PER_CREW_PER_DAY * 0.05
+  );
 }
 
-/** Max provisions a ship should carry (based on current crew count). */
+/** Effective provisions consumed per crew member per tick. */
+export function getEffectiveConsumptionPerCrewPerTick(ship: Ship): number {
+  return getEffectiveConsumptionPerCrewPerDay(ship) / TICKS_PER_DAY;
+}
+
+/** Max provisions a ship should carry (based on current crew and recycling). */
 export function getMaxProvisionsKg(ship: Ship): number {
-  return ship.crew.length * PROVISIONS_KG_PER_CREW_PER_DAY * MAX_PROVISION_DAYS;
+  return (
+    ship.crew.length *
+    getEffectiveConsumptionPerCrewPerDay(ship) *
+    MAX_PROVISION_DAYS
+  );
 }
 
 /** Provisions price at a location. Outer-system locations charge more. */
@@ -40,9 +54,15 @@ export function getProvisionsPricePerKg(location: {
 /** How many ticks of provisions remain for a ship. */
 export function getProvisionsSurvivalTicks(ship: Ship): number {
   if (ship.crew.length === 0) return Infinity;
-  const consumptionPerTick = ship.crew.length * getProvisionsPerCrewPerTick();
+  const consumptionPerTick =
+    ship.crew.length * getEffectiveConsumptionPerCrewPerTick(ship);
   if (consumptionPerTick <= 0) return Infinity;
   return Math.floor(ship.provisionsKg / consumptionPerTick);
+}
+
+/** How many game days of provisions remain for a ship. */
+export function getProvisionsSurvivalDays(ship: Ship): number {
+  return getProvisionsSurvivalTicks(ship) / TICKS_PER_DAY;
 }
 
 /** Health damage per tick from starvation (no provisions). */
@@ -68,7 +88,8 @@ export function applyProvisionsTick(ship: Ship, gameData: GameData): boolean {
     autoResupplyProvisions(gameData, ship, ship.location.dockedAt);
   }
 
-  const consumptionPerTick = ship.crew.length * getProvisionsPerCrewPerTick();
+  const consumptionPerTick =
+    ship.crew.length * getEffectiveConsumptionPerCrewPerTick(ship);
   if (consumptionPerTick <= 0) return false;
 
   const oldLevel = ship.provisionsKg;
@@ -83,8 +104,7 @@ export function applyProvisionsTick(ship: Ship, gameData: GameData): boolean {
   }
 
   // Log warnings at thresholds
-  const survivalTicks = getProvisionsSurvivalTicks(ship);
-  const survivalDays = survivalTicks / TICKS_PER_DAY;
+  const survivalDays = getProvisionsSurvivalDays(ship);
 
   if (oldLevel > 0 && ship.provisionsKg <= 0) {
     addLog(

@@ -59,7 +59,7 @@ When creating new tab views or adding content to existing tabs:
 | Time (dual)     | `formatDualTime(gameSec)`            | `src/timeSystem.ts`        | `2 days (irl 5m)`   |
 | Game date       | `formatGameDate(gameTime)`           | `src/timeSystem.ts`        | `Day 42`            |
 | Provisions mass | `formatMass(kg)`                     | `src/formatting.ts`        | `900 kg`            |
-| Provisions days | `getProvisionsSurvivalTicks(ship)`   | `src/provisionsSystem.ts`  | (ticks → days)      |
+| Provisions days | `getProvisionsSurvivalDays(ship)`    | `src/provisionsSystem.ts`  | `166`               |
 
 - For rates like `cr/day`, append the rate suffix after `formatCredits()`: `` `${formatCredits(x)}/day` ``.
 - Tooltips showing raw precision (e.g. `maxRangeKm.toLocaleString() + ' km'`) are acceptable since they supplement the formatted display value.

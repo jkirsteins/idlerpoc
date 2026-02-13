@@ -432,8 +432,7 @@ Ship maximum range is not a fixed value but emerges from the interaction of mult
 - **Engine thrust & ship mass** → acceleration
 - **Engine maxDeltaV** → fuel budget for cruise velocity
 - **Cargo capacity** → consumable supplies (30% reserved for food, water, air)
-- **Crew count** → consumption rate (30 kg/crew/day base)
-- **Rooms (cantina)** → efficiency modifiers (cook reduces waste by 20%)
+- **Crew count** → consumption rate (15 kg/crew/day base, reduced by life support recycling to ~5 kg effective)
 
 Mission endurance constrains range: even with abundant fuel, a ship can only go as far as its consumables allow. A slow ship with low thrust CAN travel far if it has enough supplies and time. A fast ship with many crew burns through consumables quickly, limiting effective range despite powerful engines.
 

@@ -24,6 +24,7 @@ export interface EquipmentDefinition {
   oxygenOutput?: number; // O2 units generated per tick when powered
   miningRate?: number; // extraction rate multiplier (ship-mounted mining equipment)
   miningLevelRequired?: number; // min crew mining skill to operate
+  provisionsRecyclingPerCrewPerDay?: number; // kg of provisions recycled per crew per day
   value?: number; // purchase price in credits
 }
 
@@ -32,13 +33,15 @@ export const EQUIPMENT_DEFINITIONS: EquipmentDefinition[] = [
   {
     id: 'life_support',
     name: 'Life Support System',
-    description: 'O2 generation, CO2 scrubbing, atmosphere management',
+    description:
+      'O2 generation, CO2 scrubbing, atmosphere management, water & provisions recycling',
     icon: '🌬️',
     category: 'life_support',
     powerDraw: 12,
     hasDegradation: false,
     requiredTags: ['standard'],
     oxygenOutput: 12,
+    provisionsRecyclingPerCrewPerDay: 10,
   },
   {
     id: 'air_filters',
@@ -372,6 +375,26 @@ export function getEffectiveHeatDissipation(
       const effectiveness =
         1 - eq.degradation / EQUIPMENT_EFFECTIVENESS_DIVISOR;
       total += eqDef.heatDissipation * effectiveness;
+    }
+  }
+  return total;
+}
+
+/**
+ * Calculate total effective provisions recycling on a ship,
+ * accounting for equipment degradation.
+ * Returns kg of provisions recycled per crew member per day.
+ */
+export function getEffectiveProvisionsRecycling(
+  ship: import('./models').Ship
+): number {
+  let total = 0;
+  for (const eq of ship.equipment) {
+    const eqDef = getEquipmentDefinition(eq.definitionId);
+    if (eqDef?.provisionsRecyclingPerCrewPerDay) {
+      const effectiveness =
+        1 - eq.degradation / EQUIPMENT_EFFECTIVENESS_DIVISOR;
+      total += eqDef.provisionsRecyclingPerCrewPerDay * effectiveness;
     }
   }
   return total;

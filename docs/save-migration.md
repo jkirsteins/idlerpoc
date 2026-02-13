@@ -47,3 +47,7 @@ Saves that predate the fleet architecture (no `ships` array, no `activeShipId`, 
 | 2       | Skill revamp: 7 skills → 3 (piloting, mining, commerce), 8 roles → 4, mastery system, oreCargo, world regeneration with mining destinations.                          |
 | 3       | Crew service records: adds `hiredAt`, `boardedShipAt`, and optional `hiredLocation` to all crew members. Existing crew backfilled with epoch (0).                     |
 | 4       | Crew salary multiplier: adds `salaryMultiplier` to all crew members. Existing crew backfilled with 1.0 (base rate). Enables skill-based salary scaling for new hires. |
+| 5       | Provisions system: adds `provisionsKg` to all ships, fully stocked (30 days per crew).                                                                                |
+| 6       | World location reconfiguration: 13 realistic locations, relocate ships, cancel stale contracts.                                                                       |
+| 7       | 2D orbital mechanics: regenerate world with orbital params, compute initial 2D positions, synthesize trajectory fields for in-flight ships.                           |
+| 8       | Provisions rate rework + cantina removal. Scales `provisionsKg` by 5/30 (new 15 kg base + life support recycling). Removes cantina rooms and galley job slots.        |

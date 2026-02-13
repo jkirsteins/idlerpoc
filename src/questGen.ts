@@ -20,7 +20,7 @@ import { getFuelPricePerKg } from './ui/refuelDialog';
 import { formatFuelMass } from './ui/fuelFormatting';
 import { formatMass } from './formatting';
 import { canAcceptRescueQuest } from './rescueSystem';
-import { getProvisionsPerCrewPerTick } from './provisionsSystem';
+import { getEffectiveConsumptionPerCrewPerTick } from './provisionsSystem';
 
 // Fallback fuel price for payment calculations when no location is available
 const FUEL_PRICE_PER_KG_FALLBACK = 2.0;
@@ -951,7 +951,7 @@ export function canAcceptQuest(
     if (ship.crew.length > 0 && resolved.estimatedTripTicks > 0) {
       const provisionsNeeded =
         ship.crew.length *
-        getProvisionsPerCrewPerTick() *
+        getEffectiveConsumptionPerCrewPerTick(ship) *
         resolved.estimatedTripTicks;
       if (provisionsNeeded > ship.provisionsKg) {
         warnings.push(
