@@ -5,6 +5,7 @@ import type {
   CrewSkills,
   SkillId,
   Ship,
+  MasteryPool,
 } from './models';
 
 export interface CrewRoleDefinition {
@@ -304,6 +305,23 @@ export function getBestCrewSkill(crew: CrewMember[], skillId: SkillId): number {
     }
   }
   return best;
+}
+
+const EMPTY_POOL: MasteryPool = { xp: 0, maxXp: 0 };
+
+/**
+ * Find the crew member with the highest value of a specific skill
+ * and return their mastery pool for that skill.
+ */
+export function getBestCrewPool(
+  crew: CrewMember[],
+  skillId: SkillId
+): MasteryPool {
+  if (crew.length === 0) return EMPTY_POOL;
+  const best = crew.reduce((b, c) =>
+    c.skills[skillId] > b.skills[skillId] ? c : b
+  );
+  return best.mastery?.[skillId]?.pool ?? EMPTY_POOL;
 }
 
 /**

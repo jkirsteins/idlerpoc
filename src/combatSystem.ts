@@ -16,7 +16,7 @@ import {
   type SkillEvent,
 } from './skillProgression';
 import { getCrewForJobType } from './jobSlots';
-import { getBestCrewSkill } from './crewRoles';
+import { getBestCrewSkill, getBestCrewPool } from './crewRoles';
 import {
   getCommandPilotingBonus,
   getCommandRallyBonus,
@@ -179,17 +179,9 @@ export function attemptEvasion(ship: Ship): {
   const commandEvasionBonus = getCommandPilotingBonus(ship) * 0.15;
 
   // Piloting pool 95% checkpoint: +10% evasion on all routes
-  let poolEvasionBonus = 0;
-  if (bridgeCrew.length > 0) {
-    const bestPilotForPool = bridgeCrew.reduce((best, c) =>
-      c.skills.piloting > best.skills.piloting ? c : best
-    );
-    const pilotPool = bestPilotForPool.mastery?.piloting?.pool ?? {
-      xp: 0,
-      maxXp: 0,
-    };
-    poolEvasionBonus = getPilotingPoolEvasionBonus(pilotPool);
-  }
+  const poolEvasionBonus = getPilotingPoolEvasionBonus(
+    getBestCrewPool(bridgeCrew, 'piloting')
+  );
 
   const chance =
     velocityFactor +

@@ -66,20 +66,7 @@ import {
 } from './masterySystem';
 import { countPilotingMasteryItems } from './contractExec';
 import { getAllEquipmentDefinitions } from './equipment';
-import type { MasteryPool, SkillId, CrewMember } from './models';
-
-const EMPTY_POOL: MasteryPool = { xp: 0, maxXp: 0 };
-
-/**
- * Find the best crew member for a skill among a list and return their mastery pool.
- */
-function getBestCrewPool(crew: CrewMember[], skillId: SkillId): MasteryPool {
-  if (crew.length === 0) return EMPTY_POOL;
-  const best = crew.reduce((b, c) =>
-    c.skills[skillId] > b.skills[skillId] ? c : b
-  );
-  return best.mastery?.[skillId]?.pool ?? EMPTY_POOL;
-}
+import { getBestCrewPool } from './crewRoles';
 
 /**
  * Determine which job slot types should NOT train passively given the
@@ -458,14 +445,14 @@ function applyShipTick(gameData: GameData, ship: Ship): boolean {
     ship.metrics.totalIdleTicks++;
   }
 
+  // Cache helm crew for warmup + fuel bonus lookups
+  const helmCrew = getCrewForJobType(ship, 'helm');
+
   // Engine warmup progress (independent of ship location)
   // Piloting pool 25% checkpoint: +5% warmup speed
   if (ship.engine.state === 'warming_up') {
     const warmupEngineDef = getEngineDefinition(ship.engine.definitionId);
-    const pilotPool = getBestCrewPool(
-      getCrewForJobType(ship, 'helm'),
-      'piloting'
-    );
+    const pilotPool = getBestCrewPool(helmCrew, 'piloting');
     const warmupRate =
       warmupEngineDef.warmupRate * (1 + getPilotingPoolWarmupBonus(pilotPool));
 
@@ -520,10 +507,7 @@ function applyShipTick(gameData: GameData, ship: Ship): boolean {
             specificImpulse
           );
           // Piloting pool 50% checkpoint: +5% fuel efficiency
-          const fuelPool = getBestCrewPool(
-            getCrewForJobType(ship, 'helm'),
-            'piloting'
-          );
+          const fuelPool = getBestCrewPool(helmCrew, 'piloting');
           const fuelConsumedKg =
             fuelFlowRateKgPerSec *
             burnSeconds *

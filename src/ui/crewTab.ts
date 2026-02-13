@@ -275,18 +275,25 @@ interface MasteryItemRowRefs {
   row: HTMLDivElement;
   nameSpan: HTMLSpanElement;
   rightSpan: HTMLSpanElement;
-  // Progress bar section (may or may not be showing)
+  // Right span children (stable, toggled via display)
+  lockSpan: HTMLSpanElement;
+  levelSpan: HTMLSpanElement;
+  undiscoveredSpan: HTMLSpanElement;
+  // Progress bar section
   barOuter: HTMLDivElement;
   barFill: HTMLDivElement;
-  // Hint line
+  // Hint line and children (stable, toggled via display)
   hintLine: HTMLDivElement;
+  hintActiveSpan: HTMLSpanElement;
+  hintSepSpan: HTMLSpanElement;
+  hintNextSpan: HTMLSpanElement;
   // Spend pool XP button
   spendBtn: HTMLButtonElement;
 }
 
 function createMasteryItemRow(
-  skillId: SkillId,
-  entry: MasteryItemEntry,
+  _skillId: SkillId,
+  _entry: MasteryItemEntry,
   onSpend?: () => void
 ): MasteryItemRowRefs {
   const row = document.createElement('div');
@@ -309,6 +316,36 @@ function createMasteryItemRow(
 
   row.appendChild(topLine);
 
+  // Right span children — created once, toggled via display
+  const lockSpan = document.createElement('span');
+  lockSpan.style.color = '#665522';
+  lockSpan.style.fontSize = '0.75rem';
+  lockSpan.style.display = 'none';
+  rightSpan.appendChild(lockSpan);
+
+  const levelSpan = document.createElement('span');
+  levelSpan.style.display = 'none';
+  rightSpan.appendChild(levelSpan);
+
+  const undiscoveredSpan = document.createElement('span');
+  undiscoveredSpan.style.color = '#555';
+  undiscoveredSpan.style.fontSize = '0.75rem';
+  undiscoveredSpan.style.display = 'none';
+  rightSpan.appendChild(undiscoveredSpan);
+
+  // Spend pool XP button
+  const spendBtn = document.createElement('button');
+  spendBtn.className = 'small-button';
+  spendBtn.style.display = 'none';
+  spendBtn.textContent = '+1 Lv';
+  if (onSpend) {
+    spendBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      onSpend();
+    });
+  }
+  rightSpan.appendChild(spendBtn);
+
   // Progress bar (always present, toggled via display)
   const barOuter = document.createElement('div');
   barOuter.style.width = '100%';
@@ -326,7 +363,7 @@ function createMasteryItemRow(
   barOuter.appendChild(barFill);
   row.appendChild(barOuter);
 
-  // Hint line (always present, toggled via display)
+  // Hint line and children — created once, toggled via display
   const hintLine = document.createElement('div');
   hintLine.style.fontSize = '0.7rem';
   hintLine.style.marginTop = '2px';
@@ -334,35 +371,36 @@ function createMasteryItemRow(
   hintLine.style.display = 'none';
   row.appendChild(hintLine);
 
-  // Spend pool XP button
-  const spendBtn = document.createElement('button');
-  spendBtn.style.fontSize = '0.7rem';
-  spendBtn.style.padding = '1px 6px';
-  spendBtn.style.marginLeft = '0.3rem';
-  spendBtn.style.borderRadius = '3px';
-  spendBtn.style.cursor = 'pointer';
-  spendBtn.style.display = 'none';
-  spendBtn.textContent = '+1 Lv';
-  if (onSpend) {
-    spendBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      onSpend();
-    });
-  }
+  const hintActiveSpan = document.createElement('span');
+  hintActiveSpan.style.color = '#4ade80';
+  hintActiveSpan.style.display = 'none';
+  hintLine.appendChild(hintActiveSpan);
 
-  const refs: MasteryItemRowRefs = {
+  const hintSepSpan = document.createElement('span');
+  hintSepSpan.textContent = ' \u00b7 ';
+  hintSepSpan.style.display = 'none';
+  hintLine.appendChild(hintSepSpan);
+
+  const hintNextSpan = document.createElement('span');
+  hintNextSpan.style.color = '#666';
+  hintNextSpan.style.display = 'none';
+  hintLine.appendChild(hintNextSpan);
+
+  return {
     row,
     nameSpan,
     rightSpan,
+    lockSpan,
+    levelSpan,
+    undiscoveredSpan,
     barOuter,
     barFill,
     hintLine,
+    hintActiveSpan,
+    hintSepSpan,
+    hintNextSpan,
     spendBtn,
   };
-
-  updateMasteryItemRow(refs, skillId, entry, { xp: 0, maxXp: 0 });
-
-  return refs;
 }
 
 /** Compute the pool XP cost to gain 1 level on an item at the given level. */
@@ -389,6 +427,34 @@ function wouldLoseCheckpoint(
   return null;
 }
 
+/** Update the spend button state in-place using CSS classes. */
+function updateSpendButton(
+  btn: HTMLButtonElement,
+  level: number,
+  pool: { xp: number; maxXp: number }
+): void {
+  if (level >= 99 || pool.maxXp <= 0) {
+    btn.style.display = 'none';
+    return;
+  }
+  const cost = poolXpCostForNextLevel(level);
+  const canAfford = pool.xp >= cost;
+  const lostCheckpoint = canAfford ? wouldLoseCheckpoint(pool, cost) : null;
+
+  btn.style.display = '';
+  btn.disabled = !canAfford;
+
+  if (lostCheckpoint) {
+    btn.className = 'small-button small-button--caution';
+    btn.title = `Spend ${formatLargeNumber(cost)} pool XP to gain 1 level (drops below ${Math.round(lostCheckpoint * 100)}% checkpoint!)`;
+  } else {
+    btn.className = 'small-button';
+    btn.title = canAfford
+      ? `Spend ${formatLargeNumber(cost)} pool XP to gain 1 level`
+      : `Need ${formatLargeNumber(cost)} pool XP (have ${formatLargeNumber(Math.floor(pool.xp))})`;
+  }
+}
+
 function updateMasteryItemRow(
   refs: MasteryItemRowRefs,
   skillId: SkillId,
@@ -404,85 +470,33 @@ function updateMasteryItemRow(
   refs.nameSpan.style.color = entry.locked ? '#555' : '#ccc';
   refs.nameSpan.textContent = entry.label;
 
-  // Right span - rebuild inline since it's small and varies by state
-  // Clear existing children (but preserve spend button reference)
-  while (refs.rightSpan.firstChild) {
-    refs.rightSpan.removeChild(refs.rightSpan.firstChild);
-  }
-
+  // Right span children — toggle visibility, update textContent in-place
   if (entry.locked) {
-    const lockSpan = document.createElement('span');
-    lockSpan.style.color = '#665522';
-    lockSpan.style.fontSize = '0.75rem';
-    lockSpan.textContent = `🔒 ${entry.lockReason}`;
-    refs.rightSpan.appendChild(lockSpan);
+    refs.lockSpan.style.display = '';
+    refs.lockSpan.textContent = `🔒 ${entry.lockReason}`;
+    refs.levelSpan.style.display = 'none';
+    refs.undiscoveredSpan.style.display = 'none';
     refs.spendBtn.style.display = 'none';
   } else if (entry.mastery) {
-    const levelSpan = document.createElement('span');
-    levelSpan.style.color =
+    refs.lockSpan.style.display = 'none';
+    refs.levelSpan.style.display = '';
+    refs.levelSpan.style.color =
       entry.mastery.level >= 99
         ? '#fbbf24'
         : entry.mastery.level >= 50
           ? '#4ade80'
           : '#aaa';
-    levelSpan.style.fontWeight = entry.mastery.level >= 99 ? 'bold' : 'normal';
-    levelSpan.textContent = `Lv ${entry.mastery.level}`;
-    refs.rightSpan.appendChild(levelSpan);
-
-    // Spend button: show if item exists and is below 99
-    const level = entry.mastery.level;
-    if (level < 99 && pool.maxXp > 0) {
-      const cost = poolXpCostForNextLevel(level);
-      const canAfford = pool.xp >= cost;
-      const lostCheckpoint = canAfford ? wouldLoseCheckpoint(pool, cost) : null;
-
-      refs.spendBtn.style.display = '';
-      refs.spendBtn.disabled = !canAfford;
-      refs.spendBtn.title = canAfford
-        ? `Spend ${formatLargeNumber(cost)} pool XP to gain 1 level${lostCheckpoint ? ` (drops below ${Math.round(lostCheckpoint * 100)}% checkpoint!)` : ''}`
-        : `Need ${formatLargeNumber(cost)} pool XP (have ${formatLargeNumber(Math.floor(pool.xp))})`;
-      refs.spendBtn.style.opacity = canAfford ? '1' : '0.4';
-      refs.spendBtn.style.background = lostCheckpoint
-        ? '#8b4513'
-        : canAfford
-          ? '#0f3460'
-          : '#1a1a2e';
-      refs.spendBtn.style.color = lostCheckpoint
-        ? '#fbbf24'
-        : canAfford
-          ? '#4a9eff'
-          : '#555';
-      refs.spendBtn.style.border = lostCheckpoint
-        ? '1px solid #fbbf24'
-        : '1px solid rgba(74,158,255,0.3)';
-      refs.rightSpan.appendChild(refs.spendBtn);
-    } else {
-      refs.spendBtn.style.display = 'none';
-    }
+    refs.levelSpan.style.fontWeight =
+      entry.mastery.level >= 99 ? 'bold' : 'normal';
+    refs.levelSpan.textContent = `Lv ${entry.mastery.level}`;
+    refs.undiscoveredSpan.style.display = 'none';
+    updateSpendButton(refs.spendBtn, entry.mastery.level, pool);
   } else {
-    const undiscovered = document.createElement('span');
-    undiscovered.style.color = '#555';
-    undiscovered.style.fontSize = '0.75rem';
-    undiscovered.textContent = 'Lv 0';
-    refs.rightSpan.appendChild(undiscovered);
-
-    // Show spend button for undiscovered items if pool has XP (creates the item at level 0)
-    if (pool.maxXp > 0) {
-      const cost = poolXpCostForNextLevel(0);
-      const canAfford = pool.xp >= cost;
-      refs.spendBtn.style.display = '';
-      refs.spendBtn.disabled = !canAfford;
-      refs.spendBtn.title = canAfford
-        ? `Spend ${formatLargeNumber(cost)} pool XP to boost to Lv 1`
-        : `Need ${formatLargeNumber(cost)} pool XP (have ${formatLargeNumber(Math.floor(pool.xp))})`;
-      refs.spendBtn.style.opacity = canAfford ? '1' : '0.4';
-      refs.spendBtn.style.background = canAfford ? '#0f3460' : '#1a1a2e';
-      refs.spendBtn.style.color = canAfford ? '#4a9eff' : '#555';
-      refs.spendBtn.style.border = '1px solid rgba(74,158,255,0.3)';
-      refs.rightSpan.appendChild(refs.spendBtn);
-    } else {
-      refs.spendBtn.style.display = 'none';
-    }
+    refs.lockSpan.style.display = 'none';
+    refs.levelSpan.style.display = 'none';
+    refs.undiscoveredSpan.style.display = '';
+    refs.undiscoveredSpan.textContent = 'Lv 0';
+    updateSpendButton(refs.spendBtn, 0, pool);
   }
 
   // Progress bar
@@ -505,39 +519,44 @@ function updateMasteryItemRow(
       refs.barOuter.style.display = 'none';
     }
 
-    // Bonus hint line
+    // Bonus hint line — update children in-place
     const currentBonus = getCurrentBonusLabel(skillId, level, entry.id);
     const nextBonus = getNextBonusLabel(skillId, level, entry.id);
 
     if (currentBonus || nextBonus) {
       refs.hintLine.style.display = '';
-      // Clear and rebuild hint content
-      while (refs.hintLine.firstChild) {
-        refs.hintLine.removeChild(refs.hintLine.firstChild);
-      }
 
       if (currentBonus) {
-        const activeSpan = document.createElement('span');
-        activeSpan.style.color = '#4ade80';
-        activeSpan.textContent = currentBonus;
-        refs.hintLine.appendChild(activeSpan);
+        refs.hintActiveSpan.style.display = '';
+        refs.hintActiveSpan.textContent = currentBonus;
+      } else {
+        refs.hintActiveSpan.style.display = 'none';
+      }
+
+      if (currentBonus && nextBonus) {
+        refs.hintSepSpan.style.display = '';
+      } else {
+        refs.hintSepSpan.style.display = 'none';
       }
 
       if (nextBonus) {
-        if (currentBonus) {
-          refs.hintLine.appendChild(document.createTextNode(' · '));
-        }
-        const nextSpan = document.createElement('span');
-        nextSpan.style.color = '#666';
-        nextSpan.textContent = `Next Lv ${nextBonus.level}: ${nextBonus.label}`;
-        refs.hintLine.appendChild(nextSpan);
+        refs.hintNextSpan.style.display = '';
+        refs.hintNextSpan.textContent = `Next Lv ${nextBonus.level}: ${nextBonus.label}`;
+      } else {
+        refs.hintNextSpan.style.display = 'none';
       }
     } else {
       refs.hintLine.style.display = 'none';
+      refs.hintActiveSpan.style.display = 'none';
+      refs.hintSepSpan.style.display = 'none';
+      refs.hintNextSpan.style.display = 'none';
     }
   } else {
     refs.barOuter.style.display = 'none';
     refs.hintLine.style.display = 'none';
+    refs.hintActiveSpan.style.display = 'none';
+    refs.hintSepSpan.style.display = 'none';
+    refs.hintNextSpan.style.display = 'none';
   }
 }
 
@@ -887,9 +906,8 @@ function updateMasterySection(
       rowRefs = createMasteryItemRow(skillId, entry, onSpend);
       refs.itemRowMap.set(entry.id, rowRefs);
       refs.itemList.appendChild(rowRefs.row);
-    } else {
-      updateMasteryItemRow(rowRefs, skillId, entry, state.pool);
     }
+    updateMasteryItemRow(rowRefs, skillId, entry, state.pool);
   }
 
   // Remove departed items

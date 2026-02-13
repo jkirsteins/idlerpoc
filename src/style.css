@@ -301,6 +301,15 @@ button.small-button:hover {
   background: #1a4a7a;
 }
 
+button.small-button--caution {
+  background: #ffa500;
+  color: #000;
+}
+
+button.small-button--caution:hover {
+  background: #e69500;
+}
+
 /* ── Focus-visible states (keyboard navigation) ── */
 button:focus-visible,
 [role='button']:focus-visible,
@@ -1461,7 +1470,7 @@ button:active:not(:disabled) {
 
 /* Button disabled state */
 button:disabled {
-  opacity: 0.5;
+  opacity: 0.4;
   cursor: not-allowed;
   background: #555;
 }

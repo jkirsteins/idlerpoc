@@ -34,6 +34,7 @@ import {
   tradeRouteMasteryKey,
   getCommercePoolPaymentBonus,
 } from './masterySystem';
+import { getBestCrewPool } from './crewRoles';
 
 /**
  * Contract Execution
@@ -169,18 +170,9 @@ function addCredits(gameData: GameData, amount: number, ship?: Ship): number {
     : 1.0;
 
   // Commerce pool 95% checkpoint: +10% payment on all contracts
-  let commercePoolMultiplier = 1.0;
-  if (ship) {
-    let bestCommerce = 0;
-    let bestCommercePool = { xp: 0, maxXp: 0 };
-    for (const crew of ship.crew) {
-      if (crew.skills.commerce > bestCommerce) {
-        bestCommerce = crew.skills.commerce;
-        bestCommercePool = crew.mastery?.commerce?.pool ?? { xp: 0, maxXp: 0 };
-      }
-    }
-    commercePoolMultiplier = 1 + getCommercePoolPaymentBonus(bestCommercePool);
-  }
+  const commercePoolMultiplier = ship
+    ? 1 + getCommercePoolPaymentBonus(getBestCrewPool(ship.crew, 'commerce'))
+    : 1.0;
 
   const boosted = Math.round(amount * auraMultiplier * commercePoolMultiplier);
   gameData.credits += boosted;
