@@ -86,10 +86,15 @@ export function applyProvisionsTick(ship: Ship, gameData: GameData): boolean {
   // only actually purchases when provisions are below max)
   if (ship.location.status === 'docked' && ship.location.dockedAt) {
     autoResupplyProvisions(gameData, ship, ship.location.dockedAt);
-  }
 
-  // Crew eat station-side while docked — no ship provisions consumed
-  if (ship.location.status === 'docked') return false;
+    // Crew eat station-side at locations with trade services (proper stations
+    // with facilities). At mining-only locations (asteroid swarms etc.) the
+    // ship's own provisions are still consumed.
+    const loc = gameData.world.locations.find(
+      (l) => l.id === ship.location.dockedAt
+    );
+    if (loc?.services.includes('trade')) return false;
+  }
 
   const consumptionPerTick =
     ship.crew.length * getEffectiveConsumptionPerCrewPerTick(ship);

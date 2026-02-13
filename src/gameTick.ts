@@ -542,7 +542,7 @@ function applyShipTick(gameData: GameData, ship: Ship): boolean {
     }
   }
 
-  // Provisions consumption (in-flight and orbiting only — crew eat station-side while docked)
+  // Provisions: auto-resupply + skip consumption at trade stations; consume normally elsewhere
   if (applyProvisionsTick(ship, gameData)) {
     changed = true;
   }
