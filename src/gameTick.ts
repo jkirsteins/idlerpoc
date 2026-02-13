@@ -15,7 +15,7 @@ import {
   getEffectiveRadiationShielding,
   getEffectiveHeatDissipation,
 } from './equipment';
-import { calculateRepairPoints } from './crewRoles';
+import { calculateRepairPoints, getBestCrewMemberName } from './crewRoles';
 import {
   applyGravityTick,
   applyGravityRecovery,
@@ -29,7 +29,7 @@ import { getCommandTrainingMultiplier } from './captainBonus';
 import { getCrewForJobType, isRoomStaffed, getCrewJobSlot } from './jobSlots';
 import { applyOxygenTick, getOxygenHealthDamage } from './lifeSupportSystem';
 import { applyProvisionsTick } from './provisionsSystem';
-import { processCrewDeaths } from './crewDeath';
+import { processCrewDeaths, recordCrewDamage } from './crewDeath';
 import { checkStrandedShips } from './strandedSystem';
 import { applyMiningTick } from './miningSystem';
 import {
@@ -320,6 +320,11 @@ function checkGravityAssists(ship: Ship, gameData: GameData): boolean {
     flight.burnFraction
   );
 
+  // NOTE: The catch-up report builder (catchUpReportBuilder.ts) parses these
+  // gravity_assist log messages to aggregate stats. Update both if changing format.
+  const pilotName = getBestCrewMemberName(ship.crew, 'piloting');
+  const pilotSuffix = pilotName ? ` (${pilotName} piloting)` : '';
+
   for (const assist of flight.gravityAssists) {
     if (!assist.checked && progress >= assist.approachProgress) {
       resolveGravityAssist(assist, ship, tripFuelKg);
@@ -332,7 +337,7 @@ function checkGravityAssists(ship: Ship, gameData: GameData): boolean {
           gameData.log,
           gameData.gameTime,
           'gravity_assist',
-          `${ship.name}: Gravity assist off ${assist.bodyName} — saved ${formatMass(assist.fuelRefundKg)} fuel`,
+          `${ship.name}: Gravity assist off ${assist.bodyName} — saved ${formatMass(assist.fuelRefundKg)} fuel${pilotSuffix}`,
           ship.name
         );
       } else {
@@ -341,7 +346,7 @@ function checkGravityAssists(ship: Ship, gameData: GameData): boolean {
           gameData.log,
           gameData.gameTime,
           'gravity_assist',
-          `${ship.name}: Gravity assist at ${assist.bodyName} failed — correction burn cost ${formatMass(assist.fuelPenaltyKg)} fuel`,
+          `${ship.name}: Gravity assist at ${assist.bodyName} failed — correction burn cost ${formatMass(assist.fuelPenaltyKg)} fuel${pilotSuffix}`,
           ship.name
         );
       }
@@ -497,6 +502,7 @@ function applyShipTick(gameData: GameData, ship: Ship): boolean {
             }
 
             crew.health = Math.max(0, crew.health - damage);
+            recordCrewDamage(crew.id, 'radiation');
             changed = true;
           }
         } else {
@@ -556,6 +562,7 @@ function applyShipTick(gameData: GameData, ship: Ship): boolean {
 
             for (const crew of ship.crew) {
               crew.health = Math.max(0, crew.health - spikeRadiation);
+              recordCrewDamage(crew.id, 'radiation');
               changed = true;
             }
 
@@ -658,6 +665,7 @@ function applyShipTick(gameData: GameData, ship: Ship): boolean {
   if (o2Damage > 0) {
     for (const crew of ship.crew) {
       crew.health = Math.max(0, crew.health - o2Damage);
+      recordCrewDamage(crew.id, 'suffocation');
     }
     changed = true;
 

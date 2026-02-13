@@ -57,7 +57,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
         heading: 'Idle Catch-Up',
         paragraphs: [
           'The game is idle-friendly: closing the browser or backgrounding the tab does not lose progress. When you return, the game computes all elapsed time and processes pending updates in batches.',
-          'If you were away for more than 5 real minutes, a catch-up report shows what happened while you were gone, including per-ship [[contracts|contract]] progress (ongoing, completed, expired, or abandoned), [[encounters|encounters]], and [[credits-economy|credit]] changes.',
+          'If you were away for more than 5 real minutes, a catch-up report shows what happened while you were gone, including per-ship [[contracts|contract]] progress (ongoing, completed, expired, or abandoned), [[encounters|encounters]], [[credits-economy|credit]] changes, and any [[crew-death|crew deaths]].',
           'Offline progress is never hard-capped — you will always make progress no matter how long you are away. The first 4 real-world hours accrue at full rate. Beyond that, progress continues at a logarithmically diminishing rate, so active play remains more rewarding than very long absences. During fast-forward, [[encounters|encounter]] severity is capped (boardings downgraded to harassment) to prevent unfair losses while away.',
           'The event log keeps the most recent 200 entries. Older events are automatically pruned to keep save data compact.',
         ],
@@ -1328,7 +1328,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
     sections: [
       {
         paragraphs: [
-          "The navigation chart shows all known locations, their distances from your ship's current position, and available services. Access it via the Nav tab. The chart includes an orrery map that visualizes the 2D [[orbital-mechanics|orbital positions]] of all bodies in real time.",
+          "The navigation chart shows all known locations, their distances from your ship's current position, and available services. Access it via the Nav tab. The chart includes an orrery map that visualizes the 2D [[orbital-mechanics|orbital positions]] of all bodies in real time. Click any dot on the orrery to select it — the matching location card expands below with full details, travel estimates, and action buttons.",
           'Locations provide different services: refueling, hiring, trade, [[mining-system|mining]], and repair. Planning your route to hit needed services is key to efficient operations.',
           'Because all bodies follow [[orbital-mechanics|orbital paths]], distances between locations change continuously. The Nav tab updates distances every tick, reflecting the current orbital configuration. A destination that is nearby today may be far away in a few months — check [[launch-windows|launch window]] alignment before committing to long voyages.',
         ],
@@ -1353,7 +1353,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
         heading: 'Mid-Flight Redirect',
         paragraphs: [
           'You can change your destination while in flight. Open the Nav tab during a manual flight to see distances calculated from your current position in space — these update live as you move.',
-          'Click "Redirect" on any reachable location to plot a new course. Your ship will begin a fresh burn-coast-burn trajectory from wherever it is.',
+          'Select any reachable location and click "Redirect" in its expanded details to plot a new course. Your ship will begin a fresh burn-coast-burn trajectory from wherever it is.',
           'Mid-flight redirects are not available during [[contracts|contract]] flights or active mining routes.',
           'All [[encounters|threat levels]] and fuel estimates are recalculated based on your actual position, so redirecting into deep space may increase [[encounters|encounter]] risk.',
         ],
@@ -1592,8 +1592,8 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
       {
         heading: 'The Orrery Map',
         paragraphs: [
-          'The [[navigation|Nav tab]] includes an orrery — a 2D map showing all orbital paths and current body positions. The orrery provides a visual overview of the solar system layout, letting you see at a glance which destinations are currently close together and which are far apart.',
-          'Use the orrery to build spatial intuition about orbital timing. When two destinations are on the same side of their parent body, travel between them is short. When they are on opposite sides, the trip is much longer.',
+          'The [[navigation|Nav tab]] includes an orrery — a 2D map showing all orbital paths and current body positions. The orrery provides a visual overview of the solar system layout, letting you see at a glance which destinations are currently close together and which are far apart. Hover over any dot to see a tooltip with the location name and distance; click to select it and expand its details in the legend below.',
+          'Use the orrery to build spatial intuition about orbital timing. When two destinations are on the same side of their parent body, travel between them is short. When they are on opposite sides, the trip is much longer. Your current location pulses red, and your flight destination glows blue.',
         ],
       },
     ],
@@ -2322,7 +2322,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
         paragraphs: [
           'When a crew member dies, they are immediately removed from the ship roster. All [[job-slots|job slot]] assignments for that crew member are cleared — their station becomes unmanned.',
           'On ships with tight crew counts, a single death can cascade: losing the engineer stops repairs, equipment degrades faster, life support fails, and more crew die. On [[ship-classes|fusion-class vessels]], this cascade can be rapid and devastating.',
-          'A death event is logged and a notification appears. Dead crew cannot be replaced until you dock at a station with [[crew-hiring|hiring]] services and recruit replacements.',
+          'A death event is logged and a notification appears. Deaths are also summarized in the [[time-system|catch-up report]] when you return after an absence. Dead crew cannot be replaced until you dock at a station with [[crew-hiring|hiring]] services and recruit replacements.',
         ],
       },
       {

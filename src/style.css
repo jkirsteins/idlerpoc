@@ -1245,75 +1245,13 @@ button.small-button:hover {
   border: 2px solid #0f3460;
   margin-bottom: 20px;
   overflow: hidden;
-}
-
-.nav-marker {
-  position: absolute;
-  transform: translate(-50%, -50%);
-  cursor: pointer;
-  transition: transform 0.2s;
-}
-
-.nav-marker:hover {
-  transform: translate(-50%, -50%) scale(1.1);
-}
-
-.nav-marker.current .nav-marker-dot {
-  animation: pulse 2s infinite;
-  border: 2px solid #e94560;
-  background: rgba(233, 69, 96, 0.2);
-}
-
-.nav-marker.unreachable {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
-.nav-marker.clickable {
-  cursor: pointer;
-}
-
-.nav-marker.clickable:hover .nav-marker-dot {
-  background: rgba(233, 69, 96, 0.3);
-  border-color: #e94560;
-}
-
-.nav-marker-dot {
-  width: 32px;
-  height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 20px;
-  background: rgba(15, 52, 96, 0.8);
-  border-radius: 50%;
-  border: 2px solid #0f3460;
-  margin: 0 auto 4px;
-}
-
-.nav-marker-label {
-  text-align: center;
-  font-size: 10px;
-  font-weight: 600;
-  color: #eee;
-  white-space: nowrap;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
-}
-
-@keyframes pulse {
-  0%,
-  100% {
-    box-shadow: 0 0 0 0 rgba(233, 69, 96, 0.7);
-  }
-  50% {
-    box-shadow: 0 0 0 10px rgba(233, 69, 96, 0);
-  }
+  touch-action: manipulation;
 }
 
 .nav-legend {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 8px;
 }
 
 .nav-legend h4 {
@@ -1325,23 +1263,54 @@ button.small-button:hover {
 }
 
 .nav-legend-item {
-  padding: 12px;
+  padding: 8px 12px;
   background: rgba(255, 255, 255, 0.03);
   border-radius: 6px;
   border: 1px solid #0f3460;
+  transition:
+    border-color 0.2s,
+    background 0.2s;
+}
+
+.nav-legend-item--selected {
+  border-color: #4a9eff;
+  background: rgba(74, 158, 255, 0.08);
 }
 
 .nav-legend-item.unreachable {
   opacity: 0.5;
 }
 
-.nav-legend-item strong {
-  display: block;
-  color: #e94560;
-  margin-bottom: 4px;
+.nav-legend-summary {
+  user-select: none;
+  -webkit-user-select: none;
 }
 
-.nav-legend-item div {
+.nav-legend-summary:hover {
+  opacity: 0.85;
+}
+
+.nav-legend-chevron {
+  font-size: 0.65em;
+  color: #666;
+  transition: transform 0.15s;
+  width: 12px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.nav-legend-item strong {
+  color: #e94560;
+  font-size: 0.95em;
+}
+
+.nav-legend-details {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.nav-legend-details div {
   font-size: 12px;
   color: #888;
   margin-top: 4px;
@@ -2439,20 +2408,6 @@ button:disabled:hover {
 
 .log-entry-encounter_boarding {
   border-left-color: #ff6b6b;
-}
-
-/* Navigation threat coloring */
-.nav-marker-dot[data-threat='caution'] {
-  border-color: #ffc107;
-}
-
-.nav-marker-dot[data-threat='danger'] {
-  border-color: #e94560;
-}
-
-.nav-marker-dot[data-threat='critical'] {
-  border-color: #ff6b6b;
-  animation: pulse 2s infinite;
 }
 
 /* Regional status during flight */
@@ -3791,19 +3746,9 @@ button:disabled:hover {
     font-size: 18px;
   }
 
-  /* Nav map: even shorter */
+  /* Nav map: larger on mobile for readability */
   .nav-map {
-    height: 250px;
-  }
-
-  .nav-marker-dot {
-    width: 26px;
-    height: 26px;
-    font-size: 16px;
-  }
-
-  .nav-marker-label {
-    font-size: 9px;
+    height: min(350px, 50vh);
   }
 
   /* Quest cards: tighter */

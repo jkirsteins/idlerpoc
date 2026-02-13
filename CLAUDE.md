@@ -65,10 +65,38 @@ When creating new tab views or adding content to existing tabs:
 - Tooltips showing raw precision (e.g. `maxRangeKm.toLocaleString() + ' km'`) are acceptable since they supplement the formatted display value.
 - `formatFuelMass` delegates to `formatMass`; use whichever reads clearer in context.
 
+# Event Logging & Catch-Up Report
+
+Every gameplay mechanic that produces observable events must create log entries via `addLog()` in `src/logSystem.ts`. Log entries are the primary record of what happened during offline periods.
+
+When adding a new mechanic or event type:
+
+- Add a new `LogEntryType` variant in `src/models/index.ts`
+- Create log entries with `addLog()` including `shipName` when applicable
+- **Update the catch-up report builder** (`src/catchUpReportBuilder.ts`) to scan for and summarize the new event type — otherwise it will be invisible in the "While you were away..." modal
+- **Update the catch-up report renderer** (`src/ui/catchUpReport.ts`) to display the summary
+- Consider aggregation: for events that can occur many times per ship during an absence, aggregate into counts/totals rather than listing individually
+- Include actor attribution (crew member name) in log messages when a specific crew member's skill determined the outcome
+
+# Skill System Integration
+
+**Every new gameplay mechanic must interact with the skill system.** The skill system (`src/skillProgression.ts`, `src/masterySystem.ts`, `src/skillRanks.ts`) is the central progression backbone — mechanics that bypass it create disconnected islands of content that feel flat to players.
+
+When adding a new mechanic, consider:
+
+- **New mastery items**: If the mechanic involves a repeatable activity with distinct variants (e.g. different ore types, different routes), add mastery items so players gain per-item familiarity bonuses over time. Register them in `src/masterySystem.ts` under the appropriate skill.
+- **New skills or skill effects**: If the mechanic represents an entirely new crew discipline, add a new skill to `CrewSkills` in `src/models/index.ts`, define ranks in `src/skillRanks.ts`, and wire up passive training via job slots in `src/skillProgression.ts`.
+- **Skill-gated content**: Use skill level thresholds to gate access to higher-tier content (like piloting tiers gate ship classes). This gives players concrete goals and rewards long-term progression.
+- **Event-based skill gains**: If the mechanic produces discrete outcomes (success/failure events), award flat skill XP to participating crew members via `awardEventSkillXp()` in `src/skillProgression.ts`.
+- **Skill-scaled bonuses**: Mechanic effectiveness should scale with relevant crew skill levels rather than being flat values. This keeps skills meaningful and rewards investment.
+
+If a new mechanic genuinely cannot interact with skills (e.g. a pure UI feature or meta-system), document why in the PR description.
+
 # Additional rules
 
 - Consult README for project scope before starting work. See if any other markdown files (\*.md pattern, in root and in docs/ folder) might be relevant. If so, read them.
 - Always consider WORLDRULES.md for our game world constraints. Apply these to any game design decisions.
+- Consult `docs/ux-guidelines.md` for UX design principles (color palette, interaction patterns, idle game UX, information hierarchy). Implementation patterns stay in CLAUDE.md; design decisions live there.
 - Update README to reflect project goals/scope before commits.
 - README: high-level only. Infer architecture from code; detailed docs go in docs/.
 - Commit messages: concise, no "Claude Code" mentions.

@@ -1,6 +1,7 @@
 import type {
   CatchUpReport,
   CatchUpEncounterStats,
+  CatchUpGravityAssistStats,
   LogEntryType,
 } from '../models';
 import {
@@ -8,6 +9,7 @@ import {
   formatRealDuration,
   GAME_SECONDS_PER_TICK,
 } from '../timeSystem';
+import { formatMass } from '../formatting';
 
 /** Render encounter detail lines into a container element. */
 function renderEncounterLines(
@@ -50,6 +52,63 @@ function renderEncounterLines(
     line.style.fontSize = '0.85rem';
     parent.appendChild(line);
   }
+}
+
+/** Render gravity assist summary line(s) into a container element. */
+function renderGravityAssistLine(
+  stats: CatchUpGravityAssistStats,
+  parent: HTMLElement
+): void {
+  const total = stats.successes + stats.failures;
+  if (total === 0) return;
+
+  const pilotSuffix = stats.pilotName ? ` (${stats.pilotName} piloting)` : '';
+
+  let text: string;
+
+  if (total === 1) {
+    // Single assist — show specific body + result
+    const body = stats.singleBodyName ?? 'unknown body';
+    if (stats.successes === 1) {
+      text = `Gravity assist off ${body} — saved ${formatMass(stats.totalFuelSavedKg)} fuel${pilotSuffix}`;
+    } else {
+      text = `Gravity assist at ${body} failed — cost ${formatMass(stats.totalFuelCostKg)} fuel${pilotSuffix}`;
+    }
+  } else {
+    // Multiple assists — aggregated counts
+    const parts: string[] = [];
+    if (stats.successes > 0) {
+      parts.push(`${stats.successes} successful`);
+    }
+    if (stats.failures > 0) {
+      parts.push(`${stats.failures} failed`);
+    }
+
+    const netFuelKg = stats.totalFuelSavedKg - stats.totalFuelCostKg;
+    let fuelSummary: string;
+    if (stats.failures === 0) {
+      fuelSummary = `saved ${formatMass(stats.totalFuelSavedKg)} fuel`;
+    } else if (stats.successes === 0) {
+      fuelSummary = `cost ${formatMass(stats.totalFuelCostKg)} fuel`;
+    } else {
+      const sign = netFuelKg >= 0 ? 'saved' : 'cost';
+      fuelSummary = `net ${formatMass(Math.abs(netFuelKg))} fuel ${sign}`;
+    }
+
+    text = `Gravity assists: ${parts.join(', ')} — ${fuelSummary}${pilotSuffix}`;
+  }
+
+  const line = document.createElement('div');
+  line.className = 'catchup-ship-event';
+  line.textContent = text;
+  line.style.paddingLeft = '0.75rem';
+  line.style.fontSize = '0.85rem';
+
+  // Color: green if net fuel positive, orange if net fuel negative
+  const netFuel = stats.totalFuelSavedKg - stats.totalFuelCostKg;
+  line.style.color = netFuel >= 0 ? '#4caf50' : '#ffa500';
+
+  parent.appendChild(line);
 }
 
 /**
@@ -117,6 +176,14 @@ export function renderCatchUpReport(
     fleetStats.appendChild(contractLine);
   }
 
+  if (report.crewLost > 0) {
+    const crewLostLine = document.createElement('div');
+    crewLostLine.className = 'catchup-progress-line';
+    crewLostLine.textContent = `${report.crewLost} crew member${report.crewLost > 1 ? 's' : ''} lost`;
+    crewLostLine.style.color = '#ff6b6b';
+    fleetStats.appendChild(crewLostLine);
+  }
+
   if (fleetStats.children.length > 0) {
     container.appendChild(fleetStats);
   }
@@ -126,6 +193,7 @@ export function renderCatchUpReport(
     crew_level_up: '#4ade80',
     crew_hired: '#4ecdc4',
     crew_departed: '#ff6b6b',
+    crew_death: '#ff6b6b',
     gravity_warning: '#ffa500',
   };
 
@@ -230,6 +298,11 @@ export function renderCatchUpReport(
         }
         totalHealthLost += summary.encounters.avgHealthLost;
         shipsWithEncounters++;
+      }
+
+      // Gravity assist summary (if any)
+      if (summary.gravityAssists) {
+        renderGravityAssistLine(summary.gravityAssists, shipDiv);
       }
 
       // Crew highlights nested under this ship
