@@ -1293,6 +1293,40 @@ button.small-button:hover {
   background: rgba(74, 158, 255, 0.2);
 }
 
+.nav-map-back-btn {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 1;
+}
+
+.nav-map-focus-title {
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 12px;
+  color: #4a9eff;
+  font-weight: 600;
+  z-index: 1;
+  pointer-events: none;
+  text-shadow: 0 0 4px rgba(0, 0, 0, 0.8);
+}
+
+.orrery-cluster-indicator {
+  animation: cluster-pulse 3s ease-in-out infinite;
+}
+
+@keyframes cluster-pulse {
+  0%,
+  100% {
+    stroke-opacity: 0.4;
+  }
+  50% {
+    stroke-opacity: 0.8;
+  }
+}
+
 .nav-legend {
   display: flex;
   flex-direction: column;
