@@ -25,7 +25,7 @@ import {
   createFlightProfileControl,
   updateFlightProfileControl,
 } from './flightProfileControl';
-import { setupMapZoomPan } from './mapZoomPan';
+import { setupMapZoomPan, type MapZoomPanControls } from './mapZoomPan';
 import {
   computeLaunchWindow,
   getLocationPosition,
@@ -244,6 +244,68 @@ interface LegendItemRefs {
   statusText: HTMLElement;
   travelButton: HTMLButtonElement;
   unreachableReason: HTMLElement;
+}
+
+/**
+ * Build cluster zoom preset buttons for the orrery map.
+ * Generic: any body with 2+ satellites (via parentId) gets a button.
+ */
+function buildClusterButtons(
+  locations: WorldLocation[],
+  getLatestLocations: () => WorldLocation[],
+  zoomControls: MapZoomPanControls
+): HTMLElement | null {
+  const clusterChildren = new Map<string, string[]>();
+  for (const loc of locations) {
+    if (loc.orbital?.parentId) {
+      const pid = loc.orbital.parentId;
+      if (!clusterChildren.has(pid)) clusterChildren.set(pid, []);
+      clusterChildren.get(pid)!.push(loc.id);
+    }
+  }
+
+  const bar = document.createElement('div');
+  bar.className = 'nav-map-cluster-bar';
+
+  for (const [parentId, childIds] of clusterChildren) {
+    if (childIds.length < 2) continue;
+    const parent = locations.find((l) => l.id === parentId);
+    if (!parent) continue;
+
+    const allIds = [parentId, ...childIds];
+    const btn = document.createElement('button');
+    btn.className = 'nav-map-cluster-btn';
+    btn.textContent = `${parent.name} System`;
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const latest = getLatestLocations();
+      const positions: { x: number; y: number }[] = [];
+      for (const id of allIds) {
+        const loc = latest.find((l) => l.id === id);
+        if (loc) positions.push(projectToSvg(loc.x, loc.y));
+      }
+      if (positions.length === 0) return;
+
+      const pad = 25;
+      const minX = Math.min(...positions.map((p) => p.x)) - pad;
+      const maxX = Math.max(...positions.map((p) => p.x)) + pad;
+      const minY = Math.min(...positions.map((p) => p.y)) - pad;
+      const maxY = Math.max(...positions.map((p) => p.y)) + pad;
+
+      const centerX = (minX + maxX) / 2;
+      const centerY = (minY + maxY) / 2;
+      const regionW = maxX - minX;
+      const regionH = maxY - minY;
+      const zoom = Math.min(
+        8,
+        Math.max(1, Math.min(ORRERY_SIZE / regionW, ORRERY_SIZE / regionH))
+      );
+      zoomControls.zoomTo(centerX, centerY, zoom);
+    });
+    bar.appendChild(btn);
+  }
+
+  return bar.children.length > 0 ? bar : null;
 }
 
 export function createNavigationView(
@@ -561,7 +623,15 @@ export function createNavigationView(
   mapArea.appendChild(svg);
 
   // Zoom/pan gesture handling (pinch, drag, wheel)
-  setupMapZoomPan(svg, mapArea);
+  const zoomControls: MapZoomPanControls = setupMapZoomPan(svg, mapArea);
+
+  // Cluster preset zoom buttons (e.g. "Earth System")
+  const clusterBar = buildClusterButtons(
+    gameData.world.locations,
+    () => latestGameData.world.locations,
+    zoomControls
+  );
+  if (clusterBar) mapArea.appendChild(clusterBar);
 
   container.appendChild(mapArea);
 

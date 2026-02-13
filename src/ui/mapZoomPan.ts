@@ -7,25 +7,58 @@
  * - Mouse wheel to zoom (toward cursor)
  * - Tap-vs-drag disambiguation (suppresses click after drag)
  * - Reset button overlay for returning to default view
+ * - Programmatic zoomTo for preset cluster navigation
  */
 
 const MIN_ZOOM = 1;
-const MAX_ZOOM = 4;
+const MAX_ZOOM = 8;
 const DRAG_THRESHOLD = 8; // pixels of movement before a drag is recognized
+
+export interface MapZoomPanControls {
+  resetBtn: HTMLButtonElement;
+  /** Animate to center the given SVG coordinate at the given zoom level. */
+  zoomTo(svgX: number, svgY: number, zoom: number, animate?: boolean): void;
+}
 
 /**
  * Attach zoom/pan gesture handling to an SVG inside a container.
- * Returns the reset button element (already appended to container).
+ * Returns controls for programmatic zoom and the reset button.
  */
 export function setupMapZoomPan(
   svg: SVGSVGElement,
   container: HTMLElement
-): HTMLButtonElement {
+): MapZoomPanControls {
   let currentZoom = 1;
   let panX = 0;
   let panY = 0;
 
+  // Read the SVG viewBox for coordinate conversion
+  const vb = svg.viewBox.baseVal;
+  const vbX = vb.x;
+  const vbY = vb.y;
+  const vbW = vb.width;
+  const vbH = vb.height;
+
   svg.style.transformOrigin = '0 0';
+
+  /**
+   * Convert an SVG-space coordinate to element-local position (pixels from
+   * the SVG element's top-left, before any CSS transform).
+   * Accounts for preserveAspectRatio: xMidYMid meet (the SVG default).
+   */
+  function svgToElementLocal(
+    svgX: number,
+    svgY: number
+  ): { x: number; y: number } {
+    const rect = container.getBoundingClientRect();
+    const scale = Math.min(rect.width / vbW, rect.height / vbH);
+    const ox = (rect.width - vbW * scale) / 2;
+    const oy = (rect.height - vbH * scale) / 2;
+    return {
+      x: ox + (svgX - vbX) * scale,
+      y: oy + (svgY - vbY) * scale,
+    };
+  }
 
   // Reset zoom button (HTML overlay, not SVG)
   const resetBtn = document.createElement('button');
@@ -52,19 +85,53 @@ export function setupMapZoomPan(
       currentZoom === 1 && panX === 0 && panY === 0 ? 'none' : '';
   }
 
-  resetBtn.addEventListener('click', (e) => {
-    e.stopPropagation();
+  function animateTo(
+    targetZoom: number,
+    targetPanX: number,
+    targetPanY: number
+  ): void {
     svg.style.transition = 'transform 0.3s ease';
-    currentZoom = 1;
-    panX = 0;
-    panY = 0;
+    currentZoom = targetZoom;
+    panX = targetPanX;
+    panY = targetPanY;
     applyTransform();
     const onEnd = (): void => {
       svg.style.transition = '';
       svg.removeEventListener('transitionend', onEnd);
     };
     svg.addEventListener('transitionend', onEnd);
+  }
+
+  resetBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    animateTo(1, 0, 0);
   });
+
+  /**
+   * Programmatic zoom: center the given SVG coordinate at the given zoom.
+   */
+  function zoomTo(
+    svgX: number,
+    svgY: number,
+    targetZoom: number,
+    animate = true
+  ): void {
+    targetZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, targetZoom));
+    const rect = container.getBoundingClientRect();
+    const el = svgToElementLocal(svgX, svgY);
+    // Center this element-local point: screen_center = el * zoom + panX
+    const targetPanX = rect.width / 2 - el.x * targetZoom;
+    const targetPanY = rect.height / 2 - el.y * targetZoom;
+
+    if (animate) {
+      animateTo(targetZoom, targetPanX, targetPanY);
+    } else {
+      currentZoom = targetZoom;
+      panX = targetPanX;
+      panY = targetPanY;
+      applyTransform();
+    }
+  }
 
   // --- Pointer tracking state ---
   const pointers = new Map<number, { x: number; y: number }>();
@@ -219,5 +286,5 @@ export function setupMapZoomPan(
     { passive: false }
   );
 
-  return resetBtn;
+  return { resetBtn, zoomTo };
 }
