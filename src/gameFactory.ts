@@ -56,6 +56,8 @@ function createCrewMember(
   const role = isCaptain ? 'captain' : targetRole;
 
   const hireCost = calculateHireCost(skills, HIRE_BASE_COST);
+  // Hire-time baseline — salary is computed dynamically from current skills,
+  // but we store the initial multiplier for reference / future UI comparisons.
   const salaryMultiplier = isCaptain ? 1.0 : calculateSalaryMultiplier(skills);
 
   return {

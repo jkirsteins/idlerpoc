@@ -539,7 +539,7 @@ Crew members require regular payment for their services. Salaries are deducted e
 | Miner   | 0.1       | 48                   | Resource extraction specialist           |
 | Trader  | 0.1       | 48                   | Trade and commerce specialist            |
 
-**Salary Multiplier:** Each crew member has a `salaryMultiplier` set at hire time based on their starting skills (polynomial: `1.0 + 0.5 × (totalSkill/10)^1.6`). Actual salary = base × multiplier. Green recruits cost the base rate; skilled veterans can cost 3-7× more. The multiplier does not change as crew train after being hired.
+**Salary Multiplier:** Salary scales dynamically with a crew member's current skills (polynomial: `1.0 + 0.5 × (totalSkill/10)^1.6`, capped at 10×). Actual salary = base × multiplier. Green recruits cost the base rate; as they train, their wages rise. The multiplier is capped at 10× (480 cr/day) to prevent runaway costs at very high skill totals. Quest and trade route payments auto-scale with crew costs through the cost-floor system, so contracts always remain profitable.
 
 **Economic Pressure:**
 
@@ -602,19 +602,23 @@ These costs are tuned against trip income: a green recruit costs a fraction of o
 
 **Salary Scaling:**
 
-Each crew member has a salary multiplier set at hire time based on their starting skills:
+Crew salary scales dynamically with current skills — as crew train, their wages rise:
 
-- Formula: `1.0 + 0.5 × (totalSkill / 10)^1.6` (polynomial)
+- Formula: `1.0 + 0.5 × (totalSkill / 10)^1.6` (polynomial, capped at 10×)
 - Green recruit: 1.0× (48 cr/day)
 - Seasoned (15 skill total): ~2.0× (~95 cr/day)
 - Veteran (30 skill total): ~3.9× (~186 cr/day)
 - Elite (45 skill total): ~6.9× (~333 cr/day)
-- The multiplier is locked at hire time — training after hiring does not increase wages
+- Cap: 10× (480 cr/day) — prevents runaway costs at very high skill totals
+- Training crew increases their wage over time, creating ongoing economic pressure
 
 **Strategic Considerations:**
 
-- Cheap recruits + training = cost-effective long-term investment
-- Pre-skilled veterans provide immediate capability at higher ongoing cost
+- Cheap recruits start affordable but grow more expensive as they train
+- Pre-skilled veterans provide immediate capability at higher initial ongoing cost
+- Training crew is still cost-effective (a trained recruit's salary approaches but never exceeds the cap)
+- Quest and trade route payments scale with crew costs via the cost-floor system
+- Mining income (fixed ore values) does not scale — high crew costs push players toward higher-value ores
 - Crew diversity (multiple roles) enables more operational flexibility
 - Larger crews increase operational costs but reduce single-crew dependency
 - Crew departures due to unpaid wages can force emergency hiring
