@@ -31,7 +31,10 @@ import { applyProvisionsTick } from './provisionsSystem';
 import { processCrewDeaths } from './crewDeath';
 import { checkStrandedShips } from './strandedSystem';
 import { applyMiningTick } from './miningSystem';
-import { checkMiningRouteDeparture } from './miningRoute';
+import {
+  checkMiningRouteDeparture,
+  retryMiningRouteDeparture,
+} from './miningRoute';
 import { addLog } from './logSystem';
 import {
   updateWorldPositions,
@@ -234,6 +237,28 @@ export function deductFleetSalaries(
 }
 
 /**
+ * Heal patients assigned to operational medbay slots (2 HP/tick).
+ */
+function applyMedbayHealing(ship: Ship): boolean {
+  let healed = false;
+  for (const slot of ship.jobSlots) {
+    if (slot.type === 'patient' && slot.assignedCrewId) {
+      const medbay = slot.sourceRoomId
+        ? ship.rooms.find((r) => r.id === slot.sourceRoomId)
+        : null;
+      if (medbay?.state === 'operational') {
+        const crew = ship.crew.find((c) => c.id === slot.assignedCrewId);
+        if (crew && crew.health < 100) {
+          crew.health = Math.min(100, crew.health + 2);
+          healed = true;
+        }
+      }
+    }
+  }
+  return healed;
+}
+
+/**
  * Apply one tick of game logic for a single ship
  */
 function applyShipTick(gameData: GameData, ship: Ship): boolean {
@@ -406,7 +431,8 @@ function applyShipTick(gameData: GameData, ship: Ship): boolean {
 
           if (confinementEq.degradation > 30) {
             const spikeMultiplier = 1 + confinementEq.degradation / 50;
-            const spikeRadiation = (netRadiation * (spikeMultiplier - 1)) / 10;
+            const spikeRadiation =
+              (engineRadiation * (spikeMultiplier - 1)) / 10;
 
             for (const crew of ship.crew) {
               crew.health = Math.max(0, crew.health - spikeRadiation);
@@ -502,6 +528,7 @@ function applyShipTick(gameData: GameData, ship: Ship): boolean {
   }
 
   // Oxygen system (life support)
+  const prevOxygenLevel = ship.oxygenLevel;
   if (applyOxygenTick(ship)) {
     changed = true;
   }
@@ -514,8 +541,8 @@ function applyShipTick(gameData: GameData, ship: Ship): boolean {
     }
     changed = true;
 
-    // Log warnings at critical thresholds
-    if (ship.oxygenLevel < 10 && ship.oxygenLevel + 0.5 >= 10) {
+    // Log warnings at critical thresholds (compare against actual previous level)
+    if (ship.oxygenLevel < 10 && prevOxygenLevel >= 10) {
       addLog(
         gameData.log,
         gameData.gameTime,
@@ -523,7 +550,7 @@ function applyShipTick(gameData: GameData, ship: Ship): boolean {
         `Critical: ${ship.name} oxygen levels critical! Crew health deteriorating rapidly.`,
         ship.name
       );
-    } else if (ship.oxygenLevel < 25 && ship.oxygenLevel + 0.5 >= 25) {
+    } else if (ship.oxygenLevel < 25 && prevOxygenLevel >= 25) {
       addLog(
         gameData.log,
         gameData.gameTime,
@@ -531,7 +558,7 @@ function applyShipTick(gameData: GameData, ship: Ship): boolean {
         `Warning: ${ship.name} oxygen levels dangerously low. Crew suffering hypoxia.`,
         ship.name
       );
-    } else if (ship.oxygenLevel < 50 && ship.oxygenLevel + 0.5 >= 50) {
+    } else if (ship.oxygenLevel < 50 && prevOxygenLevel >= 50) {
       addLog(
         gameData.log,
         gameData.gameTime,
@@ -544,6 +571,12 @@ function applyShipTick(gameData: GameData, ship: Ship): boolean {
 
   // Provisions consumption (all ship states — crew eat whether docked or flying)
   if (applyProvisionsTick(ship, gameData)) {
+    changed = true;
+  }
+
+  // Patient: health regeneration (2 HP/tick when in operational medbay)
+  // Runs in all ship states — patients heal whether docked, orbiting, or in flight
+  if (applyMedbayHealing(ship)) {
     changed = true;
   }
 
@@ -593,23 +626,6 @@ function applyShipTick(gameData: GameData, ship: Ship): boolean {
     const skillUps = applyPassiveTraining(ship, trainingMultiplier);
     if (skillUps.length > 0) {
       logSkillUps(gameData.log, gameData.gameTime, ship.name, skillUps);
-    }
-
-    // === PASSIVE JOB SLOT EFFECTS ===
-
-    // Patient: health regeneration (2 HP/tick when in operational medbay)
-    for (const slot of ship.jobSlots) {
-      if (slot.type === 'patient' && slot.assignedCrewId) {
-        const medbay = slot.sourceRoomId
-          ? ship.rooms.find((r) => r.id === slot.sourceRoomId)
-          : null;
-        if (medbay?.state === 'operational') {
-          const crew = ship.crew.find((c) => c.id === slot.assignedCrewId);
-          if (crew && crew.health < 100) {
-            crew.health = Math.min(100, crew.health + 2);
-          }
-        }
-      }
     }
 
     // === MINING ===
@@ -710,6 +726,11 @@ function applyShipTick(gameData: GameData, ship: Ship): boolean {
     if (ship.crew.some((c) => c.zeroGExposure > 0)) {
       changed = true;
     }
+  }
+
+  // Retry stalled mining route departures (e.g. helm was unmanned on previous tick)
+  if (ship.miningRoute && ship.location.status !== 'in_flight') {
+    retryMiningRouteDeparture(gameData, ship);
   }
 
   // Repair: crew in repair slots generates repair points distributed to degraded equipment.
