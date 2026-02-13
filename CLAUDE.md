@@ -65,6 +65,19 @@ When creating new tab views or adding content to existing tabs:
 - Tooltips showing raw precision (e.g. `maxRangeKm.toLocaleString() + ' km'`) are acceptable since they supplement the formatted display value.
 - `formatFuelMass` delegates to `formatMass`; use whichever reads clearer in context.
 
+# Event Logging & Catch-Up Report
+
+Every gameplay mechanic that produces observable events must create log entries via `addLog()` in `src/logSystem.ts`. Log entries are the primary record of what happened during offline periods.
+
+When adding a new mechanic or event type:
+
+- Add a new `LogEntryType` variant in `src/models/index.ts`
+- Create log entries with `addLog()` including `shipName` when applicable
+- **Update the catch-up report builder** (`src/catchUpReportBuilder.ts`) to scan for and summarize the new event type — otherwise it will be invisible in the "While you were away..." modal
+- **Update the catch-up report renderer** (`src/ui/catchUpReport.ts`) to display the summary
+- Consider aggregation: for events that can occur many times per ship during an absence, aggregate into counts/totals rather than listing individually
+- Include actor attribution (crew member name) in log messages when a specific crew member's skill determined the outcome
+
 # Additional rules
 
 - Consult README for project scope before starting work. See if any other markdown files (\*.md pattern, in root and in docs/ folder) might be relevant. If so, read them.

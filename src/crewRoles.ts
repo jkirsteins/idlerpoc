@@ -302,6 +302,25 @@ export function getBestCrewSkill(crew: CrewMember[], skillId: SkillId): number {
 }
 
 /**
+ * Find the name of the crew member with the highest value of a specific skill.
+ * Returns undefined if the crew array is empty or no member has the skill above 0.
+ */
+export function getBestCrewMemberName(
+  crew: CrewMember[],
+  skillId: SkillId
+): string | undefined {
+  let bestName: string | undefined;
+  let bestValue = 0;
+  for (const member of crew) {
+    if (member.skills[skillId] > bestValue) {
+      bestValue = member.skills[skillId];
+      bestName = member.name;
+    }
+  }
+  return bestName;
+}
+
+/**
  * Calculate repair points per tick for a single crew member.
  * Uses the repairs skill (not piloting). Higher repairs skill = faster repairs.
  * Used by both game logic (gameTick) and UI (shipTab).

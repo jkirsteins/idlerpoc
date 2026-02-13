@@ -561,12 +561,25 @@ export interface CatchUpContractInfo {
   status: 'ongoing' | 'completed' | 'expired' | 'abandoned';
 }
 
+/** Per-ship gravity assist summary in the catch-up report. */
+export interface CatchUpGravityAssistStats {
+  successes: number;
+  failures: number;
+  totalFuelSavedKg: number;
+  totalFuelCostKg: number;
+  /** Pilot name if consistent across all assists; undefined if pilot changed mid-absence. */
+  pilotName?: string;
+  /** When exactly 1 assist total: the body name for a more specific message. */
+  singleBodyName?: string;
+}
+
 export interface CatchUpShipSummary {
   shipId: string;
   shipName: string;
   activity: CatchUpShipActivity;
   encounters?: CatchUpEncounterStats;
   contractInfo?: CatchUpContractInfo;
+  gravityAssists?: CatchUpGravityAssistStats;
   crewHighlights?: LogEntry[];
 }
 
