@@ -80,7 +80,7 @@ When adding a new mechanic or event type:
 
 # Skill System Integration
 
-**Every new gameplay mechanic must interact with the skill system.** The skill system (`src/skillProgression.ts`, `src/masterySystem.ts`, `src/skillRanks.ts`) is the central progression backbone — mechanics that bypass it create disconnected islands of content that feel flat to players.
+**Every new gameplay mechanic must interact with the skill system.** The skill system (`src/skillProgression.ts`, `src/masterySystem.ts`, `src/skillRanks.ts`) is the central progression backbone — mechanics that bypass it create disconnected islands of content that feel flat to players. See `docs/skill-system.md` for the full system design (formulas, ranks, mastery layers, gameplay effects).
 
 When adding a new mechanic, consider:
 
