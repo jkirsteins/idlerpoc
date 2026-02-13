@@ -288,3 +288,127 @@ Further compaction: smaller toast notifications, tighter spacing, reduced font s
 - **Labels on inputs.** Form inputs (wizard, settings) use proper label elements.
 - **Status values available as text.** Status bars show a numeric value alongside the visual fill, not just the bar.
 - **Toasts convey meaning through text**, not just icon/color. The narrative message is the primary content.
+
+---
+
+## 13. UI Consistency
+
+### The Consistency Principle
+
+The same data type must look identical everywhere it appears. A credit amount on the sidebar, in a contract card, in a tooltip, and in the catch-up report must use the same format, the same unit suffix, and the same abbreviation rules. If a player sees `1,234 cr` in one place and `1234 CR` in another, they will question whether these are the same currency. Consistency builds trust in the simulation.
+
+All value formatting passes through the centralized functions documented in CLAUDE.md's Value Display Formatting table. This section prescribes how those formatted values compose into the compound display patterns that appear throughout the UI.
+
+### Time & Duration Displays
+
+All time values must show both game time and real-life equivalent using `formatDualTime()`. This applies everywhere a duration or ETA appears: flight ETAs, contract timers, catch-up report elapsed time, cooldowns, training time remaining. The only exception is pure real-time values (e.g. "last saved 2 min ago") which have no game-time equivalent.
+
+Two time-unit vocabularies exist for different contexts:
+
+| Form | Units | Where used | Example |
+|---|---|---|---|
+| Compact (single-letter) | `s`, `m`, `h`, `d` | Durations, ETAs, parenthetical supplements — anywhere `formatDuration` or `formatDualTime` output appears | `2d 4h (irl 3m)`, `(18d)` |
+| Word | `/day`, `/hr` | Rate denominators — the "per" unit after a formatted value | `1,234 cr/day`, `6.0 O2/hr` |
+
+These two forms serve different purposes and must not be mixed: never write `cr/d` (use `cr/day`) and never write `2 days 4 hours` for a duration (use `2d 4h`). The compact form is for scannability in space-constrained displays; the word form is for readability in rate expressions.
+
+### Rate Displays
+
+Rates express change over time. Every rate follows the pattern `{formatted value}/{time unit}`.
+
+| Rule | Pattern | Example |
+|---|---|---|
+| Credits per time | `formatCredits(n)/day` | `+1,234 cr/day` |
+| Credits per time (comparison) | `formatCredits(n)/hr` | `~85 cr/hr` |
+| Resource per time | `{value} {unit}/{time}` | `6.0 O2/hr`, `-0.8 HP/day` |
+| Approximate rates | Prefix with `~` | `~85 cr/hr` |
+
+**Time unit choice by context:**
+
+| Display context | Time unit | Rationale |
+|---|---|---|
+| Sidebar ledger (income, expenses, net) | `/day` | Long-running rates for passive monitoring |
+| Fleet tab financial overview | `/day` | Same data as sidebar, consistent |
+| Header bar net income | `/day` | Matches sidebar |
+| Crew salary (crew tab, hire panel) | `/day` | Salary is a daily operating cost |
+| Contract/route profitability | `/hr` | Enables apples-to-apples comparison across different trip durations |
+| Mining route profitability | `/hr` | Same rationale as contracts |
+| Oxygen generation/consumption | `/hr` | O2 changes rapidly enough that per-hour is meaningful |
+| HP damage rates | `/day` | Health changes slowly; per-day is the natural unit |
+| Fleet performance summary | `/day` | Matches ledger context |
+
+Within any single view, all comparable rates must use the same time unit so the player can compare without mental conversion.
+
+**No bare numbers in rates.** A rate must always pass through the appropriate formatter. `1234 cr/day` (no comma) is wrong; `1,234 cr/day` (via `formatCredits`) is correct.
+
+### Fraction & Capacity Displays
+
+Fractions show current vs. maximum of a countable or measurable resource. Two patterns exist, chosen by context:
+
+| Context | Pattern | Example |
+|---|---|---|
+| Compact / numeric gauges | `{current}/{max}` (no spaces) | `3/5`, `42/100 kW` |
+| Prose / sequential progress | `{current} of {max}` | `Step 1 of 3`, `2 of 5 crew` |
+
+**Rules:**
+
+- **Unit appears once after max**, not on both sides. Write `45,000 / 100,000 kg`, not `45,000 kg / 100,000 kg`. Exception: when current and max are both passed through a formatter that includes the unit (e.g. `formatFuelMass`), each carries its own unit because the formatter produces it.
+- **Slash form** (`/`) is for numeric resource gauges where the player is scanning quantities: power draw, equipment slots, crew count, fuel.
+- **"of" form** is for sequential progress or natural-language contexts: wizard steps, trip legs.
+- **Parenthetical supplement** for resources with a secondary dimension: provisions show mass with survival days as a supplement — `900 kg (18d)`. The supplement is always in parentheses after the primary value.
+
+### Percentage Precision
+
+| Context | Precision | Example | Rationale |
+|---|---|---|---|
+| Status bars, progress, margins | `.toFixed(0)%` | `75%` | Whole-number precision is sufficient for at-a-glance monitoring |
+| Fuel percentage | `.toFixed(0)%` | `75%` | Matches status bar convention |
+| Slow-draining resources (oxygen, degradation) | `.toFixed(1)%` | `92.3%` | Fractional changes matter for resources where the player watches trends |
+| Mastery pool progress | `.toFixed(1)%` | `14.2%` | Fine-grained progress feedback for long-term goals |
+
+**Rule of thumb:** Use one decimal place when the percentage changes slowly (less than 1% per real minute) and the player benefits from seeing small movements. Use whole numbers when the value moves quickly or when the player only needs the general level.
+
+### Empty State Vocabulary
+
+Each empty-state token communicates something different. Use the right one for the situation.
+
+| Token | Meaning | When to use | Example context |
+|---|---|---|---|
+| `0` or `0%` | The value exists but is currently zero | Numeric fields with a real zero state | `0/5 crew`, `0 cr`, `0%` fuel |
+| `N/A` | The value does not apply to this entity | A system or metric that is structurally irrelevant (e.g. radiation on a non-fusion engine, containment on a docked vessel) | Radiation bar: `N/A` |
+| `None` | A slot or role that could be filled but is not | An entity is expected but absent | Captain: `None`, Power source: `None` |
+| `—` (em-dash) | A value that cannot be computed or is not yet available | Data requiring prerequisites or elapsed time | Reward: `—` |
+| Sentence | Reassuring explanation of what would fill an empty area | Empty lists, empty panels, first-time states (per Section 9 guidance) | `Cargo hold is empty`, `All quiet — nothing notable happened` |
+
+**Never use `(empty)` as a standalone token** — it is ambiguous and reads as a debug label. For an empty equipment slot, use `None`. For an empty list, use a sentence.
+
+### Sign & Delta Conventions
+
+Changes and differences carry explicit signs and semantic color.
+
+| Direction | Prefix | Color | Example |
+|---|---|---|---|
+| Gain / positive rate | `+` | `#4caf50` positive-green | `+1,234 cr/day` |
+| Loss / negative rate | `-` (natural from number) | `#ff6b6b` danger-red | `-85 cr/day` |
+| Expense (always negative) | `-` | `#ffa500` warning-orange | `-500 cr/day` |
+| Net (positive) | `+` | `#4caf50` positive-green | `+750 cr/day` |
+| Net (negative) | `-` | `#ff6b6b` danger-red | `-200 cr/day` |
+| Neutral / informational delta | `+` or `-` | `#aaa` text-secondary | `+5 defense` |
+
+**Rules:**
+
+- Positive values always get an explicit `+` sign. Negative values rely on the minus sign from the number itself.
+- Income lines are always `+` green. Expense lines are always `-` orange. Net lines are green or red depending on sign.
+- The sign is part of the formatted string, not a separate element. Write `+${formatCredits(n)}/day`, not `+ ${formatCredits(n)}/day` (no space between sign and value).
+
+### Label: Value Pairs
+
+Stat displays pair a label with a value. Three prescribed approaches serve three density contexts:
+
+| Context | Approach | Example |
+|---|---|---|
+| **Tooltips** | CSS classes: `custom-tooltip-label` (label) + `custom-tooltip-value` (value) | `<span class="custom-tooltip-label">Thrust:</span> <span class="custom-tooltip-value">45 kN</span>` |
+| **Dashboard / sidebar stats** | Muted-color label span + value span | `<span style="color: #888;">Max Range:</span> <span>45K km</span>` |
+| **Dialogs / panels** | Bold label, normal-weight value | `<strong>Current Fuel:</strong> 45,000 kg` |
+
+**Do not mix approaches within the same visual context.** A tooltip should never use `<strong>` for labels. A sidebar stat should never use tooltip CSS classes. The three approaches serve three density levels (tooltip detail, dashboard scanning, dialog reading) and must not cross.
