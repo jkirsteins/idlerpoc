@@ -23,6 +23,7 @@ import {
   canNegotiate,
 } from './captainBonus';
 import { recordCrewDamage } from './crewDeath';
+import { getPilotingPoolEvasionBonus } from './masterySystem';
 
 /**
  * Combat System
@@ -177,8 +178,25 @@ export function attemptEvasion(ship: Ship): {
   // Captain command bonus: captain's piloting adds extra evasion
   const commandEvasionBonus = getCommandPilotingBonus(ship) * 0.15;
 
+  // Piloting pool 95% checkpoint: +10% evasion on all routes
+  let poolEvasionBonus = 0;
+  if (bridgeCrew.length > 0) {
+    const bestPilotForPool = bridgeCrew.reduce((best, c) =>
+      c.skills.piloting > best.skills.piloting ? c : best
+    );
+    const pilotPool = bestPilotForPool.mastery?.piloting?.pool ?? {
+      xp: 0,
+      maxXp: 0,
+    };
+    poolEvasionBonus = getPilotingPoolEvasionBonus(pilotPool);
+  }
+
   const chance =
-    velocityFactor + scannerBonus + pilotingBonus + commandEvasionBonus;
+    velocityFactor +
+    scannerBonus +
+    pilotingBonus +
+    commandEvasionBonus +
+    poolEvasionBonus;
   const success = Math.random() < chance;
 
   return { success, chance };

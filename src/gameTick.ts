@@ -60,9 +60,26 @@ import {
   gravityAssistMasteryKey,
   GRAVITY_ASSIST_MASTERY_XP_SUCCESS,
   GRAVITY_ASSIST_MASTERY_XP_FAILURE,
+  getPilotingPoolWarmupBonus,
+  getPilotingPoolFuelBonus,
+  getCommercePoolSalaryReduction,
 } from './masterySystem';
 import { countPilotingMasteryItems } from './contractExec';
 import { getAllEquipmentDefinitions } from './equipment';
+import type { MasteryPool, SkillId, CrewMember } from './models';
+
+const EMPTY_POOL: MasteryPool = { xp: 0, maxXp: 0 };
+
+/**
+ * Find the best crew member for a skill among a list and return their mastery pool.
+ */
+function getBestCrewPool(crew: CrewMember[], skillId: SkillId): MasteryPool {
+  if (crew.length === 0) return EMPTY_POOL;
+  const best = crew.reduce((b, c) =>
+    c.skills[skillId] > b.skills[skillId] ? c : b
+  );
+  return best.mastery?.[skillId]?.pool ?? EMPTY_POOL;
+}
 
 /**
  * Determine which job slot types should NOT train passively given the
@@ -264,8 +281,13 @@ export function deductFleetSalaries(
     for (const crew of ship.crew) {
       const crewSalary = getCrewSalaryPerTick(crew);
       shipSalaryPerTick += crewSalary;
-      totalFleetSalaryPerTick += crewSalary;
     }
+
+    // Commerce pool 25% checkpoint: -5% salary costs
+    const commercePool = getBestCrewPool(ship.crew, 'commerce');
+    shipSalaryPerTick *= 1 - getCommercePoolSalaryReduction(commercePool);
+
+    totalFleetSalaryPerTick += shipSalaryPerTick;
     shipSalaries.set(ship.id, shipSalaryPerTick);
   }
 
@@ -437,11 +459,19 @@ function applyShipTick(gameData: GameData, ship: Ship): boolean {
   }
 
   // Engine warmup progress (independent of ship location)
+  // Piloting pool 25% checkpoint: +5% warmup speed
   if (ship.engine.state === 'warming_up') {
     const warmupEngineDef = getEngineDefinition(ship.engine.definitionId);
+    const pilotPool = getBestCrewPool(
+      getCrewForJobType(ship, 'helm'),
+      'piloting'
+    );
+    const warmupRate =
+      warmupEngineDef.warmupRate * (1 + getPilotingPoolWarmupBonus(pilotPool));
+
     ship.engine.warmupProgress = Math.min(
       100,
-      ship.engine.warmupProgress + warmupEngineDef.warmupRate
+      ship.engine.warmupProgress + warmupRate
     );
     if (ship.engine.warmupProgress >= 100) {
       ship.engine.state = 'online';
@@ -489,7 +519,16 @@ function applyShipTick(gameData: GameData, ship: Ship): boolean {
             engineDef.thrust,
             specificImpulse
           );
-          const fuelConsumedKg = fuelFlowRateKgPerSec * burnSeconds;
+          // Piloting pool 50% checkpoint: +5% fuel efficiency
+          const fuelPool = getBestCrewPool(
+            getCrewForJobType(ship, 'helm'),
+            'piloting'
+          );
+          const fuelConsumedKg =
+            fuelFlowRateKgPerSec *
+            burnSeconds *
+            (1 - getPilotingPoolFuelBonus(fuelPool));
+
           ship.fuelKg = Math.max(0, ship.fuelKg - fuelConsumedKg);
 
           // Engine shuts down when fuel is exhausted — ship can no longer
@@ -698,16 +737,12 @@ function applyShipTick(gameData: GameData, ship: Ship): boolean {
 
   // Air filter degradation (always happens)
   // Repairs pool 50% checkpoint reduces filter degradation by 10%
-  const bestRepairCrewForFilters = getCrewForJobType(ship, 'repair');
-  let filterReduction = 0;
-  if (bestRepairCrewForFilters.length > 0) {
-    const bestRepairer = bestRepairCrewForFilters.reduce((best, c) =>
-      c.skills.repairs > best.skills.repairs ? c : best
-    );
-    const pool = bestRepairer.mastery?.repairs?.pool ?? { xp: 0, maxXp: 0 };
-    filterReduction = getRepairsPoolFilterReduction(pool);
-  }
-  const filterDegradationRate = 0.005 * (1 - filterReduction);
+  const filterPool = getBestCrewPool(
+    getCrewForJobType(ship, 'repair'),
+    'repairs'
+  );
+  const filterDegradationRate =
+    0.005 * (1 - getRepairsPoolFilterReduction(filterPool));
   for (const equipment of ship.equipment) {
     if (equipment.definitionId === 'air_filters') {
       if (equipment.degradation < 100) {

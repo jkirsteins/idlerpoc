@@ -53,8 +53,10 @@ import {
   routeMasteryKey,
   tradeRouteMasteryKey,
   gravityAssistMasteryKey,
+  POOL_CHECKPOINTS,
 } from '../masterySystem';
 import type { MasteryBonus } from '../masterySystem';
+import { formatLargeNumber } from '../formatting';
 import { getAllOreDefinitions } from '../oreTypes';
 import { GRAVITY_BODIES } from '../gravityAssistSystem';
 import type { Component } from './component';
@@ -278,11 +280,14 @@ interface MasteryItemRowRefs {
   barFill: HTMLDivElement;
   // Hint line
   hintLine: HTMLDivElement;
+  // Spend pool XP button
+  spendBtn: HTMLButtonElement;
 }
 
 function createMasteryItemRow(
   skillId: SkillId,
-  entry: MasteryItemEntry
+  entry: MasteryItemEntry,
+  onSpend?: () => void
 ): MasteryItemRowRefs {
   const row = document.createElement('div');
   row.style.padding = '3px 6px';
@@ -329,6 +334,22 @@ function createMasteryItemRow(
   hintLine.style.display = 'none';
   row.appendChild(hintLine);
 
+  // Spend pool XP button
+  const spendBtn = document.createElement('button');
+  spendBtn.style.fontSize = '0.7rem';
+  spendBtn.style.padding = '1px 6px';
+  spendBtn.style.marginLeft = '0.3rem';
+  spendBtn.style.borderRadius = '3px';
+  spendBtn.style.cursor = 'pointer';
+  spendBtn.style.display = 'none';
+  spendBtn.textContent = '+1 Lv';
+  if (onSpend) {
+    spendBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      onSpend();
+    });
+  }
+
   const refs: MasteryItemRowRefs = {
     row,
     nameSpan,
@@ -336,17 +357,43 @@ function createMasteryItemRow(
     barOuter,
     barFill,
     hintLine,
+    spendBtn,
   };
 
-  updateMasteryItemRow(refs, skillId, entry);
+  updateMasteryItemRow(refs, skillId, entry, { xp: 0, maxXp: 0 });
 
   return refs;
+}
+
+/** Compute the pool XP cost to gain 1 level on an item at the given level. */
+function poolXpCostForNextLevel(currentLevel: number): number {
+  if (currentLevel >= 99) return Infinity;
+  return xpForMasteryLevel(currentLevel + 1) - xpForMasteryLevel(currentLevel);
+}
+
+/**
+ * Check if spending `cost` pool XP would drop below any active checkpoint.
+ * Returns the highest checkpoint that would be lost, or null.
+ */
+function wouldLoseCheckpoint(
+  pool: { xp: number; maxXp: number },
+  cost: number
+): number | null {
+  if (pool.maxXp <= 0) return null;
+  const currentPct = pool.xp / pool.maxXp;
+  const afterPct = (pool.xp - cost) / pool.maxXp;
+  for (let i = POOL_CHECKPOINTS.length - 1; i >= 0; i--) {
+    const cp = POOL_CHECKPOINTS[i];
+    if (currentPct >= cp && afterPct < cp) return cp;
+  }
+  return null;
 }
 
 function updateMasteryItemRow(
   refs: MasteryItemRowRefs,
   skillId: SkillId,
-  entry: MasteryItemEntry
+  entry: MasteryItemEntry,
+  pool: { xp: number; maxXp: number }
 ): void {
   // Row background
   refs.row.style.background = entry.locked
@@ -358,7 +405,7 @@ function updateMasteryItemRow(
   refs.nameSpan.textContent = entry.label;
 
   // Right span - rebuild inline since it's small and varies by state
-  // Clear existing children
+  // Clear existing children (but preserve spend button reference)
   while (refs.rightSpan.firstChild) {
     refs.rightSpan.removeChild(refs.rightSpan.firstChild);
   }
@@ -369,6 +416,7 @@ function updateMasteryItemRow(
     lockSpan.style.fontSize = '0.75rem';
     lockSpan.textContent = `🔒 ${entry.lockReason}`;
     refs.rightSpan.appendChild(lockSpan);
+    refs.spendBtn.style.display = 'none';
   } else if (entry.mastery) {
     const levelSpan = document.createElement('span');
     levelSpan.style.color =
@@ -380,12 +428,61 @@ function updateMasteryItemRow(
     levelSpan.style.fontWeight = entry.mastery.level >= 99 ? 'bold' : 'normal';
     levelSpan.textContent = `Lv ${entry.mastery.level}`;
     refs.rightSpan.appendChild(levelSpan);
+
+    // Spend button: show if item exists and is below 99
+    const level = entry.mastery.level;
+    if (level < 99 && pool.maxXp > 0) {
+      const cost = poolXpCostForNextLevel(level);
+      const canAfford = pool.xp >= cost;
+      const lostCheckpoint = canAfford ? wouldLoseCheckpoint(pool, cost) : null;
+
+      refs.spendBtn.style.display = '';
+      refs.spendBtn.disabled = !canAfford;
+      refs.spendBtn.title = canAfford
+        ? `Spend ${formatLargeNumber(cost)} pool XP to gain 1 level${lostCheckpoint ? ` (drops below ${Math.round(lostCheckpoint * 100)}% checkpoint!)` : ''}`
+        : `Need ${formatLargeNumber(cost)} pool XP (have ${formatLargeNumber(Math.floor(pool.xp))})`;
+      refs.spendBtn.style.opacity = canAfford ? '1' : '0.4';
+      refs.spendBtn.style.background = lostCheckpoint
+        ? '#8b4513'
+        : canAfford
+          ? '#0f3460'
+          : '#1a1a2e';
+      refs.spendBtn.style.color = lostCheckpoint
+        ? '#fbbf24'
+        : canAfford
+          ? '#4a9eff'
+          : '#555';
+      refs.spendBtn.style.border = lostCheckpoint
+        ? '1px solid #fbbf24'
+        : '1px solid rgba(74,158,255,0.3)';
+      refs.rightSpan.appendChild(refs.spendBtn);
+    } else {
+      refs.spendBtn.style.display = 'none';
+    }
   } else {
     const undiscovered = document.createElement('span');
     undiscovered.style.color = '#555';
     undiscovered.style.fontSize = '0.75rem';
     undiscovered.textContent = 'Lv 0';
     refs.rightSpan.appendChild(undiscovered);
+
+    // Show spend button for undiscovered items if pool has XP (creates the item at level 0)
+    if (pool.maxXp > 0) {
+      const cost = poolXpCostForNextLevel(0);
+      const canAfford = pool.xp >= cost;
+      refs.spendBtn.style.display = '';
+      refs.spendBtn.disabled = !canAfford;
+      refs.spendBtn.title = canAfford
+        ? `Spend ${formatLargeNumber(cost)} pool XP to boost to Lv 1`
+        : `Need ${formatLargeNumber(cost)} pool XP (have ${formatLargeNumber(Math.floor(pool.xp))})`;
+      refs.spendBtn.style.opacity = canAfford ? '1' : '0.4';
+      refs.spendBtn.style.background = canAfford ? '#0f3460' : '#1a1a2e';
+      refs.spendBtn.style.color = canAfford ? '#4a9eff' : '#555';
+      refs.spendBtn.style.border = '1px solid rgba(74,158,255,0.3)';
+      refs.rightSpan.appendChild(refs.spendBtn);
+    } else {
+      refs.spendBtn.style.display = 'none';
+    }
   }
 
   // Progress bar
@@ -460,6 +557,8 @@ interface MasterySectionRefs {
   // Pool section
   poolLabel: HTMLSpanElement;
   poolValue: HTMLSpanElement;
+  // Callback for spending pool XP on items
+  onSpendPoolXp?: (crewId: string, skillId: SkillId, itemId: string) => void;
   barOuter: HTMLDivElement;
   barFill: HTMLDivElement;
   // Checkpoint markers and labels are recreated since count can change
@@ -476,7 +575,8 @@ function createMasterySection(
   skillId: SkillId,
   state: SkillMasteryState,
   crew: CrewMember,
-  gameData: GameData
+  gameData: GameData,
+  onSpendPoolXp?: (crewId: string, skillId: SkillId, itemId: string) => void
 ): MasterySectionRefs {
   const container = document.createElement('div');
   container.className = 'mastery-section';
@@ -566,6 +666,7 @@ function createMasterySection(
     itemHeader,
     itemList,
     itemRowMap: new Map(),
+    onSpendPoolXp,
   };
 
   updateMasterySection(refs, skillId, state, crew, gameData);
@@ -780,11 +881,14 @@ function updateMasterySection(
     currentIds.add(entry.id);
     let rowRefs = refs.itemRowMap.get(entry.id);
     if (!rowRefs) {
-      rowRefs = createMasteryItemRow(skillId, entry);
+      const onSpend = refs.onSpendPoolXp
+        ? () => refs.onSpendPoolXp!(crew.id, skillId, entry.id)
+        : undefined;
+      rowRefs = createMasteryItemRow(skillId, entry, onSpend);
       refs.itemRowMap.set(entry.id, rowRefs);
       refs.itemList.appendChild(rowRefs.row);
     } else {
-      updateMasteryItemRow(rowRefs, skillId, entry);
+      updateMasteryItemRow(rowRefs, skillId, entry, state.pool);
     }
   }
 
@@ -2014,7 +2118,8 @@ export function createCrewTab(
           skillId,
           crew.mastery[skillId],
           crew,
-          gameData
+          gameData,
+          callbacks.onSpendPoolXp
         );
         masterySectionRefs[skillId] = ms;
         skillsDiv.appendChild(ms.container);

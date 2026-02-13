@@ -101,8 +101,8 @@ Current ship equipment (20 items) is dominated by mandatory survival systems. "F
 
 - **Enforce Piloting Tier Requirements**: Block ship purchase/departure when no helm crew meets the piloting tier. Currently defined in skillRanks.ts but not enforced.
 - **Enforce Piloting-Gated Destinations**: Prevent navigation to locations where crew piloting skill doesn't meet `pilotingRequirement`. Currently defined but not enforced in flight initialization.
-- **Mastery Pool Spending UI**: Allow players to spend mastery pool XP to boost specific item mastery levels. Core mechanic designed in `src/masterySystem.ts` but UI not built.
-- **Mastery Pool Checkpoint Bonuses (Active)**: The mastery pool checkpoint definitions exist in `masterySystem.ts` but actual gameplay effects (auto-refuel at 95%, preserve ore on fail at 50%, etc.) are not wired into game systems yet.
+- ~~**Mastery Pool Spending UI**~~: **DONE** — "+1 Lv" button on each mastery item row in Crew tab spends pool XP to boost item mastery. Shows cost, warns when spending would drop below a checkpoint.
+- ~~**Mastery Pool Checkpoint Bonuses (Active)**~~: **DONE** — All checkpoint bonuses now wired into gameplay: piloting (warmup, fuel, evasion), mining (yield, wear, doubles), commerce (salary, sell price, payments), repairs (speed, filter, bonus points).
 - **Item Mastery Bonuses (Active)**: Per-item mastery bonuses for routes and trade routes are defined but not applied during gameplay calculations. Mining ore mastery yield bonuses are now active.
 - ~~**Mining Ore Selection UI**~~: **DONE** — Ore material picker allows selecting which ore to mine per-ship. Auto-select defaults to highest-value ore. See mining panel in Work tab.
 - **Mining Equipment Slot Management**: Ship mining equipment can now be bought/upgraded at the Station Store (Ship Equipment tab). A future UI could allow selecting which equipment slot to install in, or allow uninstalling equipment to free slots.

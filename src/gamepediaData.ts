@@ -365,8 +365,8 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
       {
         heading: 'Spending Pool XP',
         paragraphs: [
-          'You can spend accumulated pool XP to boost lagging item masteries — for example, spending pool XP to quickly level up mastery of a new ore type you just unlocked.',
-          'However, spending pool XP reduces your pool percentage, which may drop you below a checkpoint and lose its bonus. This creates a strategic tension: do you maintain your pool percentage for the passive bonuses, or spend it to accelerate mastery of new items?',
+          'You can spend accumulated pool XP to boost lagging item masteries — for example, spending pool XP to quickly level up mastery of a new ore type you just unlocked. Use the "+1 Lv" button next to each item in the Crew tab\'s mastery section to spend pool XP.',
+          'However, spending pool XP reduces your pool percentage, which may drop you below a checkpoint and lose its bonus. The button turns amber when spending would cost a checkpoint. This creates a strategic tension: do you maintain your pool percentage for the passive bonuses, or spend it to accelerate mastery of new items?',
           'Rebuilding pool percentage after spending requires earning more item mastery XP across all items in that skill domain.',
         ],
       },
