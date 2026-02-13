@@ -439,7 +439,8 @@ export type LogEntryType =
   | 'provisions_warning'
   | 'crew_death'
   | 'stranded'
-  | 'rescue';
+  | 'rescue'
+  | 'fuel_depleted';
 
 export interface LogEntry {
   gameTime: number;
@@ -595,13 +596,17 @@ export interface GameData {
 }
 
 /**
- * Get the currently selected ship from fleet
+ * Get the currently selected ship from fleet.
+ * Throws if the fleet is empty (should never happen in normal gameplay).
  */
 export function getActiveShip(gameData: GameData): Ship {
-  return (
+  const ship =
     gameData.ships.find((s) => s.id === gameData.activeShipId) ??
-    gameData.ships[0]
-  );
+    gameData.ships[0];
+  if (!ship) {
+    throw new Error('No ships in fleet — game state is invalid');
+  }
+  return ship;
 }
 
 /**

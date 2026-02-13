@@ -848,6 +848,8 @@ export function loadGame(): GameData | null {
     backfillMiningData(migrated);
     backfillLedgerSnapshots(migrated);
     backfillRepairsSkill(migrated);
+    backfillCrewFields(migrated);
+    backfillGameDataFields(migrated);
 
     return migrated;
   } catch (e) {
