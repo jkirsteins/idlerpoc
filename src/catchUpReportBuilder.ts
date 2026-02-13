@@ -3,6 +3,7 @@ import type {
   CatchUpReport,
   CatchUpContractInfo,
   CatchUpEncounterStats,
+  CatchUpGravityAssistStats,
   CatchUpShipSummary,
   ContractSnapshot,
   EncounterResult,
@@ -172,6 +173,64 @@ export function buildCatchUpReport(
     }
   }
 
+  // --- Gravity assist aggregation per ship ---
+  // Parses log messages produced by checkGravityAssists() in gameTick.ts.
+  const gravityAssistsByShip = new Map<string, CatchUpGravityAssistStats>();
+  for (const entry of newLogs) {
+    if (entry.type !== 'gravity_assist' || !entry.shipName) continue;
+
+    let stats = gravityAssistsByShip.get(entry.shipName);
+    if (!stats) {
+      stats = {
+        successes: 0,
+        failures: 0,
+        totalFuelSavedKg: 0,
+        totalFuelCostKg: 0,
+      };
+      gravityAssistsByShip.set(entry.shipName, stats);
+    }
+
+    // Extract pilot name: "(Name piloting)" suffix
+    const pilotMatch = entry.message.match(/\((.+?) piloting\)/);
+    const entryPilot = pilotMatch ? pilotMatch[1] : undefined;
+    if (stats.successes + stats.failures === 0) {
+      // First assist — store pilot name
+      stats.pilotName = entryPilot;
+    } else if (stats.pilotName !== entryPilot) {
+      // Pilot changed (crew swap during absence) — drop attribution
+      stats.pilotName = undefined;
+    }
+
+    // Success: "saved N kg fuel"
+    const savedMatch = entry.message.match(/saved ([\d,]+) kg fuel/);
+    if (savedMatch) {
+      stats.successes++;
+      stats.totalFuelSavedKg += parseInt(savedMatch[1].replace(/,/g, ''), 10);
+      // Extract body name for single-assist display
+      const bodyMatch = entry.message.match(/off (.+?) —/);
+      stats.singleBodyName = bodyMatch ? bodyMatch[1] : undefined;
+      continue;
+    }
+
+    // Failure: "correction burn cost N kg fuel"
+    const costMatch = entry.message.match(
+      /correction burn cost ([\d,]+) kg fuel/
+    );
+    if (costMatch) {
+      stats.failures++;
+      stats.totalFuelCostKg += parseInt(costMatch[1].replace(/,/g, ''), 10);
+      const bodyMatch = entry.message.match(/at (.+?) failed/);
+      stats.singleBodyName = bodyMatch ? bodyMatch[1] : undefined;
+    }
+  }
+
+  // Only keep singleBodyName if there was exactly one assist total
+  for (const [, stats] of gravityAssistsByShip) {
+    if (stats.successes + stats.failures !== 1) {
+      stats.singleBodyName = undefined;
+    }
+  }
+
   // --- Build one summary per ship ---
   const shipSummaries: CatchUpShipSummary[] = [];
 
@@ -260,12 +319,15 @@ export function buildCatchUpReport(
       };
     }
 
+    const gravityAssists = gravityAssistsByShip.get(ship.name);
+
     shipSummaries.push({
       shipId: ship.id,
       shipName: ship.name,
       activity,
       encounters,
       contractInfo,
+      gravityAssists,
     });
   }
 
@@ -396,12 +458,13 @@ export function buildCatchUpReport(
     }
   }
 
-  // Filter out idle ships that had nothing interesting (no encounters, contract, or crew events)
+  // Filter out idle ships that had nothing interesting (no encounters, contract, assists, or crew events)
   const filteredSummaries = shipSummaries.filter(
     (s) =>
       s.activity.type !== 'idle' ||
       s.encounters ||
       s.contractInfo ||
+      s.gravityAssists ||
       (s.crewHighlights && s.crewHighlights.length > 0)
   );
 
