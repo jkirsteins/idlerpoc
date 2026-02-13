@@ -11,9 +11,7 @@ The game's emergent systems are generally well-designed, with the cost-floor que
 1. **Mining dominates endgame income** — trade route margins collapse at distance while mining scales linearly
 2. **Skill system over-concentrates on piloting** — 8 of 12 job slots train piloting; other skills are starved
 3. **Combat defense scaling is flat** while pirate attack scales linearly with threat level
-4. **Class II ships have an extremely narrow operating range** — only Gateway is reliably reachable
-5. **Captain is a massive single point of failure** — losing captain's ship cripples entire fleet
-6. **Crew salaries are trivially cheap** — salary costs never create meaningful economic pressure
+4. **Crew salaries are trivially cheap** — salary costs never create meaningful economic pressure
 
 ---
 
@@ -214,40 +212,32 @@ This is reasonable, but the velocity component (capped at 0.3) makes evasion ver
 
 ## 4. Ship Balance
 
-### 4.1 Class II Operating Range is Extremely Narrow (CRITICAL)
+### 4.1 Class II Range is Solid — Validated
 
-**Issue:** The quest economics validation doc confirms:
-- Wayfarer (150K fuel, NTR Mk1): Can reach Gateway (400 km) and nearby stations. **Cannot reach Meridian Depot** (35,786 km) — needs ~160K kg round trip, has 150K capacity
-- Dreadnought (500K fuel, NTR Heavy): Same problem at larger scale
+Class II ships have generous range for cislunar operations (verified via `computeMaxRange`):
 
-The cislunar destinations (Forge Station at 326K km, Graveyard Drift at 384K km, Tycho Colony at 384K km) all require fuel far exceeding Class II tank capacity for round trips.
+| Ship | Max Range | Key Destinations |
+|---|---|---|
+| Station Keeper | ~424K km | Gateway, Meridian, Graveyard (round-trip), Tycho |
+| Wayfarer | ~3.07M km | All cislunar incl. Freeport, Scatter |
+| Dreadnought | ~3.85M km | All cislunar with comfortable margins |
+| Firebrand | ~56M km | Mars, inner belt |
+| Leviathan | ~84M km | Jupiter system |
 
-**Impact:** Class II ships can essentially only shuttle between Earth/Gateway. They cannot access any mining locations. The Dreadnought's dual mining bays are useless because it can't reach mining locations. This creates a "dead zone" between Class I (Gateway runs) and Class III (everything else).
+Class II comfortably reaches all mining locations in cislunar space (Graveyard Drift, Tycho Colony, The Scatter). The `quest-economics-validation.md` doc references outdated fuel capacities (28K kg vs current 150K kg for Wayfarer) and should be updated to reflect current ship data.
 
-**Recommendation:** Either:
-- Increase Class II fuel capacity significantly (3-5x current values)
-- Add intermediate refueling stations within Class II range
-- Reduce piloting requirements so Class I can do Gateway→Meridian runs
-- Accept this as intended and clearly communicate the progression gap to players
+### 4.2 Dreadnought Price vs Capability Gap (MODERATE)
 
-### 4.2 Dreadnought Is a Trap Purchase (HIGH)
+**Issue:** The Dreadnought costs 45M cr + 200 Ti + 50 Pt. While it can reach cislunar mining locations (unlike previously claimed), the ore cost creates a chicken-and-egg problem: you need Titanium and Platinum to buy it, which requires mining at Tycho Colony (piloting 30) or The Scatter (piloting 45). A Wayfarer can reach these locations, but the player needs to have already engaged with mining to accumulate the ore.
 
-**Issue:** The Dreadnought costs 45M cr + 200 Ti + 50 Pt (requiring mining access the ship itself cannot reach). It has:
-- 2 mining bays (4 mining slots)
-- 80,000 kg cargo capacity
-- Rotating habitat
-- 12 max crew
-
-But it cannot reach any mining location (Graveyard Drift requires piloting 15 + range it doesn't have). Its 500K kg mass makes it fuel-hungry. Its only viable route (Earth↔Gateway) doesn't utilize any of its mining/industrial features.
+This is likely **intentional** — ore costs gate the Dreadnought behind mining activity — but the progression path should be clearly communicated to players. The Wayfarer is the intended mining bootstrap ship.
 
 **Cost comparison:**
-- Dreadnought: 45M + ore, can do Gateway runs for ~68K-105K cr/trip
-- Wayfarer: 8.5M, can do same Gateway runs for ~44K-68K cr/trip
-- Firebrand: 120M + ore, can reach Mars/Vesta/everything
+- Wayfarer: 8.5M credits, no ore — first mining-capable ship
+- Dreadnought: 45M + ore — mining specialist upgrade after proving mining capability
+- Firebrand: 120M + more ore — torch ship for Mars and beyond
 
-The Dreadnought occupies a dead zone between affordable (Wayfarer) and capable (Firebrand).
-
-**Recommendation:** Either increase Dreadnought's range to reach cislunar mining locations, or reduce its price to make it a stepping stone purchase.
+This progression makes sense but the 5.3x price jump (8.5M → 45M) plus ore requirements is steep.
 
 ### 4.3 Ship Unlock Thresholds Are Inconsistent
 
@@ -278,24 +268,21 @@ The Station Keeper → Wayfarer progression works well:
 - Gateway runs: ~6-9K cr/trip, ~20 min real time → Wayfarer in ~2-3 hours of play
 - This feels appropriate for an idle game early loop
 
-### 5.2 Mid-Game Stalls at Class II→III Transition
+### 5.2 Mid-Game Class II→III Transition Is a Long Grind (MODERATE)
 
 **Issue:** The jump from Class II to Class III requires:
 - 50M lifetime credits (unlock)
 - 120M credits (Firebrand price)
 - 300 Titanium Ore + 100 Platinum Ore (mining resources)
 
-But Class II ships can't reach mining locations (see 4.1). Players must either:
-1. Grind Gateway runs at ~50K cr/trip → ~2,400 trips for 120M → hundreds of hours
-2. Somehow access mining (which requires... Class III)
+Class II ships **can** reach mining locations (Tycho Colony, The Scatter, Graveyard Drift), so ore collection is possible. However, the credit grind is steep — a Wayfarer earns ~45-69K cr per Gateway trade trip, requiring ~1,700-2,700 trips (or significant mining income) to afford the Firebrand. At ~10 minutes per trip, that's 280-450 real hours of Gateway runs alone.
 
-This creates a catch-22: you need mining resources to buy the ship that lets you mine.
+Mining with a Wayfarer at cislunar locations can accelerate this significantly, especially Platinum at The Scatter (120 cr/unit). But the combined credit + ore requirement creates a long mid-game plateau.
 
-**Recommendation:** This is the single most critical balance issue. Players will hit a wall at Class II and potentially abandon the game. Options:
-- Make Graveyard Drift reachable by Class II (reduce distance or increase Class II range)
-- Add a cislunar mining location within Class II range
-- Remove ore requirements from Firebrand (keep them for Leviathan)
-- Add ore trading at stations so players can buy ore with credits
+**Recommendation:** The progression path works mechanically (no catch-22), but the grind length may cause player dropout. Consider:
+- Making mining income more prominent in the mid-game progression narrative
+- Ensuring quest generation at cislunar locations provides competitive income
+- Reducing Firebrand ore requirements slightly (200 Ti + 75 Pt) to ease the gate
 
 ### 5.3 Skill Gating Creates Soft Locks
 
@@ -361,20 +348,20 @@ Starvation deals 3.0 HP/tick. At 100 HP, crew dies in ~33 ticks (33 real seconds
 
 ## 8. Priority Recommendations
 
-### P0 — Critical (Game-breaking progression issues)
+### P0 — Critical
 
-1. **Class II→III progression gap**: Class II ships cannot reach mining locations, creating a catch-22 where ore requirements for Class III require Class III to obtain
-2. **Commerce skill has no passive training**: Commerce is the captain's primary income skill but has zero training slots
+1. **Commerce skill has no passive training**: Commerce is the captain's primary income skill but has zero training slots
+2. **Piloting skill monopoly**: 8/12 job slots train piloting; redistribute to other skills
 
 ### P1 — High (Significant balance problems)
 
-3. **Piloting skill monopoly**: 8/12 job slots train piloting; redistribute to other skills
-4. **Dreadnought is a trap**: Expensive, can't reach mining locations, outperformed by cheaper ships
-5. **Mining dominates endgame**: 77x more profitable than trading at endgame; trade becomes irrelevant
+3. **Mining dominates endgame**: ~77x more profitable than trading at endgame; trade becomes irrelevant
+4. **Combat defense doesn't scale with ship tier**: Fully equipped Leviathan can lose to Jupiter pirates
+5. **Quest economics validation doc is stale**: References fuel capacities 5-60x smaller than current code; should be updated
 
 ### P2 — Moderate (Quality of life and polish)
 
-6. **Combat defense doesn't scale with ship tier**: Fully equipped Leviathan can lose to Jupiter pirates
+6. **Mid-game credit grind is long**: Class II→III transition requires ~300-450 real hours of Gateway trade runs
 7. **Crew salaries are negligible**: Never create economic pressure even at endgame
 8. **Ship unlock thresholds are redundant**: Already surpassed by the time you can afford the ship
 9. **Negotiation success rate is low**: Even at max commerce, 50% success feels unrewarding
