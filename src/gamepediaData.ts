@@ -1576,6 +1576,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
         heading: 'The Orrery Map',
         paragraphs: [
           'The [[navigation|Nav tab]] includes an orrery — a 2D map showing all orbital paths and current body positions. The orrery provides a visual overview of the solar system layout, letting you see at a glance which destinations are currently close together and which are far apart. Hover over any dot to see a tooltip with the location name and distance; click to select it and expand its details in the legend below.',
+          'Bodies with multiple satellites (like Earth) appear as a single dot with a pulsing ring indicator in the overview. Click the dot or the system button to drill into a focused cluster view showing all satellites at their proper orbital positions. Use the back button to return to the solar system overview.',
           'Use the orrery to build spatial intuition about orbital timing. When two destinations are on the same side of their parent body, travel between them is short. When they are on opposite sides, the trip is much longer. Your current location pulses red, and your flight destination glows blue.',
         ],
       },
