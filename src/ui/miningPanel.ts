@@ -35,7 +35,7 @@ import { estimateTripTime } from '../questGen';
 import { getDistanceBetween, canShipAccessLocation } from '../worldGen';
 import { formatCredits, formatMass, formatDistance } from '../formatting';
 export interface MiningPanelCallbacks {
-  onStartMiningRoute: (sellLocationId: string) => void;
+  onStartMiningRoute: (sellLocationId: string, mineLocationId?: string) => void;
   onCancelMiningRoute: () => void;
   onSelectMiningOre: (oreId: string | null) => void;
 }
