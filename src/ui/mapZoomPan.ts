@@ -36,11 +36,11 @@ export function setupMapZoomPan(
 
   function clampPan(): void {
     const rect = container.getBoundingClientRect();
-    // With transform-origin at 0 0, scale grows the SVG downward/right.
-    // Pan must be negative (shift content left/up) to reveal those regions.
-    // Valid range: [-(zoom-1)*width/zoom, 0] for each axis.
-    const minPX = -(rect.width * (currentZoom - 1)) / currentZoom;
-    const minPY = -(rect.height * (currentZoom - 1)) / currentZoom;
+    // With transform: translate(px,py) scale(z) and transform-origin: 0 0,
+    // panX is in screen pixels. Valid range keeps scaled content covering
+    // the container: [-(width * (zoom - 1)), 0] for each axis.
+    const minPX = -rect.width * (currentZoom - 1);
+    const minPY = -rect.height * (currentZoom - 1);
     panX = Math.max(minPX, Math.min(0, panX));
     panY = Math.max(minPY, Math.min(0, panY));
   }
@@ -145,8 +145,8 @@ export function setupMapZoomPan(
         wasDragging = true;
       }
       if (wasDragging) {
-        panX = dragStart.panX + dx / currentZoom;
-        panY = dragStart.panY + dy / currentZoom;
+        panX = dragStart.panX + dx;
+        panY = dragStart.panY + dy;
         applyTransform();
       }
     } else if (pointers.size === 2 && pinchStartDist > 0) {
