@@ -183,7 +183,7 @@ New hires are generated with archetype-weighted skill distributions:
 
 **Hire cost:** `baseCost + 20 × totalSkill^1.8`
 
-**Salary multiplier:** `1.0 + 0.5 × (totalSkill / 10)^1.6` — locked at hire time, never increases from post-hire training.
+**Salary multiplier:** `1.0 + 0.5 × (totalSkill / 10)^1.6` (capped at 10×) — recalculated dynamically from current skills. Training crew increases their wages over time.
 
 ---
 
@@ -308,4 +308,4 @@ See `docs/skill-training-design-research.md` for detailed rationale. Key choices
 4. **Flat event gains** — bypass diminishing returns, creating late-game value shift toward active play
 5. **Commerce is event-only** — the one skill with no passive job training, trained exclusively through completing contracts
 6. **Captain starts at zero** — the captain IS the player's progression arc
-7. **Salary locked at hire** — training crew after hiring is pure upside, rewarding long-term investment
+7. **Salary scales with skills** — training crew increases their wages (capped at 10×), creating ongoing economic pressure that balances skill progression

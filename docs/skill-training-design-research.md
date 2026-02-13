@@ -15,6 +15,7 @@ Skills improve by performing associated activities. You mine ore, your Mining im
 **Examples:** RuneScape, Melvor Idle, Skyrim, Idle Skilling
 
 **Strengths for idle games:**
+
 - Intuitively comprehensible — no tutorial needed for the core loop
 - Every action produces dual rewards (immediate output + long-term XP), making even routine play feel productive
 - Offline simulation is deterministic: "crew was in engine room for 8 hours → calculate 8 hours of Engineering XP"
@@ -22,6 +23,7 @@ Skills improve by performing associated activities. You mine ore, your Mining im
 - Creates meaningful crew placement decisions with long-term consequences
 
 **Weaknesses:**
+
 - Grinding and skill-spam: players optimize for XP/hour, not enjoyable gameplay
 - Over long periods, all characters converge toward similar profiles (everyone does everything)
 - Developing breadth is slow — crew can only train one skill at a time based on room assignment
@@ -34,6 +36,7 @@ Skills train via a real-time queue independent of gameplay activities. Your char
 **Examples:** EVE Online, Ogame, Torn City
 
 **Strengths for idle games:**
+
 - Purest idle fit — progression requires zero interaction beyond queue management
 - No grinding required; strategic planning replaces repetitive action
 - Offline calculation is trivially simple: `elapsed_time × sp_per_second`
@@ -41,6 +44,7 @@ Skills train via a real-time queue independent of gameplay activities. Your char
 - Strong character diversity (different training plans → different builds)
 
 **Weaknesses:**
+
 - Devastating for new player retention. EVE's own developers identified skill training as "one of the big roadblocks preventing new player retention." Players face weeks of real-time waiting before they can use basic capabilities.
 - Real-world time gating is psychologically punishing. CCP acknowledged "people were a lot more patient 22 years ago."
 - Encourages disengagement. EVE earned the nickname "Skill Queue Online" because many players' primary interaction was checking their queue.
@@ -54,6 +58,7 @@ One progression axis from doing activities. Another from allocating points, reso
 **Examples:** Starfield (skill points + usage challenges), Fable (typed XP + general XP pool), Idling to Rule the Gods (passive queue + clone automation)
 
 **Strengths for idle games:**
+
 - Offline results are both interesting (varied XP from activities) and predictable (banked skill points to spend)
 - Accumulated skill points create a "return to game" decision hook that pure coupled systems lack
 - Prevents extreme specialization without restricting it
@@ -61,6 +66,7 @@ One progression axis from doing activities. Another from allocating points, reso
 - Multiple progression velocities create satisfying rhythm
 
 **Weaknesses:**
+
 - More complex to explain and balance
 - Two systems can conflict — if one dominates, the other feels pointless
 - Decision paralysis from rare, permanent skill point allocation
@@ -144,16 +150,16 @@ In a decoupled or deeper hybrid system, I could queue up Engineering training fo
 
 ## Comparative Summary
 
-| Dimension | Coupled Only | Decoupled Only | Current Hybrid | Deeper Hybrid |
-|---|---|---|---|---|
-| Intuitive? | High | Moderate | High | Moderate |
-| Idle-friendly? | Good (already passive) | Perfect | Good | Good |
-| Strategic depth | Moderate (room choice) | Low (queue management) | High (room + points) | Higher (but more complex) |
-| New player experience | Good | Poor (time gates) | Good | Good |
-| Character diversity | Low (convergence) | High | Moderate-High | High |
-| Implementation cost | Already done | Major rework | Already done | Moderate rework |
-| Thematic fit | Strong ("learn by doing") | Weak (abstract queue) | Strong | Depends on design |
-| Balancing complexity | Low | Low | Moderate | High |
+| Dimension             | Coupled Only              | Decoupled Only         | Current Hybrid       | Deeper Hybrid             |
+| --------------------- | ------------------------- | ---------------------- | -------------------- | ------------------------- |
+| Intuitive?            | High                      | Moderate               | High                 | Moderate                  |
+| Idle-friendly?        | Good (already passive)    | Perfect                | Good                 | Good                      |
+| Strategic depth       | Moderate (room choice)    | Low (queue management) | High (room + points) | Higher (but more complex) |
+| New player experience | Good                      | Poor (time gates)      | Good                 | Good                      |
+| Character diversity   | Low (convergence)         | High                   | Moderate-High        | High                      |
+| Implementation cost   | Already done              | Major rework           | Already done         | Moderate rework           |
+| Thematic fit          | Strong ("learn by doing") | Weak (abstract queue)  | Strong               | Depends on design         |
+| Balancing complexity  | Low                       | Low                    | Moderate             | High                      |
 
 ---
 
@@ -177,15 +183,15 @@ The original recommendation was to keep the XP → level → skill point hybrid.
 
 Before the math, the game's time constants:
 
-| Unit | Ticks | Real Time |
-|------|-------|-----------|
-| 1 tick | 1 | 1 second |
-| 1 game day | 48 | 48 seconds |
-| 1 game month (30 days) | 1,440 | 24 minutes |
-| 1 game year | ~17,520 | ~4.9 hours |
-| 1 IRL day | 86,400 | 24 hours |
-| 1 IRL week | 604,800 | 7 days |
-| 1 IRL month | ~2,592,000 | ~30 days |
+| Unit                   | Ticks      | Real Time  |
+| ---------------------- | ---------- | ---------- |
+| 1 tick                 | 1          | 1 second   |
+| 1 game day             | 48         | 48 seconds |
+| 1 game month (30 days) | 1,440      | 24 minutes |
+| 1 game year            | ~17,520    | ~4.9 hours |
+| 1 IRL day              | 86,400     | 24 hours   |
+| 1 IRL week             | 604,800    | 7 days     |
+| 1 IRL month            | ~2,592,000 | ~30 days   |
 
 **Effective flight time fraction:** Ships aren't always in flight (docking, contract selection, player idle at dock). Estimate ~60% for active players, ~30% for casual players. At 60%: ~51,840 in-flight ticks per IRL day.
 
@@ -196,28 +202,33 @@ Before the math, the game's time constants:
 From industry research on successful idle games:
 
 **Session patterns:**
+
 - Average idle game session: ~8 minutes (480 ticks)
 - Average check-ins per day: 5.3
 - Total daily engagement: ~42 minutes
 
 **Retention data:**
+
 - Day 1 retention (top 25%): 42%
 - Day 7: 10-15%
 - Day 28: 5-10%
 - 80% of mobile players abandon within the first week
 
 **The engagement decay principle:** Ideal pacing matches the player's natural attention curve. Multiple resource systems should operate at different time scales:
+
 - Clock A caps every ~20 minutes (short check-in reward)
 - Clock B caps every ~5 hours (lunch/dinner check-in)
 - Clock C caps every ~2 days (weekly planning layer)
 
 **What kills retention:**
+
 1. Hitting a wall with no visible path forward
 2. Punishing absence (losing progress while away)
 3. Tedious mechanics that feel like wasted time
 4. Number novelty wearing off without new systems to discover
 
 **What sustains retention over months:**
+
 1. Multiple interacting systems requiring strategic rebalancing
 2. New mechanics "unfolding" over time (not just bigger numbers)
 3. Offline progress creating anticipation to return
@@ -252,6 +263,7 @@ At the 1-100 scale, a navigator training astrogation at skill 70 gains ~0.93 poi
 **Goal:** Reaching the 90s represents veteran status. Reaching 100 is mastery. Only crew who have flown with you for months reach these levels.
 
 **Target:**
+
 - Primary skill from 35 to 70: ~4 weeks (crew feels competent, player is hooked)
 - Primary skill from 70 to 80: ~3 additional weeks (experienced crew)
 - Primary skill from 80 to 90: ~2-3 additional months (veteran territory)
@@ -272,6 +284,7 @@ skill_gain = ROOM_RATE × (SKILL_CAP - current_skill) / SKILL_CAP × match_bonus
 ```
 
 Where:
+
 - `ROOM_RATE` = base learning rate for the room (see table below)
 - `SKILL_CAP` = 100
 - `current_skill` = continuous value (e.g. 63.4)
@@ -287,17 +300,17 @@ Where R = effective rate (ROOM_RATE × match_bonus) and t = in-flight ticks.
 
 ### Room Training Rates
 
-| Room | Skill Trained | ROOM_RATE | Rationale |
-|------|--------------|-----------|-----------|
-| Bridge | Piloting (or Astrogation for navigators) | 0.000040 | Active flight operations |
-| Engine Room | Engineering | 0.000040 | Keeping engines running |
-| Reactor Room | Engineering | 0.000060 | Higher-stakes environment, faster learning |
-| Point Defense Station | Strength | 0.000040 | Combat readiness drills |
-| Armory | Strength | 0.000020 | Equipment maintenance, less active |
-| Cantina | Charisma | 0.000020 | Social interaction, crew welfare |
-| Medbay | Loyalty | 0.000020 | Caring for crew, building trust |
-| Quarters | None | 0 | Resting |
-| Cargo Hold | None | 0 | Uncrewed room |
+| Room                  | Skill Trained                            | ROOM_RATE | Rationale                                  |
+| --------------------- | ---------------------------------------- | --------- | ------------------------------------------ |
+| Bridge                | Piloting (or Astrogation for navigators) | 0.000040  | Active flight operations                   |
+| Engine Room           | Engineering                              | 0.000040  | Keeping engines running                    |
+| Reactor Room          | Engineering                              | 0.000060  | Higher-stakes environment, faster learning |
+| Point Defense Station | Strength                                 | 0.000040  | Combat readiness drills                    |
+| Armory                | Strength                                 | 0.000020  | Equipment maintenance, less active         |
+| Cantina               | Charisma                                 | 0.000020  | Social interaction, crew welfare           |
+| Medbay                | Loyalty                                  | 0.000020  | Caring for crew, building trust            |
+| Quarters              | None                                     | 0         | Resting                                    |
+| Cargo Hold            | None                                     | 0         | Uncrewed room                              |
 
 ### Starting Skill Ranges
 
@@ -307,6 +320,7 @@ Crew members are generated with low starting skills — they're raw recruits, no
 - **Primary skill:** 20-40 (enough to get the role, not enough to be good at it)
 
 This creates a long growth arc with three distinct phases:
+
 - **Early game (20-50):** Fast gains, 2+ points/day. New crew ramp up quickly. Player is rewarded for playing.
 - **Mid game (50-80):** Steady gains, ~1 point/day. Crew are competent and improving. The "habit" phase.
 - **Late game (80-100):** Slow gains, days-to-weeks per point. Veteran crew. The "hobby" phase.
@@ -318,35 +332,35 @@ Using ROOM_RATE = 0.000040, match_bonus = 1.5 (effective R = 0.000060), 51,840 i
 **Navigator training astrogation (starting skill 35):**
 
 | Skill Range | Daily Gain | Days Per Point | IRL Period for 10 Points |
-|---|---|---|---|
-| 35 → 45 | ~2.02/day | ~0.5 days | ~5 days |
-| 45 → 55 | ~1.71/day | ~0.6 days | ~6 days |
-| 55 → 65 | ~1.40/day | ~0.7 days | ~7 days |
-| 65 → 75 | ~1.09/day | ~0.9 days | ~9 days |
-| 75 → 85 | ~0.78/day | ~1.3 days | ~13 days |
-| 85 → 90 | ~0.47/day | ~2.1 days | ~11 days |
-| 90 → 95 | ~0.31/day | ~3.2 days | ~16 days |
-| 95 → 100 | ~0.16/day | ~6.4 days | ~32 days |
+| ----------- | ---------- | -------------- | ------------------------ |
+| 35 → 45     | ~2.02/day  | ~0.5 days      | ~5 days                  |
+| 45 → 55     | ~1.71/day  | ~0.6 days      | ~6 days                  |
+| 55 → 65     | ~1.40/day  | ~0.7 days      | ~7 days                  |
+| 65 → 75     | ~1.09/day  | ~0.9 days      | ~9 days                  |
+| 75 → 85     | ~0.78/day  | ~1.3 days      | ~13 days                 |
+| 85 → 90     | ~0.47/day  | ~2.1 days      | ~11 days                 |
+| 90 → 95     | ~0.31/day  | ~3.2 days      | ~16 days                 |
+| 95 → 100    | ~0.16/day  | ~6.4 days      | ~32 days                 |
 
 **Summary milestones:**
 
-| Milestone | Cumulative IRL Time | Player Phase |
-|---|---|---|
-| Skill 50 | ~1 week | Hook (early gratification) |
-| Skill 70 | ~4 weeks | Habit (crew feels competent) |
-| Skill 80 | ~7 weeks | Experienced (crew are reliably good) |
-| Skill 90 | ~4 months | Veteran (long-term achievement) |
-| Skill 100 | ~12+ months | Mastery (aspirational, extremely rare) |
+| Milestone | Cumulative IRL Time | Player Phase                           |
+| --------- | ------------------- | -------------------------------------- |
+| Skill 50  | ~1 week             | Hook (early gratification)             |
+| Skill 70  | ~4 weeks            | Habit (crew feels competent)           |
+| Skill 80  | ~7 weeks            | Experienced (crew are reliably good)   |
+| Skill 90  | ~4 months           | Veteran (long-term achievement)        |
+| Skill 100 | ~12+ months         | Mastery (aspirational, extremely rare) |
 
 **Navigator training astrogation (starting skill 20, lowest roll):**
 
 | Milestone | Cumulative IRL Time |
-|---|---|
-| Skill 50 | ~2 weeks |
-| Skill 70 | ~5 weeks |
-| Skill 80 | ~9 weeks |
-| Skill 90 | ~5 months |
-| Skill 100 | ~14+ months |
+| --------- | ------------------- |
+| Skill 50  | ~2 weeks            |
+| Skill 70  | ~5 weeks            |
+| Skill 80  | ~9 weeks            |
+| Skill 90  | ~5 months           |
+| Skill 100 | ~14+ months         |
 
 **Why low starting skills work:** With the diminishing returns curve, low-skill crew develop fast. A skill-35 navigator gains 2+ points per day — multiple level-ups per session in the early game. This is the "hook" phase where idle games need to deliver rapid gratification. By skill 70 they're gaining ~1/day (the steady "habit" phase). By 90+, each point takes days — creating the long-term "hobby" attachment.
 
@@ -372,29 +386,29 @@ At the target rates, what does the player see when they return?
 
 **At skill 35 (early game, with match bonus):**
 
-| Check-in interval | Gain | Experience |
-|---|---|---|
-| 4 hours | ~0.34 | Visible fractional progress |
-| 12 hours | ~1.01 | Full integer gain |
-| 24 hours | ~2.02 | Two levels gained — exciting |
-| 1 week | ~14 | Massive jump — crew transformed |
+| Check-in interval | Gain  | Experience                      |
+| ----------------- | ----- | ------------------------------- |
+| 4 hours           | ~0.34 | Visible fractional progress     |
+| 12 hours          | ~1.01 | Full integer gain               |
+| 24 hours          | ~2.02 | Two levels gained — exciting    |
+| 1 week            | ~14   | Massive jump — crew transformed |
 
 **At skill 70 (mid game, with match bonus):**
 
-| Check-in interval | Gain | Experience |
-|---|---|---|
-| 4 hours | ~0.18 | Small but visible |
-| 12 hours | ~0.55 | Half a point — close to a level |
-| 24 hours | ~1.09 | Full integer gain — satisfying daily milestone |
-| 1 week | ~7.6 | Several levels — clear weekly progress |
+| Check-in interval | Gain  | Experience                                     |
+| ----------------- | ----- | ---------------------------------------------- |
+| 4 hours           | ~0.18 | Small but visible                              |
+| 12 hours          | ~0.55 | Half a point — close to a level                |
+| 24 hours          | ~1.09 | Full integer gain — satisfying daily milestone |
+| 1 week            | ~7.6  | Several levels — clear weekly progress         |
 
 **At skill 90 (late game, with match bonus):**
 
-| Check-in interval | Gain | Experience |
-|---|---|---|
-| 12 hours | ~0.16 | Barely visible |
-| 24 hours | ~0.31 | Slow, deliberate progress |
-| 1 week | ~2.2 | 2 points — each one hard-earned |
+| Check-in interval | Gain  | Experience                      |
+| ----------------- | ----- | ------------------------------- |
+| 12 hours          | ~0.16 | Barely visible                  |
+| 24 hours          | ~0.31 | Slow, deliberate progress       |
+| 1 week            | ~2.2  | 2 points — each one hard-earned |
 
 The wide starting range means early game is fast and exciting (2+ levels/day), mid game is steady (1 level/day), and late game is glacial (1 level every few days). This naturally matches the engagement decay curve — players check in frequently early on and see rapid gains, then settle into a daily habit, then become invested hobbyists watching each point inch upward.
 
@@ -404,15 +418,15 @@ The wide starting range means early game is fast and exciting (2+ levels/day), m
 
 Events provide direct skill gains that bypass the diminishing returns curve. These are flat amounts — they feel more impactful at higher skill levels, which is intentional (events become the primary mechanism for pushing past the diminishing returns wall).
 
-| Event | Who | Skill | Amount | Equivalent Passive Days (at skill 70) |
-|---|---|---|---|---|
-| Encounter evaded | Bridge crew | Astrogation | +2.0 | ~2 days |
-| Encounter negotiated | Negotiator | Charisma | +2.5 | ~3 days |
-| Encounter victory | Combat room crew | Strength | +3.0 | ~3 days |
-| Encounter harassment | All crew | Loyalty | +1.0 | ~1 day |
-| Encounter boarding | All crew | Loyalty +1.5, Strength +1.5 | — | ~2 days each |
-| Contract completed | All crew | Primary skill | +0.8 per leg | ~1 day |
-| First arrival at location | All crew | Astrogation | +2.0 | ~2 days |
+| Event                     | Who              | Skill                       | Amount       | Equivalent Passive Days (at skill 70) |
+| ------------------------- | ---------------- | --------------------------- | ------------ | ------------------------------------- |
+| Encounter evaded          | Bridge crew      | Astrogation                 | +2.0         | ~2 days                               |
+| Encounter negotiated      | Negotiator       | Charisma                    | +2.5         | ~3 days                               |
+| Encounter victory         | Combat room crew | Strength                    | +3.0         | ~3 days                               |
+| Encounter harassment      | All crew         | Loyalty                     | +1.0         | ~1 day                                |
+| Encounter boarding        | All crew         | Loyalty +1.5, Strength +1.5 | —            | ~2 days each                          |
+| Contract completed        | All crew         | Primary skill               | +0.8 per leg | ~1 day                                |
+| First arrival at location | All crew         | Astrogation                 | +2.0         | ~2 days                               |
 
 **Key design property:** Event gains are flat (not diminished by current skill level). At skill 35, an encounter evasion adds +2.0 against a passive rate of ~2.0/day — a nice 1-day spike. At skill 90, the same +2.0 equals ~6+ days of passive training — events become increasingly valuable as passive gains slow down. This creates a natural shift: early game is dominated by passive training, late game is dominated by events and achievements.
 
@@ -424,14 +438,14 @@ Events provide direct skill gains that bypass the diminishing returns curve. The
 
 The XP → level system remains but is repurposed:
 
-| Before | After |
-|---|---|
-| XP earned from room assignment | XP still earned (unchanged formula) |
-| Level up → skill point | Level up → no skill point |
-| Skill points spent manually | Skills train directly from room |
-| Level used for... nothing specific | Level used for salary tier, prestige display, UI badge |
+| Before                             | After                                     |
+| ---------------------------------- | ----------------------------------------- |
+| XP earned from room assignment     | XP still earned (unchanged formula)       |
+| Level up → skill point             | Level up → no skill point                 |
+| Skill points spent manually        | Skills train directly from room           |
+| Level used for... nothing specific | Level used for prestige display, UI badge |
 
-Levels become a **prestige indicator** — a badge of experience that shows how long a crew member has been active. They can drive salary tiers (higher level = higher salary expectation), hiring prestige (players prefer higher-level crew), and future systems (level requirements for advanced room assignments, officer ranks, etc.).
+Levels become a **prestige indicator** — a badge of experience that shows how long a crew member has been active. Salary scales dynamically with skill totals (not level). Levels can drive hiring prestige (players prefer higher-level crew) and future systems (level requirements for advanced room assignments, officer ranks, etc.).
 
 The `unspentSkillPoints` field is removed. The `spendSkillPoint()` function is removed. The crew tab no longer shows a point allocation panel.
 
@@ -448,7 +462,7 @@ The `unspentSkillPoints` field is removed. The `spendSkillPoint()` function is r
 
 **Cost:** Ship loses its navigator's encounter avoidance bonuses for the duration. This is the meaningful tradeoff. Cross-training is viable but expensive.
 
-**Observation:** Cross-training is actually *faster* than primary training at high levels because non-primary skills start lower (more headroom in the diminishing returns curve). Engineering 12 → 30 takes ~10 days, while astrogation 80 → 90 takes ~9 weeks. This is a natural and satisfying dynamic: breadth is quick, depth is slow.
+**Observation:** Cross-training is actually _faster_ than primary training at high levels because non-primary skills start lower (more headroom in the diminishing returns curve). Engineering 12 → 30 takes ~10 days, while astrogation 80 → 90 takes ~9 weeks. This is a natural and satisfying dynamic: breadth is quick, depth is slow.
 
 ---
 
@@ -472,7 +486,7 @@ The tooltip showing the training rate and projected time to next integer serves 
 ```typescript
 // CrewSkills: values become floats in the 1-100 range (e.g., 63.4)
 // CrewMember: Remove unspentSkillPoints field
-// xp and level remain (prestige/salary purposes)
+// xp and level remain (prestige purposes; salary scales with skill totals)
 
 // Gameplay formulas need rescaling for the 1-100 range.
 // The simplest approach: divide by 10 where old formulas expected 1-10.
@@ -496,29 +510,30 @@ Skills never decrease. This is critical for idle game retention. The research st
 
 ### Recommendation: Direct skill training with diminishing returns, targeting months-long progression.
 
-**Model:** Room assignment directly trains the room's associated skill. No XP → level → point intermediary for skill growth. Levels remain as a prestige/salary indicator.
+**Model:** Room assignment directly trains the room's associated skill. No XP → level → point intermediary for skill growth. Levels remain as a prestige indicator (salary scales dynamically with skill totals).
 
 **Formula:** `gain/tick = ROOM_RATE × (100 - current) / 100 × match_bonus`
 
 **Pacing targets:**
 
-| Clock | Horizon | What the player sees |
-|---|---|---|
-| Short (per check-in) | Hours | Integer skill gains every 1-2 days at mid-range |
-| Medium (weekly) | Weeks | ~5-7 points gained, approaching decade milestones (70, 80, 90) |
-| Long (monthly) | Months | Decade milestones, crew reaching veteran/mastery status |
+| Clock                | Horizon | What the player sees                                           |
+| -------------------- | ------- | -------------------------------------------------------------- |
+| Short (per check-in) | Hours   | Integer skill gains every 1-2 days at mid-range                |
+| Medium (weekly)      | Weeks   | ~5-7 points gained, approaching decade milestones (70, 80, 90) |
+| Long (monthly)       | Months  | Decade milestones, crew reaching veteran/mastery status        |
 
 **Key timelines (active player, primary skill starting ~35):**
 
 | Milestone | Cumulative IRL Time |
-|---|---|
-| Skill 50 | ~1 week |
-| Skill 70 | ~4 weeks |
-| Skill 80 | ~7 weeks |
-| Skill 90 | ~4 months |
-| Skill 100 | ~12+ months |
+| --------- | ------------------- |
+| Skill 50  | ~1 week             |
+| Skill 70  | ~4 weeks            |
+| Skill 80  | ~7 weeks            |
+| Skill 90  | ~4 months           |
+| Skill 100 | ~12+ months         |
 
 **Why this works:**
+
 1. Most emergent — skill state is a pure reflection of crew history
 2. Most idle — zero player interaction required for progression
 3. Clear strategic tradeoff — room placement determines development, cross-training has real cost
