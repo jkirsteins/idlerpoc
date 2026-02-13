@@ -633,6 +633,16 @@ export function createWorkTab(
 
     card.appendChild(buttonContainer);
 
+    // Details toggle button (visible only on mobile via CSS)
+    const detailsToggle = document.createElement('button');
+    detailsToggle.className = 'quest-details-toggle';
+    detailsToggle.textContent = 'Show Details';
+    detailsToggle.addEventListener('click', () => {
+      const expanded = details.classList.toggle('quest-details-expanded');
+      detailsToggle.textContent = expanded ? 'Hide Details' : 'Show Details';
+    });
+    card.appendChild(detailsToggle);
+
     // Warnings div (soft warnings that don't block acceptance)
     const warningsDiv = document.createElement('div');
     warningsDiv.className = 'quest-warnings';

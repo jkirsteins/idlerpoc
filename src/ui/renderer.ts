@@ -28,6 +28,8 @@ import {
   getProvisionsSurvivalDays,
 } from '../provisionsSystem';
 import { formatMass } from '../formatting';
+import { formatGameDate } from '../timeSystem';
+import { calculateDailyLedger } from '../dailyLedger';
 import type { PlayingTab } from './types';
 
 export type { PlayingTab } from './types';
@@ -120,7 +122,7 @@ export interface RendererCallbacks {
 interface MountedPlayingLayout {
   container: HTMLElement;
   wrapper: HTMLElement;
-  mobileHeaderBar: HTMLElement;
+  mobileHeaderBar: Component;
   drawerOverlay: HTMLElement;
   mobileDrawer: HTMLElement;
   drawerSidebar: Component;
@@ -281,9 +283,9 @@ function mountPlayingLayout(
     onTabChange: callbacks.onTabChange,
   };
 
-  // Mobile header bar
-  const mobileHeaderBar = buildMobileHeaderBar(state.gameData, callbacks);
-  wrapper.appendChild(mobileHeaderBar);
+  // Mobile header bar (mount-once component)
+  const mobileHeaderBar = createMobileHeaderBar(state.gameData, callbacks);
+  wrapper.appendChild(mobileHeaderBar.el);
 
   // Mobile drawer overlay
   const drawerOverlay = document.createElement('div');
@@ -431,12 +433,10 @@ function mountPlayingLayout(
 function updatePlayingLayout(
   layout: MountedPlayingLayout,
   state: GameState & { phase: 'playing' },
-  callbacks: RendererCallbacks
+  _callbacks: RendererCallbacks
 ): void {
-  // Mobile header bar: cheap, just rebuild content
-  layout.mobileHeaderBar.replaceChildren(
-    ...buildMobileHeaderBarChildren(state.gameData, callbacks)
-  );
+  // Mobile header bar: patch in-place
+  layout.mobileHeaderBar.update(state.gameData);
 
   // Drawer sidebar
   layout.drawerSidebar.update(state.gameData);
@@ -452,8 +452,10 @@ function updatePlayingLayout(
     selectedCrewId: state.selectedCrewId,
   });
 
-  // Toasts
-  layout.toastArea.replaceChildren();
+  // Toasts — clear children without replaceChildren() to preserve touch state
+  while (layout.toastArea.firstChild) {
+    layout.toastArea.removeChild(layout.toastArea.firstChild);
+  }
   if (state.toasts && state.toasts.length > 0) {
     layout.toastArea.appendChild(renderToasts(state.toasts));
   }
@@ -478,7 +480,7 @@ function makePlaceholderMounted(
   return {
     container,
     wrapper,
-    mobileHeaderBar: dummy,
+    mobileHeaderBar: dummyComp,
     drawerOverlay: dummy,
     mobileDrawer: dummy,
     drawerSidebar: dummyComp,
@@ -492,25 +494,18 @@ function makePlaceholderMounted(
   };
 }
 
-function buildMobileHeaderBar(
+function createMobileHeaderBar(
   gameData: GameData,
   callbacks: RendererCallbacks
-): HTMLElement {
+): Component {
   const bar = document.createElement('div');
   bar.className = 'mobile-header-bar';
-  bar.append(...buildMobileHeaderBarChildren(gameData, callbacks));
-  return bar;
-}
 
-function buildMobileHeaderBarChildren(
-  gameData: GameData,
-  callbacks: RendererCallbacks
-): HTMLElement[] {
-  const ship = getActiveShip(gameData);
+  // ── Row 1: hamburger | stats | play/pause ──────────────────────
 
   const hamburger = document.createElement('button');
   hamburger.className = 'mobile-hamburger';
-  hamburger.innerHTML = '\u2630';
+  hamburger.textContent = '\u2630';
   hamburger.addEventListener('click', () => {
     mobileDrawerOpen = !mobileDrawerOpen;
     const drawer = hamburger
@@ -522,39 +517,185 @@ function buildMobileHeaderBarChildren(
     if (drawer) drawer.classList.toggle('open', mobileDrawerOpen);
     if (overlay) overlay.classList.toggle('open', mobileDrawerOpen);
   });
+  bar.appendChild(hamburger);
 
-  const credits = document.createElement('div');
-  credits.className = 'mobile-header-stat';
-  credits.innerHTML = `<span class="mobile-header-label">CR</span> <span class="mobile-header-value">${Math.round(gameData.credits).toLocaleString()}</span>`;
+  // Credits stat
+  const creditsStat = document.createElement('div');
+  creditsStat.className = 'mobile-header-stat';
+  const creditsLabel = document.createElement('span');
+  creditsLabel.className = 'mobile-header-label';
+  creditsLabel.textContent = 'CR';
+  const creditsValueSpan = document.createElement('span');
+  creditsValueSpan.className = 'mobile-header-value';
+  const creditsRateSpan = document.createElement('span');
+  creditsRateSpan.className = 'mobile-header-rate';
+  creditsStat.appendChild(creditsLabel);
+  creditsStat.appendChild(document.createTextNode(' '));
+  creditsStat.appendChild(creditsValueSpan);
+  creditsStat.appendChild(creditsRateSpan);
+  bar.appendChild(creditsStat);
 
-  const fuel = document.createElement('div');
-  fuel.className = 'mobile-header-stat';
-  const fuelPercentage = calculateFuelPercentage(ship.fuelKg, ship.maxFuelKg);
-  const fuelColor = getFuelColorHex(fuelPercentage);
-  fuel.innerHTML = `<span class="mobile-header-label">FUEL</span> <span class="mobile-header-value" style="color:${fuelColor}">${formatFuelMass(ship.fuelKg)}</span>`;
+  // Fuel stat
+  const fuelStat = document.createElement('div');
+  fuelStat.className = 'mobile-header-stat';
+  const fuelLabel = document.createElement('span');
+  fuelLabel.className = 'mobile-header-label';
+  fuelLabel.textContent = 'FUEL';
+  const fuelValueSpan = document.createElement('span');
+  fuelValueSpan.className = 'mobile-header-value';
+  const fuelStatusSpan = document.createElement('span');
+  fuelStatusSpan.className = 'mobile-header-fuel-status';
+  fuelStat.appendChild(fuelLabel);
+  fuelStat.appendChild(document.createTextNode(' '));
+  fuelStat.appendChild(fuelValueSpan);
+  fuelStat.appendChild(fuelStatusSpan);
+  bar.appendChild(fuelStat);
 
-  const provisions = document.createElement('div');
-  provisions.className = 'mobile-header-stat';
-  const maxProv = getMaxProvisionsKg(ship);
-  const provPct =
-    maxProv > 0 ? Math.min(100, (ship.provisionsKg / maxProv) * 100) : 0;
-  const provColor =
-    ship.crew.length === 0 ? '#555' : getProvisionsColorHex(provPct);
-  const provDays = getProvisionsSurvivalDays(ship);
-  const provLabel =
-    ship.crew.length > 0 && provDays < Infinity
-      ? `${Math.ceil(provDays)}d`
-      : formatMass(Math.round(ship.provisionsKg));
-  provisions.innerHTML = `<span class="mobile-header-label">PROV</span> <span class="mobile-header-value" style="color:${provColor}">${provLabel}</span>`;
+  // Provisions stat
+  const provStat = document.createElement('div');
+  provStat.className = 'mobile-header-stat';
+  const provLabel = document.createElement('span');
+  provLabel.className = 'mobile-header-label';
+  provLabel.textContent = 'PROV';
+  const provValueSpan = document.createElement('span');
+  provValueSpan.className = 'mobile-header-value';
+  provStat.appendChild(provLabel);
+  provStat.appendChild(document.createTextNode(' '));
+  provStat.appendChild(provValueSpan);
+  bar.appendChild(provStat);
 
-  const playPause = document.createElement('button');
-  playPause.className = 'mobile-header-playpause';
-  playPause.textContent = gameData.isPaused ? '\u25B6' : '\u23F8';
-  playPause.addEventListener('click', () => {
+  // Play/pause button
+  const playPauseBtn = document.createElement('button');
+  playPauseBtn.className = 'mobile-header-playpause';
+  playPauseBtn.addEventListener('click', () => {
     if (callbacks.onTogglePause) callbacks.onTogglePause();
   });
+  bar.appendChild(playPauseBtn);
 
-  return [hamburger, credits, fuel, provisions, playPause];
+  // ── Row 2: date | location | speed controls ────────────────────
+
+  const infoRow = document.createElement('div');
+  infoRow.className = 'mobile-header-info-row';
+
+  const dateSpan = document.createElement('span');
+  dateSpan.className = 'mobile-header-date';
+  infoRow.appendChild(dateSpan);
+
+  const locationSpan = document.createElement('span');
+  locationSpan.className = 'mobile-header-location';
+  infoRow.appendChild(locationSpan);
+
+  const speedGroup = document.createElement('div');
+  speedGroup.className = 'mobile-header-speed';
+  const speedBtns: Array<{ btn: HTMLButtonElement; speed: 1 | 2 | 5 }> = [];
+  for (const s of [1, 2, 5] as const) {
+    const btn = document.createElement('button');
+    btn.className = 'mobile-speed-btn';
+    btn.textContent = `${s}x`;
+    btn.addEventListener('click', () => {
+      if (callbacks.onSetSpeed) callbacks.onSetSpeed(s);
+    });
+    speedGroup.appendChild(btn);
+    speedBtns.push({ btn, speed: s });
+  }
+  infoRow.appendChild(speedGroup);
+
+  bar.appendChild(infoRow);
+
+  // ── Update: patch in-place ─────────────────────────────────────
+
+  function update(gd: GameData): void {
+    const ship = getActiveShip(gd);
+
+    // Credits
+    creditsValueSpan.textContent = Math.round(gd.credits).toLocaleString();
+
+    // Net rate indicator
+    const ledger = calculateDailyLedger(gd);
+    if (ledger.netPerDay !== 0) {
+      const sign = ledger.netPerDay > 0 ? '+' : '';
+      creditsRateSpan.textContent = ` ${sign}${Math.round(ledger.netPerDay)}/d`;
+      creditsRateSpan.style.color =
+        ledger.netPerDay > 0 ? '#4caf50' : '#ff6b6b';
+      creditsRateSpan.style.display = '';
+    } else {
+      creditsRateSpan.style.display = 'none';
+    }
+
+    // Fuel
+    const fuelPct = calculateFuelPercentage(ship.fuelKg, ship.maxFuelKg);
+    const fuelColor = getFuelColorHex(fuelPct);
+    fuelValueSpan.textContent = formatFuelMass(ship.fuelKg);
+    fuelValueSpan.style.color = fuelColor;
+
+    // Fuel status text (color is not the sole indicator per UX guidelines)
+    if (fuelPct < 15) {
+      fuelStatusSpan.textContent = ' CRITICAL';
+      fuelStatusSpan.style.color = '#e94560';
+      fuelStatusSpan.style.display = '';
+    } else if (fuelPct < 25) {
+      fuelStatusSpan.textContent = ' LOW';
+      fuelStatusSpan.style.color = '#ffc107';
+      fuelStatusSpan.style.display = '';
+    } else {
+      fuelStatusSpan.style.display = 'none';
+    }
+
+    // Provisions
+    const maxProv = getMaxProvisionsKg(ship);
+    const provPct =
+      maxProv > 0 ? Math.min(100, (ship.provisionsKg / maxProv) * 100) : 0;
+    const provColor =
+      ship.crew.length === 0 ? '#555' : getProvisionsColorHex(provPct);
+    const provDays = getProvisionsSurvivalDays(ship);
+    provValueSpan.textContent =
+      ship.crew.length > 0 && provDays < Infinity
+        ? `${Math.ceil(provDays)}d`
+        : formatMass(Math.round(ship.provisionsKg));
+    provValueSpan.style.color = provColor;
+
+    // Play/pause
+    playPauseBtn.textContent = gd.isPaused ? '\u25B6' : '\u23F8';
+
+    // Date
+    dateSpan.textContent = formatGameDate(gd.gameTime);
+
+    // Location
+    if (ship.location.status === 'in_flight' && ship.activeFlightPlan) {
+      const origin = gd.world.locations.find(
+        (l) => l.id === ship.activeFlightPlan!.origin
+      );
+      const dest = gd.world.locations.find(
+        (l) => l.id === ship.activeFlightPlan!.destination
+      );
+      locationSpan.textContent = `${origin?.name || '?'} \u2192 ${dest?.name || '?'}`;
+    } else if (
+      ship.location.status === 'orbiting' &&
+      ship.location.orbitingAt
+    ) {
+      const loc = gd.world.locations.find(
+        (l) => l.id === ship.location.orbitingAt
+      );
+      locationSpan.textContent = `Orbiting ${loc?.name || 'Unknown'}`;
+    } else if (ship.location.dockedAt) {
+      const loc = gd.world.locations.find(
+        (l) => l.id === ship.location.dockedAt
+      );
+      locationSpan.textContent = loc?.name || 'Unknown';
+    } else {
+      locationSpan.textContent = 'In Space';
+    }
+
+    // Speed buttons
+    for (const { btn, speed } of speedBtns) {
+      btn.classList.toggle('active', gd.timeSpeed === speed);
+    }
+  }
+
+  // Initial render
+  update(gameData);
+
+  return { el: bar, update };
 }
 
 function renderNoGame(callbacks: RendererCallbacks): HTMLElement {
