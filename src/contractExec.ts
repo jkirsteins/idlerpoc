@@ -88,19 +88,6 @@ function tryAutoRefuelForLeg(
 }
 
 /**
- * Get location IDs where player ships are docked
- */
-function getDockedLocationIds(gameData: GameData): string[] {
-  const ids = new Set<string>();
-  for (const ship of gameData.ships) {
-    if (ship.location.status === 'docked' && ship.location.dockedAt) {
-      ids.add(ship.location.dockedAt);
-    }
-  }
-  return Array.from(ids);
-}
-
-/**
  * Regenerate quests if we've crossed a day boundary.
  * All non-trade-route quests are regenerated fresh each day.
  * Uses the full fleet for payment calculation so the reference ship
@@ -121,11 +108,9 @@ export function regenerateQuestsIfNewDay(gameData: GameData): void {
     // Inject rescue quests for stranded ships at all locations
     injectRescueQuests(gameData);
 
-    // Regenerate hireable crew only for stations with docked ships
-    const dockedIds = getDockedLocationIds(gameData);
+    // Regenerate hireable crew for all stations with hire service
     gameData.hireableCrewByLocation = generateHireableCrewByLocation(
-      gameData.world,
-      dockedIds
+      gameData.world
     );
   }
 }
