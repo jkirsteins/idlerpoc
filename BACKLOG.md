@@ -155,7 +155,7 @@ Remaining follow-up:
 ## Deferred Provisions & Efficiency Features
 
 - **Visual Efficiency Indicator**: Show health-based work efficiency multiplier on crew cards (e.g., "Efficiency: 71%"). Currently efficiency is applied behind the scenes but not surfaced to players directly.
-- **Provisions-Aware Freight Routes**: Mining routes check provisions before departing, but freight/trade routes do not. Consider adding the same provisions check to the freight route system.
+- ~~**Provisions-Aware Freight Routes**~~: **DONE** — All automated departures (contracts, trade routes, mining routes) now check provisions before departing. Contract legs pause if provisions won't last through the flight + 2-day buffer. Mining routes auto-return to sell station early. See `tryDepartNextLeg()` in `contractExec.ts` and `checkMiningRouteProvisionsReturn()` in `miningRoute.ts`.
 - **Starvation Morale Impact**: Starvation could also affect crew morale (field exists but is unused). Would create cascading effects: no food → low morale → desertions.
 
 ## Other Known Gaps

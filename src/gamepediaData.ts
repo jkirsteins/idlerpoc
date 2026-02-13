@@ -257,6 +257,14 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
           'Accepting a contract requires the [[job-slots|helm]] to be manned — make sure you have crew assigned to the helm before browsing the job board.',
         ],
       },
+      {
+        heading: 'Safety Gates',
+        paragraphs: [
+          'Before each automated departure, the game checks that your ship can safely complete the next leg. If any check fails, the contract pauses automatically and the game auto-pauses so you can fix the issue.',
+          'Three gates are checked in order: fuel (can you afford a refuel?), [[provisions|provisions]] (will food last through the flight plus a 2-day safety buffer?), and helm (is a crew member assigned?). If any gate fails, the ship stays docked and logs a warning explaining what needs to be fixed.',
+          'These safety gates prevent your crew from being stranded or starving during automated operations. You can resume the contract after resupplying fuel or provisions, or assigning crew to the helm.',
+        ],
+      },
     ],
     relatedArticles: [
       'credits-economy',
@@ -264,6 +272,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
       'launch-windows',
       'navigation',
       'commerce-skill',
+      'provisions',
     ],
   },
 
