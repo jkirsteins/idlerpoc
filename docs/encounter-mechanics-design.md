@@ -1,8 +1,8 @@
 # Encounter System: Mechanics Design Document
 
 **Author:** Game Designer
-**Status:** Design — Pending Implementation
-**Scope:** Phase B1 (Core Encounters) per phase_b.md
+**Status:** Implemented — see `src/encounterSystem.ts` and `src/combatSystem.ts`
+**Scope:** Phase B1 (Core Encounters)
 
 ---
 

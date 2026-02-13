@@ -760,7 +760,7 @@ The captain starts at zero skills. Hired crew arrive with archetype-weighted sta
 - Commerce: trained by captain/first officer completing trade routes, improves pay and fuel pricing
 - Piloting skill gates ship class access (Class II: 25, Class III: 50, Class IV: 75, Class V: 95)
 - Crew can shift roles by developing different skills (though rare)
-- See `docs/skill-system.md` for full details
+- See `src/skillProgression.ts` and `src/masterySystem.ts` for implementation
 
 ### Implementation Requirements
 

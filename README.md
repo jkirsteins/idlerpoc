@@ -182,8 +182,7 @@ npm run dev
   - 3 factions (Terran Alliance, Free Traders Guild, Kreth Collective)
   - 15 crew equipment items (weapons, tools, accessories, armor, gravity countermeasures, 6 mining equipment tiers)
   - 9 ore types with mining level requirements and location availability
-  - Progressive XP/leveling system (20 levels)
-  - 3-skill mastery system with per-item progression and mastery pool checkpoints (see `docs/skill-revamp-design.md`)
+  - 4-skill mastery system (Piloting, Mining, Commerce, Repairs) with per-item progression and mastery pool checkpoints
   - 13 world locations from LEO to Jupiter with 2D circular orbital mechanics
 
 ## Code Quality
