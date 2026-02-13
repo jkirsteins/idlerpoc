@@ -1,12 +1,17 @@
 import type { GameData, Ship, MiningRoute } from './models';
-import { startShipFlight } from './flightPhysics';
+import { startShipFlight, estimateFlightDurationTicks } from './flightPhysics';
 import { sellAllOre } from './miningSystem';
 import { getRemainingOreCapacity, getOreCargoWeight } from './miningSystem';
 import { addLog } from './logSystem';
-import { formatMiningRouteName } from './utils';
+import { formatMiningRouteName, getDistanceBetween } from './utils';
 import { getFuelPricePerKg } from './fuelPricing';
 import { formatFuelMass, calculateFuelPercentage } from './ui/fuelFormatting';
 import { formatCredits, formatMass } from './formatting';
+import {
+  getProvisionsSurvivalTicks,
+  getProvisionsSurvivalDays,
+} from './provisionsSystem';
+import { TICKS_PER_DAY } from './timeSystem';
 
 /**
  * Mining Route System
@@ -179,6 +184,83 @@ export function checkMiningRouteDeparture(
     gameData.gameTime,
     'mining_route',
     `Cargo full — departing to ${sellLocation.name} to sell ore`,
+    ship.name
+  );
+
+  return true;
+}
+
+// ─── Provisions Check: Auto-Return Before Starvation ────────────
+
+/** Safety buffer: depart early enough to arrive with this many days of food remaining. */
+const PROVISIONS_SAFETY_BUFFER_DAYS = 2;
+
+/**
+ * Called every tick during the mining phase.
+ * If remaining provisions won't last through the return trip + safety buffer,
+ * auto-depart to the sell station to resupply.
+ * Returns true if a departure was initiated.
+ */
+export function checkMiningRouteProvisionsReturn(
+  gameData: GameData,
+  ship: Ship
+): boolean {
+  const route = ship.miningRoute;
+  if (!route || route.status !== 'mining') return false;
+
+  const mineLocation = gameData.world.locations.find(
+    (l) => l.id === route.mineLocationId
+  );
+  const sellLocation = gameData.world.locations.find(
+    (l) => l.id === route.sellLocationId
+  );
+  if (!mineLocation || !sellLocation) return false;
+
+  const survivalTicks = getProvisionsSurvivalTicks(ship);
+  // Don't trigger if provisions are infinite (no crew)
+  if (!Number.isFinite(survivalTicks)) return false;
+
+  const distanceKm = getDistanceBetween(mineLocation, sellLocation);
+  const returnFlightTicks = estimateFlightDurationTicks(
+    ship,
+    distanceKm,
+    ship.flightProfileBurnFraction
+  );
+  const safetyBufferTicks = TICKS_PER_DAY * PROVISIONS_SAFETY_BUFFER_DAYS;
+
+  // Enough provisions — keep mining
+  if (survivalTicks > returnFlightTicks + safetyBufferTicks) return false;
+
+  // Try to start flight to sell station for resupply
+  const departed = startShipFlight(
+    ship,
+    mineLocation,
+    sellLocation,
+    true, // dock on arrival for auto-sell and provisions resupply
+    ship.flightProfileBurnFraction,
+    gameData.gameTime,
+    gameData.world
+  );
+
+  if (!departed) {
+    addLog(
+      gameData.log,
+      gameData.gameTime,
+      'mining_route',
+      `Mining route alert: provisions critical but helm unmanned. Assign crew to helm.`,
+      ship.name
+    );
+    return false;
+  }
+
+  route.status = 'selling';
+  const daysRemaining = Math.ceil(getProvisionsSurvivalDays(ship));
+
+  addLog(
+    gameData.log,
+    gameData.gameTime,
+    'mining_route',
+    `Low provisions (${daysRemaining} days remaining) — departing to ${sellLocation.name} to resupply`,
     ship.name
   );
 

@@ -338,6 +338,56 @@ export interface OrbitalFlightOptions {
 }
 
 /**
+ * Estimate flight duration in ticks for a given ship and distance,
+ * without starting a flight. Uses the same burn-coast-burn physics as
+ * initializeFlight() and includes engine warmup time.
+ *
+ * Used by mining route provisions checks to determine if there's enough
+ * food for the return trip.
+ */
+export function estimateFlightDurationTicks(
+  ship: Ship,
+  distanceKm: number,
+  burnFraction: number = 1.0
+): number {
+  const engineDef = getEngineDefinition(ship.engine.definitionId);
+  const shipClass = getShipClass(ship.classId);
+  if (!shipClass) return Infinity;
+
+  const clampedBurnFraction = Math.max(0.1, Math.min(1.0, burnFraction));
+  const currentMass = getCurrentShipMass(ship);
+  const dryMass = calculateDryMass(ship);
+  const thrust = engineDef.thrust;
+  const specificImpulse = getSpecificImpulse(engineDef);
+
+  const availableDeltaV = calculateDeltaV(
+    currentMass,
+    dryMass,
+    specificImpulse
+  );
+  const maxAllocatedDeltaV = Math.min(
+    availableDeltaV * 0.5,
+    0.5 * engineDef.maxDeltaV
+  );
+  const allocatedDeltaV = maxAllocatedDeltaV * clampedBurnFraction;
+
+  const initialAcceleration = thrust / currentMass;
+  const distanceMeters = distanceKm * 1000;
+
+  const { totalTime } = computeFlightTiming(
+    distanceMeters,
+    initialAcceleration,
+    allocatedDeltaV
+  );
+
+  // Convert flight time to ticks and add engine warmup
+  const flightTicks = Math.ceil(totalTime / GAME_SECONDS_PER_TICK);
+  const warmupTicks = Math.ceil(100 / engineDef.warmupRate);
+
+  return flightTicks + warmupTicks;
+}
+
+/**
  * Initialize a new flight from origin to destination.
  * Uses current ship mass (including fuel) for acceleration calculations.
  *

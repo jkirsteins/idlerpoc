@@ -34,12 +34,16 @@ import { applyPassiveTraining, logSkillUps } from './skillProgression';
 import { getCommandTrainingMultiplier } from './captainBonus';
 import { getCrewForJobType, isRoomStaffed, getCrewJobSlot } from './jobSlots';
 import { applyOxygenTick, getOxygenHealthDamage } from './lifeSupportSystem';
-import { applyProvisionsTick } from './provisionsSystem';
+import {
+  applyProvisionsTick,
+  getCrewHealthEfficiency,
+} from './provisionsSystem';
 import { processCrewDeaths, recordCrewDamage } from './crewDeath';
 import { checkStrandedShips } from './strandedSystem';
 import { applyMiningTick } from './miningSystem';
 import {
   checkMiningRouteDeparture,
+  checkMiningRouteProvisionsReturn,
   retryMiningRouteDeparture,
 } from './miningRoute';
 import { addLog } from './logSystem';
@@ -882,29 +886,9 @@ function applyShipTick(gameData: GameData, ship: Ship): boolean {
             );
           }
 
-          // Log cargo full warning (once per full-empty cycle)
-          if (miningResult.cargoFull) {
-            const wasLogging = ship.miningAccumulator?._cargoFullLogged;
-            if (!wasLogging) {
-              addLog(
-                gameData.log,
-                gameData.gameTime,
-                'cargo_full',
-                `${ship.name} cargo hold is full. Mining paused.`,
-                ship.name
-              );
-              if (!ship.miningAccumulator) ship.miningAccumulator = {};
-              ship.miningAccumulator['_cargoFullLogged'] = 1;
-            }
-
-            // Mining route: auto-depart to sell station when cargo full
-            checkMiningRouteDeparture(gameData, ship);
-          } else {
-            // Clear the flag when cargo has space again
-            if (ship.miningAccumulator?._cargoFullLogged) {
-              delete ship.miningAccumulator['_cargoFullLogged'];
-            }
-          }
+          handleMiningDepartureChecks(gameData, ship, miningResult.cargoFull);
+        } else if (ship.miningRoute?.status === 'mining') {
+          handleMiningDepartureChecks(gameData, ship, false);
         }
       }
     }
@@ -967,6 +951,49 @@ function applyShipTick(gameData: GameData, ship: Ship): boolean {
 }
 
 /**
+ * Handle mining route departure decisions: provisions-based early return
+ * or cargo-full departure to sell station.
+ */
+function handleMiningDepartureChecks(
+  gameData: GameData,
+  ship: Ship,
+  cargoFull: boolean
+): void {
+  // Provisions check takes priority over cargo-full check
+  if (
+    ship.miningRoute?.status === 'mining' &&
+    !cargoFull &&
+    checkMiningRouteProvisionsReturn(gameData, ship)
+  ) {
+    return; // Provisions departure initiated
+  }
+
+  if (cargoFull) {
+    // Log cargo full warning (once per full-empty cycle)
+    const wasLogging = ship.miningAccumulator?._cargoFullLogged;
+    if (!wasLogging) {
+      addLog(
+        gameData.log,
+        gameData.gameTime,
+        'cargo_full',
+        `${ship.name} cargo hold is full. Mining paused.`,
+        ship.name
+      );
+      if (!ship.miningAccumulator) ship.miningAccumulator = {};
+      ship.miningAccumulator['_cargoFullLogged'] = 1;
+    }
+
+    // Mining route: auto-depart to sell station when cargo full
+    checkMiningRouteDeparture(gameData, ship);
+  } else {
+    // Clear the flag when cargo has space again
+    if (ship.miningAccumulator?._cargoFullLogged) {
+      delete ship.miningAccumulator['_cargoFullLogged'];
+    }
+  }
+}
+
+/**
  * Apply one tick of crew repair activity.
  * Works in all ship states (docked, in_flight, orbiting).
  * Repair mastery: each equipment type repaired gains mastery XP for the repairer.
@@ -989,6 +1016,8 @@ function applyRepairTick(ship: Ship): boolean {
   let totalRepairPoints = 0;
   for (const eng of repairCrew) {
     let points = calculateRepairPoints(eng);
+    // Health efficiency — injured/starving crew repair slower
+    points *= getCrewHealthEfficiency(eng.health);
     // Pool bonus: +5% repair speed at 25%
     points *= 1 + poolSpeedBonus;
     // Pool bonus: +10% chance for bonus repair points at 95%

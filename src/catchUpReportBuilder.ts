@@ -354,6 +354,7 @@ export function buildCatchUpReport(
     'crew_departed',
     'crew_death',
     'gravity_warning',
+    'provisions_warning',
   ]);
   const otherHighlights = newLogs.filter((e) =>
     otherHighlightTypes.has(e.type)

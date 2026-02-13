@@ -58,7 +58,7 @@ npm run dev
   - Mastery pool bonuses at 10/25/50/95% full: XP boost, yield bonus, wear reduction, double-drop chance
   - Sell ore at any station with trade service — prices vary by location type and commerce skill
   - **Cargo progress bar**: visual fill level with mining rate, ETA to fill, and color-coded thresholds
-  - **Auto-sell mining routes**: set up idle-friendly mine→sell→return loop; destination picker shows profitability estimates (cr/hr) per station accounting for fill time and round-trip travel
+  - **Auto-sell mining routes**: set up idle-friendly mine→sell→return loop; destination picker shows profitability estimates (cr/hr) per station accounting for fill time and round-trip travel; provisions-aware auto-return departs early to resupply when food runs low
   - Route stats show trips, earnings, status, and average cr/hr
   - Active mining feedback: pulsing indicator when mining, status badges (MINING / IN TRANSIT / CARGO FULL / DOCKED / IDLE)
   - 8 mining locations from cislunar space (Graveyard Drift, Tycho Colony) through the Belt (The Crucible, Ceres) to Jupiter, with progressively valuable ores rewarding outward expansion
@@ -128,7 +128,8 @@ npm run dev
   - Provisions bar on Ship tab, left sidebar, and mobile header shows current supply and days remaining
   - Auto-resupply when docked at trade stations (targets 30 days of supplies)
   - Pricing scales with distance from Earth (0.50 cr/kg inner system → 1.25 cr/kg outer)
-  - Starvation health damage when provisions run out — crew can die
+  - Gradual starvation when provisions run out — crew lose health over 7 game days and become less efficient as health drops (sqrt curve: 50% HP → 71% efficiency)
+  - Health-based efficiency applies to all damage sources (starvation, radiation, combat, oxygen) — affects mining yield, skill training, and repair speed
   - Provisions mass competes with available cargo capacity, creating meaningful tradeoffs
   - Quest cards warn when provisions are insufficient for the round trip
 - **Crew Death**:

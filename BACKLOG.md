@@ -152,6 +152,12 @@ Remaining follow-up:
   - Requires combat equipment, skilled crew, and investigation capabilities
   - Could tie into encounter system, combat mechanics, reputation/faction features, and potential Investigation/Charisma skills
 
+## Deferred Provisions & Efficiency Features
+
+- **Visual Efficiency Indicator**: Show health-based work efficiency multiplier on crew cards (e.g., "Efficiency: 71%"). Currently efficiency is applied behind the scenes but not surfaced to players directly.
+- **Provisions-Aware Freight Routes**: Mining routes check provisions before departing, but freight/trade routes do not. Consider adding the same provisions check to the freight route system.
+- **Starvation Morale Impact**: Starvation could also affect crew morale (field exists but is unused). Would create cascading effects: no food → low morale → desertions.
+
 ## Other Known Gaps
 
 - ~~**Equipment Repair at Stations**~~: Resolved — repair job slots now work in all ship states (docked, in flight, orbiting).
