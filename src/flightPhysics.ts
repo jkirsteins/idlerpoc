@@ -4,7 +4,11 @@ import { getShipClass, type ShipClass } from './shipClasses';
 import { getDistanceBetween } from './utils';
 import { GAME_SECONDS_PER_TICK } from './timeSystem';
 import { isHelmManned } from './jobSlots';
-import { PROVISIONS_KG_PER_CREW_PER_DAY } from './provisionsSystem';
+import {
+  PROVISIONS_KG_PER_CREW_PER_DAY,
+  MAX_PROVISION_DAYS,
+  getEffectiveConsumptionPerCrewPerDay,
+} from './provisionsSystem';
 import {
   getLocationPosition,
   solveIntercept,
@@ -32,12 +36,6 @@ export const CREW_MASS_KG = 80; // ~80 kg per crew member
 export const CARGO_ITEM_MASS_KG = 10; // ~10 kg per cargo item (will be refined later)
 
 /**
- * Fraction of shared cargo volume allocated to fuel tanks.
- * Fuel and cargo compete for the same internal volume: 70% fuel, 30% cargo.
- */
-export const FUEL_CARGO_SPLIT = 0.7;
-
-/**
  * Calculate the dry mass of a ship — everything except fuel.
  * Includes hull, crew, cargo, and provisions.
  */
@@ -53,36 +51,23 @@ export function calculateDryMass(ship: Ship): number {
 }
 
 /**
- * Calculate fuel tank capacity based on ship class cargo capacity
+ * Calculate fuel tank capacity from the ship class's dedicated fuel tanks.
  *
- * Design Decision (from fuel-cargo-tradeoff-design.md):
- * Fuel tanks and cargo holds compete for the same internal volume.
- * We use a 70/30 split: 70% for fuel, 30% for cargo.
- *
- * This creates strategic range pressure and progression gameplay:
- * - Wayfarer (40,000 kg capacity) → 28,000 kg fuel → can reach Gateway but NOT Meridian
- * - Forces refueling stops at intermediate stations
- * - Creates demand for larger ships with more capacity
- *
- * Note: The 3:1 reaction mass ratio from WORLDRULES.md describes fuel CONSUMPTION
- * during missions, not tank capacity. Tank size is constrained by ship design.
+ * Fuel tanks are sized independently of cargo — each ship class has a
+ * fuelCapacity field tuned for its intended operating range (route-targeted).
  */
-export function calculateFuelTankCapacity(
-  cargoCapacity: number,
-  _engineDef: EngineDefinition
-): number {
-  return cargoCapacity * FUEL_CARGO_SPLIT;
+export function calculateFuelTankCapacity(shipClass: ShipClass): number {
+  return shipClass.fuelCapacity;
 }
 
 /**
- * Calculate available cargo capacity after fuel allocation.
- * This is the maximum cargo a ship can carry on a single trip.
- *
- * cargoCapacity is a shared pool: 70% fuel, 30% available for cargo.
- * All cargo validation should use this function instead of raw cargoCapacity.
+ * Calculate available cargo capacity for a ship class.
+ * With fuel in dedicated tanks, the full cargoCapacity is available
+ * for cargo and provisions. Provisions mass is subtracted separately
+ * by calculateShipAvailableCargo() for per-ship calculations.
  */
 export function calculateAvailableCargoCapacity(cargoCapacity: number): number {
-  return cargoCapacity * (1 - FUEL_CARGO_SPLIT);
+  return cargoCapacity;
 }
 
 /**
@@ -159,20 +144,38 @@ export function getSpecificImpulse(engineDef: EngineDefinition): number {
 }
 
 /**
- * Constants for mission endurance calculations
+ * Compute mission endurance based on consumable supplies, crew size,
+ * and recycling equipment.
+ *
+ * When called with a Ship, uses actual provisions on board and equipment-aware
+ * consumption rate. When called with a ShipClass, uses theoretical max
+ * provisions at base rate (for UI displays where no specific ship exists).
+ *
+ * Returns endurance in game seconds.
  */
-const CONSUMABLE_FRACTION = 0.3; // 30% of cargo capacity reserved for consumables
-
-/**
- * Compute mission endurance based on consumable supplies and crew size
- * Returns endurance in game seconds
- */
-export function computeMissionEndurance(shipClass: ShipClass): number {
-  const consumablesKg = shipClass.cargoCapacity * CONSUMABLE_FRACTION;
-  const ratePerCrew = PROVISIONS_KG_PER_CREW_PER_DAY;
-
-  const enduranceDays = consumablesKg / (shipClass.maxCrew * ratePerCrew);
-  return enduranceDays * 86400; // Convert to game seconds
+export function computeMissionEndurance(
+  shipClassOrShip: ShipClass | Ship
+): number {
+  if ('classId' in shipClassOrShip) {
+    // Ship path — use actual provisions and equipment-aware rate
+    const ship = shipClassOrShip;
+    const shipClass = getShipClass(ship.classId);
+    if (!shipClass) return 86400; // 1-day fallback
+    const consumablesKg =
+      ship.provisionsKg ||
+      ship.crew.length * PROVISIONS_KG_PER_CREW_PER_DAY * MAX_PROVISION_DAYS;
+    const ratePerCrew = getEffectiveConsumptionPerCrewPerDay(ship);
+    const crewCount = ship.crew.length || 1;
+    const enduranceDays = consumablesKg / (crewCount * ratePerCrew);
+    return enduranceDays * 86400;
+  }
+  // ShipClass path — theoretical max provisions at base rate (no recycling)
+  const shipClass = shipClassOrShip;
+  const consumablesKg =
+    shipClass.maxCrew * PROVISIONS_KG_PER_CREW_PER_DAY * MAX_PROVISION_DAYS;
+  const enduranceDays =
+    consumablesKg / (shipClass.maxCrew * PROVISIONS_KG_PER_CREW_PER_DAY);
+  return enduranceDays * 86400;
 }
 
 /**
@@ -186,10 +189,7 @@ export function computeMaxRange(
 ): number {
   const dryMass = shipClass.mass;
   const thrust = engineDef.thrust;
-  const maxFuelKg = calculateFuelTankCapacity(
-    shipClass.cargoCapacity,
-    engineDef
-  );
+  const maxFuelKg = shipClass.fuelCapacity;
   const specificImpulse = getSpecificImpulse(engineDef);
 
   // Calculate maximum delta-v with full fuel tank

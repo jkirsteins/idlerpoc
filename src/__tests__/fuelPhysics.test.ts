@@ -18,11 +18,9 @@ import { getEngineDefinition } from '../engines';
  *
  * Tests the realistic mass-based fuel system using the Tsiolkovsky rocket equation.
  *
- * NOTE: The implemented system uses 70% of cargo capacity for fuel tanks.
- * This creates the intended range pressure and progression gameplay:
- * - Wayfarer (40k cargo): 28k kg max fuel
- * - Can reach Gateway Station (~10k kg needed)
- * - Cannot reach Meridian or Mars without refueling
+ * Each ship class has a dedicated fuelCapacity sized for its intended routes:
+ * - Wayfarer: 150,000 kg fuel tank (Inner System range)
+ * - Range emerges from the interaction of engine Isp, ship mass, and fuel capacity
  */
 
 const G0 = 9.81; // Standard gravity
@@ -53,9 +51,9 @@ describe('Fuel Physics - Tsiolkovsky Rocket Equation', () => {
       expect(deltaV).toBeCloseTo(430.7, 0);
     });
 
-    it('should calculate higher delta-v with full tank (28k kg fuel)', () => {
+    it('should calculate higher delta-v with more fuel (28k kg example)', () => {
       const dryMass = 200000;
-      const fuelMass = 28000; // Full Wayfarer tank
+      const fuelMass = 28000;
       const wetMass = dryMass + fuelMass;
       const isp = 900;
 
@@ -144,66 +142,51 @@ describe('Fuel Physics - Tsiolkovsky Rocket Equation', () => {
     it('should show mass decreases as fuel is consumed', () => {
       const shipFull = createTestShip({
         classId: 'wayfarer',
-        fuelKg: 28000,
+        fuelKg: 150_000,
       });
 
       const shipHalf = createTestShip({
         classId: 'wayfarer',
-        fuelKg: 14000,
+        fuelKg: 75_000,
       });
 
       expect(getCurrentShipMass(shipFull)).toBeGreaterThan(
         getCurrentShipMass(shipHalf)
       );
       expect(getCurrentShipMass(shipFull) - getCurrentShipMass(shipHalf)).toBe(
-        14000
+        75_000
       );
     });
   });
 });
 
 describe('Fuel Physics - Tank Capacity', () => {
-  it('should calculate tank capacity as 70% of cargo capacity', () => {
+  it('should return the dedicated fuelCapacity from ship class', () => {
     const wayfarer = getShipClass('wayfarer')!;
-    const engineDef = getEngineDefinition('ntr_mk1');
 
-    const capacity = calculateFuelTankCapacity(
-      wayfarer.cargoCapacity,
-      engineDef
-    );
+    const capacity = calculateFuelTankCapacity(wayfarer);
 
-    // 40,000 kg × 0.7 = 28,000 kg
-    expect(capacity).toBe(28000);
+    expect(capacity).toBe(wayfarer.fuelCapacity);
+    expect(capacity).toBe(150_000);
   });
 
-  it('should scale properly for different ship classes', () => {
-    const engineDef = getEngineDefinition('ntr_mk1');
-
+  it('should have route-appropriate fuel capacities per ship class', () => {
     const stationKeeper = getShipClass('station_keeper')!;
     const wayfarer = getShipClass('wayfarer')!;
     const corsair = getShipClass('corsair')!;
 
-    const capacity1 = calculateFuelTankCapacity(
-      stationKeeper.cargoCapacity,
-      engineDef
-    );
-    const capacity2 = calculateFuelTankCapacity(
-      wayfarer.cargoCapacity,
-      engineDef
-    );
-    const capacity3 = calculateFuelTankCapacity(
-      corsair.cargoCapacity,
-      engineDef
-    );
+    const capacity1 = calculateFuelTankCapacity(stationKeeper);
+    const capacity2 = calculateFuelTankCapacity(wayfarer);
+    const capacity3 = calculateFuelTankCapacity(corsair);
 
-    // Larger cargo capacity → larger fuel tank
+    // Higher-tier ships have larger fuel tanks
     expect(capacity2).toBeGreaterThan(capacity1);
     expect(capacity3).toBeGreaterThan(capacity2);
 
-    // All should be 70% of cargo capacity
-    expect(capacity1).toBe(stationKeeper.cargoCapacity * 0.7);
-    expect(capacity2).toBe(wayfarer.cargoCapacity * 0.7);
-    expect(capacity3).toBe(corsair.cargoCapacity * 0.7);
+    // Each matches its dedicated fuelCapacity
+    expect(capacity1).toBe(stationKeeper.fuelCapacity);
+    expect(capacity2).toBe(wayfarer.fuelCapacity);
+    expect(capacity3).toBe(corsair.fuelCapacity);
   });
 });
 
@@ -283,13 +266,13 @@ describe('Fuel Physics - Integration with Flight System', () => {
     const shipEmpty = createTestShip({
       classId: 'wayfarer',
       fuelKg: 1000, // Minimal fuel
-      maxFuelKg: 28000,
+      maxFuelKg: 150_000,
     });
 
     const shipFull = createTestShip({
       classId: 'wayfarer',
-      fuelKg: 28000, // Full tank
-      maxFuelKg: 28000,
+      fuelKg: 150_000, // Full tank
+      maxFuelKg: 150_000,
     });
 
     const flightEmpty = initializeFlight(shipEmpty, earth, gateway);
@@ -315,7 +298,7 @@ describe('Fuel Physics - Integration with Flight System', () => {
     const ship = createTestShip({
       classId: 'wayfarer',
       fuelKg: 10000, // Should be enough for Gateway
-      maxFuelKg: 28000,
+      maxFuelKg: 150_000,
     });
 
     const flight = initializeFlight(ship, earth, gateway);
@@ -331,7 +314,7 @@ describe('Fuel Physics - Edge Cases', () => {
     const ship = createTestShip({
       classId: 'wayfarer',
       fuelKg: 0,
-      maxFuelKg: 28000,
+      maxFuelKg: 150_000,
     });
 
     const mass = getCurrentShipMass(ship);
@@ -345,8 +328,8 @@ describe('Fuel Physics - Edge Cases', () => {
   it('should handle maximum capacity', () => {
     const ship = createTestShip({
       classId: 'wayfarer',
-      fuelKg: 28000,
-      maxFuelKg: 28000,
+      fuelKg: 150_000,
+      maxFuelKg: 150_000,
     });
 
     expect(ship.fuelKg).toBeLessThanOrEqual(ship.maxFuelKg);
@@ -354,7 +337,7 @@ describe('Fuel Physics - Edge Cases', () => {
 
   it('should maintain precision with large fuel masses', () => {
     const dryMass = 1200000; // Leviathan
-    const fuelMass = 140000; // Full tank
+    const fuelMass = 400000; // Full Leviathan tank
     const wetMass = dryMass + fuelMass;
     const isp = 100000; // Fusion drive
 
@@ -370,14 +353,14 @@ describe('Fuel Physics - Edge Cases', () => {
 /**
  * Test Summary
  *
- * Implemented System (70% cargo capacity for fuel):
- * - Wayfarer: 28,000 kg max fuel
- * - Max delta-v: ~1,161 m/s (with full tank)
- * - Can reach: Gateway Station (~10k kg, ~430 m/s)
- * - Cannot reach: Meridian Depot or Mars without refueling
+ * Implemented System (dedicated fuelCapacity per ship class):
+ * - Wayfarer: 150,000 kg fuel tank (Inner System range)
+ * - Station Keeper: 8,000 kg (LEO/MEO range)
+ * - Corsair: 300,000 kg (Inner System+ range)
+ * - Dreadnought: 500,000 kg (Earth-Mars range)
+ * - Leviathan: 400,000 kg with fusion drive (Jupiter+ range)
  *
- * This creates strategic gameplay:
- * - Refueling stops required for long journeys
- * - Ship progression matters (larger ships have more fuel capacity)
- * - Range is truly emergent from ship systems
+ * Fuel tanks are independent of cargo capacity.
+ * Range emerges from engine Isp, ship mass, and fuel capacity.
+ * Refueling stops required for journeys beyond rated range.
  */

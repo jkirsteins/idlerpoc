@@ -296,7 +296,7 @@ describe('Mining Route System', () => {
 
       // Set fuel very low (below 30%) and give enough credits for refuel
       ship.fuelKg = ship.maxFuelKg * 0.1;
-      gameData.credits = 100_000;
+      gameData.credits = 500_000;
       ship.location = { status: 'docked', dockedAt: TRADE_LOCATION_ID };
       delete ship.activeFlightPlan;
 

@@ -21,6 +21,7 @@ export interface ShipClass {
   unlockThreshold: number; // Lifetime credits earned to unlock (0 = always available)
   rangeLabel: string; // Display flavor text (e.g., 'LEO/MEO', 'Inner System', 'Jupiter+')
   cargoCapacity: number;
+  fuelCapacity: number; // kg — dedicated fuel tank capacity, independent of cargo
   equipmentSlots: number; // deprecated, use equipmentSlotDefs
   equipmentSlotDefs: { tags: EquipmentSlotTag[] }[];
   features: ShipFeatureId[];
@@ -43,6 +44,7 @@ export const SHIP_CLASSES: ShipClass[] = [
     unlockThreshold: 0,
     rangeLabel: 'LEO/MEO',
     cargoCapacity: 5000,
+    fuelCapacity: 8_000, // Chemical engine, short orbital hops to GEO
     equipmentSlots: 4,
     equipmentSlotDefs: [
       { tags: ['standard'] },
@@ -74,6 +76,7 @@ export const SHIP_CLASSES: ShipClass[] = [
     unlockThreshold: 1_000_000,
     rangeLabel: 'Inner System',
     cargoCapacity: 40000,
+    fuelCapacity: 150_000, // NTR Mk1, reaches Freeport/Scatter cislunar
     equipmentSlots: 4,
     equipmentSlotDefs: [
       { tags: ['standard'] },
@@ -105,6 +108,7 @@ export const SHIP_CLASSES: ShipClass[] = [
     unlockThreshold: 1_000_000,
     rangeLabel: 'Inner System+',
     cargoCapacity: 60000,
+    fuelCapacity: 300_000, // NTR Mk2, reaches Mars at good alignment
     equipmentSlots: 5,
     equipmentSlotDefs: [
       { tags: ['standard'] },
@@ -138,6 +142,7 @@ export const SHIP_CLASSES: ShipClass[] = [
     unlockThreshold: 1_000_000,
     rangeLabel: 'Earth-Mars',
     cargoCapacity: 80000,
+    fuelCapacity: 500_000, // NTR Heavy, reliably reaches Mars
     equipmentSlots: 6,
     equipmentSlotDefs: [
       { tags: ['standard'] },
@@ -171,6 +176,7 @@ export const SHIP_CLASSES: ShipClass[] = [
     unlockThreshold: 1_000_000,
     rangeLabel: 'Inner System',
     cargoCapacity: 30000,
+    fuelCapacity: 200_000, // NTR Stealth, Scatter/Mars fringe
     equipmentSlots: 5,
     equipmentSlotDefs: [
       { tags: ['standard'] },
@@ -206,6 +212,7 @@ export const SHIP_CLASSES: ShipClass[] = [
     unlockThreshold: 50_000_000,
     rangeLabel: 'Mars',
     cargoCapacity: 100000,
+    fuelCapacity: 200_000, // Fusion D-D, high Isp needs less fuel for Vesta/Crucible
     equipmentSlots: 8,
     equipmentSlotDefs: [
       { tags: ['standard'] },
@@ -250,6 +257,7 @@ export const SHIP_CLASSES: ShipClass[] = [
     unlockThreshold: 50_000_000,
     rangeLabel: 'Jupiter+',
     cargoCapacity: 200000,
+    fuelCapacity: 400_000, // Fusion D-He3, highest Isp, deep system to Jupiter
     equipmentSlots: 10,
     equipmentSlotDefs: [
       { tags: ['standard'] },
