@@ -199,6 +199,18 @@ function countRoutePairs(gameData: GameData): number {
   return (n * (n - 1)) / 2;
 }
 
+/**
+ * Count total piloting mastery items: route pairs + gravity assist bodies.
+ * Both route mastery and gravity assist mastery share the piloting pool,
+ * so all callers must use the same count to prevent pool cap oscillation.
+ */
+export function countPilotingMasteryItems(gameData: GameData): number {
+  // Avoid importing GRAVITY_BODIES to prevent circular dependency;
+  // hardcoded count matches GRAVITY_BODIES.length in gravityAssistSystem.ts.
+  const GRAVITY_BODY_COUNT = 5;
+  return countRoutePairs(gameData) + GRAVITY_BODY_COUNT;
+}
+
 /** Base mastery XP per flight arrival / trip completion. */
 const PILOTING_MASTERY_XP_PER_FLIGHT = 100;
 const COMMERCE_MASTERY_XP_PER_TRIP = 100;
@@ -219,7 +231,7 @@ function awardPilotingRouteMastery(
 ): void {
   const helmCrew = getCrewForJobType(ship, 'helm');
   const key = routeMasteryKey(originId, destId);
-  const totalRoutes = countRoutePairs(gameData);
+  const totalItems = countPilotingMasteryItems(gameData);
 
   for (const crew of helmCrew) {
     awardMasteryXp(
@@ -227,7 +239,7 @@ function awardPilotingRouteMastery(
       key,
       PILOTING_MASTERY_XP_PER_FLIGHT,
       Math.floor(crew.skills.piloting),
-      totalRoutes
+      totalItems
     );
   }
 }

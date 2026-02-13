@@ -152,6 +152,23 @@ export const EQUIPMENT_REPAIR_MASTERY_BONUSES: MasteryBonus[] = [
   { level: 99, label: '+40% repair speed' },
 ];
 
+/** Gravity assist body mastery bonuses (piloting — per body) */
+export const GRAVITY_ASSIST_MASTERY_BONUSES: MasteryBonus[] = [
+  { level: 10, label: '+5% success chance' },
+  { level: 25, label: '+10% success, +5% fuel refund' },
+  { level: 40, label: '+15% success, +10% fuel refund' },
+  { level: 50, label: '-25% failure penalty' },
+  { level: 65, label: '+20% success, +15% fuel refund' },
+  { level: 80, label: '+25% success, -50% failure penalty' },
+  { level: 99, label: '+30% success, +25% fuel refund, -75% penalty' },
+];
+
+/** Mastery XP awarded for a successful gravity assist. */
+export const GRAVITY_ASSIST_MASTERY_XP_SUCCESS = 150;
+
+/** Mastery XP awarded for a failed gravity assist (learn from mistakes). */
+export const GRAVITY_ASSIST_MASTERY_XP_FAILURE = 50;
+
 // ─── Computed Bonus Helpers ──────────────────────────────────────
 
 /** Get the ore yield bonus from mastery level (multiplicative, e.g. 0.10 = +10%). */
@@ -215,6 +232,40 @@ export function getTradeRouteMasteryPayBonus(masteryLevel: number): number {
   if (masteryLevel >= 40) return 0.08;
   if (masteryLevel >= 25) return 0.05;
   if (masteryLevel >= 10) return 0.03;
+  return 0;
+}
+
+/** Get the additive success chance bonus from gravity assist body mastery (e.g. 0.10 = +10%). */
+export function getGravityAssistMasterySuccessBonus(
+  masteryLevel: number
+): number {
+  if (masteryLevel >= 99) return 0.3;
+  if (masteryLevel >= 80) return 0.25;
+  if (masteryLevel >= 65) return 0.2;
+  if (masteryLevel >= 40) return 0.15;
+  if (masteryLevel >= 25) return 0.1;
+  if (masteryLevel >= 10) return 0.05;
+  return 0;
+}
+
+/** Get the fuel refund multiplier bonus from gravity assist body mastery (e.g. 0.15 = +15%). */
+export function getGravityAssistMasteryRefundBonus(
+  masteryLevel: number
+): number {
+  if (masteryLevel >= 99) return 0.25;
+  if (masteryLevel >= 65) return 0.15;
+  if (masteryLevel >= 40) return 0.1;
+  if (masteryLevel >= 25) return 0.05;
+  return 0;
+}
+
+/** Get the failure penalty reduction from gravity assist body mastery (e.g. 0.50 = -50%). */
+export function getGravityAssistMasteryPenaltyReduction(
+  masteryLevel: number
+): number {
+  if (masteryLevel >= 99) return 0.75;
+  if (masteryLevel >= 80) return 0.5;
+  if (masteryLevel >= 50) return 0.25;
   return 0;
 }
 
@@ -464,4 +515,9 @@ export function tradeRouteMasteryKey(
 ): string {
   const pair = [originId, destinationId].sort();
   return `${pair[0]}<=>${pair[1]}`;
+}
+
+/** Generate a mastery key for a gravity assist body (prefixed to avoid collisions with route keys). */
+export function gravityAssistMasteryKey(bodyId: string): string {
+  return `ga:${bodyId}`;
 }

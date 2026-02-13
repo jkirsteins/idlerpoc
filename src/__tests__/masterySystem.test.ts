@@ -6,6 +6,7 @@ import {
   spendPoolXpOnItem,
   routeMasteryKey,
   tradeRouteMasteryKey,
+  gravityAssistMasteryKey,
   isCheckpointActive,
   getPoolFillPercent,
   getCheckpointBonuses,
@@ -14,6 +15,9 @@ import {
   getRouteMasteryFuelBonus,
   getTradeRouteMasteryPayBonus,
   getOreMasteryYieldBonus,
+  getGravityAssistMasterySuccessBonus,
+  getGravityAssistMasteryRefundBonus,
+  getGravityAssistMasteryPenaltyReduction,
 } from '../masterySystem';
 
 describe('Mastery System', () => {
@@ -284,6 +288,75 @@ describe('Mastery System', () => {
       expect(getOreMasteryYieldBonus(99)).toBeGreaterThan(
         getOreMasteryYieldBonus(10)
       );
+    });
+  });
+
+  // ── Gravity Assist Mastery ──────────────────────────────────────
+
+  describe('gravityAssistMasteryKey', () => {
+    it('produces a ga: prefixed key', () => {
+      expect(gravityAssistMasteryKey('earth')).toBe('ga:earth');
+      expect(gravityAssistMasteryKey('jupiter_station')).toBe(
+        'ga:jupiter_station'
+      );
+    });
+  });
+
+  describe('getGravityAssistMasterySuccessBonus', () => {
+    it('returns 0 at low levels', () => {
+      expect(getGravityAssistMasterySuccessBonus(0)).toBe(0);
+      expect(getGravityAssistMasterySuccessBonus(9)).toBe(0);
+    });
+
+    it('increases with mastery level', () => {
+      expect(getGravityAssistMasterySuccessBonus(10)).toBeGreaterThan(0);
+      expect(getGravityAssistMasterySuccessBonus(50)).toBeGreaterThan(
+        getGravityAssistMasterySuccessBonus(10)
+      );
+      expect(getGravityAssistMasterySuccessBonus(99)).toBeGreaterThan(
+        getGravityAssistMasterySuccessBonus(50)
+      );
+    });
+
+    it('caps at 0.30 at level 99', () => {
+      expect(getGravityAssistMasterySuccessBonus(99)).toBe(0.3);
+    });
+  });
+
+  describe('getGravityAssistMasteryRefundBonus', () => {
+    it('returns 0 at low levels', () => {
+      expect(getGravityAssistMasteryRefundBonus(0)).toBe(0);
+      expect(getGravityAssistMasteryRefundBonus(24)).toBe(0);
+    });
+
+    it('scales with mastery level', () => {
+      expect(getGravityAssistMasteryRefundBonus(25)).toBeGreaterThan(0);
+      expect(getGravityAssistMasteryRefundBonus(99)).toBe(0.25);
+    });
+  });
+
+  describe('getGravityAssistMasteryPenaltyReduction', () => {
+    it('returns 0 at low levels', () => {
+      expect(getGravityAssistMasteryPenaltyReduction(0)).toBe(0);
+      expect(getGravityAssistMasteryPenaltyReduction(49)).toBe(0);
+    });
+
+    it('scales with mastery level', () => {
+      expect(getGravityAssistMasteryPenaltyReduction(50)).toBe(0.25);
+      expect(getGravityAssistMasteryPenaltyReduction(80)).toBe(0.5);
+      expect(getGravityAssistMasteryPenaltyReduction(99)).toBe(0.75);
+    });
+  });
+
+  describe('awardMasteryXp with gravity assist keys', () => {
+    it('works with ga: prefixed item IDs', () => {
+      const state = createEmptyMasteryState();
+      const result = awardMasteryXp(state, 'ga:earth', 150, 50, 83);
+
+      expect(result.itemId).toBe('ga:earth');
+      expect(result.masteryXpGained).toBeGreaterThanOrEqual(150);
+      expect(state.itemMasteries['ga:earth']).toBeDefined();
+      expect(state.pool.xp).toBeGreaterThan(0);
     });
   });
 

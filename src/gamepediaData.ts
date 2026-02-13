@@ -289,7 +289,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
       {
         heading: 'Layer 2: Item Mastery (0-99 per item)',
         paragraphs: [
-          "Each skill has specific items that can be mastered individually. Mastery builds through repeated use and provides familiarity bonuses. Piloting route mastery XP is awarded to the helm crew on every flight arrival. Commerce trade route mastery XP is awarded to the ship's commanding officer on every completed trip. Repairs equipment mastery XP is earned by repairing specific equipment types.",
+          "Each skill has specific items that can be mastered individually. Mastery builds through repeated use and provides familiarity bonuses. Piloting route mastery XP is awarded to the helm crew on every flight arrival. [[gravity-assists|Gravity assist]] body mastery XP is awarded to the best pilot on each assist attempt. Commerce trade route mastery XP is awarded to the ship's commanding officer on every completed trip. Repairs equipment mastery XP is earned by repairing specific equipment types.",
         ],
         table: {
           headers: ['Skill', 'Mastery Type', 'Effect'],
@@ -298,6 +298,11 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
               '[[skill-system|Piloting]]',
               'Route mastery',
               'Faster travel and better fuel efficiency on familiar routes',
+            ],
+            [
+              '[[skill-system|Piloting]]',
+              '[[gravity-assists|Body mastery]]',
+              'Improved success chance, fuel refund, and reduced penalty for familiar bodies',
             ],
             [
               '[[skill-system|Mining]]',
@@ -1661,6 +1666,29 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
           ],
         },
       },
+      {
+        heading: 'Body Mastery',
+        paragraphs: [
+          'Each celestial body has its own [[mastery-system|mastery]] level (0-99) under [[skill-system|piloting]]. Every gravity assist attempt — success or failure — earns mastery XP for that specific body. Successful maneuvers award 150 XP; failed attempts still award 50 XP, reflecting lessons learned from recovery.',
+          'As body mastery increases, the pilot gains three cumulative advantages: improved success chance (up to +30% at mastery 99), increased fuel refund on success (up to +25%), and reduced correction burn penalty on failure (up to -75%). These bonuses make repeated runs past the same body increasingly reliable and rewarding.',
+          'Body mastery XP flows into the shared piloting mastery pool alongside route mastery, contributing toward pool checkpoint bonuses.',
+        ],
+        table: {
+          headers: [
+            'Mastery Level',
+            'Success Bonus',
+            'Refund Bonus',
+            'Penalty Reduction',
+          ],
+          rows: [
+            ['10', '+5%', '—', '—'],
+            ['25', '+10%', '+5%', '—'],
+            ['50', '+15%', '+10%', '-25%'],
+            ['80', '+25%', '+15%', '-50%'],
+            ['99', '+30%', '+25%', '-75%'],
+          ],
+        },
+      },
     ],
     relatedArticles: [
       'flight-physics',
@@ -1668,6 +1696,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
       'orbital-mechanics',
       'launch-windows',
       'skill-system',
+      'mastery-system',
     ],
   },
 
