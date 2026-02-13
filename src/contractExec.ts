@@ -20,6 +20,7 @@ import {
   setAcceptQuestFn,
 } from './routeAssignment';
 import { handleMiningRouteArrival } from './miningRoute';
+import { emit } from './gameEvents';
 import { getFuelPricePerKg } from './ui/refuelDialog';
 import {
   generateFleetRescueQuests,
@@ -351,16 +352,26 @@ export function acceptQuest(
 }
 
 /**
- * Dock ship at a location: clear flight plan, turn off engine.
+ * Dock ship at a location: clear flight plan, turn off engine,
+ * and emit a `ship_docked` event so subscribers (provisions resupply,
+ * etc.) can react to the transition.
+ *
  * Single source of truth for the docked-at-location state transition.
+ * All code that docks a ship **must** call this function.
  */
-export function dockShipAtLocation(ship: Ship, locationId: string): void {
+export function dockShipAtLocation(
+  gameData: GameData,
+  ship: Ship,
+  locationId: string
+): void {
   ship.location.status = 'docked';
   ship.location.dockedAt = locationId;
   delete ship.location.orbitingAt;
   delete ship.activeFlightPlan;
   ship.engine.state = 'off';
   ship.engine.warmupProgress = 0;
+
+  emit(gameData, { type: 'ship_docked', ship, locationId });
 }
 
 /**
@@ -382,7 +393,7 @@ function tryDepartNextLeg(
 
   // Player-initiated pause — dock here instead of continuing
   if (activeContract.paused) {
-    dockShipAtLocation(ship, departFrom.id);
+    dockShipAtLocation(gameData, ship, departFrom.id);
     addLog(
       gameData.log,
       gameTime,
@@ -400,7 +411,7 @@ function tryDepartNextLeg(
   if (!hasFuel) {
     activeContract.paused = true;
     gameData.isPaused = true;
-    dockShipAtLocation(ship, departFrom.id);
+    dockShipAtLocation(gameData, ship, departFrom.id);
     addLog(
       gameData.log,
       gameTime,
@@ -425,7 +436,7 @@ function tryDepartNextLeg(
   );
   if (!departed) {
     activeContract.paused = true;
-    dockShipAtLocation(ship, departFrom.id);
+    dockShipAtLocation(gameData, ship, departFrom.id);
     addLog(
       gameData.log,
       gameTime,
@@ -462,7 +473,7 @@ export function completeLeg(gameData: GameData, ship: Ship): void {
     );
     if (destination) {
       if (flight.dockOnArrival) {
-        dockShipAtLocation(ship, destination.id);
+        dockShipAtLocation(gameData, ship, destination.id);
       } else {
         ship.location.status = 'orbiting';
         ship.location.orbitingAt = destination.id;
@@ -547,7 +558,7 @@ export function completeLeg(gameData: GameData, ship: Ship): void {
       );
     }
 
-    dockShipAtLocation(ship, arrivalLocation.id);
+    dockShipAtLocation(gameData, ship, arrivalLocation.id);
     abandonContract(gameData, ship);
     checkFirstArrival(gameData, ship, arrivalLocation.id);
     removeUnpaidCrew(gameData, ship);
@@ -568,7 +579,7 @@ export function completeLeg(gameData: GameData, ship: Ship): void {
         `Contract expired: ${quest.title}. Deadline of ${quest.expiresAfterDays} days reached.${earned > 0 ? ` Kept ${formatCredits(earned)} earned from completed trips.` : ''}`,
         ship.name
       );
-      dockShipAtLocation(ship, arrivalLocation.id);
+      dockShipAtLocation(gameData, ship, arrivalLocation.id);
       ship.activeContract = null;
       checkFirstArrival(gameData, ship, arrivalLocation.id);
       removeUnpaidCrew(gameData, ship);
@@ -595,7 +606,7 @@ export function completeLeg(gameData: GameData, ship: Ship): void {
         ship.name
       );
 
-      dockShipAtLocation(ship, arrivalLocation.id);
+      dockShipAtLocation(gameData, ship, arrivalLocation.id);
       ship.activeContract = null;
 
       checkFirstArrival(gameData, ship, arrivalLocation.id);
@@ -637,15 +648,17 @@ export function completeLeg(gameData: GameData, ship: Ship): void {
         quest.destination
       );
 
-      dockShipAtLocation(ship, arrivalLocation.id);
+      dockShipAtLocation(gameData, ship, arrivalLocation.id);
       ship.activeContract = null;
 
       checkFirstArrival(gameData, ship, arrivalLocation.id);
       removeUnpaidCrew(gameData, ship);
       regenerateQuestsIfNewDay(gameData);
     } else {
-      // Multi-leg: flip to inbound, try to continue
+      // Multi-leg: dock at waypoint (triggers provisions resupply etc.
+      // via ship_docked event), then flip to inbound and try to continue
       activeContract.leg = 'inbound';
+      dockShipAtLocation(gameData, ship, destLoc.id);
       tryDepartNextLeg(gameData, ship, destLoc, originLoc, quest.title);
     }
     return;
@@ -718,7 +731,7 @@ export function completeLeg(gameData: GameData, ship: Ship): void {
       logSkillUps(gameData.log, gameTime, ship.name, skillUps);
     }
 
-    dockShipAtLocation(ship, arrivalLocation.id);
+    dockShipAtLocation(gameData, ship, arrivalLocation.id);
 
     const hasRouteAssignment = ship.routeAssignment !== null;
 
@@ -736,8 +749,10 @@ export function completeLeg(gameData: GameData, ship: Ship): void {
       }
     }
   } else {
-    // More trips needed — flip to outbound, try to continue
+    // More trips needed — dock at waypoint (triggers provisions resupply
+    // etc. via ship_docked event), then flip to outbound and try to continue
     activeContract.leg = 'outbound';
+    dockShipAtLocation(gameData, ship, originLoc.id);
     tryDepartNextLeg(gameData, ship, originLoc, destLoc, quest.title);
   }
 }

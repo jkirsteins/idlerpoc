@@ -4,6 +4,7 @@ import { addLog } from './logSystem';
 import { formatMass, formatCredits } from './formatting';
 import { getEffectiveProvisionsRecycling } from './equipment';
 import { recordCrewDamage } from './crewDeath';
+import { on } from './gameEvents';
 
 // ── Constants ────────────────────────────────────────────────────
 
@@ -206,4 +207,16 @@ export function autoResupplyProvisions(
   }
 
   return false;
+}
+
+// ── Event Handlers ───────────────────────────────────────────
+
+/**
+ * Register provisions system event handlers.
+ * Called once at application startup from main.ts::init().
+ */
+export function initProvisionsEvents(): void {
+  on('ship_docked', (gameData, event) => {
+    autoResupplyProvisions(gameData, event.ship, event.locationId);
+  });
 }
