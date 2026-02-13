@@ -958,6 +958,13 @@ export function canAcceptQuest(
       );
     }
 
+    // Warn if destination has no trade service (provisions consumed while docked there)
+    if (destLoc && !destLoc.services.includes('trade')) {
+      warnings.push(
+        `${destLoc.name} has no trade services — crew will consume ship provisions while docked.`
+      );
+    }
+
     // Warn if fuel is tight for round trip (< 20% margin)
     if (resolved.estimatedFuelPerTrip > ship.fuelKg * 0.8) {
       warnings.push(
