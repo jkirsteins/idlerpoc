@@ -53,11 +53,11 @@ import { GAME_SECONDS_PER_TICK, GAME_SECONDS_PER_HOUR } from './timeSystem';
 /**
  * Base ore units extracted per tick before modifiers.
  *
- * At skill 0 with basic laser (1.0x), this produces ~0.12 units/tick.
- * Iron ore (5 cr/unit) yields ~36 cr/min — competitive but lower than
- * short trade routes, balanced by zero fuel cost while mining.
+ * At skill 0 with basic laser (1.0x), this produces ~0.20 units/tick.
+ * With mid-game equipment (2.0x) and skill 30, yields ~0.52 units/tick.
+ * Combined with rebalanced ore values, mining is competitive with trade.
  */
-const BASE_MINING_RATE = 0.12;
+const BASE_MINING_RATE = 0.2;
 
 /**
  * Mastery XP awarded per whole ore unit extracted.

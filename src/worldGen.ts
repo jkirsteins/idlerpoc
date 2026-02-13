@@ -292,7 +292,7 @@ export function generateWorld(): World {
       type: 'asteroid_belt',
       factionId: 'free_traders_guild',
       description:
-        "Cluster of captured minimoons — small S-type and C-type asteroids temporarily trapped in Earth's Hill sphere. Iron-nickel bodies with titanium deposits and rare earth minerals.",
+        "Cluster of captured minimoons — small M-type and S-type asteroids temporarily trapped in Earth's Hill sphere. Iron-nickel bodies with titanium and platinum group metals.",
       distanceFromEarth: 1_800_000,
       x: 0,
       y: 0,
@@ -302,7 +302,7 @@ export function generateWorld(): World {
       availableOres: [
         { oreId: 'iron_ore' },
         { oreId: 'titanium_ore' },
-        { oreId: 'rare_earth' },
+        { oreId: 'platinum_ore' },
       ],
       orbital: orbit(null, 150_900_000, 367, rng()), // Near-Earth but slightly different period
     },

@@ -4,7 +4,7 @@ import { sellAllOre } from './miningSystem';
 import { getRemainingOreCapacity } from './miningSystem';
 import { addLog } from './logSystem';
 import { formatMiningRouteName } from './utils';
-import { getFuelPricePerKg } from './ui/refuelDialog';
+import { getFuelPricePerKg } from './fuelPricing';
 import { formatFuelMass, calculateFuelPercentage } from './ui/fuelFormatting';
 import { formatCredits } from './formatting';
 

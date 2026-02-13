@@ -4,62 +4,17 @@
  * Allows players to purchase fuel by kilogram with location-based pricing.
  */
 
-import type { GameData, WorldLocation, Ship } from '../models';
-import { getActiveShip, getShipCommander } from '../models';
+import type { GameData, WorldLocation } from '../models';
+import { getActiveShip } from '../models';
 import { formatFuelMass } from './fuelFormatting';
 import { formatCredits } from '../formatting';
-import { getCommerceFuelDiscount } from '../skillRanks';
+import { getFuelPricePerKg } from '../fuelPricing';
+
+export { getFuelPricePerKg };
 
 export interface RefuelDialogCallbacks {
   onConfirm: (fuelKg: number) => void;
   onCancel: () => void;
-}
-
-/**
- * Get fuel price per kg at a given location
- * Base price: 2 cr/kg for LH2 (liquid hydrogen)
- * Location multipliers:
- * - Earth/LEO: 0.8x (cheap, abundant)
- * - Inner System: 1.0x (standard)
- * - Mid System: 1.5x (moderate premium)
- * - Outer System: 2.5x (expensive, scarce)
- */
-export function getFuelPricePerKg(
-  location: WorldLocation,
-  ship?: Ship
-): number {
-  const basePricePerKg = 2; // credits per kg
-
-  // Distance-based pricing
-  const distanceFromEarth = location.distanceFromEarth;
-
-  let locationMultiplier: number;
-  if (distanceFromEarth < 1000) {
-    // Earth/LEO - abundant fuel
-    locationMultiplier = 0.8;
-  } else if (distanceFromEarth < 100000) {
-    // Inner system - standard pricing
-    locationMultiplier = 1.0;
-  } else if (distanceFromEarth < 1000000) {
-    // Mid system - moderate premium
-    locationMultiplier = 1.5;
-  } else {
-    // Outer system - expensive
-    locationMultiplier = 2.5;
-  }
-
-  let price = basePricePerKg * locationMultiplier;
-
-  // Commerce discount from ship commander's trading experience
-  if (ship) {
-    const commander = getShipCommander(ship);
-    if (commander) {
-      const discount = getCommerceFuelDiscount(commander.skills.commerce);
-      price *= 1 - discount;
-    }
-  }
-
-  return price;
 }
 
 /**

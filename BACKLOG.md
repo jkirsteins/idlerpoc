@@ -126,7 +126,7 @@ Current ship equipment (20 items) is dominated by mandatory survival systems. "F
 All items from the original duplicate-logic audit have been resolved.
 Remaining follow-up:
 
-- **Move `getFuelPricePerKg` out of `ui/refuelDialog.ts`**: This is pure game logic; it should live in a non-UI module so `fleetAnalytics.ts` can import it without cross-layer dependency.
+- ~~**Move `getFuelPricePerKg` out of `ui/refuelDialog.ts`**~~: **DONE** — Extracted to `src/fuelPricing.ts` with engine-type multipliers (Chemical 1x, Fission 3x, D-D 10x, D-He3 30x). `refuelDialog.ts` re-exports for backward compatibility.
 
 ## Bounty Hunting Mechanic
 
@@ -157,3 +157,10 @@ Remaining follow-up:
 - **Cargo Space Limit**: Currently hardcoded `maxSpace = 20`. Should use ship cargo capacity.
 - **Class IV/V Ships**: Ship classes defined in WORLDRULES.md but not implemented.
 - **Remove Debug Console Logs**: Clean up `console.log` statements throughout codebase.
+
+## Deferred Ship & Economy Features
+
+- **Combat System**: Corsair and Phantom ship classes were removed because they depend on unimplemented combat mechanics (armory rooms, boarding actions). Reintroduce when combat loop is built.
+- **Stealth System**: Phantom ship class requires stealth mechanics (reduced encounter detection, stealth engine). Deferred until encounter system supports stealth gameplay.
+- **Ore-to-Fuel Conversion**: Allow mining stations to convert water ice to hydrogen fuel or refine deuterium. Would create a self-sufficient mining loop reducing dependency on station refueling.
+- **Waypoint Route Chains**: Multi-leg route planning (e.g., Earth → Gateway → Meridian → Forge). Currently ships can only fly direct routes. Would enable Class II ships to reach distant destinations through refueling stops.

@@ -113,14 +113,14 @@ describe('calculateHeatSignature', () => {
     expect(calculateHeatSignature(engine, 'coasting')).toBe(1.0);
   });
 
-  it('NTR stealth (10 kW) has low signature when burning', () => {
-    const engine = getEngineDefinition('ntr_stealth');
+  it('NTR Mk1 (10 kW) has low signature when burning', () => {
+    const engine = getEngineDefinition('ntr_mk1');
     const sig = calculateHeatSignature(engine, 'accelerating');
     expect(sig).toBeCloseTo(1.05, 2);
   });
 
-  it('NTR stealth has near-baseline when coasting', () => {
-    const engine = getEngineDefinition('ntr_stealth');
+  it('NTR Mk1 has near-baseline when coasting', () => {
+    const engine = getEngineDefinition('ntr_mk1');
     const sig = calculateHeatSignature(engine, 'coasting');
     expect(sig).toBeCloseTo(1.005, 3);
   });
@@ -450,15 +450,15 @@ describe('calculateEncounterChance', () => {
     };
     ship.activeFlightPlan = createTestFlight({ phase: 'accelerating' });
 
-    // Stealth engine
-    ship.engine.definitionId = 'ntr_stealth';
-    const chanceStealth = calculateEncounterChance(ship, gameData);
+    // Low-heat fission engine
+    ship.engine.definitionId = 'ntr_mk1';
+    const chanceFission = calculateEncounterChance(ship, gameData);
 
     // Fusion engine
     ship.engine.definitionId = 'fdr_sunfire';
     const chanceFusion = calculateEncounterChance(ship, gameData);
 
-    expect(chanceFusion).toBeGreaterThan(chanceStealth);
+    expect(chanceFusion).toBeGreaterThan(chanceFission);
   });
 
   it('lower during coasting than burning', () => {

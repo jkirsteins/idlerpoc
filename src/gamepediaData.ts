@@ -107,7 +107,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
         heading: 'Income Sources',
         paragraphs: [
           '[[contracts|Contracts]]: Delivery, passenger, and freight contracts pay upon completion or per trip. Active contracts with deadlines pay significantly more than passive trade routes.',
-          '[[contracts|Trade routes]] provide reliable recurring income between trading stations. Lower pay per trip but permanent and fully automatable.',
+          '[[contracts|Trade routes]] provide reliable recurring income between trading stations. Lower pay per trip but permanent and fully automatable. Trade profit margins shrink with distance — short cislunar routes offer 30-100% margins, while deep-space routes beyond 100M km offer only 5-15%. At extreme range, [[mining-system|mining]] becomes the primary income source.',
           '[[mining-system|Mining]]: Extract ore at mining locations and sell at stations with trade services.',
           '[[encounters|Combat]] victories occasionally yield bounty payments.',
         ],
@@ -116,7 +116,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
         heading: 'Expenses',
         paragraphs: [
           '[[crew-salaries|Crew salaries]] are deducted every day, including during manual day advancement while docked. A typical crew of 1 pilot + 1 miner + 1 trader costs 144 credits per day.',
-          'Fuel must be purchased at stations with refueling services. Fuel pricing varies by location.',
+          "Fuel must be purchased at stations with refueling services. Fuel pricing varies by location and [[engines|engine type]] — a Leviathan's D-He3 fusion fuel costs 30x more per kg than a Station Keeper's chemical propellant. Managing fuel costs is critical for higher-tier [[ship-classes|ships]].",
           '[[ship-equipment|Equipment]] can be bought at stations with trade services. Selling equipment returns 50% of the retail value.',
           '[[provisions|Provisions]] (food and water) are auto-purchased when docked at trade stations. Base consumption is 15 kg per crew per day, but [[life-support|life support]] recycling reduces this to ~5 kg effective. At 0.50 cr/kg base price, a 4-crew ship costs about 10 cr/day in provisions — more at outer-system stations.',
           'If credits reach zero, crew become unpaid. Unpaid crew will leave the ship at the next port. The captain (you) never leaves.',
@@ -166,7 +166,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
       {
         heading: 'Fuel Depot',
         paragraphs: [
-          'Locations with the refuel service let you purchase fuel. Price per kilogram varies by location. See [[credits-economy|Credits & Economy]] for how the [[commerce-skill|Commerce]] skill reduces fuel costs.',
+          'Locations with the refuel service let you purchase fuel. Price per kilogram varies by location and by [[engines|engine type]] — fusion propellant costs far more than chemical fuel. See [[engines|Engines]] for fuel cost tiers and [[credits-economy|Credits & Economy]] for how the [[commerce-skill|Commerce]] skill reduces fuel costs.',
         ],
       },
       {
@@ -946,6 +946,19 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
         ],
       },
       {
+        heading: 'Mining Specialization',
+        paragraphs: [
+          'The Dreadnought and Leviathan are built for industrial-scale resource extraction. Each carries two mining bays providing 4 mining_ops [[job-slots|job slots]] — double the capacity of a standard [[ship-classes|Wayfarer]] or [[ship-classes|Firebrand]]. Combined with their massive cargo holds, these ships dominate long-duration [[mining-system|mining]] operations.',
+        ],
+      },
+      {
+        heading: 'Resource Costs',
+        paragraphs: [
+          'Higher-tier ships require mined [[ore-types|ore]] in addition to [[credits-economy|credits]] to purchase. This ore is consumed from your fleet-wide cargo on purchase, creating a sell-vs-stockpile decision for miners.',
+          'The Dreadnought requires 200 [[ore-types|Titanium]] and 50 [[ore-types|Platinum]]. The Firebrand requires 300 Titanium and 100 Platinum. The Leviathan requires 500 Titanium, 200 Platinum, and 50 [[ore-types|Helium-3]] — you must mine He-3 at [[mining-destinations|Tycho Colony]] (0.1x yield) or [[mining-destinations|Jupiter Station]] before purchasing one.',
+        ],
+      },
+      {
         heading: 'Ship Class Access',
         paragraphs: [
           'Higher-class ships require higher [[skill-system|piloting]] skill from the helm crew member. Class II requires Piloting 25 (Competent), Class III requires Piloting 50 (Able).',
@@ -960,6 +973,8 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
       'launch-windows',
       'skill-system',
       'ship-equipment',
+      'mining-system',
+      'ore-types',
     ],
   },
 
@@ -1017,12 +1032,32 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
           'The [[flight-physics|flight profile]] slider controls how much of the delta-v budget is used for burns vs. coasting — economy profiles use less fuel but take longer.',
         ],
       },
+      {
+        heading: 'Fuel Cost Tiers',
+        paragraphs: [
+          'Fuel price per kilogram depends on engine type. More powerful engines require increasingly expensive propellant — this is a major operating cost factor for higher-tier [[ship-classes|ships]].',
+        ],
+        table: {
+          headers: ['Engine Type', 'Cost Multiplier', 'Ships'],
+          rows: [
+            ['Chemical Bipropellant', '1x', '[[ship-classes|Station Keeper]]'],
+            [
+              'Nuclear Fission',
+              '3x',
+              '[[ship-classes|Wayfarer]], [[ship-classes|Dreadnought]]',
+            ],
+            ['Fusion (D-D)', '10x', '[[ship-classes|Firebrand]]'],
+            ['Fusion (D-He3)', '30x', '[[ship-classes|Leviathan]]'],
+          ],
+        },
+      },
     ],
     relatedArticles: [
       'flight-physics',
       'ship-classes',
       'life-support',
       'radiation',
+      'credits-economy',
     ],
   },
 
@@ -1439,7 +1474,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
     sections: [
       {
         paragraphs: [
-          'Eight locations across the solar system offer [[mining-system|mining]] services. Mining value increases with distance from Earth — cislunar locations yield basic ores, the Belt introduces premium ores like [[ore-types|Platinum]], and Jupiter provides endgame resources. Ore distributions reflect real planetary science.',
+          'Eight locations across the solar system offer [[mining-system|mining]] services. Mining value increases with distance from Earth — cislunar locations yield basic ores and [[ore-types|Titanium]], The Scatter provides the closest source of [[ore-types|Platinum]], and Jupiter provides endgame resources like [[ore-types|Helium-3]] and [[ore-types|Exotic Matter]]. Ore distributions reflect real planetary science.',
         ],
       },
       {
@@ -1466,7 +1501,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
               'The Scatter',
               '1.8M km',
               '45',
-              '[[ore-types|Iron]], [[ore-types|Titanium]], [[ore-types|Rare Earth]]',
+              '[[ore-types|Iron]], [[ore-types|Titanium]], [[ore-types|Platinum]]',
             ],
             [
               'Mars',
@@ -1848,7 +1883,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
       {
         heading: 'How Mining Works',
         paragraphs: [
-          'Mining happens automatically while your ship is orbiting a location that provides a mine service. The ship must have mining equipment installed — without it, no ore can be extracted.',
+          'Mining happens automatically while your ship is orbiting a location that provides a mine service. The ship must have mining equipment installed — without it, no ore can be extracted. The [[ship-classes|Dreadnought]] and [[ship-classes|Leviathan]] carry two mining bays each, providing 4 mining_ops [[job-slots|job slots]] for maximum extraction speed.',
           'With mining equipment but no crew, the ship mines at a reduced base rate (25% speed), restricted to basic ores (Mining 0). Assigning crew to the mining_ops [[job-slots|job slot]] in the mining bay significantly increases extraction speed and unlocks higher-tier ores based on their [[skill-system|mining]] skill.',
           'Use the ore material picker in the mining panel to choose which ore to extract. By default the highest-value ore is selected automatically, but you can override this to focus on a specific material. Locked ores (requiring higher mining skill) are shown but cannot be selected until your crew levels up.',
           'Extraction rate depends on [[ship-equipment|ship mining equipment]] quality, [[skill-system|mining]] skill, and [[mastery-system|ore mastery]]. The mining panel shows real-time extraction rates and estimated time to fill cargo.',
@@ -1980,7 +2015,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
               'Rare Earth',
               '35 cr',
               '10',
-              '[[mining-destinations|Tycho Colony]], The Scatter, Mars, The Crucible, Ceres',
+              '[[mining-destinations|Tycho Colony]], Mars, The Crucible, Ceres',
               '5 kg',
             ],
             [
@@ -1994,7 +2029,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
               'Platinum',
               '120 cr',
               '40',
-              '[[mining-destinations|The Crucible]], Ceres',
+              '[[mining-destinations|The Scatter]], The Crucible, Ceres',
               '8 kg',
             ],
             [

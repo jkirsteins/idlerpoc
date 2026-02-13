@@ -15,7 +15,7 @@ import { getEngineDefinition } from './engines';
 import { calculateShipSalaryPerTick } from './crewRoles';
 import { calculatePositionDanger } from './encounterSystem';
 import { getCrewForJobType, isHelmManned } from './jobSlots';
-import { getFuelPricePerKg } from './ui/refuelDialog';
+import { getFuelPricePerKg } from './fuelPricing';
 import { formatFuelMass } from './ui/fuelFormatting';
 import { formatMass } from './formatting';
 import { canAcceptRescueQuest } from './rescueSystem';
@@ -23,6 +23,27 @@ import { getEffectiveConsumptionPerCrewPerTick } from './provisionsSystem';
 
 // Fallback fuel price for payment calculations when no location is available
 const FUEL_PRICE_PER_KG_FALLBACK = 2.0;
+
+/**
+ * Distance-scaled cost floor margins.
+ * Short routes have generous margins (30-100% profit) making trade reliable.
+ * Long routes have thin margins (5-15% profit) forcing mining for real income.
+ * Returns { base, range } where costFloor = totalCost * (base + hash * range).
+ */
+function getDistanceCostFloorParams(distanceKm: number): {
+  base: number;
+  range: number;
+} {
+  if (distanceKm < 50_000) {
+    return { base: 1.3, range: 0.7 }; // 30-100% profit — Class I trade
+  } else if (distanceKm < 5_000_000) {
+    return { base: 1.2, range: 0.3 }; // 20-50% profit — Class II
+  } else if (distanceKm < 100_000_000) {
+    return { base: 1.1, range: 0.2 }; // 10-30% profit — Class III
+  } else {
+    return { base: 1.05, range: 0.1 }; // 5-15% profit — deep space
+  }
+}
 
 /**
  * Derive a stable 0–1 fraction from a string (e.g. quest ID).
@@ -508,9 +529,10 @@ export function calculateTradeRoutePayment(
   const fuelCost = fuelKgRequired * 2 * avgFuelPrice; // Round trip
   const totalCost = crewCost + fuelCost;
 
-  // Fixed at 120% of operating costs (no randomness unlike regular quests)
-  // Trade routes are the baseline passive income — always profitable but modest
-  const costFloor = totalCost * 1.2;
+  // Distance-scaled cost floor (no randomness unlike regular quests).
+  // Trade routes use the low end of the distance bracket for modest margins.
+  const { base } = getDistanceCostFloorParams(distanceKm);
+  const costFloor = totalCost * base;
 
   // 2. Distance bonus for long hauls
   let distanceBonus = 0;
@@ -729,8 +751,10 @@ export function resolveQuestForShip(
 
   const distanceKm = getDistanceBetween(originLoc, destLoc);
 
-  // Stable cost floor factor derived from quest ID (deterministic per quest)
-  const costFloorFactor = 1.3 + stableHashFraction(quest.id) * 0.7;
+  // Distance-scaled cost floor: short routes have generous margins,
+  // long routes have thin margins (forcing mining for real income)
+  const { base, range } = getDistanceCostFloorParams(distanceKm);
+  const costFloorFactor = base + stableHashFraction(quest.id) * range;
 
   // Rescue quests have fixed cargo (fuel payload), not resolved per-ship
   if (quest.type === 'rescue') {

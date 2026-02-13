@@ -36,6 +36,11 @@ import {
   getFuelColorHex,
 } from './fuelFormatting';
 import { generateShipName } from '../names';
+import {
+  formatResourceCost,
+  checkResourceCost,
+  canAffordResources,
+} from '../resourceCost';
 
 /**
  * Rooms that vary between ship classes and are worth highlighting in purchase cards.
@@ -968,6 +973,7 @@ interface PurchaseCardRefs {
   classId: string;
   lockMsg: HTMLElement;
   affordMsg: HTMLElement;
+  resourceMsg: HTMLElement;
   buyContainer: HTMLElement;
   nameInput: HTMLInputElement;
 }
@@ -1155,6 +1161,32 @@ function createShipPurchase(
 
     card.appendChild(equipSection);
 
+    // Resource cost display (static — only shown for ships with resource costs)
+    const resCosts = formatResourceCost(shipClass);
+    if (resCosts.length > 0) {
+      const resCostDiv = document.createElement('div');
+      resCostDiv.style.fontSize = '0.8rem';
+      resCostDiv.style.marginBottom = '0.5rem';
+      resCostDiv.style.padding = '4px 8px';
+      resCostDiv.style.background = 'rgba(255, 165, 0, 0.08)';
+      resCostDiv.style.border = '1px solid rgba(255, 165, 0, 0.2)';
+      resCostDiv.style.borderRadius = '3px';
+
+      const resLabel = document.createElement('span');
+      resLabel.style.color = '#ffa500';
+      resLabel.textContent = 'Resources: ';
+      resCostDiv.appendChild(resLabel);
+
+      const resValues = document.createElement('span');
+      resValues.style.color = '#ddd';
+      resValues.textContent = resCosts
+        .map((c) => `${c.icon} ${c.amount} ${c.name}`)
+        .join(', ');
+      resCostDiv.appendChild(resValues);
+
+      card.appendChild(resCostDiv);
+    }
+
     // State 1: Locked message (toggled via display)
     const lockMsg = document.createElement('div');
     lockMsg.style.fontSize = '0.85rem';
@@ -1166,6 +1198,12 @@ function createShipPurchase(
     affordMsg.style.fontSize = '0.85rem';
     affordMsg.style.color = '#ffa500';
     card.appendChild(affordMsg);
+
+    // State 2b: Insufficient resources message (toggled via display)
+    const resourceMsg = document.createElement('div');
+    resourceMsg.style.fontSize = '0.85rem';
+    resourceMsg.style.color = '#ff8800';
+    card.appendChild(resourceMsg);
 
     // State 3: Buy form (toggled via display)
     const buyContainer = document.createElement('div');
@@ -1215,6 +1253,7 @@ function createShipPurchase(
       classId: shipClass.id,
       lockMsg,
       affordMsg,
+      resourceMsg,
       buyContainer,
       nameInput,
     });
@@ -1230,21 +1269,37 @@ function createShipPurchase(
       if (!sc) continue;
 
       const isUnlocked = gameData.lifetimeCreditsEarned >= sc.unlockThreshold;
-      const canAfford = gameData.credits >= sc.price;
+      const canAffordCredits = gameData.credits >= sc.price;
+      const hasResources = canAffordResources(gameData.ships, sc);
+      const shortfalls = canAffordCredits
+        ? checkResourceCost(gameData.ships, sc)
+        : [];
 
       if (!isUnlocked) {
-        refs.lockMsg.textContent = `🔒 Unlock at ${sc.unlockThreshold.toLocaleString()} lifetime credits earned`;
+        refs.lockMsg.textContent = `Unlock at ${sc.unlockThreshold.toLocaleString()} lifetime credits earned`;
         refs.lockMsg.style.display = '';
         refs.affordMsg.style.display = 'none';
+        refs.resourceMsg.style.display = 'none';
         refs.buyContainer.style.display = 'none';
-      } else if (!canAfford) {
+      } else if (!canAffordCredits) {
         refs.lockMsg.style.display = 'none';
         refs.affordMsg.textContent = `Insufficient funds (need ${(sc.price - gameData.credits).toLocaleString()} more credits)`;
         refs.affordMsg.style.display = '';
+        refs.resourceMsg.style.display = 'none';
+        refs.buyContainer.style.display = 'none';
+      } else if (!hasResources) {
+        refs.lockMsg.style.display = 'none';
+        refs.affordMsg.style.display = 'none';
+        const missing = shortfalls
+          .map((s) => `${s.name}: ${s.available}/${s.required}`)
+          .join(', ');
+        refs.resourceMsg.textContent = `Insufficient resources (${missing})`;
+        refs.resourceMsg.style.display = '';
         refs.buyContainer.style.display = 'none';
       } else {
         refs.lockMsg.style.display = 'none';
         refs.affordMsg.style.display = 'none';
+        refs.resourceMsg.style.display = 'none';
         refs.buyContainer.style.display = '';
       }
     }

@@ -18,7 +18,7 @@ const BACKUP_KEY = 'spaceship_game_data_backup';
  *
  * See docs/save-migration.md for the full migration architecture.
  */
-export const CURRENT_SAVE_VERSION = 9;
+export const CURRENT_SAVE_VERSION = 10;
 
 /** Whether the last save attempt failed (used for UI warnings). */
 let _lastSaveFailed = false;
@@ -653,6 +653,84 @@ const migrations: Record<number, MigrationFn> = {
     }
 
     data.saveVersion = 9;
+    return data;
+  },
+
+  /**
+   * v9 → v10: Ship roster and economy changes.
+   * - Remove Corsair and Phantom ships (unimplemented combat/stealth mechanics).
+   * - Dreadnought: replace armory with second mining_bay (industrial reframe).
+   * - Leviathan: replace armory with second mining_bay.
+   * - Regenerate world (Scatter ore update: rare_earth → platinum_ore).
+   * - Regenerate job slots for DN/Lev (room changes).
+   */
+  9: (data: RawSave): RawSave => {
+    const ships = data.ships as Array<Record<string, unknown>> | undefined;
+
+    if (ships) {
+      // Remove Corsair and Phantom ships
+      const removedIds: string[] = [];
+      data.ships = ships.filter((ship) => {
+        const classId = ship.classId as string;
+        if (classId === 'corsair' || classId === 'phantom') {
+          removedIds.push(ship.id as string);
+          return false;
+        }
+        return true;
+      });
+
+      // If active ship was removed, switch to first remaining ship
+      if (removedIds.includes(data.activeShipId as string)) {
+        const remaining = data.ships as Array<Record<string, unknown>>;
+        data.activeShipId = remaining.length > 0 ? remaining[0].id : undefined;
+      }
+
+      // Clear selectedMiningOreId — ore distributions changed (Scatter: rare_earth → platinum_ore)
+      for (const ship of data.ships as Array<Record<string, unknown>>) {
+        ship.selectedMiningOreId = undefined;
+      }
+
+      // Update Dreadnought and Leviathan rooms: armory → mining_bay
+      for (const ship of data.ships as Array<Record<string, unknown>>) {
+        const classId = ship.classId as string;
+        if (classId === 'dreadnought' || classId === 'leviathan') {
+          const rooms = ship.rooms as
+            | Array<Record<string, unknown>>
+            | undefined;
+          if (rooms) {
+            // Find the armory room and change it to mining_bay
+            const armoryRoom = rooms.find(
+              (r) => (r.type as string) === 'armory'
+            );
+            if (armoryRoom) {
+              armoryRoom.type = 'mining_bay';
+            }
+          }
+        }
+      }
+    }
+
+    // Regenerate world (picks up Scatter ore change + any location updates)
+    data.world = generateWorld() as unknown as Record<string, unknown>;
+
+    // Regenerate job slots for ships with changed rooms
+    const gameDataTyped = data as unknown as GameData;
+    if (gameDataTyped.ships) {
+      for (const ship of gameDataTyped.ships) {
+        if (ship.classId === 'dreadnought' || ship.classId === 'leviathan') {
+          // Unassign all crew from old job slots before regeneration
+          for (const crew of ship.crew) {
+            const slot = ship.jobSlots.find(
+              (s) => s.assignedCrewId === crew.id
+            );
+            if (slot) slot.assignedCrewId = null;
+          }
+          ship.jobSlots = generateJobSlotsForShip(ship);
+        }
+      }
+    }
+
+    data.saveVersion = 10;
     return data;
   },
 };

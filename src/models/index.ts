@@ -14,9 +14,7 @@ export type RoomType =
 export type ShipClassId =
   | 'station_keeper'
   | 'wayfarer'
-  | 'corsair'
   | 'dreadnought'
-  | 'phantom'
   | 'firebrand'
   | 'leviathan';
 
@@ -94,7 +92,6 @@ export type EngineId =
   | 'ntr_mk1'
   | 'ntr_mk2'
   | 'ntr_heavy'
-  | 'ntr_stealth'
   | 'fdr_sunfire'
   | 'fdr_hellion'
   | 'fdr_torch'
