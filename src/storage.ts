@@ -18,7 +18,7 @@ const BACKUP_KEY = 'spaceship_game_data_backup';
  *
  * See docs/save-migration.md for the full migration architecture.
  */
-export const CURRENT_SAVE_VERSION = 11;
+export const CURRENT_SAVE_VERSION = 12;
 
 /** Whether the last save attempt failed (used for UI warnings). */
 let _lastSaveFailed = false;
@@ -770,6 +770,42 @@ const migrations: Record<number, MigrationFn> = {
     }
 
     data.saveVersion = 11;
+    return data;
+  },
+
+  /**
+   * v11 → v12: Default radiation shielding for Class II fission ships.
+   * - Wayfarer (ntr_mk1, 5 rad) and Dreadnought (ntr_heavy, 15 rad) now ship
+   *   with a Type-I Radiation Barrier. Retrofit existing ships that lack one.
+   */
+  11: (data: RawSave): RawSave => {
+    const ships = data.ships as Array<Record<string, unknown>> | undefined;
+    if (ships) {
+      for (const ship of ships) {
+        const classId = ship.classId as string;
+        if (classId === 'wayfarer' || classId === 'dreadnought') {
+          const equipment = ship.equipment as
+            | Array<Record<string, unknown>>
+            | undefined;
+          if (equipment) {
+            const hasRadShield = equipment.some(
+              (eq) =>
+                (eq.definitionId as string) === 'rad_shield_basic' ||
+                (eq.definitionId as string) === 'rad_shield_heavy'
+            );
+            if (!hasRadShield) {
+              equipment.push({
+                id: generateId(),
+                definitionId: 'rad_shield_basic',
+                degradation: 0,
+              });
+            }
+          }
+        }
+      }
+    }
+
+    data.saveVersion = 12;
     return data;
   },
 };
