@@ -4,6 +4,7 @@ import {
   advanceFlight,
   calculateBurnSecondsInTick,
   calculateFuelFlowRate,
+  calculateOneLegFuelKg,
   getSpecificImpulse,
 } from './flightPhysics';
 import { completeLeg } from './contractExec';
@@ -42,6 +43,8 @@ import {
   euclideanDistance,
   lerpVec2,
 } from './orbitalMechanics';
+import { resolveGravityAssist } from './gravityAssistSystem';
+import { formatMass } from './formatting';
 import {
   awardMasteryXp,
   getEquipmentRepairMasteryBonus,
@@ -298,6 +301,57 @@ function applyMedbayHealing(ship: Ship): boolean {
 /**
  * Apply one tick of game logic for a single ship
  */
+/**
+ * Check and resolve gravity assist opportunities when the ship reaches
+ * the approach point. Returns true if any assists were resolved.
+ */
+function checkGravityAssists(ship: Ship, gameData: GameData): boolean {
+  const flight = ship.activeFlightPlan;
+  if (!flight || !flight.gravityAssists) return false;
+
+  const progress = flight.distanceCovered / flight.totalDistance;
+  let resolved = false;
+
+  // Compute trip fuel cost once for all assists (avoids re-importing flightPhysics in gravityAssistSystem)
+  const tripDistanceKm = flight.totalDistance / 1000;
+  const tripFuelKg = calculateOneLegFuelKg(
+    ship,
+    tripDistanceKm,
+    flight.burnFraction
+  );
+
+  for (const assist of flight.gravityAssists) {
+    if (!assist.checked && progress >= assist.approachProgress) {
+      resolveGravityAssist(assist, ship, tripFuelKg);
+      if (assist.result === 'success') {
+        ship.fuelKg = Math.min(
+          ship.maxFuelKg,
+          ship.fuelKg + assist.fuelRefundKg
+        );
+        addLog(
+          gameData.log,
+          gameData.gameTime,
+          'gravity_assist',
+          `${ship.name}: Gravity assist off ${assist.bodyName} — saved ${formatMass(assist.fuelRefundKg)} fuel`,
+          ship.name
+        );
+      } else {
+        ship.fuelKg = Math.max(0, ship.fuelKg - assist.fuelPenaltyKg);
+        addLog(
+          gameData.log,
+          gameData.gameTime,
+          'gravity_assist',
+          `${ship.name}: Gravity assist at ${assist.bodyName} failed — correction burn cost ${formatMass(assist.fuelPenaltyKg)} fuel`,
+          ship.name
+        );
+      }
+      resolved = true;
+    }
+  }
+
+  return resolved;
+}
+
 function applyShipTick(gameData: GameData, ship: Ship): boolean {
   let changed = false;
 
@@ -343,6 +397,11 @@ function applyShipTick(gameData: GameData, ship: Ship): boolean {
       // Skip on completion — completeLeg docks the ship and discards positions.
       if (!flightComplete) {
         updateFlightPosition(ship.activeFlightPlan, gameData);
+      }
+
+      // === GRAVITY ASSIST CHECK ===
+      if (!flightComplete && checkGravityAssists(ship, gameData)) {
+        changed = true;
       }
 
       // Fuel consumption during burn phases (mass-based, pro-rated)

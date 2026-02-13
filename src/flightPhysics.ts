@@ -10,6 +10,7 @@ import {
   getEffectiveConsumptionPerCrewPerDay,
 } from './provisionsSystem';
 import { getLocationPosition, solveIntercept } from './orbitalMechanics';
+import { scanForGravityAssists } from './gravityAssistSystem';
 
 /**
  * Flight Physics
@@ -463,6 +464,23 @@ export function initializeFlight(
     distanceMeters = 0;
   }
 
+  // Scan for gravity assist opportunities along the planned trajectory
+  let gravityAssists: import('./models').GravityAssistOpportunity[] | undefined;
+  if (orbital && flightOriginPos && flightInterceptPos && finalTotalTime > 0) {
+    const assists = scanForGravityAssists(
+      flightOriginPos,
+      flightInterceptPos,
+      finalTotalTime,
+      orbital.gameTime,
+      orbital.world,
+      origin.id,
+      destination.id
+    );
+    if (assists.length > 0) {
+      gravityAssists = assists;
+    }
+  }
+
   return {
     origin: origin.id,
     destination: destination.id,
@@ -486,6 +504,7 @@ export function initializeFlight(
     // recomputed at any time). Left undefined for redirects where the origin
     // is a fixed point in space. The caller (redirectShipFlight) clears this.
     originBodyId: origin.id,
+    gravityAssists,
   };
 }
 

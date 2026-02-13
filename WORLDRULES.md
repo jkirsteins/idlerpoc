@@ -328,6 +328,31 @@ Before departure, crew plot a course. Quality depends on navigator skill and equ
 - Poor navigation wastes fuel on course corrections and leaves the ship vulnerable to debris
 - Excellent navigation avoids hazard-dense regions and optimizes fuel consumption
 
+### Gravity Assist Corridors
+
+When a ship's trajectory passes near a massive body during transit, the crew can attempt a gravity assist for fuel savings. Detection uses proximity checks against the body's orbital position at each point along the flight path.
+
+**Eligible Bodies & Influence Zones (gameplay-tuned):**
+
+| Body    | Mass (kg) | Influence Zone | Typical Savings |
+| ------- | --------- | -------------- | --------------- |
+| Jupiter | 1.898e27  | ~75M km        | 5-10% fuel      |
+| Earth   | 5.972e24  | ~3M km         | 3-7% fuel       |
+| Mars    | 6.417e23  | ~3M km         | 2-5% fuel       |
+| Moon    | 7.342e22  | ~200K km       | 1-3% fuel       |
+| Ceres   | 9.393e20  | ~200K km       | 1-2% fuel       |
+
+**Expected Frequency (with current gameplay thresholds):**
+
+- Interplanetary routes (Earth→Mars, Earth→Belt): ~30-50% of flights detect at least one assist, depending on orbital alignment
+- Jupiter routes: Nearly always detect Jupiter assist (huge influence zone)
+- Short cislunar flights (Gateway→Forge): Moon assist possible ~20-30% of the time
+- Very short orbital hops (Gateway→Meridian): Rarely trigger any assists
+
+**Note**: Current thresholds are deliberately expanded beyond physical Hill sphere values for gameplay purposes. These are backlogged for tightening once the mechanic is established.
+
+**Failure Penalty**: Failed assists cost ~1-2% of trip fuel in correction burns. Closer approaches carry larger penalties on failure, creating risk/reward tension for low-skill crews.
+
 ### Regional Hazard Density
 
 Space is not uniformly empty:
