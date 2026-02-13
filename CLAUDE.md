@@ -69,6 +69,7 @@ When creating new tab views or adding content to existing tabs:
 
 - Consult README for project scope before starting work. See if any other markdown files (\*.md pattern, in root and in docs/ folder) might be relevant. If so, read them.
 - Always consider WORLDRULES.md for our game world constraints. Apply these to any game design decisions.
+- Consult `docs/ux-guidelines.md` for UX design principles (color palette, interaction patterns, idle game UX, information hierarchy). Implementation patterns stay in CLAUDE.md; design decisions live there.
 - Update README to reflect project goals/scope before commits.
 - README: high-level only. Infer architecture from code; detailed docs go in docs/.
 - Commit messages: concise, no "Claude Code" mentions.
