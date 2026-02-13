@@ -63,12 +63,15 @@ npm run dev
   - Active mining feedback: pulsing indicator when mining, status badges (MINING / IN TRANSIT / CARGO FULL / DOCKED / IDLE)
   - 8 mining locations from cislunar space (Graveyard Drift, Tycho Colony) through the Belt (The Crucible, Ceres) to Jupiter, with progressively valuable ores rewarding outward expansion
 - **Navigation System**:
-  - World map with 13 locations from LEO to Jupiter at realistic orbital distances
-  - Visual navigation chart showing distances, piloting requirements, and reachable locations
+  - World map with 13 locations from LEO to Jupiter in 2D orbital mechanics
+  - **Orrery map**: SVG solar system visualization with bodies orbiting in real-time, logarithmic radius scaling, flight trajectory lines, and moving ship dots
+  - **2D orbital mechanics**: All bodies follow circular orbits — Earth satellites orbit Earth, planets/stations orbit the Sun. Distances change dynamically as bodies move on their orbits
+  - **Launch windows**: Alignment quality system (Excellent/Good/Moderate/Poor) shows optimal departure timing. Earth-Mars distance varies from ~55M km to ~400M km over a synodic cycle
+  - **Intercept trajectories**: Ships aim at where the destination will be at arrival time, not where it is at departure. Iterative solver converges on moving targets
   - Destinations gated by piloting skill level (10 for nearby, 75+ for outer system)
   - Dynamic reachability based on ship range, fuel, and piloting skill
-  - **Mid-flight redirect**: change destination while in flight — distances, threat levels, and fuel estimates update live from the ship's current position in space
-  - Redirect replots a fresh burn-coast-burn trajectory from the ship's interpolated position (not available during contracts or mining routes)
+  - **Mid-flight redirect**: change destination while in flight — distances, threat levels, and fuel estimates update live from the ship's 2D position in space
+  - Redirect replots a fresh intercept trajectory from the ship's current 2D coordinates (not available during contracts or mining routes)
 - **Quest & Contract System**:
   - Accept delivery, passenger, and freight contracts with completion deadlines
   - **Active vs passive income**: Finite contracts pay ~2-3x more than automated trade routes — rewarding attentive play while keeping idle income reliable (see `docs/quest-reward-balancing.md`)
@@ -180,7 +183,7 @@ npm run dev
   - 9 ore types with mining level requirements and location availability
   - Progressive XP/leveling system (20 levels)
   - 3-skill mastery system with per-item progression and mastery pool checkpoints (see `docs/skill-revamp-design.md`)
-  - 13 world locations from LEO to Jupiter with realistic orbital placements
+  - 13 world locations from LEO to Jupiter with 2D circular orbital mechanics
 
 ## Code Quality
 

@@ -1,7 +1,12 @@
-import type { GameData } from './models';
+import type { GameData, WorldLocation } from './models';
 import { generateWorld } from './worldGen';
 import { generateJobSlotsForShip } from './jobSlots';
 import { generateId } from './utils';
+import {
+  updateWorldPositions,
+  lerpVec2,
+  getLocationPosition,
+} from './orbitalMechanics';
 
 const STORAGE_KEY = 'spaceship_game_data';
 const BACKUP_KEY = 'spaceship_game_data_backup';
@@ -13,7 +18,7 @@ const BACKUP_KEY = 'spaceship_game_data_backup';
  *
  * See docs/save-migration.md for the full migration architecture.
  */
-export const CURRENT_SAVE_VERSION = 7;
+export const CURRENT_SAVE_VERSION = 8;
 
 /** Whether the last save attempt failed (used for UI warnings). */
 let _lastSaveFailed = false;
@@ -468,13 +473,119 @@ const migrations: Record<number, MigrationFn> = {
   },
 
   /**
-   * v6 → v7: Provisions rate rework + cantina removal.
+   * v6 → v7: 2D orbital mechanics.
+   * - Regenerate world with orbital params (merge by location ID to preserve player state)
+   * - Compute initial 2D positions for all locations
+   * - In-flight ships: synthesize 2D trajectory fields from progress ratio
+   * - distanceFromEarth becomes a computed field (recalculated each tick)
+   */
+  6: (data: RawSave): RawSave => {
+    const newWorld = generateWorld();
+    const gameTime = (data.gameTime as number) ?? 0;
+
+    // Build lookup of new locations by ID (with orbital params)
+    const newLocMap = new Map<string, WorldLocation>();
+    for (const loc of newWorld.locations) {
+      newLocMap.set(loc.id, loc);
+    }
+
+    // Merge orbital params into existing world locations
+    const oldWorld = data.world as
+      | { locations: Array<Record<string, unknown>> }
+      | undefined;
+    if (oldWorld?.locations) {
+      for (const oldLoc of oldWorld.locations) {
+        const locId = oldLoc.id as string;
+        const newLoc = newLocMap.get(locId);
+        if (newLoc?.orbital) {
+          oldLoc.orbital = newLoc.orbital;
+        }
+      }
+    }
+
+    // Compute initial positions at current gameTime
+    // Use the new world's locations (with orbital data) and apply positions
+    updateWorldPositions(newWorld, gameTime);
+
+    // Update old world locations with computed positions
+    if (oldWorld?.locations) {
+      for (const oldLoc of oldWorld.locations) {
+        const locId = oldLoc.id as string;
+        const newLoc = newLocMap.get(locId);
+        if (newLoc) {
+          oldLoc.x = newLoc.x;
+          oldLoc.y = newLoc.y;
+          oldLoc.distanceFromEarth = newLoc.distanceFromEarth;
+        }
+      }
+    }
+
+    // Synthesize 2D trajectory fields for in-flight ships
+    const ships = data.ships as Array<Record<string, unknown>> | undefined;
+    if (ships && oldWorld?.locations) {
+      for (const ship of ships) {
+        const location = ship.location as Record<string, unknown> | undefined;
+        const flight = ship.activeFlightPlan as
+          | Record<string, unknown>
+          | undefined;
+
+        if (location?.status !== 'in_flight' || !flight) continue;
+
+        const originId = flight.origin as string;
+        const destId = flight.destination as string;
+        const totalDistance = flight.totalDistance as number;
+        const distanceCovered = flight.distanceCovered as number;
+
+        const originLoc = newLocMap.get(originId);
+        const destLoc = newLocMap.get(destId);
+        if (!originLoc || !destLoc) continue;
+
+        // Get origin position at flight start time (approximate: current time minus elapsed)
+        const elapsedTime = (flight.elapsedTime as number) ?? 0;
+        const flightStartTime = Math.max(0, gameTime - elapsedTime);
+        const originPos = getLocationPosition(
+          originLoc,
+          flightStartTime,
+          newWorld
+        );
+
+        // Estimate remaining travel time to solve intercept
+        const totalTime = (flight.totalTime as number) ?? 0;
+        const remainingTime = Math.max(0, totalTime - elapsedTime);
+        const arrivalGameTime = gameTime + remainingTime;
+
+        // Get destination position at estimated arrival
+        const interceptPos = getLocationPosition(
+          destLoc,
+          arrivalGameTime,
+          newWorld
+        );
+
+        // Interpolate ship position based on progress
+        const progress =
+          totalDistance > 0 ? Math.min(1, distanceCovered / totalDistance) : 0;
+        const shipPos = lerpVec2(originPos, interceptPos, progress);
+
+        // Set 2D trajectory fields
+        flight.originPos = originPos;
+        flight.interceptPos = interceptPos;
+        flight.shipPos = shipPos;
+        flight.estimatedArrivalGameTime = arrivalGameTime;
+      }
+    }
+
+    data.saveVersion = 7;
+    return data;
+  },
+
+  /**
+   * v7 → v8: Provisions rate rework + cantina removal.
    * - Provisions consumption changed from 30 to effective ~5 kg/crew/day
    *   (15 kg base minus 10 kg life support recycling).
    *   Scale existing provisionsKg by 5/30 to preserve survival days.
    * - Remove cantina rooms and galley job slots (feature removed).
    */
-  6: (data: RawSave): RawSave => {
+  7: (data: RawSave): RawSave => {
     const ships = data.ships as Array<Record<string, unknown>> | undefined;
     if (ships) {
       const SCALE = 5 / 30;
@@ -500,7 +611,7 @@ const migrations: Record<number, MigrationFn> = {
       }
     }
 
-    data.saveVersion = 7;
+    data.saveVersion = 8;
     return data;
   },
 };

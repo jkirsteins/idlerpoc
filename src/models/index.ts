@@ -59,6 +59,21 @@ export type LocationType =
 
 export type LocationService = 'refuel' | 'trade' | 'repair' | 'hire' | 'mine';
 
+/** 2D position vector in km (Sun at origin for solar-orbiting bodies). */
+export interface Vec2 {
+  x: number;
+  y: number;
+}
+
+/** Orbital parameters for a world location (circular or elliptical). */
+export interface OrbitalParams {
+  parentId: string | null; // null = orbits Sun; 'earth' = orbits Earth
+  orbitalRadiusKm: number; // semi-major axis in km
+  orbitalPeriodSec: number; // orbital period in game-seconds
+  initialAngleRad: number; // mean anomaly at gameTime=0
+  eccentricity?: number; // 0 = circular (default), 0.01–0.1 for elliptical
+}
+
 export type CrewEquipmentId =
   | 'sidearm'
   | 'rifle'
@@ -122,6 +137,11 @@ export interface FlightState {
   acceleration: number; // m/s² during burns
   dockOnArrival: boolean;
   burnFraction: number; // 0.1-1.0: fraction of delta-v budget to use (1.0 = max speed)
+  // 2D orbital trajectory fields
+  originPos?: Vec2; // ship 2D position at flight start (km)
+  interceptPos?: Vec2; // predicted destination 2D position at arrival (km)
+  shipPos?: Vec2; // current ship 2D position, updated each tick (km)
+  estimatedArrivalGameTime?: number; // predicted arrival gameTime
 }
 
 export interface ShipLocation {
@@ -208,13 +228,14 @@ export interface WorldLocation {
   type: LocationType;
   factionId?: FactionId;
   description: string;
-  distanceFromEarth: number; // km
-  x: number; // % position for nav map
-  y: number; // % position for nav map
+  distanceFromEarth: number; // km — recomputed each tick from orbital positions
+  x: number; // km from Sun (2D position, updated each tick)
+  y: number; // km from Sun (2D position, updated each tick)
   services: LocationService[];
   size: number; // quest count per day
   pilotingRequirement: number; // minimum piloting skill to travel here
   availableOres?: LocationOre[]; // ores mineable at this location, with optional yield multiplier
+  orbital?: OrbitalParams; // circular orbit parameters (undefined in legacy saves before migration)
 }
 
 export interface World {

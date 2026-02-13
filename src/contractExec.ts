@@ -316,7 +316,9 @@ export function acceptQuest(
     origin,
     destination,
     false,
-    ship.flightProfileBurnFraction
+    ship.flightProfileBurnFraction,
+    gameTime,
+    world
   );
 
   if (!departed) {
@@ -410,7 +412,9 @@ function tryDepartNextLeg(
     departFrom,
     departTo,
     false,
-    ship.flightProfileBurnFraction
+    ship.flightProfileBurnFraction,
+    gameTime,
+    gameData.world
   );
   if (!departed) {
     activeContract.paused = true;
@@ -779,7 +783,9 @@ export function resumeContract(gameData: GameData, ship: Ship): void {
     currentLoc,
     nextDestination,
     false,
-    ship.flightProfileBurnFraction
+    ship.flightProfileBurnFraction,
+    gameTime,
+    world
   );
 
   if (!departed) {

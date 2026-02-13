@@ -15,6 +15,7 @@ import type {
 import { generateWorld } from '../worldGen';
 import { generateJobSlotsForShip } from '../jobSlots';
 import { createInitialMastery } from '../masterySystem';
+import { updateWorldPositions } from '../orbitalMechanics';
 
 /**
  * Test helper factory functions.
@@ -247,7 +248,16 @@ export function clearJobSlots(ship: Ship, jobType: JobSlotType): void {
 }
 
 export function createTestWorld(): World {
-  return generateWorld();
+  const world = generateWorld();
+  // Fix all initial angles to 0 for deterministic test positions.
+  // Without this, random angles make distances non-deterministic between runs.
+  for (const loc of world.locations) {
+    if (loc.orbital) {
+      loc.orbital.initialAngleRad = 0;
+    }
+  }
+  updateWorldPositions(world, 0);
+  return world;
 }
 
 export function createTestGameData(

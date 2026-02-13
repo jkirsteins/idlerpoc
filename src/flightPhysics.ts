@@ -1,10 +1,15 @@
-import type { Ship, FlightState, WorldLocation } from './models';
+import type { Ship, FlightState, WorldLocation, World, Vec2 } from './models';
 import { getEngineDefinition, type EngineDefinition } from './engines';
 import { getShipClass, type ShipClass } from './shipClasses';
 import { getDistanceBetween } from './utils';
 import { GAME_SECONDS_PER_TICK } from './timeSystem';
 import { isHelmManned } from './jobSlots';
 import { PROVISIONS_KG_PER_CREW_PER_DAY } from './provisionsSystem';
+import {
+  getLocationPosition,
+  solveIntercept,
+  lerpVec2,
+} from './orbitalMechanics';
 
 /**
  * Flight Physics
@@ -301,19 +306,60 @@ export function calculateOneLegFuelKg(
 }
 
 /**
- * Initialize a new flight from origin to destination
- * Uses current ship mass (including fuel) for acceleration calculations
+ * Compute burn-coast-burn timing for a given distance, acceleration,
+ * and allocated delta-v. Shared by initializeFlight and the intercept solver.
+ */
+function computeFlightTiming(
+  distanceMeters: number,
+  initialAcceleration: number,
+  allocatedDeltaV: number
+): { burnTime: number; coastTime: number; totalTime: number } {
+  const v_cruise = allocatedDeltaV / 2;
+  const dv_brachistochrone =
+    2 * Math.sqrt(distanceMeters * initialAcceleration);
+
+  if (initialAcceleration <= 0 || allocatedDeltaV <= 0) {
+    return { burnTime: 0, coastTime: 0, totalTime: GAME_SECONDS_PER_TICK };
+  } else if (dv_brachistochrone <= allocatedDeltaV) {
+    const totalTime = 2 * Math.sqrt(distanceMeters / initialAcceleration);
+    return { burnTime: totalTime / 2, coastTime: 0, totalTime };
+  } else {
+    const burnTime = v_cruise / initialAcceleration;
+    const burnDistance = 0.5 * initialAcceleration * burnTime * burnTime;
+    const coastDistance = Math.max(0, distanceMeters - 2 * burnDistance);
+    const coastTime = v_cruise > 0 ? coastDistance / v_cruise : 0;
+    return { burnTime, coastTime, totalTime: 2 * burnTime + coastTime };
+  }
+}
+
+/** Options for 2D orbital intercept trajectory solving. */
+export interface OrbitalFlightOptions {
+  gameTime: number;
+  world: World;
+  /** Override origin position (for mid-flight redirects). */
+  originPos?: Vec2;
+}
+
+/**
+ * Initialize a new flight from origin to destination.
+ * Uses current ship mass (including fuel) for acceleration calculations.
+ *
+ * When `orbital` is provided, solves an intercept trajectory
+ * to the destination's future orbital position. Otherwise uses the current
+ * static distance (backward compatible for tests).
  *
  * @param burnFraction 0.1-1.0: fraction of allocated delta-v budget to use.
  *   1.0 = max speed (use full budget, shortest trip, most fuel).
  *   Lower values coast more, saving fuel at the cost of longer trips.
+ * @param orbital 2D orbital intercept options (gameTime, world, originPos)
  */
 export function initializeFlight(
   ship: Ship,
   origin: WorldLocation,
   destination: WorldLocation,
   dockOnArrival: boolean = false,
-  burnFraction: number = 1.0
+  burnFraction: number = 1.0,
+  orbital?: OrbitalFlightOptions
 ): FlightState {
   const engineDef = getEngineDefinition(ship.engine.definitionId);
   const shipClass = getShipClass(ship.classId);
@@ -323,10 +369,6 @@ export function initializeFlight(
 
   // Clamp burn fraction to valid range
   const clampedBurnFraction = Math.max(0.1, Math.min(1.0, burnFraction));
-
-  // Calculate distance in meters
-  const distanceKm = getDistanceBetween(origin, destination);
-  let distanceMeters = distanceKm * 1000;
 
   // Get current ship mass (including fuel, cargo, crew)
   const currentMass = getCurrentShipMass(ship);
@@ -346,54 +388,71 @@ export function initializeFlight(
   );
   const allocatedDeltaV = maxAllocatedDeltaV * clampedBurnFraction;
 
-  // Calculate cruise velocity (half delta-v for accel, half for decel)
-  const v_cruise = allocatedDeltaV / 2;
-
   // Initial acceleration (will change as fuel burns, but use for planning)
   let initialAcceleration = thrust / currentMass;
 
-  // Check if this is a short trip (mini-brachistochrone)
-  const dv_brachistochrone =
-    2 * Math.sqrt(distanceMeters * initialAcceleration);
+  // ── 2D intercept trajectory (when orbital data available) ──
+  let distanceKm: number;
+  let flightOriginPos: Vec2 | undefined;
+  let flightInterceptPos: Vec2 | undefined;
+  let estimatedArrivalGameTime: number | undefined;
 
-  let burnTime: number;
-  let coastTime: number;
-  let totalTime: number;
+  if (orbital) {
+    // Compute origin position
+    flightOriginPos =
+      orbital.originPos ??
+      getLocationPosition(origin, orbital.gameTime, orbital.world);
 
-  if (initialAcceleration <= 0 || allocatedDeltaV <= 0) {
-    // Edge case: zero thrust or zero fuel. Use a minimal 1-tick flight
-    // so the ship doesn't get stuck in an infinite flight state.
-    burnTime = 0;
-    coastTime = 0;
-    totalTime = GAME_SECONDS_PER_TICK;
-  } else if (dv_brachistochrone <= allocatedDeltaV) {
-    // Short trip: never reaches cruise velocity, no coast phase
-    totalTime = 2 * Math.sqrt(distanceMeters / initialAcceleration);
-    burnTime = totalTime / 2;
-    coastTime = 0;
+    // Solve intercept: where will the destination be when we arrive?
+    const interceptResult = solveIntercept(
+      flightOriginPos,
+      destination,
+      (dKm: number) => {
+        const dMeters = dKm * 1000;
+        const timing = computeFlightTiming(
+          dMeters,
+          initialAcceleration,
+          allocatedDeltaV
+        );
+        return timing.totalTime;
+      },
+      orbital.gameTime,
+      orbital.world
+    );
+
+    distanceKm = interceptResult.travelDistanceKm;
+    flightInterceptPos = interceptResult.interceptPos;
+    estimatedArrivalGameTime = interceptResult.arrivalGameTime;
   } else {
-    // Long trip: burn-coast-burn
-    burnTime = v_cruise / initialAcceleration;
-    const burnDistance = 0.5 * initialAcceleration * burnTime * burnTime;
-    const coastDistance = Math.max(0, distanceMeters - 2 * burnDistance);
-    coastTime = v_cruise > 0 ? coastDistance / v_cruise : 0;
-    totalTime = 2 * burnTime + coastTime;
+    // Legacy: use static distance
+    distanceKm = getDistanceBetween(origin, destination);
   }
+
+  let distanceMeters = distanceKm * 1000;
+
+  const { burnTime, coastTime, totalTime } = computeFlightTiming(
+    distanceMeters,
+    initialAcceleration,
+    allocatedDeltaV
+  );
+  let finalBurnTime = burnTime;
+  let finalCoastTime = coastTime;
+  let finalTotalTime = totalTime;
 
   // Final sanity: ensure all numeric fields are finite. NaN or Infinity
   // would persist through JSON round-trips as null, permanently corrupting
   // the flight plan (null + number = NaN, which cascades through all physics).
   if (
-    !Number.isFinite(totalTime) ||
-    totalTime <= 0 ||
-    !Number.isFinite(burnTime) ||
-    !Number.isFinite(coastTime) ||
+    !Number.isFinite(finalTotalTime) ||
+    finalTotalTime <= 0 ||
+    !Number.isFinite(finalBurnTime) ||
+    !Number.isFinite(finalCoastTime) ||
     !Number.isFinite(initialAcceleration) ||
     !Number.isFinite(distanceMeters)
   ) {
-    totalTime = GAME_SECONDS_PER_TICK;
-    burnTime = 0;
-    coastTime = 0;
+    finalTotalTime = GAME_SECONDS_PER_TICK;
+    finalBurnTime = 0;
+    finalCoastTime = 0;
     initialAcceleration = 0;
     distanceMeters = 0;
   }
@@ -406,13 +465,17 @@ export function initializeFlight(
     distanceCovered: 0,
     currentVelocity: 0,
     phase: 'accelerating',
-    burnTime,
-    coastTime,
+    burnTime: finalBurnTime,
+    coastTime: finalCoastTime,
     elapsedTime: 0,
-    totalTime,
+    totalTime: finalTotalTime,
     acceleration: initialAcceleration,
     dockOnArrival,
     burnFraction: clampedBurnFraction,
+    originPos: flightOriginPos,
+    interceptPos: flightInterceptPos,
+    shipPos: flightOriginPos ? { ...flightOriginPos } : undefined,
+    estimatedArrivalGameTime,
   };
 }
 
@@ -428,7 +491,9 @@ export function startShipFlight(
   origin: WorldLocation,
   destination: WorldLocation,
   dockOnArrival: boolean = false,
-  burnFraction: number = 1.0
+  burnFraction: number = 1.0,
+  gameTime?: number,
+  world?: World
 ): boolean {
   if (!isHelmManned(ship)) {
     return false;
@@ -443,7 +508,8 @@ export function startShipFlight(
     origin,
     destination,
     dockOnArrival,
-    burnFraction
+    burnFraction,
+    gameTime !== undefined && world ? { gameTime, world } : undefined
   );
 
   ship.engine.state = 'warming_up';
@@ -464,7 +530,9 @@ export function redirectShipFlight(
   currentKm: number,
   destination: WorldLocation,
   dockOnArrival: boolean = false,
-  burnFraction: number = 1.0
+  burnFraction: number = 1.0,
+  gameTime?: number,
+  world?: World
 ): boolean {
   if (!isHelmManned(ship)) {
     return false;
@@ -476,12 +544,18 @@ export function redirectShipFlight(
     id: ship.activeFlightPlan?.origin ?? '',
   } as WorldLocation;
 
+  // Use ship's current 2D position for redirect origin if available
+  const currentShipPos = ship.activeFlightPlan?.shipPos;
+
   ship.activeFlightPlan = initializeFlight(
     ship,
     virtualOrigin,
     destination,
     dockOnArrival,
-    burnFraction
+    burnFraction,
+    gameTime !== undefined && world
+      ? { gameTime, world, originPos: currentShipPos }
+      : undefined
   );
 
   // Override originKm to the exact interpolated position
@@ -582,6 +656,10 @@ export function advanceFlight(flight: FlightState): boolean {
     flight.distanceCovered = flight.totalDistance;
     flight.currentVelocity = 0;
     flight.phase = 'decelerating'; // Final phase
+    // Snap 2D position to intercept point
+    if (flight.interceptPos) {
+      flight.shipPos = { ...flight.interceptPos };
+    }
     return true; // Flight complete
   }
 
@@ -641,6 +719,12 @@ export function advanceFlight(flight: FlightState): boolean {
         0.5 * flight.acceleration * timeIntoDecel * timeIntoDecel;
       flight.distanceCovered = accelDistance + coastDistance + decelDistance;
     }
+  }
+
+  // Update 2D ship position via linear interpolation
+  if (flight.originPos && flight.interceptPos && flight.totalDistance > 0) {
+    const progress = Math.min(1, flight.distanceCovered / flight.totalDistance);
+    flight.shipPos = lerpVec2(flight.originPos, flight.interceptPos, progress);
   }
 
   return false;

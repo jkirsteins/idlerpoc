@@ -11,12 +11,22 @@ export function generateId(): string {
 
 /**
  * Get distance between two locations (km).
- * Extracted to break circular dependency between flightPhysics and worldGen.
+ *
+ * Uses 2D Euclidean distance from orbital positions (x/y in km, updated
+ * each tick by updateWorldPositions). Falls back to 1D |distanceFromEarth|
+ * when orbital data is absent (legacy saves before migration).
  */
 export function getDistanceBetween(
   locA: WorldLocation,
   locB: WorldLocation
 ): number {
+  // If both locations have orbital data, use 2D Euclidean distance
+  if (locA.orbital && locB.orbital) {
+    const dx = locA.x - locB.x;
+    const dy = locA.y - locB.y;
+    return Math.sqrt(dx * dx + dy * dy);
+  }
+  // Legacy fallback
   return Math.abs(locA.distanceFromEarth - locB.distanceFromEarth);
 }
 

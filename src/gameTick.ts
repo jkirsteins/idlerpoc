@@ -34,6 +34,12 @@ import { applyMiningTick } from './miningSystem';
 import { checkMiningRouteDeparture } from './miningRoute';
 import { addLog } from './logSystem';
 import {
+  updateWorldPositions,
+  getLocationPosition,
+  euclideanDistance,
+  lerpVec2,
+} from './orbitalMechanics';
+import {
   awardMasteryXp,
   getEquipmentRepairMasteryBonus,
   getRepairsPoolSpeedBonus,
@@ -41,6 +47,45 @@ import {
   getRepairsPoolBonusChance,
 } from './masterySystem';
 import { getAllEquipmentDefinitions } from './equipment';
+
+/**
+ * Mid-flight course correction.
+ * Every 50 ticks, check if the destination has drifted from the predicted
+ * intercept position due to orbital motion. If the drift exceeds 5% of the
+ * remaining distance, silently update the intercept point and trajectory.
+ * This keeps ships on course for months-long interplanetary flights.
+ */
+function applyCourseCorrection(
+  fp: import('./models').FlightState,
+  gameData: import('./models').GameData
+): void {
+  if (!fp.interceptPos || !fp.originPos || fp.totalDistance <= 0) return;
+
+  const ticksIntoFlight = Math.floor(fp.elapsedTime / GAME_SECONDS_PER_TICK);
+  if (ticksIntoFlight <= 0 || ticksIntoFlight % 50 !== 0) return;
+
+  const destLoc = gameData.world.locations.find((l) => l.id === fp.destination);
+  if (!destLoc) return;
+
+  const remainingSec = Math.max(0, fp.totalTime - fp.elapsedTime);
+  const futureArrival = gameData.gameTime + remainingSec;
+  const destFuturePos = getLocationPosition(
+    destLoc,
+    futureArrival,
+    gameData.world
+  );
+  const drift = euclideanDistance(destFuturePos, fp.interceptPos);
+  const remainingDistKm = (fp.totalDistance - fp.distanceCovered) / 1000;
+
+  if (remainingDistKm > 0 && drift / remainingDistKm > 0.05) {
+    fp.interceptPos = destFuturePos;
+    fp.estimatedArrivalGameTime = futureArrival;
+    const newTotalDistKm = euclideanDistance(fp.originPos, fp.interceptPos);
+    fp.totalDistance = newTotalDistKm * 1000;
+    const progress = Math.min(1, fp.distanceCovered / fp.totalDistance);
+    fp.shipPos = lerpVec2(fp.originPos, fp.interceptPos, progress);
+  }
+}
 
 /**
  * Encounter system hook.
@@ -205,6 +250,11 @@ function applyShipTick(gameData: GameData, ship: Ship): boolean {
     // Flight physics (only advance when engine is online)
     if (ship.activeFlightPlan && ship.engine.state === 'online') {
       const flightComplete = advanceFlight(ship.activeFlightPlan);
+
+      // Mid-flight course correction for orbital drift on long flights
+      if (!flightComplete) {
+        applyCourseCorrection(ship.activeFlightPlan, gameData);
+      }
 
       // Fuel consumption during burn phases (mass-based, pro-rated)
       // Burns are pro-rated to the actual seconds spent accelerating/decelerating
@@ -731,6 +781,9 @@ export function applyTick(
 
   // Advance game time once per tick (global time system)
   gameData.gameTime += GAME_SECONDS_PER_TICK;
+
+  // Update orbital positions for all world locations
+  updateWorldPositions(gameData.world, gameData.gameTime);
 
   // Apply per-ship tick logic
   for (const ship of gameData.ships) {
