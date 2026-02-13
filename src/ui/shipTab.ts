@@ -2,7 +2,8 @@ import type { GameData, Room, JobSlot } from '../models';
 import { getActiveShip } from '../models';
 import { getShipClass } from '../shipClasses';
 import { getRoomDefinition } from '../rooms';
-import { getCrewRoleName } from '../crewRoles';
+import { getCrewRoleName, getPrimarySkillForRole } from '../crewRoles';
+import { getSkillRank } from '../skillRanks';
 import { computePowerStatus } from '../powerSystem';
 import { computeOxygenStatus } from '../lifeSupportSystem';
 import {
@@ -98,7 +99,7 @@ function snapshotShipProps(gameData: GameData, showNav: boolean) {
     cargoCount: ship.cargo.length,
     equipCount: ship.equipment.length,
     // Crew roster identity + stats that affect the rendered UI
-    crew: ship.crew.map((c) => c.id + c.name + c.level + c.isCaptain).join(),
+    crew: ship.crew.map((c) => c.id + c.name + c.isCaptain).join(),
     crewSkills: ship.crew
       .map((c) => `${c.skills.piloting}${c.skills.mining}${c.skills.commerce}`)
       .join(),
@@ -798,7 +799,11 @@ export function createShipTab(
     refs.roleEl.textContent = getCrewRoleName(crew.role);
 
     // Stats
-    refs.statsEl.innerHTML = `<span class="stat health">HP: ${crew.health}</span><span class="stat morale">M: ${crew.morale}</span><span class="stat level">Lv: ${crew.level}</span>`;
+    const primarySkill = getPrimarySkillForRole(crew.role);
+    const rankAbbr = primarySkill
+      ? getSkillRank(Math.floor(crew.skills[primarySkill])).name
+      : '';
+    refs.statsEl.innerHTML = `<span class="stat health">HP: ${crew.health}</span><span class="stat morale">M: ${crew.morale}</span><span class="stat level">${rankAbbr}</span>`;
 
     // Assignment dropdown
     while (refs.assignSection.firstChild) {

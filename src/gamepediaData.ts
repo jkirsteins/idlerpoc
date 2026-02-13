@@ -798,29 +798,6 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
   },
 
   {
-    id: 'leveling',
-    title: 'Leveling & XP',
-    category: 'Crew',
-    summary: 'How crew gain experience, level up, and what levels unlock.',
-    sections: [
-      {
-        paragraphs: [
-          'Crew members earn XP from completing [[contracts|contracts]], surviving [[encounters|encounters]], and flight time. XP accumulates toward the next level (max level 20).',
-          'When enough XP is earned, a level-up notification appears. Leveling up improves overall crew effectiveness.',
-        ],
-      },
-      {
-        heading: 'XP Sources',
-        paragraphs: [
-          '[[contracts|Contract]] completion grants XP to all crew. [[encounters|Encounters]] grant XP based on outcome: victories grant more than evasions.',
-          'Event-based [[skill-system|skill]] gains (from encounters) bypass diminishing returns and provide flat skill amounts, making combat encounters valuable for training.',
-        ],
-      },
-    ],
-    relatedArticles: ['skill-system', 'encounters', 'contracts'],
-  },
-
-  {
     id: 'captain-command',
     title: "Captain's Command Bonus",
     category: 'Crew',
@@ -893,7 +870,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
         paragraphs: [
           "Place the captain on the ship running the most profitable or dangerous routes. The captain's presence makes that ship more productive, safer, and a faster training ground.",
           'Consider stationing your fleet near the captain to maximize the coordination aura. The +10% income and training bonus on nearby ships compounds significantly over time.',
-          "As the captain levels up, their command bonuses grow — rewarding investment in the captain's skills across all three disciplines.",
+          "As the captain's skills improve, their command bonuses grow — rewarding investment across all four disciplines.",
         ],
       },
     ],
@@ -1952,7 +1929,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
         paragraphs: [
           'Mining happens automatically while your ship is orbiting a location that provides a mine service. The ship must have mining equipment installed — without it, no ore can be extracted. The [[ship-classes|Dreadnought]] and [[ship-classes|Leviathan]] carry two mining bays each, providing 4 mining_ops [[job-slots|job slots]] for maximum extraction speed.',
           'With mining equipment but no crew, the ship mines at a reduced base rate (25% speed), restricted to basic ores (Mining 0). Assigning crew to the mining_ops [[job-slots|job slot]] in the mining bay significantly increases extraction speed and unlocks higher-tier ores based on their [[skill-system|mining]] skill.',
-          'Use the ore material picker in the mining panel to choose which ore to extract. By default the highest-value ore is selected automatically, but you can override this to focus on a specific material. Locked ores (requiring higher mining skill) are shown but cannot be selected until your crew levels up.',
+          "Use the ore material picker in the mining panel to choose which ore to extract. By default the highest-value ore is selected automatically, but you can override this to focus on a specific material. Locked ores (requiring higher mining skill) are shown but cannot be selected until your crew's [[skill-system|mining skill]] improves.",
           'Extraction rate depends on [[ship-equipment|ship mining equipment]] quality, [[skill-system|mining]] skill, and [[mastery-system|ore mastery]]. The mining panel shows real-time extraction rates and estimated time to fill cargo.',
           "Extracted ore is stored in your ship's cargo hold. The cargo progress bar shows fill level at a glance. When cargo is full, mining pauses. Sell ore at any station with a trade service to convert it into [[credits-economy|credits]]. Sell prices vary by location type and improve with the [[skill-system|commerce]] skill.",
         ],

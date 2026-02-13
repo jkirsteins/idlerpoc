@@ -18,7 +18,7 @@ const BACKUP_KEY = 'spaceship_game_data_backup';
  *
  * See docs/save-migration.md for the full migration architecture.
  */
-export const CURRENT_SAVE_VERSION = 10;
+export const CURRENT_SAVE_VERSION = 11;
 
 /** Whether the last save attempt failed (used for UI warnings). */
 let _lastSaveFailed = false;
@@ -731,6 +731,45 @@ const migrations: Record<number, MigrationFn> = {
     }
 
     data.saveVersion = 10;
+    return data;
+  },
+
+  /**
+   * v10 → v11: Remove vestigial crew level system.
+   * - Strip `xp` and `level` fields from all crew members (ship crew + hireable pools).
+   *   These fields were never updated by any game mechanic; the skill system
+   *   (individual skills, ranks, mastery) is the sole progression backbone.
+   */
+  10: (data: RawSave): RawSave => {
+    function stripLevelFields(member: Record<string, unknown>): void {
+      delete member.xp;
+      delete member.level;
+    }
+
+    const ships = data.ships as Array<Record<string, unknown>> | undefined;
+    if (ships) {
+      for (const ship of ships) {
+        const crew = ship.crew as Array<Record<string, unknown>> | undefined;
+        if (crew) {
+          for (const member of crew) {
+            stripLevelFields(member);
+          }
+        }
+      }
+    }
+
+    const pools = data.hireableCrewByLocation as
+      | Record<string, Array<Record<string, unknown>>>
+      | undefined;
+    if (pools) {
+      for (const locationId of Object.keys(pools)) {
+        for (const member of pools[locationId]) {
+          stripLevelFields(member);
+        }
+      }
+    }
+
+    data.saveVersion = 11;
     return data;
   },
 };

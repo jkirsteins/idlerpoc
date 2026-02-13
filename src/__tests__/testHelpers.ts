@@ -42,8 +42,6 @@ export function createTestCrew(
       commerce: 0,
       repairs: 0,
     },
-    xp: 0,
-    level: 1,
     isCaptain: false,
     equipment: [],
     unpaidTicks: 0,
