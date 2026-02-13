@@ -11,6 +11,8 @@ import {
 } from './provisionsSystem';
 import { getLocationPosition, solveIntercept } from './orbitalMechanics';
 import { scanForGravityAssists } from './gravityAssistSystem';
+import { getCrewEquipmentDefinition } from './crewEquipment';
+import { getOreDefinition } from './oreTypes';
 
 /**
  * Flight Physics
@@ -30,20 +32,55 @@ const G0 = 9.81; // m/s²
  * and fleet analytics. Centralised here to avoid divergent copies.
  */
 export const CREW_MASS_KG = 80; // ~80 kg per crew member
-export const CARGO_ITEM_MASS_KG = 10; // ~10 kg per cargo item (will be refined later)
+
+/**
+ * Calculate the total weight of crew equipment items in the cargo hold,
+ * using each item's actual weight from its definition.
+ */
+export function getCrewEquipmentCargoWeight(ship: Ship): number {
+  let weight = 0;
+  for (const item of ship.cargo) {
+    const def = getCrewEquipmentDefinition(item.definitionId);
+    weight += def.weight;
+  }
+  return weight;
+}
+
+/**
+ * Calculate the current ore cargo weight on a ship.
+ */
+export function getOreCargoWeight(ship: Ship): number {
+  let weight = 0;
+  for (const item of ship.oreCargo) {
+    const ore = getOreDefinition(item.oreId);
+    weight += ore.weightPerUnit * item.quantity;
+  }
+  return weight;
+}
+
+/**
+ * Calculate the total weight of everything in the cargo hold:
+ * crew equipment + ore + provisions.
+ *
+ * This is the single source of truth for cargo hold usage.
+ */
+export function getCargoUsedKg(ship: Ship): number {
+  return (
+    getCrewEquipmentCargoWeight(ship) +
+    getOreCargoWeight(ship) +
+    (ship.provisionsKg || 0)
+  );
+}
 
 /**
  * Calculate the dry mass of a ship — everything except fuel.
- * Includes hull, crew, cargo, and provisions.
+ * Includes hull, crew, and all cargo hold contents (equipment, ore, provisions).
  */
 export function calculateDryMass(ship: Ship): number {
   const shipClass = getShipClass(ship.classId);
   if (!shipClass) return 200000; // fallback for unknown class
   return (
-    shipClass.mass +
-    ship.crew.length * CREW_MASS_KG +
-    ship.cargo.reduce((sum) => sum + CARGO_ITEM_MASS_KG, 0) +
-    (ship.provisionsKg || 0)
+    shipClass.mass + ship.crew.length * CREW_MASS_KG + getCargoUsedKg(ship)
   );
 }
 
@@ -58,25 +95,14 @@ export function calculateFuelTankCapacity(shipClass: ShipClass): number {
 }
 
 /**
- * Calculate available cargo capacity for a ship class.
- * With fuel in dedicated tanks, the full cargoCapacity is available
- * for cargo and provisions. Provisions mass is subtracted separately
- * by calculateShipAvailableCargo() for per-ship calculations.
- */
-export function calculateAvailableCargoCapacity(cargoCapacity: number): number {
-  return cargoCapacity;
-}
-
-/**
  * Calculate available cargo capacity for a specific ship, after subtracting
- * provisions mass from the cargo hold. This is what's actually available
- * for quest cargo.
+ * all current cargo hold contents (provisions, crew equipment, ore).
+ * This is what's actually available for quest cargo.
  */
 export function calculateShipAvailableCargo(ship: Ship): number {
   const shipClass = getShipClass(ship.classId);
   if (!shipClass) return 0;
-  const totalCargo = calculateAvailableCargoCapacity(shipClass.cargoCapacity);
-  return Math.max(0, totalCargo - (ship.provisionsKg || 0));
+  return Math.max(0, shipClass.cargoCapacity - getCargoUsedKg(ship));
 }
 
 /**
