@@ -623,7 +623,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
       {
         heading: 'Archetypes & Skills',
         paragraphs: [
-          'Every candidate has a [[crew-roles|role]] archetype — [[crew-roles|Pilot]], [[crew-roles|Miner]], [[crew-roles|Trader]], or [[crew-roles|Engineer]] — that determines their [[skill-system|skill]] distribution. A pilot has strong piloting with some commerce; a miner has strong mining with some piloting; a trader has strong commerce with some piloting; an engineer has strong repairs with some piloting.',
+          'Every candidate has a [[crew-roles|role]] archetype — [[crew-roles|Pilot]], [[crew-roles|Miner]], or [[crew-roles|Trader]] — that determines their [[skill-system|skill]] distribution. A pilot has strong piloting with some commerce; a miner has strong mining with some piloting; a trader has strong commerce with some piloting.',
           'Candidate quality varies widely. Most candidates are green recruits with low skills, but occasionally a seasoned veteran will appear. Larger stations attract slightly better candidates on average.',
         ],
       },
@@ -645,7 +645,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
       {
         heading: 'Salary Scaling',
         paragraphs: [
-          'More skilled candidates demand significantly higher [[crew-salaries|salaries]]. A green recruit costs the base rate (48 cr/day), while a veteran might demand 150-250 cr/day. The salary multiplier is locked at hire time — training crew after hiring does not increase their wage.',
+          'More skilled candidates demand significantly higher [[crew-salaries|salaries]]. A green recruit costs the base rate (48 cr/day), while a veteran with 30 total skill points demands around 186 cr/day — nearly 4x the base rate. The salary multiplier is locked at hire time — training crew after hiring does not increase their wage.',
           'This creates a core decision: hire cheap recruits and train them over days of real time (cost-effective but slow), or invest heavily in pre-skilled veterans for immediate capability at ongoing expense.',
         ],
       },

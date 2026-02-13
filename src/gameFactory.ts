@@ -146,20 +146,15 @@ export function generateHireableCrew(locationSize: number): CrewMember[] {
 
 /**
  * Generate hireable crew pools for all stations with 'hire' service.
- * Only generates for stations that have at least one docked ship.
  * Candidate count scales with location size — large hubs attract more
  * crew while remote outposts may have nobody looking for work.
  */
 export function generateHireableCrewByLocation(
-  world: GameData['world'],
-  dockedLocationIds: string[]
+  world: GameData['world']
 ): Record<string, CrewMember[]> {
   const pools: Record<string, CrewMember[]> = {};
   for (const location of world.locations) {
-    if (
-      location.services.includes('hire') &&
-      dockedLocationIds.includes(location.id)
-    ) {
+    if (location.services.includes('hire')) {
       pools[location.id] = generateHireableCrew(location.size);
     }
   }
@@ -364,10 +359,8 @@ export function createNewGame(
   const availableQuests = generateAllLocationQuests([ship], world);
   const lastQuestRegenDay = 0;
 
-  // Generate hireable crew for starting location
-  const hireableCrewByLocation = generateHireableCrewByLocation(world, [
-    'earth',
-  ]);
+  // Generate hireable crew for all stations with hire service
+  const hireableCrewByLocation = generateHireableCrewByLocation(world);
 
   return {
     saveVersion: CURRENT_SAVE_VERSION,
