@@ -7,7 +7,14 @@
  */
 
 import type { GameData, Ship, WorldLocation } from '../models';
-import { formatDualTime, GAME_SECONDS_PER_HOUR } from '../timeSystem';
+import {
+  formatDualTime,
+  GAME_SECONDS_PER_HOUR,
+  GAME_SECONDS_PER_TICK,
+} from '../timeSystem';
+import { calculateShipSalaryPerTick } from '../crewRoles';
+import { calculateTripFuelKg } from '../questGen';
+import { getFuelPricePerKg } from '../fuelPricing';
 import {
   getOreDefinition,
   canMineOre,
@@ -56,6 +63,8 @@ interface MiningStatusRefs {
   activeRouteLabel: HTMLSpanElement;
   activeRouteCancelBtn: HTMLButtonElement;
   activeRouteStats: HTMLDivElement;
+  activeRouteInfoSpan: HTMLSpanElement;
+  activeRouteProfitSpan: HTMLSpanElement;
   setupRouteContainer: HTMLDivElement;
   setupRouteLabel: HTMLDivElement;
   noTradeMsg: HTMLDivElement;
@@ -88,6 +97,9 @@ export function createMiningPanel(callbacks: MiningPanelCallbacks): {
       row: HTMLDivElement;
       infoEl: HTMLDivElement;
       profitEl: HTMLDivElement;
+      revenueSpan: HTMLSpanElement;
+      costSpan: HTMLSpanElement;
+      netSpan: HTMLSpanElement;
       selectBtn: HTMLButtonElement;
     }
   >();
@@ -229,7 +241,16 @@ export function createMiningPanel(callbacks: MiningPanelCallbacks): {
     activeRouteContainer.appendChild(activeRouteHeader);
 
     const activeRouteStats = document.createElement('div');
-    activeRouteStats.style.cssText = 'font-size: 0.8rem; color: #888;';
+    activeRouteStats.style.cssText =
+      'font-size: 0.8rem; color: #888; display: flex; flex-wrap: wrap; gap: 0 8px;';
+
+    const activeRouteInfoSpan = document.createElement('span');
+    activeRouteStats.appendChild(activeRouteInfoSpan);
+
+    const activeRouteProfitSpan = document.createElement('span');
+    activeRouteProfitSpan.style.fontWeight = 'bold';
+    activeRouteStats.appendChild(activeRouteProfitSpan);
+
     activeRouteContainer.appendChild(activeRouteStats);
     routeSection.appendChild(activeRouteContainer);
 
@@ -287,6 +308,8 @@ export function createMiningPanel(callbacks: MiningPanelCallbacks): {
       activeRouteLabel,
       activeRouteCancelBtn,
       activeRouteStats,
+      activeRouteInfoSpan,
+      activeRouteProfitSpan,
       setupRouteContainer,
       setupRouteLabel,
       noTradeMsg,
@@ -442,12 +465,20 @@ export function createMiningPanel(callbacks: MiningPanelCallbacks): {
         const sellPrice = sellLocation
           ? getOreSellPrice(ore, sellLocation, ship)
           : ore.baseValue;
-        const crPerHr = sellPrice * yieldPerHr;
-        entry.infoEl.textContent = `${formatCredits(sellPrice)}/unit \u00B7 ~${yieldPerHr.toFixed(1)} units/hr \u00B7 ~${formatCredits(Math.round(crPerHr))}/hr`;
+        const grossCrPerHr = sellPrice * yieldPerHr;
+        const salaryCrPerHr = getSalaryCrPerHour(ship);
+        const profitPerHr = grossCrPerHr - salaryCrPerHr;
+        const profitLabel =
+          profitPerHr >= 0
+            ? `+${formatCredits(Math.round(profitPerHr))}`
+            : formatCredits(Math.round(profitPerHr));
+        entry.infoEl.textContent = `${formatCredits(sellPrice)}/unit \u00B7 ~${yieldPerHr.toFixed(1)} units/hr \u00B7 ~${profitLabel}/hr profit`;
+        entry.infoEl.style.color = profitPerHr >= 0 ? '#4caf50' : '#ff6b6b';
       } else {
         entry.infoEl.textContent = canAccess
           ? ''
           : `${formatCredits(ore.baseValue)}/unit`;
+        entry.infoEl.style.color = '#888';
       }
     }
 
@@ -607,16 +638,40 @@ export function createMiningPanel(callbacks: MiningPanelCallbacks): {
         statusLabel = `Returning to ${location.name}`;
       }
 
-      let statsText = `Trips: ${route.totalTrips} \u00B7 Earned: ${formatCredits(route.totalCreditsEarned)} \u00B7 ${statusLabel}`;
+      const infoText = `Trips: ${route.totalTrips} \u00B7 Revenue: ${formatCredits(route.totalCreditsEarned)} \u00B7 ${statusLabel}`;
+      r.activeRouteInfoSpan.textContent = infoText;
 
       const routeAge = gd.gameTime - route.assignedAt;
       if (routeAge > 0 && route.totalCreditsEarned > 0) {
         const routeHours = routeAge / GAME_SECONDS_PER_HOUR;
-        const routeCrPerHr = Math.round(route.totalCreditsEarned / routeHours);
-        statsText += ` \u00B7 ~${formatCredits(routeCrPerHr)}/hr`;
-      }
 
-      r.activeRouteStats.textContent = statsText;
+        // Estimate costs over route lifetime
+        const salaryCrPerHr = getSalaryCrPerHour(ship);
+        const salaryTotalEst = salaryCrPerHr * routeHours;
+
+        let fuelTotalEst = 0;
+        if (sellLoc && route.totalTrips > 0) {
+          const dist = getDistanceBetween(location, sellLoc);
+          const roundTripFuelKg =
+            2 * calculateTripFuelKg(ship, dist, ship.flightProfileBurnFraction);
+          const fuelPrice = getFuelPricePerKg(location, ship);
+          fuelTotalEst = roundTripFuelKg * fuelPrice * route.totalTrips;
+        }
+
+        const estProfit =
+          route.totalCreditsEarned - salaryTotalEst - fuelTotalEst;
+        const profitPerHr = Math.round(estProfit / routeHours);
+        const profitLabel =
+          profitPerHr >= 0
+            ? `+${formatCredits(profitPerHr)}`
+            : formatCredits(profitPerHr);
+        r.activeRouteProfitSpan.textContent = `~${profitLabel}/hr profit`;
+        r.activeRouteProfitSpan.style.color =
+          profitPerHr >= 0 ? '#4caf50' : '#ff6b6b';
+        r.activeRouteProfitSpan.style.display = '';
+      } else {
+        r.activeRouteProfitSpan.style.display = 'none';
+      }
     } else {
       r.activeRouteContainer.style.display = 'none';
       r.setupRouteContainer.style.display = '';
@@ -637,6 +692,8 @@ export function createMiningPanel(callbacks: MiningPanelCallbacks): {
         r.destListContainer.style.display = 'flex';
         r.setupHint.style.display = '';
 
+        const salaryCrPerHr = getSalaryCrPerHour(ship);
+
         const destData = tradeLocations.map((loc) => {
           const dist = getDistanceBetween(location, loc);
           const distKm = dist;
@@ -645,6 +702,8 @@ export function createMiningPanel(callbacks: MiningPanelCallbacks): {
           let crPerHr = 0;
           let sellPrice = 0;
           let roundTripSec = 0;
+          let profitCrPerHr = 0;
+          let costCrPerHr = 0;
 
           if (estOre && hasEquipment) {
             sellPrice = getOreSellPrice(estOre, loc, ship);
@@ -658,16 +717,42 @@ export function createMiningPanel(callbacks: MiningPanelCallbacks): {
               2 *
               estimateTripTime(ship, distKm, ship.flightProfileBurnFraction);
             const cycleSec = fillSec + roundTripSec;
+
             if (cycleSec > 0 && cycleSec < Infinity) {
-              crPerHr =
-                (sellPrice * cargoUnits) / (cycleSec / GAME_SECONDS_PER_HOUR);
+              const cycleHours = cycleSec / GAME_SECONDS_PER_HOUR;
+              const revenuePerCycle = sellPrice * cargoUnits;
+              crPerHr = revenuePerCycle / cycleHours;
+
+              // Costs: crew salary over full cycle + fuel for round trip
+              const salaryCostPerCycle = salaryCrPerHr * cycleHours;
+              const roundTripFuelKg =
+                2 *
+                calculateTripFuelKg(
+                  ship,
+                  distKm,
+                  ship.flightProfileBurnFraction
+                );
+              const fuelPrice = getFuelPricePerKg(location, ship);
+              const fuelCostPerCycle = roundTripFuelKg * fuelPrice;
+
+              costCrPerHr =
+                (salaryCostPerCycle + fuelCostPerCycle) / cycleHours;
+              profitCrPerHr = crPerHr - costCrPerHr;
             }
           }
 
-          return { loc, dist, sellPrice, roundTripSec, crPerHr };
+          return {
+            loc,
+            dist,
+            sellPrice,
+            roundTripSec,
+            crPerHr,
+            profitCrPerHr,
+            costCrPerHr,
+          };
         });
 
-        destData.sort((a, b) => b.crPerHr - a.crPerHr);
+        destData.sort((a, b) => b.profitCrPerHr - a.profitCrPerHr);
 
         const currentLocIds = new Set<string>();
         for (const {
@@ -675,7 +760,8 @@ export function createMiningPanel(callbacks: MiningPanelCallbacks): {
           dist,
           sellPrice,
           roundTripSec,
-          crPerHr,
+          profitCrPerHr,
+          costCrPerHr,
         } of destData) {
           currentLocIds.add(loc.id);
 
@@ -694,10 +780,25 @@ export function createMiningPanel(callbacks: MiningPanelCallbacks): {
           }
 
           if (rateOre && sellPrice > 0) {
-            entry.profitEl.textContent = `${rateOre.icon} ${formatCredits(sellPrice)}/unit`;
-            if (crPerHr > 0) {
-              entry.profitEl.textContent += ` \u00B7 ~${formatCredits(Math.round(crPerHr))}/hr`;
+            entry.revenueSpan.textContent = `${rateOre.icon} ${formatCredits(sellPrice)}/unit`;
+
+            const roundedCost = Math.round(costCrPerHr);
+            if (roundedCost > 0) {
+              entry.costSpan.textContent = `Costs: ~${formatCredits(roundedCost)}/hr`;
+              entry.costSpan.style.display = '';
+            } else {
+              entry.costSpan.style.display = 'none';
             }
+
+            const profitLabel =
+              profitCrPerHr >= 0
+                ? `+${formatCredits(Math.round(profitCrPerHr))}`
+                : formatCredits(Math.round(profitCrPerHr));
+            entry.netSpan.textContent = `Profit: ~${profitLabel}/hr`;
+            entry.netSpan.style.color =
+              profitCrPerHr >= 0 ? '#4caf50' : '#ff6b6b';
+            entry.netSpan.style.display = '';
+
             entry.profitEl.style.display = '';
           } else {
             entry.profitEl.style.display = 'none';
@@ -722,6 +823,13 @@ export function createMiningPanel(callbacks: MiningPanelCallbacks): {
   }
 
   // ── Helpers ──────────────────────────────────────────────────
+
+  /** Convert ship salary (per-tick) to credits per game hour. */
+  function getSalaryCrPerHour(ship: Ship): number {
+    const salaryPerTick = calculateShipSalaryPerTick(ship);
+    const ticksPerHour = GAME_SECONDS_PER_HOUR / GAME_SECONDS_PER_TICK;
+    return salaryPerTick * ticksPerHour;
+  }
 
   function createOrePickerRow(
     id: string,
@@ -771,6 +879,9 @@ export function createMiningPanel(callbacks: MiningPanelCallbacks): {
     row: HTMLDivElement;
     infoEl: HTMLDivElement;
     profitEl: HTMLDivElement;
+    revenueSpan: HTMLSpanElement;
+    costSpan: HTMLSpanElement;
+    netSpan: HTMLSpanElement;
     selectBtn: HTMLButtonElement;
   } {
     const row = document.createElement('div');
@@ -789,8 +900,21 @@ export function createMiningPanel(callbacks: MiningPanelCallbacks): {
     textCol.appendChild(infoEl);
 
     const profitEl = document.createElement('div');
-    profitEl.style.cssText = 'color: #4caf50; font-size: 0.78rem;';
+    profitEl.style.cssText =
+      'font-size: 0.78rem; display: flex; flex-wrap: wrap; gap: 0 6px;';
     textCol.appendChild(profitEl);
+
+    const revenueSpan = document.createElement('span');
+    revenueSpan.style.color = '#888';
+    profitEl.appendChild(revenueSpan);
+
+    const costSpan = document.createElement('span');
+    costSpan.style.color = '#ffa500';
+    profitEl.appendChild(costSpan);
+
+    const netSpan = document.createElement('span');
+    netSpan.style.fontWeight = 'bold';
+    profitEl.appendChild(netSpan);
 
     row.appendChild(textCol);
 
@@ -801,6 +925,6 @@ export function createMiningPanel(callbacks: MiningPanelCallbacks): {
     selectBtn.addEventListener('click', () => cb.onStartMiningRoute(locId));
     row.appendChild(selectBtn);
 
-    return { row, infoEl, profitEl, selectBtn };
+    return { row, infoEl, profitEl, revenueSpan, costSpan, netSpan, selectBtn };
   }
 }

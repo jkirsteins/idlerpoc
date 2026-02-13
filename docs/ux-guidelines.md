@@ -40,40 +40,40 @@ All colors below are extracted from the existing `src/style.css`. Never introduc
 
 ### Backgrounds
 
-| Token | Hex | Usage |
-|---|---|---|
-| bg-page | `#1a1a2e` | Body background, deepest layer |
-| bg-container | `#16213e` | Game container, modals, catch-up report |
-| bg-panel | `#0f3460` | Cards, panels, secondary buttons, small buttons |
-| bg-input | `rgba(0,0,0,0.3)` | Input backgrounds, persistent info bar, status bar |
+| Token        | Hex               | Usage                                              |
+| ------------ | ----------------- | -------------------------------------------------- |
+| bg-page      | `#1a1a2e`         | Body background, deepest layer                     |
+| bg-container | `#16213e`         | Game container, modals, catch-up report            |
+| bg-panel     | `#0f3460`         | Cards, panels, secondary buttons, small buttons    |
+| bg-input     | `rgba(0,0,0,0.3)` | Input backgrounds, persistent info bar, status bar |
 
 ### Semantic Colors
 
-| Token | Hex | Meaning | Example usage |
-|---|---|---|---|
-| brand-red | `#e94560` | Brand, headings, primary button | h1–h3, default `button`, XP bars, active tabs |
-| brand-red-hover | `#d63050` | Hover variant | Button hover state |
-| accent-blue | `#4a9eff` | Information, navigation, interactive | Dates, links, active tab indicator, time controls |
-| accent-blue-hover | `#6db3ff` | Hover variant | Link hover, time control hover |
-| positive-teal | `#4ecdc4` | Positive action, confirmation | Accept buttons, Continue, Dock, contract complete |
-| positive-teal-hover | `#3db3aa` | Hover variant | Button hover state |
-| positive-green | `#4caf50` | Good status, safe, healthy | Status bars (good), CLEAR threat, level-ups |
-| warning-yellow | `#ffc107` | Caution, moderate status | Status bars (warning), CAUTION threat |
-| warning-orange | `#ffa500` | Cost, moderate risk | Crew salary, caution confirm buttons |
-| danger-red | `#ff6b6b` | Loss, danger | Boarding, credits lost, danger confirm buttons |
-| critical-red | `#cc0000` | Extreme danger, pulsing | CRITICAL threat, abandon contract, danger-hot buttons |
-| destroy-red | `#8b0000` | Destructive actions | Delete save, `.danger` buttons |
-| gold | `#ffd700` | Mining, special activity | Mining status in fleet panel |
-| purple | `#ce93d8` | Level, rank, experience | Crew level display |
+| Token               | Hex       | Meaning                              | Example usage                                         |
+| ------------------- | --------- | ------------------------------------ | ----------------------------------------------------- |
+| brand-red           | `#e94560` | Brand, headings, primary button      | h1–h3, default `button`, XP bars, active tabs         |
+| brand-red-hover     | `#d63050` | Hover variant                        | Button hover state                                    |
+| accent-blue         | `#4a9eff` | Information, navigation, interactive | Dates, links, active tab indicator, time controls     |
+| accent-blue-hover   | `#6db3ff` | Hover variant                        | Link hover, time control hover                        |
+| positive-teal       | `#4ecdc4` | Positive action, confirmation        | Accept buttons, Continue, Dock, contract complete     |
+| positive-teal-hover | `#3db3aa` | Hover variant                        | Button hover state                                    |
+| positive-green      | `#4caf50` | Good status, safe, healthy           | Status bars (good), CLEAR threat, level-ups           |
+| warning-yellow      | `#ffc107` | Caution, moderate status             | Status bars (warning), CAUTION threat                 |
+| warning-orange      | `#ffa500` | Cost, moderate risk                  | Crew salary, caution confirm buttons                  |
+| danger-red          | `#ff6b6b` | Loss, danger                         | Boarding, credits lost, danger confirm buttons        |
+| critical-red        | `#cc0000` | Extreme danger, pulsing              | CRITICAL threat, abandon contract, danger-hot buttons |
+| destroy-red         | `#8b0000` | Destructive actions                  | Delete save, `.danger` buttons                        |
+| gold                | `#ffd700` | Mining, special activity             | Mining status in fleet panel                          |
+| purple              | `#ce93d8` | Level, rank, experience              | Crew level display                                    |
 
 ### Text
 
-| Token | Hex | Usage |
-|---|---|---|
-| text-primary | `#eee` | Body text, data values |
-| text-secondary | `#aaa` | Labels, stat bar headers, sidebar text |
-| text-muted | `#888` | Hints, timestamps, inactive items, captions |
-| text-disabled | `#666` | Disabled controls |
+| Token          | Hex    | Usage                                       |
+| -------------- | ------ | ------------------------------------------- |
+| text-primary   | `#eee` | Body text, data values                      |
+| text-secondary | `#aaa` | Labels, stat bar headers, sidebar text      |
+| text-muted     | `#888` | Hints, timestamps, inactive items, captions |
+| text-disabled  | `#666` | Disabled controls                           |
 
 ### Status Bar Triad
 
@@ -87,16 +87,16 @@ Used consistently across all status bars (fuel, oxygen, provisions, radiation, h
 
 ## 3. Typography
 
-| Role | Size | Weight | Color | Notes |
-|---|---|---|---|---|
-| Section heading | 16px+ | bold | `#e94560` | h2, h3 in tab content |
-| Sub-heading | 14px | bold | `#4a9eff` | h4, settings sections |
-| Body text | 14px | normal | `#eee` | General content |
-| Secondary text | 13px | normal/500 | `#eee` | Crew names, stat values |
-| Label | 12px | 600 | `#aaa` | Bar headers, form labels |
-| Caption | 11px | normal | `#888` | Stat bar compact, small button text |
-| Micro | 10px | 600 | `#888` | Mobile header labels |
-| Sidebar category | 12px | normal | inherited | Uppercase, `letter-spacing: 0.5px`, `opacity: 0.7` |
+| Role             | Size  | Weight     | Color     | Notes                                              |
+| ---------------- | ----- | ---------- | --------- | -------------------------------------------------- |
+| Section heading  | 16px+ | bold       | `#e94560` | h2, h3 in tab content                              |
+| Sub-heading      | 14px  | bold       | `#4a9eff` | h4, settings sections                              |
+| Body text        | 14px  | normal     | `#eee`    | General content                                    |
+| Secondary text   | 13px  | normal/500 | `#eee`    | Crew names, stat values                            |
+| Label            | 12px  | 600        | `#aaa`    | Bar headers, form labels                           |
+| Caption          | 11px  | normal     | `#888`    | Stat bar compact, small button text                |
+| Micro            | 10px  | 600        | `#888`    | Mobile header labels                               |
+| Sidebar category | 12px  | normal     | inherited | Uppercase, `letter-spacing: 0.5px`, `opacity: 0.7` |
 
 System font stack: `-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif`.
 
@@ -106,22 +106,22 @@ System font stack: `-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxyge
 
 ### Standard Gaps
 
-| Token | Value | Typical usage |
-|---|---|---|
-| xs | 4px | Tight button groups, speed control gaps, compact bar spacing |
-| sm | 8px | List items, stat rows, sidebar section inner spacing |
-| md | 12px | Equipment items, card internal spacing, sidebar item margin |
-| lg | 16px | Section margins, sidebar/panel padding |
-| xl | 20px | Grid gap, major section spacing, game header margin |
-| xxl | 24px | Game container padding |
+| Token | Value | Typical usage                                                |
+| ----- | ----- | ------------------------------------------------------------ |
+| xs    | 4px   | Tight button groups, speed control gaps, compact bar spacing |
+| sm    | 8px   | List items, stat rows, sidebar section inner spacing         |
+| md    | 12px  | Equipment items, card internal spacing, sidebar item margin  |
+| lg    | 16px  | Section margins, sidebar/panel padding                       |
+| xl    | 20px  | Grid gap, major section spacing, game header margin          |
+| xxl   | 24px  | Game container padding                                       |
 
 ### Border Radii
 
-| Value | Usage |
-|---|---|
-| 4px | Buttons, inputs, progress bars, badges, small cards |
-| 6px | Sidebars, log entries, confirm buttons |
-| 8px | Game container, major sections, equipment panels |
+| Value | Usage                                               |
+| ----- | --------------------------------------------------- |
+| 4px   | Buttons, inputs, progress bars, badges, small cards |
+| 6px   | Sidebars, log entries, confirm buttons              |
+| 8px   | Game container, major sections, equipment panels    |
 
 ---
 
@@ -148,16 +148,16 @@ Design every view with three levels of engagement:
 
 ### Button Hierarchy
 
-| Level | Class | Background | Use when... |
-|---|---|---|---|
-| Primary | `button` (default) | `#e94560` brand red | Default action, starting things (Start Game, Create) |
-| Positive | `.action-confirm-btn--primary` | `#4ecdc4` teal | Confirming good outcomes (Accept, Continue, Dock, Resume) |
-| Secondary | `button.secondary` | `#0f3460` panel blue | Alternative/less important actions (Randomize, Cancel) |
-| Caution | `.action-confirm-btn--caution` | `#ffa500` orange | Moderate-risk actions requiring thought |
-| Danger | `.action-confirm-btn--danger` | `#ff6b6b` danger red | Risky actions with consequences |
-| Danger (hot) | `.action-confirm-btn--danger-hot` | `#cc0000` critical red + pulse | Irreversible or severe actions (Abandon contract) |
-| Destructive | `button.danger` | `#8b0000` destroy red | Permanent deletion (Delete save) |
-| Inline | `button.small-button` | `#0f3460` panel blue | Inline row actions (Equip, Sell, Unequip) |
+| Level        | Class                             | Background                     | Use when...                                               |
+| ------------ | --------------------------------- | ------------------------------ | --------------------------------------------------------- |
+| Primary      | `button` (default)                | `#e94560` brand red            | Default action, starting things (Start Game, Create)      |
+| Positive     | `.action-confirm-btn--primary`    | `#4ecdc4` teal                 | Confirming good outcomes (Accept, Continue, Dock, Resume) |
+| Secondary    | `button.secondary`                | `#0f3460` panel blue           | Alternative/less important actions (Randomize, Cancel)    |
+| Caution      | `.action-confirm-btn--caution`    | `#ffa500` orange               | Moderate-risk actions requiring thought                   |
+| Danger       | `.action-confirm-btn--danger`     | `#ff6b6b` danger red           | Risky actions with consequences                           |
+| Danger (hot) | `.action-confirm-btn--danger-hot` | `#cc0000` critical red + pulse | Irreversible or severe actions (Abandon contract)         |
+| Destructive  | `button.danger`                   | `#8b0000` destroy red          | Permanent deletion (Delete save)                          |
+| Inline       | `button.small-button`             | `#0f3460` panel blue           | Inline row actions (Equip, Sell, Unequip)                 |
 
 **Rule:** Teal is for positive outcomes. Red is for the brand and for danger. Never use brand red (`#e94560`) for destructive actions — that is reserved for headings and the generic primary button.
 
@@ -305,10 +305,10 @@ All time values must show both game time and real-life equivalent using `formatD
 
 Two time-unit vocabularies exist for different contexts:
 
-| Form | Units | Where used | Example |
-|---|---|---|---|
-| Compact (single-letter) | `s`, `m`, `h`, `d` | Durations, ETAs, parenthetical supplements — anywhere `formatDuration` or `formatDualTime` output appears | `2d 4h (irl 3m)`, `(18d)` |
-| Word | `/day`, `/hr` | Rate denominators — the "per" unit after a formatted value | `1,234 cr/day`, `6.0 O2/hr` |
+| Form                    | Units              | Where used                                                                                                | Example                     |
+| ----------------------- | ------------------ | --------------------------------------------------------------------------------------------------------- | --------------------------- |
+| Compact (single-letter) | `s`, `m`, `h`, `d` | Durations, ETAs, parenthetical supplements — anywhere `formatDuration` or `formatDualTime` output appears | `2d 4h (irl 3m)`, `(18d)`   |
+| Word                    | `/day`, `/hr`      | Rate denominators — the "per" unit after a formatted value                                                | `1,234 cr/day`, `6.0 O2/hr` |
 
 These two forms serve different purposes and must not be mixed: never write `cr/d` (use `cr/day`) and never write `2 days 4 hours` for a duration (use `2d 4h`). The compact form is for scannability in space-constrained displays; the word form is for readability in rate expressions.
 
@@ -316,39 +316,65 @@ These two forms serve different purposes and must not be mixed: never write `cr/
 
 Rates express change over time. Every rate follows the pattern `{formatted value}/{time unit}`.
 
-| Rule | Pattern | Example |
-|---|---|---|
-| Credits per time | `formatCredits(n)/day` | `+1,234 cr/day` |
-| Credits per time (comparison) | `formatCredits(n)/hr` | `~85 cr/hr` |
-| Resource per time | `{value} {unit}/{time}` | `6.0 O2/hr`, `-0.8 HP/day` |
-| Approximate rates | Prefix with `~` | `~85 cr/hr` |
+| Rule                          | Pattern                 | Example                    |
+| ----------------------------- | ----------------------- | -------------------------- |
+| Credits per time              | `formatCredits(n)/day`  | `+1,234 cr/day`            |
+| Credits per time (comparison) | `formatCredits(n)/hr`   | `~85 cr/hr`                |
+| Resource per time             | `{value} {unit}/{time}` | `6.0 O2/hr`, `-0.8 HP/day` |
+| Approximate rates             | Prefix with `~`         | `~85 cr/hr`                |
 
 **Time unit choice by context:**
 
-| Display context | Time unit | Rationale |
-|---|---|---|
-| Sidebar ledger (income, expenses, net) | `/day` | Long-running rates for passive monitoring |
-| Fleet tab financial overview | `/day` | Same data as sidebar, consistent |
-| Header bar net income | `/day` | Matches sidebar |
-| Crew salary (crew tab, hire panel) | `/day` | Salary is a daily operating cost |
-| Contract/route profitability | `/hr` | Enables apples-to-apples comparison across different trip durations |
-| Mining route profitability | `/hr` | Same rationale as contracts |
-| Oxygen generation/consumption | `/hr` | O2 changes rapidly enough that per-hour is meaningful |
-| HP damage rates | `/day` | Health changes slowly; per-day is the natural unit |
-| Fleet performance summary | `/day` | Matches ledger context |
+| Display context                        | Time unit | Rationale                                                           |
+| -------------------------------------- | --------- | ------------------------------------------------------------------- |
+| Sidebar ledger (income, expenses, net) | `/day`    | Long-running rates for passive monitoring                           |
+| Fleet tab financial overview           | `/day`    | Same data as sidebar, consistent                                    |
+| Header bar net income                  | `/day`    | Matches sidebar                                                     |
+| Crew salary (crew tab, hire panel)     | `/day`    | Salary is a daily operating cost                                    |
+| Contract/route profitability           | `/hr`     | Enables apples-to-apples comparison across different trip durations |
+| Mining route profitability             | `/hr`     | Same rationale as contracts                                         |
+| Oxygen generation/consumption          | `/hr`     | O2 changes rapidly enough that per-hour is meaningful               |
+| HP damage rates                        | `/day`    | Health changes slowly; per-day is the natural unit                  |
+| Fleet performance summary              | `/day`    | Matches ledger context                                              |
 
 Within any single view, all comparable rates must use the same time unit so the player can compare without mental conversion.
 
 **No bare numbers in rates.** A rate must always pass through the appropriate formatter. `1234 cr/day` (no comma) is wrong; `1,234 cr/day` (via `formatCredits`) is correct.
 
+### Profit Display Principle
+
+Any UI that shows a credit rate for a **player-chosen activity** (contract, mining route, trade route) must show **estimated profit** (revenue minus operating costs), not gross revenue alone. This lets players compare activities on equal footing.
+
+**Required cost deductions (when applicable):**
+
+| Cost          | When to include                   | Source                                                 |
+| ------------- | --------------------------------- | ------------------------------------------------------ |
+| Crew salaries | Always (when > 0)                 | `calculateShipSalaryPerTick()` from `src/crewRoles.ts` |
+| Fuel          | When the activity involves travel | `calculateTripFuelKg()` + `getFuelPricePerKg()`        |
+
+**Display patterns by context:**
+
+| Context                                      | Pattern                          | Example                                                           |
+| -------------------------------------------- | -------------------------------- | ----------------------------------------------------------------- |
+| Full breakdown (contract cards, route setup) | Cost lines + profit line         | `Crew: ~50 cr/hr` / `Fuel: ~30 cr/hr` / `Est. Profit: +120 cr/hr` |
+| Compact (ore picker, inline labels)          | Single net rate labeled "profit" | `~+120 cr/hr profit`                                              |
+
+**Rules:**
+
+- A revenue-only rate must never be colored green or labeled "profit". If costs cannot be computed, label the rate "Revenue" in `#aaa` (text-secondary).
+- Profit lines use `+` green (`#4caf50`) when positive, `-` red (`#ff6b6b`) when negative.
+- Cost lines use `-` orange (`#ffa500`).
+- When comparing multiple options (destination picker, contract list), sort by estimated profit, not gross revenue.
+- Equipment wear/degradation costs may be excluded when replacement cost is variable — note this as a future refinement.
+
 ### Fraction & Capacity Displays
 
 Fractions show current vs. maximum of a countable or measurable resource. Two patterns exist, chosen by context:
 
-| Context | Pattern | Example |
-|---|---|---|
-| Compact / numeric gauges | `{current}/{max}` (no spaces) | `3/5`, `42/100 kW` |
-| Prose / sequential progress | `{current} of {max}` | `Step 1 of 3`, `2 of 5 crew` |
+| Context                     | Pattern                       | Example                      |
+| --------------------------- | ----------------------------- | ---------------------------- |
+| Compact / numeric gauges    | `{current}/{max}` (no spaces) | `3/5`, `42/100 kW`           |
+| Prose / sequential progress | `{current} of {max}`          | `Step 1 of 3`, `2 of 5 crew` |
 
 **Rules:**
 
@@ -359,12 +385,12 @@ Fractions show current vs. maximum of a countable or measurable resource. Two pa
 
 ### Percentage Precision
 
-| Context | Precision | Example | Rationale |
-|---|---|---|---|
-| Status bars, progress, margins | `.toFixed(0)%` | `75%` | Whole-number precision is sufficient for at-a-glance monitoring |
-| Fuel percentage | `.toFixed(0)%` | `75%` | Matches status bar convention |
+| Context                                       | Precision      | Example | Rationale                                                               |
+| --------------------------------------------- | -------------- | ------- | ----------------------------------------------------------------------- |
+| Status bars, progress, margins                | `.toFixed(0)%` | `75%`   | Whole-number precision is sufficient for at-a-glance monitoring         |
+| Fuel percentage                               | `.toFixed(0)%` | `75%`   | Matches status bar convention                                           |
 | Slow-draining resources (oxygen, degradation) | `.toFixed(1)%` | `92.3%` | Fractional changes matter for resources where the player watches trends |
-| Mastery pool progress | `.toFixed(1)%` | `14.2%` | Fine-grained progress feedback for long-term goals |
+| Mastery pool progress                         | `.toFixed(1)%` | `14.2%` | Fine-grained progress feedback for long-term goals                      |
 
 **Rule of thumb:** Use one decimal place when the percentage changes slowly (less than 1% per real minute) and the player benefits from seeing small movements. Use whole numbers when the value moves quickly or when the player only needs the general level.
 
@@ -372,13 +398,13 @@ Fractions show current vs. maximum of a countable or measurable resource. Two pa
 
 Each empty-state token communicates something different. Use the right one for the situation.
 
-| Token | Meaning | When to use | Example context |
-|---|---|---|---|
-| `0` or `0%` | The value exists but is currently zero | Numeric fields with a real zero state | `0/5 crew`, `0 cr`, `0%` fuel |
-| `N/A` | The value does not apply to this entity | A system or metric that is structurally irrelevant (e.g. radiation on a non-fusion engine, containment on a docked vessel) | Radiation bar: `N/A` |
-| `None` | A slot or role that could be filled but is not | An entity is expected but absent | Captain: `None`, Power source: `None` |
-| `—` (em-dash) | A value that cannot be computed or is not yet available | Data requiring prerequisites or elapsed time | Reward: `—` |
-| Sentence | Reassuring explanation of what would fill an empty area | Empty lists, empty panels, first-time states (per Section 9 guidance) | `Cargo hold is empty`, `All quiet — nothing notable happened` |
+| Token         | Meaning                                                 | When to use                                                                                                                | Example context                                               |
+| ------------- | ------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| `0` or `0%`   | The value exists but is currently zero                  | Numeric fields with a real zero state                                                                                      | `0/5 crew`, `0 cr`, `0%` fuel                                 |
+| `N/A`         | The value does not apply to this entity                 | A system or metric that is structurally irrelevant (e.g. radiation on a non-fusion engine, containment on a docked vessel) | Radiation bar: `N/A`                                          |
+| `None`        | A slot or role that could be filled but is not          | An entity is expected but absent                                                                                           | Captain: `None`, Power source: `None`                         |
+| `—` (em-dash) | A value that cannot be computed or is not yet available | Data requiring prerequisites or elapsed time                                                                               | Reward: `—`                                                   |
+| Sentence      | Reassuring explanation of what would fill an empty area | Empty lists, empty panels, first-time states (per Section 9 guidance)                                                      | `Cargo hold is empty`, `All quiet — nothing notable happened` |
 
 **Never use `(empty)` as a standalone token** — it is ambiguous and reads as a debug label. For an empty equipment slot, use `None`. For an empty list, use a sentence.
 
@@ -386,14 +412,14 @@ Each empty-state token communicates something different. Use the right one for t
 
 Changes and differences carry explicit signs and semantic color.
 
-| Direction | Prefix | Color | Example |
-|---|---|---|---|
-| Gain / positive rate | `+` | `#4caf50` positive-green | `+1,234 cr/day` |
-| Loss / negative rate | `-` (natural from number) | `#ff6b6b` danger-red | `-85 cr/day` |
-| Expense (always negative) | `-` | `#ffa500` warning-orange | `-500 cr/day` |
-| Net (positive) | `+` | `#4caf50` positive-green | `+750 cr/day` |
-| Net (negative) | `-` | `#ff6b6b` danger-red | `-200 cr/day` |
-| Neutral / informational delta | `+` or `-` | `#aaa` text-secondary | `+5 defense` |
+| Direction                     | Prefix                    | Color                    | Example         |
+| ----------------------------- | ------------------------- | ------------------------ | --------------- |
+| Gain / positive rate          | `+`                       | `#4caf50` positive-green | `+1,234 cr/day` |
+| Loss / negative rate          | `-` (natural from number) | `#ff6b6b` danger-red     | `-85 cr/day`    |
+| Expense (always negative)     | `-`                       | `#ffa500` warning-orange | `-500 cr/day`   |
+| Net (positive)                | `+`                       | `#4caf50` positive-green | `+750 cr/day`   |
+| Net (negative)                | `-`                       | `#ff6b6b` danger-red     | `-200 cr/day`   |
+| Neutral / informational delta | `+` or `-`                | `#aaa` text-secondary    | `+5 defense`    |
 
 **Rules:**
 
@@ -405,10 +431,10 @@ Changes and differences carry explicit signs and semantic color.
 
 Stat displays pair a label with a value. Three prescribed approaches serve three density contexts:
 
-| Context | Approach | Example |
-|---|---|---|
-| **Tooltips** | CSS classes: `custom-tooltip-label` (label) + `custom-tooltip-value` (value) | `<span class="custom-tooltip-label">Thrust:</span> <span class="custom-tooltip-value">45 kN</span>` |
-| **Dashboard / sidebar stats** | Muted-color label span + value span | `<span style="color: #888;">Max Range:</span> <span>45K km</span>` |
-| **Dialogs / panels** | Bold label, normal-weight value | `<strong>Current Fuel:</strong> 45,000 kg` |
+| Context                       | Approach                                                                     | Example                                                                                             |
+| ----------------------------- | ---------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| **Tooltips**                  | CSS classes: `custom-tooltip-label` (label) + `custom-tooltip-value` (value) | `<span class="custom-tooltip-label">Thrust:</span> <span class="custom-tooltip-value">45 kN</span>` |
+| **Dashboard / sidebar stats** | Muted-color label span + value span                                          | `<span style="color: #888;">Max Range:</span> <span>45K km</span>`                                  |
+| **Dialogs / panels**          | Bold label, normal-weight value                                              | `<strong>Current Fuel:</strong> 45,000 kg`                                                          |
 
 **Do not mix approaches within the same visual context.** A tooltip should never use `<strong>` for labels. A sidebar stat should never use tooltip CSS classes. The three approaches serve three density levels (tooltip detail, dashboard scanning, dialog reading) and must not cross.

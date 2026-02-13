@@ -2022,10 +2022,10 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
       {
         heading: 'Auto-Sell Mining Routes',
         paragraphs: [
-          'For fully idle mining, set up an auto-sell route from the mining panel while orbiting a mining location. The destination picker shows each reachable trade station with estimated profitability: sell price per unit, round-trip travel time, and projected credits per hour.',
+          'For fully idle mining, set up an auto-sell route from the mining panel while orbiting a mining location. The destination picker shows each reachable trade station with estimated profitability: sell price per unit, [[crew-salaries|crew]] and fuel costs, round-trip travel time, and projected profit per hour (net of operating costs).',
           'Once a route is established, the ship automatically:\n1. Mines until cargo is full\n2. Flies to the trade station and docks\n3. Sells all ore and auto-refuels if needed\n4. Flies back to the mining location and resumes mining',
-          'The route repeats indefinitely until cancelled or funds run out for refueling. The mining panel shows route stats including trips completed, total credits earned, and average credits per hour.',
-          'Choose your sell destination carefully — closer stations reduce transit time but may offer lower prices. The profitability estimate accounts for both fill time and travel time, so the best destination balances sell price against distance. The piloting skill gate still applies: you can only pick stations your crew can reach.',
+          'The route repeats indefinitely until cancelled or funds run out for refueling. The mining panel shows route stats including trips completed, total revenue, and estimated profit per hour (accounting for [[crew-salaries|crew salaries]] and fuel costs).',
+          'Choose your sell destination carefully — closer stations reduce transit time but may offer lower prices. The profitability estimate accounts for fill time, travel time, crew salaries, and fuel costs, so the best destination balances sell price against total operating cost. The piloting skill gate still applies: you can only pick stations your crew can reach.',
         ],
       },
     ],
