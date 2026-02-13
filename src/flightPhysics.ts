@@ -731,6 +731,20 @@ export function advanceFlight(flight: FlightState): boolean {
     }
   }
 
+  // Safety: if distance covered meets or exceeds totalDistance (e.g. after a
+  // course correction reduced totalDistance mid-flight), complete immediately.
+  // This prevents ships from being stuck for the original (stale) totalTime
+  // while crew starves.
+  if (flight.distanceCovered >= flight.totalDistance) {
+    flight.distanceCovered = flight.totalDistance;
+    flight.currentVelocity = 0;
+    flight.phase = 'decelerating';
+    if (flight.interceptPos) {
+      flight.shipPos = { ...flight.interceptPos };
+    }
+    return true;
+  }
+
   // Update 2D ship position via linear interpolation
   if (flight.originPos && flight.interceptPos && flight.totalDistance > 0) {
     const progress = Math.min(1, flight.distanceCovered / flight.totalDistance);
