@@ -1170,6 +1170,14 @@ const callbacks: RendererCallbacks = {
     }
   },
 
+  onDismissGettingStarted: () => {
+    if (state.phase === 'playing') {
+      state.gameData.gettingStartedDismissed = true;
+      saveGame(state.gameData);
+      renderApp();
+    }
+  },
+
   onTransferCrew: (crewId: string, fromShipId: string, toShipId: string) => {
     if (state.phase !== 'playing') return;
 

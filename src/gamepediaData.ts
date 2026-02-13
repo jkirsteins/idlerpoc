@@ -42,6 +42,103 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
   // CORE SYSTEMS
   // ═══════════════════════════════════════════════════════════
   {
+    id: 'getting-started',
+    title: 'Getting Started',
+    category: 'Core Systems',
+    summary:
+      'Your first steps after starting a new game — earning credits, hiring crew, and launching your first flight.',
+    sections: [
+      {
+        paragraphs: [
+          'Welcome to Starship Commander! You begin docked at Earth with a [[ship-classes|Class I]] vessel, your captain alone at the helm, 5,000 [[credits-economy|credits]], a full fuel tank, and enough [[provisions|provisions]] to last about 30 days. This guide walks you through the first things to do.',
+        ],
+      },
+      {
+        heading: 'First Steps at Earth',
+        paragraphs: [
+          'While docked at Earth, open the Station tab to access [[station-services|station services]]. Earth is a major hub with all services available: refueling, trade, hiring, and equipment shops.',
+          'Your first priority is [[crew-hiring|hiring crew]]. Your captain can fly the ship solo, but additional crew members fill [[job-slots|job slots]] aboard your ship, unlocking passive [[skill-system|skill training]] and improving efficiency. Hire a pilot and a trader early — the pilot trains the Piloting skill needed to unlock bigger ships, and the trader boosts your income through the [[commerce-skill|Commerce skill]].',
+          'Check the Work tab for available [[contracts|contracts]] and trade routes. Earth always has several to choose from.',
+        ],
+      },
+      {
+        heading: 'Earning Your First Credits',
+        paragraphs: [
+          'You have two main options for income early on:',
+          '[[contracts|Contracts]] are one-time delivery, passenger, or freight jobs with deadlines. They pay well but expire if not completed in time. Look for short-distance contracts between Earth and nearby stations — these complete in a few real-world minutes.',
+          '[[contracts|Trade routes]] are permanent, repeating cargo runs between two stations. They pay less per trip but run automatically forever once assigned. Set one up and your ship will haul cargo back and forth while you are away.',
+          '[[mining-system|Mining]] is a third income source, but requires a Class II ship with mining equipment — it becomes available later as you progress.',
+        ],
+        table: {
+          headers: ['Income Source', 'Pay', 'Automation', 'Requirement'],
+          rows: [
+            [
+              '[[contracts|Contracts]]',
+              'High (deadline bonus)',
+              'Auto-flies, but expires',
+              'None — available immediately',
+            ],
+            [
+              '[[contracts|Trade routes]]',
+              'Moderate (recurring)',
+              'Fully automatic, runs forever',
+              'None — available immediately',
+            ],
+            [
+              '[[mining-system|Mining]]',
+              'High at remote locations',
+              'Automatic via mining routes',
+              '[[ship-classes|Class II]] ship + mining gear',
+            ],
+          ],
+        },
+      },
+      {
+        heading: 'Your First Flight',
+        paragraphs: [
+          'Accept a contract or assign a trade route from the Work tab. Your ship will automatically undock, warm up its [[engines|engines]], and fly to the destination. You can watch the progress on the Ship tab or leave the game running — it is fully idle-friendly.',
+          'Flight duration depends on distance and your engine. Short runs (like Earth to a nearby station) take about 1-2 game days (~5-8 real minutes). The [[time-system|time controls]] let you speed up to 2x or 5x if you are watching.',
+          'On arrival the contract completes (or the trade route unloads, refuels, and flies back). Your [[credits-economy|credits]] increase and you can check the Log tab for details.',
+        ],
+      },
+      {
+        heading: 'Managing Your Ship',
+        paragraphs: [
+          'A few ongoing costs keep you from idling forever without thought:',
+          '[[engines|Fuel]] is consumed during flight and must be refilled at stations with a refuel service. Your starting ship uses cheap chemical propellant — keep an eye on your fuel gauge on the Ship tab.',
+          '[[provisions|Provisions]] (food and water) are consumed during flight. When docked at a trade station, provisions are auto-purchased and crew eat station-side, so you only need to worry about them on long flights or at remote outposts. [[life-support|Life support]] recyclers reduce consumption significantly.',
+          '[[crew-salaries|Crew salaries]] are deducted daily. A small crew is cheap, but costs add up as your fleet grows. Keep income ahead of expenses.',
+          '[[ship-equipment|Ship equipment]] degrades over time. Visit a station with trade services to repair or replace worn-out gear.',
+        ],
+      },
+      {
+        heading: 'Crew Skills & Progression',
+        paragraphs: [
+          'Every crew member has [[skill-system|skills]] that improve passively while assigned to a [[job-slots|job slot]]. Piloting, Mining, Commerce, Engineering, and Combat each affect different mechanics.',
+          'Piloting is especially important early: reaching Piloting 25 on your helm crew unlocks [[ship-classes|Class II]] ships, and Piloting 50 unlocks Class III. Higher-class ships have longer range, more crew capacity, and access to [[mining-system|mining]] and deep-space routes.',
+          'The [[mastery-system|Mastery system]] rewards repetition — running the same route or mining the same ore type builds familiarity bonuses over time.',
+        ],
+      },
+      {
+        heading: 'Growing Your Fleet',
+        paragraphs: [
+          'Once you have earned enough credits and trained your piloting skill, purchase a second ship from the Fleet tab (available at stations with a shipyard). Transfer crew between ships and set each one on its own route or contract.',
+          'The game is fully idle-friendly: progress continues while you are away. When you return after a long absence, a catch-up report shows everything that happened — contracts completed, [[encounters|encounters]] survived, credits earned, and more.',
+          'There is no single "right" strategy — experiment with different routes, crew compositions, and ship configurations. Check the other Gamepedia articles for detailed mechanics on any topic.',
+        ],
+      },
+    ],
+    relatedArticles: [
+      'time-system',
+      'credits-economy',
+      'contracts',
+      'crew-hiring',
+      'ship-classes',
+      'station-services',
+    ],
+  },
+
+  {
     id: 'time-system',
     title: 'Time System',
     category: 'Core Systems',

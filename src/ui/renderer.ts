@@ -116,6 +116,7 @@ export interface RendererCallbacks {
     itemId: string
   ) => void;
   onDismissCatchUp: () => void;
+  onDismissGettingStarted: () => void;
   onImportState?: (json: string) => void;
 }
 
@@ -136,6 +137,7 @@ interface MountedPlayingLayout {
   tabbedView: ReturnType<typeof createTabbedView>;
   toastArea: HTMLElement;
   rightSidebar: Component;
+  gettingStartedBanner: HTMLElement;
   hasCatchUpReport: boolean;
   catchUpProgressText?: HTMLElement;
   catchUpProgressFill?: HTMLElement;
@@ -339,6 +341,39 @@ function mountPlayingLayout(
   mobileDrawer.appendChild(drawerSidebar.el);
   wrapper.appendChild(mobileDrawer);
 
+  // Getting Started banner (dismissable, first-time players only)
+  const gettingStartedBanner = document.createElement('div');
+  gettingStartedBanner.className = 'getting-started-banner';
+  if (state.gameData.gettingStartedDismissed) {
+    gettingStartedBanner.style.display = 'none';
+  }
+
+  const bannerText = document.createElement('span');
+  bannerText.className = 'getting-started-banner-text';
+  bannerText.textContent =
+    'New to Starship Commander? Read the Getting Started guide to learn the basics.';
+  gettingStartedBanner.appendChild(bannerText);
+
+  const bannerReadBtn = document.createElement('button');
+  bannerReadBtn.className = 'getting-started-banner-btn';
+  bannerReadBtn.textContent = 'Read Guide';
+  bannerReadBtn.addEventListener('click', () => {
+    callbacks.onTabChange('guide');
+    callbacks.onDismissGettingStarted();
+  });
+  gettingStartedBanner.appendChild(bannerReadBtn);
+
+  const bannerDismissBtn = document.createElement('button');
+  bannerDismissBtn.className = 'getting-started-banner-dismiss';
+  bannerDismissBtn.textContent = '\u2715';
+  bannerDismissBtn.title = 'Dismiss';
+  bannerDismissBtn.addEventListener('click', () => {
+    callbacks.onDismissGettingStarted();
+  });
+  gettingStartedBanner.appendChild(bannerDismissBtn);
+
+  wrapper.appendChild(gettingStartedBanner);
+
   // Content grid (3-column: left sidebar | main | right sidebar)
   const contentGrid = document.createElement('div');
   contentGrid.className = 'game-content-grid';
@@ -428,6 +463,7 @@ function mountPlayingLayout(
     tabbedView,
     toastArea,
     rightSidebar,
+    gettingStartedBanner,
     hasCatchUpReport: false,
   };
 }
@@ -466,6 +502,12 @@ function updatePlayingLayout(
 
   // Right sidebar
   layout.rightSidebar.update(state.gameData);
+
+  // Getting Started banner — hide once dismissed
+  layout.gettingStartedBanner.style.display = state.gameData
+    .gettingStartedDismissed
+    ? 'none'
+    : '';
 }
 
 // ── Helpers ────────────────────────────────────────────────────────
@@ -494,6 +536,7 @@ function makePlaceholderMounted(
     tabbedView: dummyTabbed,
     toastArea: dummy,
     rightSidebar: dummyComp,
+    gettingStartedBanner: dummy,
     hasCatchUpReport: true,
   };
 }

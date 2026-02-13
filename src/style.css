@@ -33,6 +33,54 @@ body {
   margin-bottom: 20px;
 }
 
+/* Getting Started banner — dismissable new-player prompt */
+.getting-started-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  margin-bottom: 16px;
+  background: #0f3460;
+  border: 1px solid #4a9eff;
+  border-radius: 6px;
+}
+
+.getting-started-banner-text {
+  flex: 1;
+  color: #eee;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.getting-started-banner-btn {
+  padding: 6px 14px;
+  background: #4a9eff;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  font-size: 13px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.getting-started-banner-btn:hover {
+  background: #6db3ff;
+}
+
+.getting-started-banner-dismiss {
+  padding: 4px 8px;
+  background: transparent;
+  color: #888;
+  border: none;
+  font-size: 16px;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.getting-started-banner-dismiss:hover {
+  color: #eee;
+}
+
 .persistent-info {
   display: flex;
   justify-content: space-between;
@@ -4020,6 +4068,22 @@ button:disabled:hover {
 
 /* --- Phone: <= 600px --- */
 @media (max-width: 600px) {
+  .getting-started-banner {
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 8px 12px;
+  }
+
+  .getting-started-banner-text {
+    font-size: 13px;
+    flex-basis: calc(100% - 32px);
+  }
+
+  .getting-started-banner-dismiss {
+    order: -1;
+    margin-left: auto;
+  }
+
   /* Reduce body and container padding */
   body {
     padding: 8px;
