@@ -252,7 +252,7 @@ function handleSellArrival(
   );
 
   if (!departed) {
-    // Helm unmanned — stay docked, don't cancel route
+    // Helm unmanned — stay docked, keep status as 'selling' so retry can pick it up
     addLog(
       gameData.log,
       gameData.gameTime,
@@ -260,7 +260,6 @@ function handleSellArrival(
       `Mining route paused at ${sellLocation.name}: helm unmanned. Assign crew to helm to continue.`,
       ship.name
     );
-    route.status = 'returning'; // Will retry on next tick? No — need explicit handling
     return true;
   }
 
@@ -306,6 +305,28 @@ function handleMineArrival(
   );
 
   return true;
+}
+
+// ─── Stall Retry ────────────────────────────────────────────────
+
+/**
+ * Called each tick for docked/orbiting ships with an active mining route
+ * that are NOT in flight. Retries stalled departures (e.g. helm was unmanned).
+ */
+export function retryMiningRouteDeparture(
+  gameData: GameData,
+  ship: Ship
+): boolean {
+  const route = ship.miningRoute;
+  if (!route) return false;
+  if (ship.location.status === 'in_flight') return false;
+
+  if (route.status === 'selling' && ship.location.status === 'docked') {
+    // Stalled at sell station — retry departure back to mine
+    return handleSellArrival(gameData, ship, route);
+  }
+
+  return false;
 }
 
 // ─── Auto-Refuel ────────────────────────────────────────────────

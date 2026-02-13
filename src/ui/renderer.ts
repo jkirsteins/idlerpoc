@@ -389,6 +389,7 @@ function mountPlayingLayout(
       onCancelMiningRoute: callbacks.onCancelMiningRoute,
       onSelectMiningOre: callbacks.onSelectMiningOre,
       onImportState: callbacks.onImportState,
+      onSpecializeCrew: callbacks.onSpecializeCrew,
     },
     state.selectedCrewId
   );

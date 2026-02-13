@@ -661,7 +661,7 @@ export function createRightSidebar(gameData: GameData): Component {
     shipClassInfo.textContent = shipClass?.name || ship.classId;
 
     // Captain
-    const captain = ship.crew.find((c) => c.role === 'captain');
+    const captain = ship.crew.find((c) => c.isCaptain);
     if (captain) {
       captainNameEl.textContent = captain.name;
       captainSection.style.opacity = '';
@@ -679,6 +679,7 @@ export function createRightSidebar(gameData: GameData): Component {
 
     if (ledger.incomeDays > 0) {
       incomeValue.textContent = `+${formatCredits(Math.round(ledger.incomePerDay))}/day`;
+      incomeValue.style.color = '#4caf50';
     } else {
       incomeValue.textContent = 'collecting data\u2026';
       incomeValue.style.color = '#666';

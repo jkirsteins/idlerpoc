@@ -176,8 +176,11 @@ export function autoResupplyProvisions(
     return true;
   }
 
-  // Buy what we can afford
-  const affordableKg = Math.floor(gameData.credits / pricePerKg);
+  // Buy what we can afford (capped to what the ship actually needs)
+  const affordableKg = Math.min(
+    Math.floor(gameData.credits / pricePerKg),
+    Math.ceil(needed)
+  );
   if (affordableKg > 0) {
     const cost = Math.round(affordableKg * pricePerKg);
     ship.provisionsKg += affordableKg;

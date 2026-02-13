@@ -985,6 +985,8 @@ export function importGame(json: string): GameData | null {
   backfillMiningData(migrated);
   backfillLedgerSnapshots(migrated);
   backfillRepairsSkill(migrated);
+  backfillCrewFields(migrated);
+  backfillGameDataFields(migrated);
 
   // Reset timestamp so the game doesn't try to catch up for offline time
   migrated.lastTickTimestamp = Date.now();
@@ -1047,6 +1049,57 @@ function backfillRepairsSkill(gameData: GameData): void {
         backfillCrew(crew);
       }
     }
+  }
+}
+
+/**
+ * Additive backfill for crew fields that may be missing in older saves.
+ * Backfills zeroGExposure, unpaidTicks, and hireCost to prevent NaN propagation.
+ * No version bump needed — additive with safe defaults.
+ */
+function backfillCrewFields(gameData: GameData): void {
+  function backfillCrew(crew: GameData['ships'][0]['crew'][0]): void {
+    if (crew.zeroGExposure === undefined || crew.zeroGExposure === null) {
+      (crew as unknown as Record<string, unknown>).zeroGExposure = 0;
+    }
+    if (crew.unpaidTicks === undefined || crew.unpaidTicks === null) {
+      (crew as unknown as Record<string, unknown>).unpaidTicks = 0;
+    }
+    if (crew.hireCost === undefined || crew.hireCost === null) {
+      (crew as unknown as Record<string, unknown>).hireCost = 0;
+    }
+  }
+
+  for (const ship of gameData.ships) {
+    for (const crew of ship.crew) {
+      backfillCrew(crew);
+    }
+  }
+
+  if (gameData.hireableCrewByLocation) {
+    for (const crewList of Object.values(gameData.hireableCrewByLocation)) {
+      for (const crew of crewList) {
+        backfillCrew(crew);
+      }
+    }
+  }
+}
+
+/**
+ * Additive backfill for GameData-level fields that may be missing in older saves.
+ * Backfills lifetimeCreditsEarned to prevent NaN propagation.
+ * No version bump needed — additive with safe defaults.
+ */
+function backfillGameDataFields(gameData: GameData): void {
+  if (
+    gameData.lifetimeCreditsEarned === undefined ||
+    gameData.lifetimeCreditsEarned === null
+  ) {
+    (gameData as unknown as Record<string, unknown>).lifetimeCreditsEarned = 0;
+  }
+  // Fix NaN that may have already propagated from the missing field
+  if (Number.isNaN(gameData.lifetimeCreditsEarned)) {
+    (gameData as unknown as Record<string, unknown>).lifetimeCreditsEarned = 0;
   }
 }
 

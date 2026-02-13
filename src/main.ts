@@ -24,7 +24,6 @@ import { render, type GameState, type RendererCallbacks } from './ui/renderer';
 import type { WizardStep, WizardDraft } from './ui/wizard';
 import {
   applyTick,
-  deductFleetSalaries,
   drainEncounterResults,
   drainRadiationToasts,
 } from './gameTick';
@@ -34,7 +33,6 @@ import { formatFuelMass, calculateFuelPercentage } from './ui/fuelFormatting';
 import { formatCredits } from './formatting';
 import {
   advanceToNextDayStart,
-  GAME_SECONDS_PER_DAY,
   GAME_SECONDS_PER_TICK,
   TICKS_PER_DAY,
 } from './timeSystem';
@@ -51,10 +49,6 @@ import { getSkillRank } from './skillRanks';
 import { assignShipToRoute, unassignShipFromRoute } from './routeAssignment';
 import { addLog } from './logSystem';
 import { getCrewEquipmentDefinition } from './crewEquipment';
-import {
-  applyGravityRecovery,
-  getGravityDegradationLevel,
-} from './gravitySystem';
 import { getShipClass } from './shipClasses';
 import { canAffordResources, deductResourceCost } from './resourceCost';
 import {
@@ -608,43 +602,6 @@ const callbacks: RendererCallbacks = {
       return;
     if (ship.activeContract) return;
 
-    // Gravity recovery for docked ships (happens independently of ticks)
-    for (const s of state.gameData.ships) {
-      if (s.location.status === 'docked') {
-        const previousExposures = new Map<string, number>();
-        for (const crew of s.crew) {
-          previousExposures.set(crew.id, crew.zeroGExposure);
-        }
-
-        applyGravityRecovery(s, GAME_SECONDS_PER_DAY);
-
-        for (const crew of s.crew) {
-          const previousExposure = previousExposures.get(crew.id) || 0;
-          const previousLevel = getGravityDegradationLevel(previousExposure);
-          const currentLevel = getGravityDegradationLevel(crew.zeroGExposure);
-
-          if (
-            previousLevel !== 'none' &&
-            currentLevel !== previousLevel &&
-            previousExposure > crew.zeroGExposure
-          ) {
-            const message =
-              currentLevel === 'none'
-                ? `${crew.name} has fully recovered from zero-g atrophy.`
-                : `${crew.name} has recovered from ${previousLevel} to ${currentLevel} zero-g atrophy.`;
-
-            addLog(
-              state.gameData.log,
-              state.gameData.gameTime,
-              'gravity_warning',
-              message,
-              s.name
-            );
-          }
-        }
-      }
-    }
-
     // Compute how many ticks are needed to reach the next day boundary.
     // Using the exact count (rather than a fixed TICKS_PER_DAY) prevents
     // overshooting when game time isn't aligned to a day boundary.
@@ -653,20 +610,10 @@ const callbacks: RendererCallbacks = {
       (targetTime - state.gameData.gameTime) / GAME_SECONDS_PER_TICK
     );
 
-    // Check if any ship in the fleet is in-flight — if so, run the full
-    // tick loop. applyTick already processes ALL ships per call, so we
-    // must NOT call it inside a per-ship loop.
-    const hasInFlightShip = state.gameData.ships.some(
-      (s) => s.location.status === 'in_flight'
-    );
-
-    if (hasInFlightShip) {
-      for (let i = 0; i < ticksNeeded; i++) {
-        applyTick(state.gameData);
-      }
-    } else {
-      // No ships in-flight: still deduct salaries for the day
-      deductFleetSalaries(state.gameData, ticksNeeded);
+    // Always run the full tick loop so ALL ship systems are updated
+    // (oxygen, provisions, medbay healing, gravity, repairs, etc.)
+    for (let i = 0; i < ticksNeeded; i++) {
+      applyTick(state.gameData);
     }
 
     // Snap to exact day boundary (avoids rounding from integer tick count)
@@ -1113,8 +1060,7 @@ const callbacks: RendererCallbacks = {
 
     const equipDef = getEquipmentDefinition(equipmentId);
     if (!equipDef) return;
-    if (equipDef.value === undefined || state.gameData.credits < equipDef.value)
-      return;
+    if (equipDef.value === undefined) return;
 
     // Find existing mining equipment on the ship (if upgrading)
     const existingMiningIdx = ship.equipment.findIndex((eq) => {
@@ -1124,30 +1070,34 @@ const callbacks: RendererCallbacks = {
 
     let tradeInCredit = 0;
     if (existingMiningIdx !== -1) {
-      const oldEquip = ship.equipment[existingMiningIdx];
-      const oldDef = getEquipmentDefinition(oldEquip.definitionId);
+      const oldDef = getEquipmentDefinition(
+        ship.equipment[existingMiningIdx].definitionId
+      );
       tradeInCredit = Math.floor((oldDef?.value ?? 0) * 0.5);
+    }
 
-      // Remove old equipment from slot
+    // Check for compatible slot (before removing old equipment)
+    const compatibleSlot = ship.equipmentSlots.find(
+      (slot) => !slot.equippedId && canEquipInSlot(equipDef, slot)
+    );
+    if (!compatibleSlot && existingMiningIdx === -1) return; // No free slot
+
+    // Affordability check (with trade-in credit)
+    const netCost = equipDef.value - tradeInCredit;
+    if (state.gameData.credits < netCost) return;
+
+    // Remove old equipment only after confirming affordability
+    if (existingMiningIdx !== -1) {
+      const oldEquip = ship.equipment[existingMiningIdx];
       for (const slot of ship.equipmentSlots) {
         if (slot.equippedId === oldEquip.id) {
           slot.equippedId = undefined;
           break;
         }
       }
-      // Remove from equipment array
       ship.equipment.splice(existingMiningIdx, 1);
     }
 
-    // Check for compatible slot
-    const compatibleSlot = ship.equipmentSlots.find(
-      (slot) => !slot.equippedId && canEquipInSlot(equipDef, slot)
-    );
-    if (!compatibleSlot && existingMiningIdx === -1) return; // No free slot
-
-    // Deduct credits (minus trade-in)
-    const netCost = equipDef.value - tradeInCredit;
-    if (state.gameData.credits < netCost) return;
     state.gameData.credits -= netCost;
 
     // Install new equipment

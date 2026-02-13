@@ -611,7 +611,7 @@ export function completeLeg(gameData: GameData, ship: Ship): void {
         gameData.log,
         gameTime,
         'contract_complete',
-        `Contract completed: ${quest.title}. Earned ${formatCredits(quest.paymentOnCompletion)}.`,
+        `Contract completed: ${quest.title}. Earned ${formatCredits(earned)}.`,
         ship.name
       );
 

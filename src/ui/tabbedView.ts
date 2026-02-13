@@ -47,6 +47,11 @@ export function createTabbedView(
   callbacks: TabbedViewCallbacks,
   selectedCrewId?: string
 ): Component & { updateView(state: TabbedViewState): void } {
+  // Reset module-level state on (re-)mount to prevent stale data across game resets
+  previousCredits = null;
+  creditDeltaTimeout = null;
+  lastViewedLogCount = 0;
+
   const container = document.createElement('div');
   container.className = 'tabbed-view';
 
