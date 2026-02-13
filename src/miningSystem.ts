@@ -173,11 +173,12 @@ export function getRemainingOreCapacity(ship: Ship): number {
   if (!shipClass) return 0;
   const maxCargo = calculateAvailableCargoCapacity(shipClass.cargoCapacity);
 
-  // Account for crew equipment in cargo hold (rough estimate per item)
+  // Account for provisions, crew equipment, and ore already in the hold
+  const provisionsWeight = ship.provisionsKg || 0;
   const equipmentWeight = ship.cargo.length * 5;
-
   const oreWeight = getOreCargoWeight(ship);
-  return Math.max(0, maxCargo - equipmentWeight - oreWeight);
+
+  return Math.max(0, maxCargo - provisionsWeight - equipmentWeight - oreWeight);
 }
 
 /**
@@ -304,11 +305,13 @@ export function applyMiningTick(
     // ── Crew-operated mining ─────────────────────────────────────
     for (const miner of miners) {
       // Find the best ship mining equipment this miner can operate
+      // that isn't already claimed by another miner this tick
       const usableGear = shipMiningGear.filter(
         (item) =>
+          !usedEquipmentIds.has(item.instance.id) &&
           Math.floor(miner.skills.mining) >= (item.def.miningLevelRequired ?? 0)
       );
-      if (usableGear.length === 0) continue; // Skill too low for all equipment
+      if (usableGear.length === 0) continue; // No available equipment
 
       const bestGear = usableGear.reduce((best, current) =>
         (current.def.miningRate ?? 0) > (best.def.miningRate ?? 0)

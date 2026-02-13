@@ -211,25 +211,13 @@ export function deductFleetSalaries(
     }
 
     if (ticksUnpaid > 0) {
-      // Mark crew as unpaid across all ships (most expensive first)
-      const allCrew: { crew: import('./models').CrewMember; salary: number }[] =
-        [];
+      // All credits were exhausted during ticksWeCanPay — during the
+      // remaining ticksUnpaid, every salaried crew member goes unpaid.
       for (const ship of gameData.ships) {
         for (const crew of ship.crew) {
-          const salary = getCrewSalaryPerTick(crew);
-          if (salary > 0) {
-            allCrew.push({ crew, salary });
+          if (getCrewSalaryPerTick(crew) > 0) {
+            crew.unpaidTicks += ticksUnpaid;
           }
-        }
-      }
-
-      allCrew.sort((a, b) => b.salary - a.salary);
-
-      const budgetPerTick = availableCredits / Math.max(1, ticksWeCanPay);
-
-      for (const { crew, salary } of allCrew) {
-        if (salary > budgetPerTick || ticksWeCanPay === 0) {
-          crew.unpaidTicks += ticksUnpaid;
         }
       }
     }
@@ -316,6 +304,22 @@ function applyShipTick(gameData: GameData, ship: Ship): boolean {
           );
           const fuelConsumedKg = fuelFlowRateKgPerSec * burnSeconds;
           ship.fuelKg = Math.max(0, ship.fuelKg - fuelConsumedKg);
+
+          // Engine shuts down when fuel is exhausted — ship can no longer
+          // accelerate or decelerate, halting flight progression.
+          if (ship.fuelKg <= 0) {
+            ship.engine.state = 'off';
+            addLog(
+              gameData.log,
+              gameData.gameTime,
+              'fuel_depleted',
+              `${ship.name}: Fuel exhausted mid-flight — engine shutdown. Ship is adrift.`,
+              ship.name
+            );
+            if (gameData.autoPauseSettings.onCriticalAlert) {
+              gameData.isPaused = true;
+            }
+          }
         }
       }
 
