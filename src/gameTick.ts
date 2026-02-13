@@ -52,22 +52,70 @@ import {
 import { getAllEquipmentDefinitions } from './equipment';
 
 /**
- * Mid-flight course correction.
- * Every 50 ticks, check if the destination has drifted from the predicted
- * intercept position due to orbital motion. If the drift exceeds 5% of the
- * total distance, silently update the intercept point and trajectory.
- * This keeps ships on course for months-long interplanetary flights.
+ * Update a flight's 2D positions (originPos, interceptPos, shipPos) using
+ * current-time body positions. Called every tick so that shipPos is always
+ * in current-time coordinates — no stale arrival-time snapshots.
  *
- * Both origin and destination positions are computed at the same future time
- * so that co-orbiting bodies' shared orbital motion cancels out. This also
- * repairs flights from older saves that were initialised with a frozen-origin
- * bug (where the origin position was static while the destination moved).
+ * For body-origin flights (originBodyId set): recompute origin position.
+ * For redirect flights (originBodyId unset): origin is a fixed point in space.
+ * Destination is always recomputed from the real body.
+ */
+function updateFlightPosition(
+  fp: import('./models').FlightState,
+  gameData: import('./models').GameData
+): void {
+  if (fp.totalDistance <= 0) return;
+
+  const destLoc = gameData.world.locations.find((l) => l.id === fp.destination);
+  if (!destLoc) return;
+
+  const destPosNow = getLocationPosition(
+    destLoc,
+    gameData.gameTime,
+    gameData.world
+  );
+
+  let originPosNow: import('./models').Vec2 | undefined;
+  if (fp.originBodyId) {
+    const originLoc = gameData.world.locations.find(
+      (l) => l.id === fp.originBodyId
+    );
+    if (originLoc) {
+      originPosNow = getLocationPosition(
+        originLoc,
+        gameData.gameTime,
+        gameData.world
+      );
+    }
+  }
+  // Redirect flights: originPos is a fixed point in space — keep as-is
+  if (!originPosNow) {
+    originPosNow = fp.originPos;
+  }
+  if (!originPosNow) return;
+
+  const progress = Math.min(1, fp.distanceCovered / fp.totalDistance);
+
+  fp.originPos = originPosNow;
+  fp.interceptPos = destPosNow;
+  fp.shipPos = lerpVec2(originPosNow, destPosNow, progress);
+}
+
+/**
+ * Mid-flight course correction (timing only).
+ * Every 50 ticks, check if the destination's orbital motion has changed the
+ * actual trip distance significantly. If drift exceeds 5%, update
+ * totalDistance and estimatedArrivalGameTime so flight timing stays accurate.
+ *
+ * Position updates (originPos, interceptPos, shipPos) are handled every tick
+ * by updateFlightPosition — this function only adjusts the flight plan's
+ * distance/timing bookkeeping.
  */
 function applyCourseCorrection(
   fp: import('./models').FlightState,
   gameData: import('./models').GameData
 ): void {
-  if (!fp.interceptPos || !fp.originPos || fp.totalDistance <= 0) return;
+  if (fp.totalDistance <= 0) return;
 
   const ticksIntoFlight = Math.floor(fp.elapsedTime / GAME_SECONDS_PER_TICK);
   if (ticksIntoFlight <= 0 || ticksIntoFlight % 50 !== 0) return;
@@ -86,10 +134,15 @@ function applyCourseCorrection(
   // Compute origin position at the same future time so that co-orbiting
   // bodies' shared motion cancels out (e.g. LEO station and Earth both
   // orbit the Sun together — their relative distance stays ~400 km).
-  const originLoc = gameData.world.locations.find((l) => l.id === fp.origin);
+  // For redirect flights (originBodyId unset), the origin is a fixed point
+  // in space — use the stored originPos.
+  const originLoc = fp.originBodyId
+    ? gameData.world.locations.find((l) => l.id === fp.originBodyId)
+    : undefined;
   const originFuturePos = originLoc
     ? getLocationPosition(originLoc, futureArrival, gameData.world)
     : fp.originPos;
+  if (!originFuturePos) return;
 
   const newRelativeDistKm = euclideanDistance(originFuturePos, destFuturePos);
   const currentTotalDistKm = fp.totalDistance / 1000;
@@ -100,12 +153,8 @@ function applyCourseCorrection(
     drift / Math.max(currentTotalDistKm, newRelativeDistKm, 1);
 
   if (driftFraction > 0.05) {
-    fp.originPos = originFuturePos;
-    fp.interceptPos = destFuturePos;
     fp.estimatedArrivalGameTime = futureArrival;
     fp.totalDistance = newRelativeDistKm * 1000;
-    const progress = Math.min(1, fp.distanceCovered / fp.totalDistance);
-    fp.shipPos = lerpVec2(fp.originPos, fp.interceptPos, progress);
   }
 }
 
@@ -286,6 +335,14 @@ function applyShipTick(gameData: GameData, ship: Ship): boolean {
       // Mid-flight course correction for orbital drift on long flights
       if (!flightComplete) {
         applyCourseCorrection(ship.activeFlightPlan, gameData);
+      }
+
+      // Update 2D positions (originPos, interceptPos, shipPos) from
+      // current-time body positions. Runs every tick so shipPos is always
+      // accurate — no stale arrival-time snapshots.
+      // Skip on completion — completeLeg docks the ship and discards positions.
+      if (!flightComplete) {
+        updateFlightPosition(ship.activeFlightPlan, gameData);
       }
 
       // Fuel consumption during burn phases (mass-based, pro-rated)

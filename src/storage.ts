@@ -850,6 +850,7 @@ export function loadGame(): GameData | null {
     backfillRepairsSkill(migrated);
     backfillCrewFields(migrated);
     backfillGameDataFields(migrated);
+    backfillFlightOriginBodyId(migrated);
 
     return migrated;
   } catch (e) {
@@ -989,6 +990,7 @@ export function importGame(json: string): GameData | null {
   backfillRepairsSkill(migrated);
   backfillCrewFields(migrated);
   backfillGameDataFields(migrated);
+  backfillFlightOriginBodyId(migrated);
 
   // Reset timestamp so the game doesn't try to catch up for offline time
   migrated.lastTickTimestamp = Date.now();
@@ -1102,6 +1104,50 @@ function backfillGameDataFields(gameData: GameData): void {
   // Fix NaN that may have already propagated from the missing field
   if (Number.isNaN(gameData.lifetimeCreditsEarned)) {
     (gameData as unknown as Record<string, unknown>).lifetimeCreditsEarned = 0;
+  }
+}
+
+/**
+ * Additive backfill for FlightState.originBodyId.
+ * Determines whether each in-flight ship is a body-origin or redirect flight
+ * by comparing the stored originPos against the origin body's position at the
+ * estimated arrival time. For body-origin flights, these should nearly match
+ * (since originPos was computed from the body at arrival time). For redirects,
+ * the ship is mid-flight and far from the origin body.
+ * No version bump needed — additive optional field.
+ */
+function backfillFlightOriginBodyId(gameData: GameData): void {
+  for (const ship of gameData.ships) {
+    const fp = ship.activeFlightPlan;
+    if (fp && fp.originBodyId === undefined) {
+      if (fp.originPos && fp.estimatedArrivalGameTime !== undefined) {
+        const originLoc = gameData.world.locations.find(
+          (l) => l.id === fp.origin
+        );
+        if (originLoc) {
+          const bodyPos = getLocationPosition(
+            originLoc,
+            fp.estimatedArrivalGameTime,
+            gameData.world
+          );
+          const dx = fp.originPos.x - bodyPos.x;
+          const dy = fp.originPos.y - bodyPos.y;
+          const distKm = Math.sqrt(dx * dx + dy * dy);
+          // Body-origin flights: originPos was derived from this body at
+          // arrival time, so positions should nearly match.
+          // Redirects: ship is mid-flight, far from the origin body.
+          if (distKm < 10_000) {
+            fp.originBodyId = fp.origin;
+          }
+          // else: leave undefined — redirect flight (fixed origin point)
+        } else {
+          fp.originBodyId = fp.origin; // body not found — best effort
+        }
+      } else {
+        // No 2D data (pre-orbital save) — default to body-origin
+        fp.originBodyId = fp.origin;
+      }
+    }
   }
 }
 

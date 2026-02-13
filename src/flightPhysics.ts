@@ -9,11 +9,7 @@ import {
   MAX_PROVISION_DAYS,
   getEffectiveConsumptionPerCrewPerDay,
 } from './provisionsSystem';
-import {
-  getLocationPosition,
-  solveIntercept,
-  lerpVec2,
-} from './orbitalMechanics';
+import { getLocationPosition, solveIntercept } from './orbitalMechanics';
 
 /**
  * Flight Physics
@@ -486,6 +482,10 @@ export function initializeFlight(
     interceptPos: flightInterceptPos,
     shipPos: flightOriginPos ? { ...flightOriginPos } : undefined,
     estimatedArrivalGameTime,
+    // Set for normal flights (origin is a real body whose position can be
+    // recomputed at any time). Left undefined for redirects where the origin
+    // is a fixed point in space. The caller (redirectShipFlight) clears this.
+    originBodyId: origin.id,
   };
 }
 
@@ -554,7 +554,8 @@ export function redirectShipFlight(
     id: ship.activeFlightPlan?.origin ?? '',
   } as WorldLocation;
 
-  // Use ship's current 2D position for redirect origin if available
+  // shipPos is always in current-time coordinates (updated every tick by
+  // updateFlightPosition in gameTick.ts), so we can use it directly.
   const currentShipPos = ship.activeFlightPlan?.shipPos;
 
   ship.activeFlightPlan = initializeFlight(
@@ -570,6 +571,9 @@ export function redirectShipFlight(
 
   // Override originKm to the exact interpolated position
   ship.activeFlightPlan.originKm = currentKm;
+
+  // Mark as a redirect: origin is a point in space, not a real body
+  ship.activeFlightPlan.originBodyId = undefined;
 
   // Engine is already running — no warmup needed
   if (ship.engine.state !== 'online') {
@@ -666,10 +670,6 @@ export function advanceFlight(flight: FlightState): boolean {
     flight.distanceCovered = flight.totalDistance;
     flight.currentVelocity = 0;
     flight.phase = 'decelerating'; // Final phase
-    // Snap 2D position to intercept point
-    if (flight.interceptPos) {
-      flight.shipPos = { ...flight.interceptPos };
-    }
     return true; // Flight complete
   }
 
@@ -739,17 +739,12 @@ export function advanceFlight(flight: FlightState): boolean {
     flight.distanceCovered = flight.totalDistance;
     flight.currentVelocity = 0;
     flight.phase = 'decelerating';
-    if (flight.interceptPos) {
-      flight.shipPos = { ...flight.interceptPos };
-    }
     return true;
   }
 
-  // Update 2D ship position via linear interpolation
-  if (flight.originPos && flight.interceptPos && flight.totalDistance > 0) {
-    const progress = Math.min(1, flight.distanceCovered / flight.totalDistance);
-    flight.shipPos = lerpVec2(flight.originPos, flight.interceptPos, progress);
-  }
+  // 2D ship position (shipPos) is updated externally by updateFlightPosition()
+  // in gameTick.ts, which always uses current-time body positions. This keeps
+  // advanceFlight as pure physics (distance, velocity, phase).
 
   return false;
 }
