@@ -650,14 +650,15 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
       {
         heading: 'Salary Scaling',
         paragraphs: [
-          'More skilled candidates demand significantly higher [[crew-salaries|salaries]]. A green recruit costs the base rate (48 cr/day), while a veteran with 30 total skill points demands around 186 cr/day — nearly 4x the base rate. The salary multiplier is locked at hire time — training crew after hiring does not increase their wage.',
-          'This creates a core decision: hire cheap recruits and train them over days of real time (cost-effective but slow), or invest heavily in pre-skilled veterans for immediate capability at ongoing expense.',
+          'Crew [[crew-salaries|salaries]] scale dynamically with their current skills. A green recruit starts at the base rate (48 cr/day), but as they train, their wages rise. A crew member with 30 total skill points demands around 186 cr/day — nearly 4x the base rate. The multiplier is capped at 10x (480 cr/day) to prevent runaway costs.',
+          'This means hiring cheap recruits and training them is still cost-effective in the short term, but their wages will eventually approach those of a veteran hire. Contract and trade route payments scale with crew costs, so missions always remain profitable.',
         ],
       },
       {
         heading: 'Strategy',
         paragraphs: [
-          'Hiring decisions balance upfront cost, ongoing salary, and training time. A green recruit is cheap to hire and maintain but needs time to develop skills. A veteran hits the ground running but costs more to hire and demands higher wages.',
+          'Hiring decisions balance upfront cost, ongoing salary growth, and training time. A green recruit is cheap to hire and starts with low wages, but their salary will rise as they develop skills. A veteran hits the ground running but costs more to hire upfront.',
+          'As crew train and wages rise, mining profitability (fixed ore values) shrinks relative to crew costs — pushing players toward higher-value ores and outer-system mining.',
           'If crew leave due to unpaid wages, you may need emergency hiring at the next port.',
         ],
       },
@@ -704,8 +705,8 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
       {
         heading: 'Skill-Based Salary Scaling',
         paragraphs: [
-          "More skilled crew command significantly higher wages. When [[crew-hiring|hired]], each crew member's salary multiplier is set based on their starting skills. A green recruit costs the base rate (48 cr/day), while a veteran with 30 total skill points demands around 186 cr/day — nearly 4x the base rate.",
-          'The salary multiplier is locked at hire time — training crew after hiring does not increase their wage. A ship crewed with veterans can cost 500+ cr/day in salaries alone, making crew composition a serious economic decision.',
+          'Crew wages scale dynamically with their current [[skill-system|skills]]. As crew train and improve, their salary multiplier recalculates from their live skill totals. A green recruit starts at the base rate (48 cr/day), while a crew member with 30 total skill points demands around 186 cr/day — nearly 4x the base rate.',
+          'The multiplier is capped at 10x (480 cr/day) to prevent runaway costs at very high skill totals. Contract and trade route payments auto-scale with crew costs through the cost-floor system, so missions always remain profitable. However, mining income (fixed ore values) does not scale — high crew costs push players toward higher-value ores.',
         ],
       },
       {

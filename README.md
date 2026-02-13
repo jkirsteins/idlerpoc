@@ -43,7 +43,7 @@ npm run dev
   - Passive slots (Patient, Rest) benefit crew without training skills
   - Helm is the only required job — no helm crew means the ship coasts
   - Auto-assign crew to best-fit slots based on skill affinity
-  - Crew salaries paid per tick, scaled by individual salary multiplier (skilled hires cost more)
+  - Crew salaries paid per tick, dynamically scaled by current skill totals (training increases wages, capped at 10x base)
   - Unpaid crew depart at next station
   - Hire new crew at stations with hiring services — each candidate has an archetype (Pilot/Miner/Trader) with randomized skill distribution; hire cost and salary scale with total skills; candidate quality varies from green recruits to rare elite veterans
   - **Crew profiles** with ranked titles (e.g. "Competent Pilot"), service records showing ship tenure, company tenure, current assignment, and recruitment origin

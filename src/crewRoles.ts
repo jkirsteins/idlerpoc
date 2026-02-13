@@ -221,10 +221,13 @@ export function generateSkillsForRole(
 const COST_SCALE = 20;
 const COST_EXPONENT = 1.8;
 
-/** Salary multiplier = 1.0 + SALARY_SCALE × (totalSkill / SALARY_DIVISOR)^SALARY_EXPONENT */
+/** Salary multiplier = 1.0 + SALARY_SCALE × (totalSkill / SALARY_DIVISOR)^SALARY_EXPONENT, capped at MAX_SALARY_MULTIPLIER */
 const SALARY_SCALE = 0.5;
 const SALARY_DIVISOR = 10;
 const SALARY_EXPONENT = 1.6;
+
+/** Maximum salary multiplier — prevents runaway costs at very high skill totals */
+const MAX_SALARY_MULTIPLIER = 10;
 
 /**
  * Calculate hire cost from a candidate's skills.
@@ -243,15 +246,17 @@ export function calculateHireCost(
 }
 
 /**
- * Calculate salary multiplier from a candidate's starting skills.
+ * Calculate salary multiplier from a crew member's current skills.
  * Polynomial curve: green crew at 1.0×, veterans at 3-4×, elite at 6-7×.
- * Locked at hire time — training after hiring does not increase wages.
+ * Recalculated dynamically from live skills — training increases wages.
+ * Capped at MAX_SALARY_MULTIPLIER to prevent runaway costs.
  */
 export function calculateSalaryMultiplier(skills: CrewSkills): number {
   const totalSkill =
     skills.piloting + skills.mining + skills.commerce + skills.repairs;
   if (totalSkill <= 0) return 1.0;
-  return (
+  return Math.min(
+    MAX_SALARY_MULTIPLIER,
     1.0 + SALARY_SCALE * Math.pow(totalSkill / SALARY_DIVISOR, SALARY_EXPONENT)
   );
 }
@@ -266,13 +271,13 @@ export function getPrimarySkillForRole(role: CrewRole): SkillId | null {
 
 /**
  * Get salary per tick for a single crew member.
- * Applies the individual salary multiplier (skilled hires cost more).
+ * Salary scales dynamically with the crew member's current skills.
  * Captain always returns 0 (owner-operator).
  */
 export function getCrewSalaryPerTick(crew: CrewMember): number {
   const roleDef = getCrewRoleDefinition(crew.role);
   if (!roleDef) return 0;
-  return roleDef.salary * (crew.salaryMultiplier ?? 1.0);
+  return roleDef.salary * calculateSalaryMultiplier(crew.skills);
 }
 
 /**
