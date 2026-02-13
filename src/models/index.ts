@@ -40,7 +40,8 @@ export type EquipmentId =
   | 'mining_laser'
   | 'mining_rig'
   | 'deep_core_mining'
-  | 'quantum_mining';
+  | 'quantum_mining'
+  | 'medical_station';
 
 export type FactionId =
   | 'terran_alliance'

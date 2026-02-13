@@ -71,6 +71,7 @@ import {
 import { countPilotingMasteryItems } from './contractExec';
 import { getAllEquipmentDefinitions } from './equipment';
 import { getBestCrewPool } from './crewRoles';
+import { computePowerStatus } from './powerSystem';
 
 /**
  * Determine which job slot types should NOT train passively given the
@@ -324,24 +325,40 @@ export function deductFleetSalaries(
 }
 
 /**
- * Heal patients assigned to operational medbay slots (2 HP/tick).
+ * Heal all crew using medical equipment (when powered).
+ * Medical equipment provides automatic health regeneration to all crew members.
  */
 function applyMedbayHealing(ship: Ship): boolean {
-  let healed = false;
-  for (const slot of ship.jobSlots) {
-    if (slot.type === 'patient' && slot.assignedCrewId) {
-      const medbay = slot.sourceRoomId
-        ? ship.rooms.find((r) => r.id === slot.sourceRoomId)
-        : null;
-      if (medbay?.state === 'operational') {
-        const crew = ship.crew.find((c) => c.id === slot.assignedCrewId);
-        if (crew && crew.health < 100) {
-          crew.health = Math.min(100, crew.health + 2);
-          healed = true;
-        }
-      }
+  const powerStatus = computePowerStatus(ship);
+  const hasPower = powerStatus.totalOutput > 0;
+
+  if (!hasPower) return false;
+
+  let totalHealthRegen = 0;
+
+  // Sum up health regen from all medical equipment
+  for (const eq of ship.equipment) {
+    const eqDef = getEquipmentDefinition(eq.definitionId);
+    if (eqDef?.healthRegenPerTick && eqDef.healthRegenPerTick > 0) {
+      // Degradation reduces effectiveness
+      const effectiveness = eqDef.hasDegradation
+        ? 1 - eq.degradation / 100
+        : 1;
+      totalHealthRegen += eqDef.healthRegenPerTick * effectiveness;
     }
   }
+
+  if (totalHealthRegen <= 0) return false;
+
+  // Apply healing to all crew members
+  let healed = false;
+  for (const crew of ship.crew) {
+    if (crew.health < 100) {
+      crew.health = Math.min(100, crew.health + totalHealthRegen);
+      healed = true;
+    }
+  }
+
   return healed;
 }
 
