@@ -117,6 +117,14 @@ export function renderCatchUpReport(
     fleetStats.appendChild(contractLine);
   }
 
+  if (report.crewLost > 0) {
+    const crewLostLine = document.createElement('div');
+    crewLostLine.className = 'catchup-progress-line';
+    crewLostLine.textContent = `${report.crewLost} crew member${report.crewLost > 1 ? 's' : ''} lost`;
+    crewLostLine.style.color = '#ff6b6b';
+    fleetStats.appendChild(crewLostLine);
+  }
+
   if (fleetStats.children.length > 0) {
     container.appendChild(fleetStats);
   }
@@ -126,6 +134,7 @@ export function renderCatchUpReport(
     crew_level_up: '#4ade80',
     crew_hired: '#4ecdc4',
     crew_departed: '#ff6b6b',
+    crew_death: '#ff6b6b',
     gravity_warning: '#ffa500',
   };
 

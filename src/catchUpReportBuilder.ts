@@ -121,6 +121,8 @@ export function buildCatchUpReport(
     (e) => e.type === 'contract_complete'
   ).length;
 
+  const crewLost = newLogs.filter((e) => e.type === 'crew_death').length;
+
   // Count trips per ship — both 'trip_complete' and 'payment' entries represent trip completions
   const tripsByShip = new Map<string, number>();
   for (const entry of newLogs) {
@@ -288,6 +290,7 @@ export function buildCatchUpReport(
   const otherHighlightTypes: Set<string> = new Set([
     'crew_hired',
     'crew_departed',
+    'crew_death',
     'gravity_warning',
   ]);
   const otherHighlights = newLogs.filter((e) =>
@@ -410,6 +413,7 @@ export function buildCatchUpReport(
     elapsedRealSeconds,
     creditsDelta: Math.round(gameData.credits - prevCredits),
     contractsCompleted,
+    crewLost,
     shipSummaries: filteredSummaries,
     logHighlights,
   };

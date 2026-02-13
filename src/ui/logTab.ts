@@ -198,6 +198,7 @@ function matchesFilter(type: LogEntryType, filter: LogFilter): boolean {
   const crewTypes: LogEntryType[] = [
     'crew_hired',
     'crew_departed',
+    'crew_death',
     'crew_level_up',
     'crew_role_change',
   ];

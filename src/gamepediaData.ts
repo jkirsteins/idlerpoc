@@ -57,7 +57,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
         heading: 'Idle Catch-Up',
         paragraphs: [
           'The game is idle-friendly: closing the browser or backgrounding the tab does not lose progress. When you return, the game computes all elapsed time and processes pending updates in batches.',
-          'If you were away for more than 5 real minutes, a catch-up report shows what happened while you were gone, including per-ship [[contracts|contract]] progress (ongoing, completed, expired, or abandoned), [[encounters|encounters]], and [[credits-economy|credit]] changes.',
+          'If you were away for more than 5 real minutes, a catch-up report shows what happened while you were gone, including per-ship [[contracts|contract]] progress (ongoing, completed, expired, or abandoned), [[encounters|encounters]], [[credits-economy|credit]] changes, and any [[crew-death|crew deaths]].',
           'Offline progress is never hard-capped — you will always make progress no matter how long you are away. The first 4 real-world hours accrue at full rate. Beyond that, progress continues at a logarithmically diminishing rate, so active play remains more rewarding than very long absences. During fast-forward, [[encounters|encounter]] severity is capped (boardings downgraded to harassment) to prevent unfair losses while away.',
           'The event log keeps the most recent 200 entries. Older events are automatically pruned to keep save data compact.',
         ],
@@ -2322,7 +2322,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
         paragraphs: [
           'When a crew member dies, they are immediately removed from the ship roster. All [[job-slots|job slot]] assignments for that crew member are cleared — their station becomes unmanned.',
           'On ships with tight crew counts, a single death can cascade: losing the engineer stops repairs, equipment degrades faster, life support fails, and more crew die. On [[ship-classes|fusion-class vessels]], this cascade can be rapid and devastating.',
-          'A death event is logged and a notification appears. Dead crew cannot be replaced until you dock at a station with [[crew-hiring|hiring]] services and recruit replacements.',
+          'A death event is logged and a notification appears. Deaths are also summarized in the [[time-system|catch-up report]] when you return after an absence. Dead crew cannot be replaced until you dock at a station with [[crew-hiring|hiring]] services and recruit replacements.',
         ],
       },
       {
