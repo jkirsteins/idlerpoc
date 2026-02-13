@@ -108,7 +108,7 @@ export const SHIP_CLASSES: ShipClass[] = [
       'mining_bay',
     ],
     maxCrew: 12,
-    unlockThreshold: 100_000_000,
+    unlockThreshold: 110_000_000,
     rangeLabel: 'Earth-Mars',
     cargoCapacity: 80000,
     fuelCapacity: 500_000, // NTR Heavy, reliably reaches Mars
@@ -148,7 +148,7 @@ export const SHIP_CLASSES: ShipClass[] = [
       'mining_bay',
     ],
     maxCrew: 10,
-    unlockThreshold: 50_000_000,
+    unlockThreshold: 280_000_000,
     rangeLabel: 'Mars',
     cargoCapacity: 100000,
     fuelCapacity: 200_000, // Fusion D-D, high Isp needs less fuel for Vesta/Crucible
@@ -197,7 +197,7 @@ export const SHIP_CLASSES: ShipClass[] = [
       'mining_bay',
     ],
     maxCrew: 16,
-    unlockThreshold: 50_000_000,
+    unlockThreshold: 800_000_000,
     rangeLabel: 'Jupiter+',
     cargoCapacity: 200000,
     fuelCapacity: 400_000, // Fusion D-He3, highest Isp, deep system to Jupiter

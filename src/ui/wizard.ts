@@ -239,39 +239,56 @@ function renderShipClassStep(
       option.className = 'ship-class-option';
 
       if (shipClass.unlockThreshold > 0) {
+        // Mystery placeholder for locked ships
         option.classList.add('locked');
-      } else if (selected === shipClass.id) {
-        option.classList.add('selected');
-      }
+        option.dataset.shipClass = shipClass.id;
 
-      option.dataset.shipClass = shipClass.id;
+        const header = document.createElement('div');
+        header.className = 'ship-class-header';
 
-      const header = document.createElement('div');
-      header.className = 'ship-class-header';
+        const optionLabel = document.createElement('strong');
+        optionLabel.textContent = '??? Unknown Vessel';
+        optionLabel.style.color = '#666';
+        header.appendChild(optionLabel);
 
-      const optionLabel = document.createElement('strong');
-      optionLabel.textContent = shipClass.name;
-      header.appendChild(optionLabel);
-
-      if (shipClass.unlockThreshold > 0) {
         const lockedBadge = document.createElement('span');
         lockedBadge.className = 'locked-badge';
         lockedBadge.textContent = 'Locked';
         header.appendChild(lockedBadge);
-      }
 
-      option.appendChild(header);
+        option.appendChild(header);
 
-      const optionDesc = document.createElement('p');
-      optionDesc.textContent = shipClass.description;
-      option.appendChild(optionDesc);
+        const optionDesc = document.createElement('p');
+        optionDesc.textContent =
+          'Earn lifetime credits to discover this ship class.';
+        optionDesc.style.fontStyle = 'italic';
+        option.appendChild(optionDesc);
+      } else {
+        // Full details for unlocked ships
+        if (selected === shipClass.id) {
+          option.classList.add('selected');
+        }
 
-      const stats = document.createElement('div');
-      stats.className = 'ship-class-stats';
-      stats.innerHTML = `<span>Price: ${formatCredits(shipClass.price)}</span><span>Rooms: ${shipClass.rooms.length}</span><span>Max Crew: ${shipClass.maxCrew}</span>`;
-      option.appendChild(stats);
+        option.dataset.shipClass = shipClass.id;
 
-      if (shipClass.unlockThreshold === 0) {
+        const header = document.createElement('div');
+        header.className = 'ship-class-header';
+
+        const optionLabel = document.createElement('strong');
+        optionLabel.textContent = shipClass.name;
+        header.appendChild(optionLabel);
+
+        option.appendChild(header);
+
+        const optionDesc = document.createElement('p');
+        optionDesc.textContent = shipClass.description;
+        option.appendChild(optionDesc);
+
+        const stats = document.createElement('div');
+        stats.className = 'ship-class-stats';
+        stats.innerHTML = `<span>Price: ${formatCredits(shipClass.price)}</span><span>Rooms: ${shipClass.rooms.length}</span><span>Max Crew: ${shipClass.maxCrew}</span>`;
+        option.appendChild(stats);
+
         option.addEventListener('click', () => {
           selected = shipClass.id;
           document

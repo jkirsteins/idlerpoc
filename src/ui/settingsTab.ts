@@ -339,7 +339,6 @@ export function createSettingsTab(
   // ── Snapshot for shallow-compare ──
   let prevLifetimeCredits = -1;
   let prevCurrentCredits = -1;
-  let prevUnlockShipName = '';
   let prevUnlockThreshold = -1;
   let prevEncTotal = -1;
   let prevEncEvaded = -1;
@@ -372,15 +371,10 @@ export function createSettingsTab(
     // Ship unlock progress
     const nextUnlock = findNextShipUnlock(ltc);
     if (nextUnlock) {
-      const shipName = nextUnlock.shipName;
       const threshold = nextUnlock.threshold;
 
-      if (
-        shipName !== prevUnlockShipName ||
-        threshold !== prevUnlockThreshold
-      ) {
-        unlockLabel.textContent = `Next Ship Unlock (${shipName}):`;
-        prevUnlockShipName = shipName;
+      if (threshold !== prevUnlockThreshold) {
+        unlockLabel.textContent = 'Next Ship Unlock:';
         prevUnlockThreshold = threshold;
       }
 
@@ -393,9 +387,8 @@ export function createSettingsTab(
       unlockRow.style.opacity = '';
       progressBar.style.opacity = '';
     } else {
-      if (prevUnlockShipName !== '' || prevUnlockThreshold !== -1) {
+      if (prevUnlockThreshold !== -1) {
         unlockLabel.textContent = 'Ship Unlocks:';
-        prevUnlockShipName = '';
         prevUnlockThreshold = -1;
       }
       unlockValue.textContent = 'All ships unlocked!';
@@ -482,7 +475,6 @@ export function createSettingsTab(
  * Find the next ship unlock threshold.
  */
 function findNextShipUnlock(lifetimeCredits: number): {
-  shipName: string;
   threshold: number;
 } | null {
   const lockedShips = SHIP_CLASSES.filter(
@@ -491,9 +483,7 @@ function findNextShipUnlock(lifetimeCredits: number): {
 
   if (lockedShips.length === 0) return null;
 
-  const nextShip = lockedShips[0];
   return {
-    shipName: nextShip.name,
-    threshold: nextShip.unlockThreshold,
+    threshold: lockedShips[0].unlockThreshold,
   };
 }
