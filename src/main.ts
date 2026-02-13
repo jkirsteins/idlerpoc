@@ -1293,11 +1293,16 @@ const callbacks: RendererCallbacks = {
     renderApp();
   },
 
-  onStartMiningRoute: (sellLocationId: string) => {
+  onStartMiningRoute: (sellLocationId: string, mineLocationId?: string) => {
     if (state.phase !== 'playing') return;
     const ship = getActiveShip(state.gameData);
 
-    const result = assignMiningRoute(state.gameData, ship, sellLocationId);
+    const result = assignMiningRoute(
+      state.gameData,
+      ship,
+      sellLocationId,
+      mineLocationId
+    );
     if (!result.success) {
       console.warn('Mining route failed:', result.error);
       return;

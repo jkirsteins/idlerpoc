@@ -58,7 +58,7 @@ npm run dev
   - Mastery pool bonuses at 10/25/50/95% full: XP boost, yield bonus, wear reduction, double-drop chance
   - Sell ore at any station with trade service — prices vary by location type and commerce skill
   - **Cargo progress bar**: visual fill level with mining rate, ETA to fill, and color-coded thresholds
-  - **Auto-sell mining routes**: set up idle-friendly mine→sell→return loop; destination picker shows profitability estimates (cr/hr) per station accounting for fill time and round-trip travel; provisions-aware auto-return departs early to resupply when food runs low
+  - **Auto-sell mining routes**: set up idle-friendly mine→sell→return loop from any station — start at a mine or pick a reachable mine from a non-mining station and your ship auto-flies there; destination picker shows profitability estimates (cr/hr) per station accounting for fill time and round-trip travel; provisions-aware auto-return departs early to resupply when food runs low
   - Route stats show trips, earnings, status, and average cr/hr
   - Active mining feedback: pulsing indicator when mining, status badges (MINING / IN TRANSIT / CARGO FULL / DOCKED / IDLE)
   - 8 mining locations from cislunar space (Graveyard Drift, Tycho Colony) through the Belt (The Crucible, Ceres) to Jupiter, with progressively valuable ores rewarding outward expansion

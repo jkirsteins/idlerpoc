@@ -27,6 +27,11 @@ import {
   updateFlightProfileControl,
 } from './flightProfileControl';
 import { createMiningPanel } from './miningPanel';
+import {
+  updateMiningRouteInfoBar,
+  updateMiningRouteSetup as updateMiningRouteSetupImpl,
+  type MineCardRefs,
+} from './miningRouteSetup';
 
 export interface WorkTabCallbacks {
   onAcceptQuest: (questId: string) => void;
@@ -38,7 +43,7 @@ export interface WorkTabCallbacks {
   onResumeContract: () => void;
   onAbandonContract: () => void;
   onFlightProfileChange: () => void;
-  onStartMiningRoute: (sellLocationId: string) => void;
+  onStartMiningRoute: (sellLocationId: string, mineLocationId?: string) => void;
   onCancelMiningRoute: () => void;
   onSelectMiningOre: (oreId: string | null) => void;
 }
@@ -126,6 +131,15 @@ interface NoContractRefs {
   noQuestsMsg: HTMLParagraphElement;
   contractCardsContainer: HTMLDivElement;
   miningSlot: HTMLDivElement;
+  miningRouteInfoBar: HTMLDivElement;
+  miningRouteInfoLabel: HTMLSpanElement;
+  miningRouteInfoStatus: HTMLDivElement;
+  miningRouteInfoStats: HTMLDivElement;
+  miningRouteInfoCancelBtn: HTMLButtonElement;
+  miningRouteSetupSection: HTMLDivElement;
+  miningRouteSetupHeading: HTMLHeadingElement;
+  miningRouteSetupContainer: HTMLDivElement;
+  miningRouteSetupNoMines: HTMLParagraphElement;
 }
 
 export function createWorkTab(
@@ -178,6 +192,9 @@ export function createWorkTab(
 
   // Mining status panel — self-contained component (created lazily)
   let miningPanel: ReturnType<typeof createMiningPanel> | null = null;
+
+  // Mining route setup — reconciliation map for mine cards
+  const mineCardMap = new Map<string, MineCardRefs>();
 
   // ── Factory: No Contract Content ────────────────────────────
   function createNoContractContent(): NoContractRefs {
@@ -255,6 +272,75 @@ export function createWorkTab(
     contractSection.appendChild(contractCardsContainer);
     cont.appendChild(contractSection);
 
+    // ── Mining Route Info Bar (shown at any station when route is active) ──
+    const miningRouteInfoBar = document.createElement('div');
+    miningRouteInfoBar.style.cssText = `
+      padding: 0.75rem; margin-bottom: 0.75rem;
+      border: 2px solid #b87333; border-radius: 4px;
+      background: rgba(255, 165, 0, 0.08); display: none;
+    `;
+
+    const miningRouteInfoHeader = document.createElement('div');
+    miningRouteInfoHeader.style.cssText =
+      'display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;';
+
+    const miningRouteInfoLabel = document.createElement('span');
+    miningRouteInfoLabel.style.cssText =
+      'font-weight: bold; font-size: 0.9rem; color: #ffa500;';
+    miningRouteInfoHeader.appendChild(miningRouteInfoLabel);
+
+    const miningRouteInfoCancelBtn = document.createElement('button');
+    miningRouteInfoCancelBtn.textContent = 'Cancel Route';
+    miningRouteInfoCancelBtn.style.cssText =
+      'font-size: 0.75rem; padding: 2px 8px;';
+    miningRouteInfoCancelBtn.addEventListener('click', () =>
+      callbacks.onCancelMiningRoute()
+    );
+    miningRouteInfoHeader.appendChild(miningRouteInfoCancelBtn);
+    miningRouteInfoBar.appendChild(miningRouteInfoHeader);
+
+    const miningRouteInfoStatus = document.createElement('div');
+    miningRouteInfoStatus.style.cssText =
+      'font-size: 0.85rem; color: #ccc; margin-bottom: 0.25rem;';
+    miningRouteInfoBar.appendChild(miningRouteInfoStatus);
+
+    const miningRouteInfoStats = document.createElement('div');
+    miningRouteInfoStats.style.cssText = 'font-size: 0.8rem; color: #888;';
+    miningRouteInfoBar.appendChild(miningRouteInfoStats);
+
+    cont.appendChild(miningRouteInfoBar);
+
+    // ── Mining Route Setup Section (non-mine stations) ──
+    const miningRouteSetupSection = document.createElement('div');
+    miningRouteSetupSection.className = 'mining-route-setup-section';
+    miningRouteSetupSection.style.display = 'none';
+
+    const miningRouteSetupHeading = document.createElement('h4');
+    miningRouteSetupHeading.textContent = 'Mining Routes';
+    miningRouteSetupHeading.style.cssText =
+      'color: #ffa500; margin-bottom: 0.25rem;';
+    miningRouteSetupSection.appendChild(miningRouteSetupHeading);
+
+    const miningRouteSetupDesc = document.createElement('p');
+    miningRouteSetupDesc.style.cssText =
+      'color: #888; font-size: 0.85rem; margin-top: 0; margin-bottom: 0.75rem;';
+    miningRouteSetupDesc.textContent =
+      'Start an automated mining route. Your ship will fly to the mine, fill cargo, sell ore, and repeat.';
+    miningRouteSetupSection.appendChild(miningRouteSetupDesc);
+
+    const miningRouteSetupNoMines = document.createElement('p');
+    miningRouteSetupNoMines.style.cssText = 'font-size: 0.85rem; color: #666;';
+    miningRouteSetupNoMines.textContent = 'No reachable mining locations.';
+    miningRouteSetupNoMines.style.display = 'none';
+    miningRouteSetupSection.appendChild(miningRouteSetupNoMines);
+
+    const miningRouteSetupContainer = document.createElement('div');
+    miningRouteSetupContainer.style.cssText =
+      'display: flex; flex-direction: column; gap: 8px;';
+    miningRouteSetupSection.appendChild(miningRouteSetupContainer);
+
+    cont.appendChild(miningRouteSetupSection);
+
     return {
       container: cont,
       heading,
@@ -269,6 +355,15 @@ export function createWorkTab(
       noQuestsMsg,
       contractCardsContainer,
       miningSlot,
+      miningRouteInfoBar,
+      miningRouteInfoLabel,
+      miningRouteInfoStatus,
+      miningRouteInfoStats,
+      miningRouteInfoCancelBtn,
+      miningRouteSetupSection,
+      miningRouteSetupHeading,
+      miningRouteSetupContainer,
+      miningRouteSetupNoMines,
     };
   }
 
@@ -882,6 +977,8 @@ export function createWorkTab(
       noContractRefs.tradeSection.style.display = 'none';
       noContractRefs.contractSection.style.display = 'none';
       noContractRefs.miningSlot.style.display = 'none';
+      noContractRefs.miningRouteInfoBar.style.display = 'none';
+      noContractRefs.miningRouteSetupSection.style.display = 'none';
       // Remove profile control if it was placed here
       if (profileControl.el.parentNode === noContractRefs.container) {
         profileControl.el.remove();
@@ -895,6 +992,8 @@ export function createWorkTab(
       noContractRefs.tradeSection.style.display = 'none';
       noContractRefs.contractSection.style.display = 'none';
       noContractRefs.miningSlot.style.display = 'none';
+      noContractRefs.miningRouteInfoBar.style.display = 'none';
+      noContractRefs.miningRouteSetupSection.style.display = 'none';
       return;
     }
 
@@ -908,8 +1007,9 @@ export function createWorkTab(
       );
     }
 
-    // Mining status
-    if (locationData.services.includes('mine')) {
+    // Mining status panel (at mine locations only)
+    const isAtMine = locationData.services.includes('mine');
+    if (isAtMine) {
       noContractRefs.miningSlot.style.display = '';
       if (!miningPanel) {
         miningPanel = createMiningPanel({
@@ -922,6 +1022,37 @@ export function createWorkTab(
       miningPanel.update(gd, ship, locationData);
     } else {
       noContractRefs.miningSlot.style.display = 'none';
+    }
+
+    // Mining route info bar (any station when route is active)
+    updateMiningRouteInfoBar(
+      {
+        bar: noContractRefs.miningRouteInfoBar,
+        label: noContractRefs.miningRouteInfoLabel,
+        status: noContractRefs.miningRouteInfoStatus,
+        stats: noContractRefs.miningRouteInfoStats,
+      },
+      gd,
+      ship
+    );
+
+    // Mining route setup (non-mine stations, no active route)
+    const hasActiveMiningRoute = !!ship.miningRoute;
+    if (!isAtMine && !hasActiveMiningRoute) {
+      updateMiningRouteSetupImpl(
+        {
+          section: noContractRefs.miningRouteSetupSection,
+          container: noContractRefs.miningRouteSetupContainer,
+          noMinesMsg: noContractRefs.miningRouteSetupNoMines,
+        },
+        mineCardMap,
+        callbacks.onStartMiningRoute,
+        gd,
+        ship,
+        locationData
+      );
+    } else {
+      noContractRefs.miningRouteSetupSection.style.display = 'none';
     }
 
     // Heading

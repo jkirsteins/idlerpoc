@@ -17,7 +17,8 @@ import { TICKS_PER_DAY } from './timeSystem';
  * Mining Route System
  *
  * Automates the mine → sell → return loop so mining is fully idle-compatible.
- * Initiated from the mining panel while orbiting a mine-enabled location.
+ * Can be initiated from a mine location (immediate mining) or from any station
+ * with a reachable mine (ship auto-flies to mine first).
  *
  * Route phases:
  *   mining   → cargo full triggers auto-flight to sell station
@@ -28,27 +29,26 @@ import { TICKS_PER_DAY } from './timeSystem';
 // ─── Route Setup ────────────────────────────────────────────────
 
 /**
- * Start an automated mining route from the current mine location.
- * Ship must be orbiting a mine-enabled location.
+ * Start an automated mining route.
+ *
+ * When `mineLocationId` is omitted, the ship must be orbiting a mine-enabled
+ * location (existing behavior — mining begins immediately).
+ *
+ * When `mineLocationId` is provided, the ship can be at any docked/orbiting
+ * location and will auto-fly to the mine as the first step of the route.
  */
 export function assignMiningRoute(
   gameData: GameData,
   ship: Ship,
-  sellLocationId: string
+  sellLocationId: string,
+  mineLocationId?: string
 ): { success: boolean; error?: string } {
-  // Must be orbiting
-  if (ship.location.status !== 'orbiting' || !ship.location.orbitingAt) {
-    return { success: false, error: 'Ship must be orbiting a mining location' };
+  // Must not have an active contract or freight route
+  if (ship.activeContract) {
+    return { success: false, error: 'Ship has an active contract' };
   }
-
-  const mineLocation = gameData.world.locations.find(
-    (l) => l.id === ship.location.orbitingAt
-  );
-  if (!mineLocation || !mineLocation.services.includes('mine')) {
-    return {
-      success: false,
-      error: 'Current location does not support mining',
-    };
+  if (ship.routeAssignment) {
+    return { success: false, error: 'Ship is assigned to a freight route' };
   }
 
   // Validate sell location exists and has trade service
@@ -62,12 +62,87 @@ export function assignMiningRoute(
     };
   }
 
-  // Must not have an active contract or freight route
-  if (ship.activeContract) {
-    return { success: false, error: 'Ship has an active contract' };
+  // ── Remote start: mine location explicitly specified ──
+  if (mineLocationId) {
+    const currentLocId = ship.location.dockedAt || ship.location.orbitingAt;
+    if (!currentLocId) {
+      return {
+        success: false,
+        error: 'Ship must be docked or orbiting a station',
+      };
+    }
+
+    const mineLocation = gameData.world.locations.find(
+      (l) => l.id === mineLocationId
+    );
+    if (!mineLocation || !mineLocation.services.includes('mine')) {
+      return {
+        success: false,
+        error: 'Selected location does not support mining',
+      };
+    }
+
+    const currentLocation = gameData.world.locations.find(
+      (l) => l.id === currentLocId
+    );
+    if (!currentLocation) {
+      return { success: false, error: 'Current location not found' };
+    }
+
+    ship.miningRoute = {
+      mineLocationId: mineLocation.id,
+      sellLocationId,
+      status: 'returning',
+      totalTrips: 0,
+      totalCreditsEarned: 0,
+      assignedAt: gameData.gameTime,
+    };
+
+    // Initiate flight to the mine (orbit on arrival)
+    const departed = startShipFlight(
+      ship,
+      currentLocation,
+      mineLocation,
+      false,
+      ship.flightProfileBurnFraction,
+      gameData.gameTime,
+      gameData.world
+    );
+
+    if (!departed) {
+      addLog(
+        gameData.log,
+        gameData.gameTime,
+        'mining_route',
+        `Mining route established but helm unmanned — assign crew to helm to depart to ${mineLocation.name}`,
+        ship.name
+      );
+    } else {
+      addLog(
+        gameData.log,
+        gameData.gameTime,
+        'mining_route',
+        `Mining route established: departing to ${mineLocation.name}, sell at ${sellLocation.name}`,
+        ship.name
+      );
+    }
+
+    return { success: true };
   }
-  if (ship.routeAssignment) {
-    return { success: false, error: 'Ship is assigned to a freight route' };
+
+  // ── Local start: ship already at the mine ──
+  if (ship.location.status !== 'orbiting' || !ship.location.orbitingAt) {
+    return { success: false, error: 'Ship must be orbiting a mining location' };
+  }
+
+  const mineLocation = gameData.world.locations.find(
+    (l) => l.id === ship.location.orbitingAt
+  );
+  if (!mineLocation || !mineLocation.services.includes('mine')) {
+    return {
+      success: false,
+      error: 'Current location does not support mining',
+    };
   }
 
   ship.miningRoute = {
@@ -415,6 +490,40 @@ export function retryMiningRouteDeparture(
   if (route.status === 'selling' && ship.location.status === 'docked') {
     // Stalled at sell station — retry departure back to mine
     return handleSellArrival(gameData, ship, route);
+  }
+
+  // Stalled initial departure to mine (remote start, helm was unmanned)
+  if (route.status === 'returning') {
+    const atLocation = ship.location.dockedAt || ship.location.orbitingAt;
+    if (atLocation && atLocation !== route.mineLocationId) {
+      const currentLoc = gameData.world.locations.find(
+        (l) => l.id === atLocation
+      );
+      const mineLoc = gameData.world.locations.find(
+        (l) => l.id === route.mineLocationId
+      );
+      if (currentLoc && mineLoc) {
+        const departed = startShipFlight(
+          ship,
+          currentLoc,
+          mineLoc,
+          false,
+          ship.flightProfileBurnFraction,
+          gameData.gameTime,
+          gameData.world
+        );
+        if (departed) {
+          addLog(
+            gameData.log,
+            gameData.gameTime,
+            'mining_route',
+            `Departing to ${mineLoc.name} to begin mining operations`,
+            ship.name
+          );
+        }
+        return departed;
+      }
+    }
   }
 
   return false;
