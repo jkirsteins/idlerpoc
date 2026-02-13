@@ -157,6 +157,7 @@ Remaining follow-up:
 - **Cargo Space Limit**: Currently hardcoded `maxSpace = 20`. Should use ship cargo capacity.
 - **Class IV/V Ships**: Ship classes defined in WORLDRULES.md but not implemented.
 - **Remove Debug Console Logs**: Clean up `console.log` statements throughout codebase.
+- **Move `regenerateQuestsIfNewDay` into `applyTick`**: Daily quest/hiring regeneration is a simulation event (midnight world reset) but currently lives in UI orchestration (`main.ts`) and is called from three separate sites. Should move into `gameTick.ts` so it fires naturally at day boundaries. Small and large catch-up paths duplicate this call; unifying them into one batched path would remove the duplication. No gameplay impact — cosmetic/architectural only.
 
 ## Deferred Ship & Economy Features
 
