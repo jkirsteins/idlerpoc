@@ -300,7 +300,7 @@ Additional captain effects:
 
 ## Design Decisions
 
-See `docs/skill-training-design-research.md` for detailed rationale. Key choices:
+Key choices:
 
 1. **Direct training, no XP intermediary** — emergent from job assignment, per CLAUDE.md's guiding principle
 2. **No skill decay** — idle games must never punish absence
