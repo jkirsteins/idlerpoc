@@ -9,11 +9,7 @@ import {
   MAX_PROVISION_DAYS,
   getEffectiveConsumptionPerCrewPerDay,
 } from './provisionsSystem';
-import {
-  getLocationPosition,
-  solveIntercept,
-  lerpVec2,
-} from './orbitalMechanics';
+import { getLocationPosition, solveIntercept } from './orbitalMechanics';
 
 /**
  * Flight Physics
@@ -558,54 +554,9 @@ export function redirectShipFlight(
     id: ship.activeFlightPlan?.origin ?? '',
   } as WorldLocation;
 
-  // Compute ship's current 2D position in current-time coordinates.
-  //
-  // The stored shipPos is interpolated between originPos and interceptPos,
-  // which may be at the *arrival* time of the original flight (for body-origin
-  // flights). Using arrival-time coordinates directly would compare against the
-  // destination's current-time position, producing a phantom distance.
-  //
-  // Strategy:
-  //  - Body-origin flight (originBodyId set): re-interpolate between origin and
-  //    destination positions at current gameTime → accurate current-time position.
-  //  - Redirect flight (originBodyId unset): originPos is already a fixed point
-  //    in space at redirect time. Interpolate between it and destination's current
-  //    position → approximately correct (small drift from time of last redirect).
-  let currentShipPos: Vec2 | undefined;
-  const flight = ship.activeFlightPlan;
-  if (flight && gameTime !== undefined && world && flight.totalDistance > 0) {
-    const destLoc = world.locations.find((l) => l.id === flight.destination);
-    if (destLoc) {
-      const destPosNow = getLocationPosition(destLoc, gameTime, world);
-      const progress = Math.min(
-        1,
-        flight.distanceCovered / flight.totalDistance
-      );
-
-      let originPosNow: Vec2 | undefined;
-      if (flight.originBodyId) {
-        // Normal flight: origin is a real body — get its current position
-        const originLoc = world.locations.find(
-          (l) => l.id === flight.originBodyId
-        );
-        if (originLoc) {
-          originPosNow = getLocationPosition(originLoc, gameTime, world);
-        }
-      }
-      // Redirect flight or body not found: originPos is a fixed point in space
-      if (!originPosNow) {
-        originPosNow = flight.originPos;
-      }
-
-      if (originPosNow) {
-        currentShipPos = lerpVec2(originPosNow, destPosNow, progress);
-      }
-    }
-  }
-  // Fallback to stored shipPos if we couldn't compute current-time position
-  if (!currentShipPos) {
-    currentShipPos = flight?.shipPos;
-  }
+  // shipPos is always in current-time coordinates (updated every tick by
+  // updateFlightPosition in gameTick.ts), so we can use it directly.
+  const currentShipPos = ship.activeFlightPlan?.shipPos;
 
   ship.activeFlightPlan = initializeFlight(
     ship,
@@ -719,10 +670,6 @@ export function advanceFlight(flight: FlightState): boolean {
     flight.distanceCovered = flight.totalDistance;
     flight.currentVelocity = 0;
     flight.phase = 'decelerating'; // Final phase
-    // Snap 2D position to intercept point
-    if (flight.interceptPos) {
-      flight.shipPos = { ...flight.interceptPos };
-    }
     return true; // Flight complete
   }
 
@@ -792,17 +739,12 @@ export function advanceFlight(flight: FlightState): boolean {
     flight.distanceCovered = flight.totalDistance;
     flight.currentVelocity = 0;
     flight.phase = 'decelerating';
-    if (flight.interceptPos) {
-      flight.shipPos = { ...flight.interceptPos };
-    }
     return true;
   }
 
-  // Update 2D ship position via linear interpolation
-  if (flight.originPos && flight.interceptPos && flight.totalDistance > 0) {
-    const progress = Math.min(1, flight.distanceCovered / flight.totalDistance);
-    flight.shipPos = lerpVec2(flight.originPos, flight.interceptPos, progress);
-  }
+  // 2D ship position (shipPos) is updated externally by updateFlightPosition()
+  // in gameTick.ts, which always uses current-time body positions. This keeps
+  // advanceFlight as pure physics (distance, velocity, phase).
 
   return false;
 }
