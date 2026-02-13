@@ -623,6 +623,7 @@ export interface GameData {
     onCriticalAlert: boolean; // Pause on critical alerts
     onLowFuel: boolean; // Pause when fuel drops below 10%
   };
+  gettingStartedDismissed?: boolean; // Whether the new-player banner has been dismissed
 }
 
 /**
