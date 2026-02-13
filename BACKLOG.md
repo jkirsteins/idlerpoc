@@ -4,7 +4,7 @@ This file tracks deferred features and known gaps that are not currently priorit
 
 ## Captain Flagship System
 
-Full design in `docs/captain-flagship-design.md`, research sources in `docs/bibliography-idle-game-research.md`.
+Full design in `docs/captain-flagship-design.md`.
 
 - ~~**Captain Presence Multiplier (Phase 1)**~~: **DONE** — Captain's skills provide ship-wide multipliers: Commerce (+1%/point income), Piloting (+0.5%/point evasion), Mining (+1%/point yield). Acting captain fallback at 25%. Command bar, fleet badges, quest card bonus lines, and capabilities panel all surface the bonus. See `src/captainBonus.ts`.
 - **Morale System Activation (Phase 2)**: Wire up the existing unused `morale` field. Captain presence stabilizes morale; absence causes drift and eventual desertion. High morale → +15% training speed, +10% combat defense. Low morale → penalties and desertion risk.
@@ -123,7 +123,7 @@ Current ship equipment (20 items) is dominated by mandatory survival systems. "F
 
 ## Duplicate Logic Consolidation (DONE)
 
-All items from the original audit (`docs/duplicate-logic-audit.md`) have been resolved.
+All items from the original duplicate-logic audit have been resolved.
 Remaining follow-up:
 
 - **Move `getFuelPricePerKg` out of `ui/refuelDialog.ts`**: This is pure game logic; it should live in a non-UI module so `fleetAnalytics.ts` can import it without cross-layer dependency.

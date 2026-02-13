@@ -1,7 +1,6 @@
 import type { Ship, CrewMember } from './models';
 import { getShipClass } from './shipClasses';
 import { getEquipmentDefinition } from './equipment';
-import { getEngineDefinition } from './engines';
 import { getCrewEquipmentDefinition } from './crewEquipment';
 import { GAME_SECONDS_PER_TICK } from './timeSystem';
 
@@ -83,12 +82,13 @@ export function getGravitySource(ship: Ship): GravitySource {
   }
 
   // Check thrust gravity (only during burns)
-  const engineDef = getEngineDefinition(ship.engine.definitionId);
-  if (engineDef && ship.engine.state === 'online' && ship.activeFlightPlan) {
+  if (ship.engine.state === 'online' && ship.activeFlightPlan) {
     const phase = ship.activeFlightPlan.phase;
     if (phase === 'accelerating' || phase === 'decelerating') {
-      // maxThrust is in milli-g, convert to g
-      const thrustG = engineDef.maxThrust / 1000;
+      // Use actual flight acceleration (m/s²) converted to g-force.
+      // This is emergent from thrust ÷ ship mass, not the engine's
+      // theoretical maxThrust which doesn't account for ship mass.
+      const thrustG = ship.activeFlightPlan.acceleration / 9.81;
       return { type: 'thrust', thrustG };
     }
   }

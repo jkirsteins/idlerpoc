@@ -195,13 +195,13 @@ describe('attemptNegotiation', () => {
     expect(result.chance).toBe(0);
   });
 
-  it('returns 50% chance with piloting 100', () => {
+  it('returns 50% chance with commerce 100', () => {
     const crew = createTestCrew({
       name: 'Smooth Talker',
       skills: {
-        piloting: 100,
-        mining: 15,
-        commerce: 0,
+        piloting: 15,
+        mining: 0,
+        commerce: 100,
         repairs: 0,
       },
     });
@@ -212,13 +212,13 @@ describe('attemptNegotiation', () => {
     expect(result.negotiatorName).toBe('Smooth Talker');
   });
 
-  it('uses best piloting among all crew', () => {
-    const miner = createTestCrew({
-      name: 'Miner',
+  it('uses best commerce among all crew', () => {
+    const trader = createTestCrew({
+      name: 'Trader',
       skills: {
-        piloting: 80,
-        mining: 10,
-        commerce: 0,
+        piloting: 10,
+        mining: 0,
+        commerce: 80,
         repairs: 0,
       },
     });
@@ -227,15 +227,15 @@ describe('attemptNegotiation', () => {
       skills: {
         piloting: 50,
         mining: 10,
-        commerce: 0,
+        commerce: 30,
         repairs: 0,
       },
     });
-    const ship = createTestShip({ crew: [pilot, miner] });
+    const ship = createTestShip({ crew: [pilot, trader] });
 
     const result = attemptNegotiation(ship);
     expect(result.chance).toBe(80 / 200);
-    expect(result.negotiatorName).toBe('Miner');
+    expect(result.negotiatorName).toBe('Trader');
   });
 });
 

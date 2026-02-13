@@ -8,7 +8,7 @@ The refueling system allows players to purchase liquid hydrogen (LH2) fuel by ki
 
 ### 1. Refuel Dialog UI
 
-**Location**: `/Volumes/X10/Projects/sellgame/src/ui/refuelDialog.ts`
+**Location**: `src/ui/refuelDialog.ts`
 
 A modal dialog that displays:
 
@@ -357,9 +357,6 @@ Edge Cases:
 
 ## Related Documentation
 
-- `/Volumes/X10/Projects/sellgame/docs/fuel-ui-changes-summary.md` - UI migration details
-- `/Volumes/X10/Projects/sellgame/docs/fuel-ui-migration.md` - Migration plan
-- `/Users/janiskirsteins/Downloads/fuel_analysis.md` - Original fuel system analysis
 - `WORLDRULES.md` - Game physics specifications
 
 ## Version History
