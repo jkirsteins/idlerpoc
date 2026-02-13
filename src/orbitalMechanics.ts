@@ -201,7 +201,13 @@ export function updateWorldPositions(world: World, gameTime: number): void {
  * destination will be when the ship arrives, then recalculates travel
  * time to that new position, and repeats until convergence.
  *
- * @returns { interceptPos, travelDistanceKm, arrivalGameTime }
+ * When `origin` is provided, both origin and destination positions are
+ * computed at the same future time each iteration. This correctly handles
+ * co-moving bodies (e.g. Gateway Station orbiting Earth): their common
+ * orbital motion cancels out, yielding the true relative distance instead
+ * of a phantom distance caused by the parent body's solar orbit.
+ *
+ * @returns { interceptPos, originPosAtArrival, travelDistanceKm, arrivalGameTime }
  */
 export function solveIntercept(
   originPos: Vec2,
@@ -209,15 +215,20 @@ export function solveIntercept(
   estimateTravelTime: (distanceKm: number) => number, // game-seconds
   gameTime: number,
   world: World,
-  maxIterations: number = 10
+  maxIterations: number = 10,
+  origin?: WorldLocation
 ): {
   interceptPos: Vec2;
+  originPosAtArrival: Vec2;
   travelDistanceKm: number;
   arrivalGameTime: number;
 } {
-  // Initial guess: destination's current position
+  // Initial guess: both positions at current gameTime
   let interceptPos = getLocationPosition(destination, gameTime, world);
-  let travelDistanceKm = euclideanDistance(originPos, interceptPos);
+  let currentOriginPos = origin
+    ? getLocationPosition(origin, gameTime, world)
+    : originPos;
+  let travelDistanceKm = euclideanDistance(currentOriginPos, interceptPos);
   let travelTimeSec = estimateTravelTime(travelDistanceKm);
   let arrivalGameTime = gameTime + travelTimeSec;
 
@@ -227,7 +238,12 @@ export function solveIntercept(
       arrivalGameTime,
       world
     );
-    const newDistance = euclideanDistance(originPos, newInterceptPos);
+    // Compute origin position at the same arrival time so that
+    // co-orbiting bodies' shared motion cancels out.
+    const newOriginPos = origin
+      ? getLocationPosition(origin, arrivalGameTime, world)
+      : originPos;
+    const newDistance = euclideanDistance(newOriginPos, newInterceptPos);
 
     // Convergence check: distance changed by less than 0.1%
     if (
@@ -235,17 +251,24 @@ export function solveIntercept(
       0.001
     ) {
       interceptPos = newInterceptPos;
+      currentOriginPos = newOriginPos;
       travelDistanceKm = newDistance;
       break;
     }
 
     interceptPos = newInterceptPos;
+    currentOriginPos = newOriginPos;
     travelDistanceKm = newDistance;
     travelTimeSec = estimateTravelTime(travelDistanceKm);
     arrivalGameTime = gameTime + travelTimeSec;
   }
 
-  return { interceptPos, travelDistanceKm, arrivalGameTime };
+  return {
+    interceptPos,
+    originPosAtArrival: currentOriginPos,
+    travelDistanceKm,
+    arrivalGameTime,
+  };
 }
 
 // ─── Launch Windows ───────────────────────────────────────────────

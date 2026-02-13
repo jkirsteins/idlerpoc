@@ -52,8 +52,13 @@ import { getAllEquipmentDefinitions } from './equipment';
  * Mid-flight course correction.
  * Every 50 ticks, check if the destination has drifted from the predicted
  * intercept position due to orbital motion. If the drift exceeds 5% of the
- * remaining distance, silently update the intercept point and trajectory.
+ * total distance, silently update the intercept point and trajectory.
  * This keeps ships on course for months-long interplanetary flights.
+ *
+ * Both origin and destination positions are computed at the same future time
+ * so that co-orbiting bodies' shared orbital motion cancels out. This also
+ * repairs flights from older saves that were initialised with a frozen-origin
+ * bug (where the origin position was static while the destination moved).
  */
 function applyCourseCorrection(
   fp: import('./models').FlightState,
@@ -74,14 +79,28 @@ function applyCourseCorrection(
     futureArrival,
     gameData.world
   );
-  const drift = euclideanDistance(destFuturePos, fp.interceptPos);
-  const remainingDistKm = (fp.totalDistance - fp.distanceCovered) / 1000;
 
-  if (remainingDistKm > 0 && drift / remainingDistKm > 0.05) {
+  // Compute origin position at the same future time so that co-orbiting
+  // bodies' shared motion cancels out (e.g. LEO station and Earth both
+  // orbit the Sun together — their relative distance stays ~400 km).
+  const originLoc = gameData.world.locations.find((l) => l.id === fp.origin);
+  const originFuturePos = originLoc
+    ? getLocationPosition(originLoc, futureArrival, gameData.world)
+    : fp.originPos;
+
+  const newRelativeDistKm = euclideanDistance(originFuturePos, destFuturePos);
+  const currentTotalDistKm = fp.totalDistance / 1000;
+
+  // Detect drift: has the correct relative distance diverged from stored?
+  const drift = Math.abs(newRelativeDistKm - currentTotalDistKm);
+  const driftFraction =
+    drift / Math.max(currentTotalDistKm, newRelativeDistKm, 1);
+
+  if (driftFraction > 0.05) {
+    fp.originPos = originFuturePos;
     fp.interceptPos = destFuturePos;
     fp.estimatedArrivalGameTime = futureArrival;
-    const newTotalDistKm = euclideanDistance(fp.originPos, fp.interceptPos);
-    fp.totalDistance = newTotalDistKm * 1000;
+    fp.totalDistance = newRelativeDistKm * 1000;
     const progress = Math.min(1, fp.distanceCovered / fp.totalDistance);
     fp.shipPos = lerpVec2(fp.originPos, fp.interceptPos, progress);
   }
