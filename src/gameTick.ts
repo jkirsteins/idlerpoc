@@ -29,7 +29,7 @@ import { getCommandTrainingMultiplier } from './captainBonus';
 import { getCrewForJobType, isRoomStaffed, getCrewJobSlot } from './jobSlots';
 import { applyOxygenTick, getOxygenHealthDamage } from './lifeSupportSystem';
 import { applyProvisionsTick } from './provisionsSystem';
-import { processCrewDeaths } from './crewDeath';
+import { processCrewDeaths, recordCrewDamage } from './crewDeath';
 import { checkStrandedShips } from './strandedSystem';
 import { applyMiningTick } from './miningSystem';
 import {
@@ -502,6 +502,7 @@ function applyShipTick(gameData: GameData, ship: Ship): boolean {
             }
 
             crew.health = Math.max(0, crew.health - damage);
+            recordCrewDamage(crew.id, 'radiation');
             changed = true;
           }
         } else {
@@ -561,6 +562,7 @@ function applyShipTick(gameData: GameData, ship: Ship): boolean {
 
             for (const crew of ship.crew) {
               crew.health = Math.max(0, crew.health - spikeRadiation);
+              recordCrewDamage(crew.id, 'radiation');
               changed = true;
             }
 
@@ -663,6 +665,7 @@ function applyShipTick(gameData: GameData, ship: Ship): boolean {
   if (o2Damage > 0) {
     for (const crew of ship.crew) {
       crew.health = Math.max(0, crew.health - o2Damage);
+      recordCrewDamage(crew.id, 'suffocation');
     }
     changed = true;
 

@@ -22,6 +22,7 @@ import {
   getCommandRallyBonus,
   canNegotiate,
 } from './captainBonus';
+import { recordCrewDamage } from './crewDeath';
 
 /**
  * Combat System
@@ -402,6 +403,7 @@ export function applyEncounterOutcome(
           const loss = result.healthLost[crew.id];
           if (loss != null) {
             crew.health = Math.max(0, crew.health - loss);
+            recordCrewDamage(crew.id, 'combat');
           }
         }
       }
@@ -419,6 +421,7 @@ export function applyEncounterOutcome(
           const loss = result.healthLost[crew.id];
           if (loss != null) {
             crew.health = Math.max(0, crew.health - loss);
+            recordCrewDamage(crew.id, 'combat');
           }
         }
       }
@@ -445,6 +448,7 @@ export function applyEncounterOutcome(
           const loss = result.healthLost[crew.id];
           if (loss != null) {
             crew.health = Math.max(0, crew.health - loss);
+            recordCrewDamage(crew.id, 'combat');
           }
         }
       }

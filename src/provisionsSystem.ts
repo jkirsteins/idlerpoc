@@ -3,6 +3,7 @@ import { TICKS_PER_DAY } from './timeSystem';
 import { addLog } from './logSystem';
 import { formatMass, formatCredits } from './formatting';
 import { getEffectiveProvisionsRecycling } from './equipment';
+import { recordCrewDamage } from './crewDeath';
 
 // ── Constants ────────────────────────────────────────────────────
 
@@ -108,6 +109,7 @@ export function applyProvisionsTick(ship: Ship, gameData: GameData): boolean {
   if (damage > 0) {
     for (const crew of ship.crew) {
       crew.health = Math.max(0, crew.health - damage);
+      recordCrewDamage(crew.id, 'starvation');
     }
   }
 

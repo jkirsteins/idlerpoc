@@ -588,6 +588,7 @@ export interface CatchUpReport {
   elapsedRealSeconds: number; // actual real-world seconds that passed
   creditsDelta: number; // net credits change during catch-up
   contractsCompleted: number; // total contract completions across fleet
+  crewLost: number; // total crew deaths across fleet during catch-up
   shipSummaries: CatchUpShipSummary[]; // per-ship consolidated summaries
   logHighlights: LogEntry[]; // notable log entries (skill-ups, etc.) from the idle period
 }
