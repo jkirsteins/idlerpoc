@@ -1327,7 +1327,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
     sections: [
       {
         paragraphs: [
-          "The navigation chart shows all known locations, their distances from your ship's current position, and available services. Access it via the Nav tab. The chart includes an orrery map that visualizes the 2D [[orbital-mechanics|orbital positions]] of all bodies in real time.",
+          "The navigation chart shows all known locations, their distances from your ship's current position, and available services. Access it via the Nav tab. The chart includes an orrery map that visualizes the 2D [[orbital-mechanics|orbital positions]] of all bodies in real time. Click any dot on the orrery to select it — the matching location card expands below with full details, travel estimates, and action buttons.",
           'Locations provide different services: refueling, hiring, trade, [[mining-system|mining]], and repair. Planning your route to hit needed services is key to efficient operations.',
           'Because all bodies follow [[orbital-mechanics|orbital paths]], distances between locations change continuously. The Nav tab updates distances every tick, reflecting the current orbital configuration. A destination that is nearby today may be far away in a few months — check [[launch-windows|launch window]] alignment before committing to long voyages.',
         ],
@@ -1352,7 +1352,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
         heading: 'Mid-Flight Redirect',
         paragraphs: [
           'You can change your destination while in flight. Open the Nav tab during a manual flight to see distances calculated from your current position in space — these update live as you move.',
-          'Click "Redirect" on any reachable location to plot a new course. Your ship will begin a fresh burn-coast-burn trajectory from wherever it is.',
+          'Select any reachable location and click "Redirect" in its expanded details to plot a new course. Your ship will begin a fresh burn-coast-burn trajectory from wherever it is.',
           'Mid-flight redirects are not available during [[contracts|contract]] flights or active mining routes.',
           'All [[encounters|threat levels]] and fuel estimates are recalculated based on your actual position, so redirecting into deep space may increase [[encounters|encounter]] risk.',
         ],
@@ -1590,8 +1590,8 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
       {
         heading: 'The Orrery Map',
         paragraphs: [
-          'The [[navigation|Nav tab]] includes an orrery — a 2D map showing all orbital paths and current body positions. The orrery provides a visual overview of the solar system layout, letting you see at a glance which destinations are currently close together and which are far apart.',
-          'Use the orrery to build spatial intuition about orbital timing. When two destinations are on the same side of their parent body, travel between them is short. When they are on opposite sides, the trip is much longer.',
+          'The [[navigation|Nav tab]] includes an orrery — a 2D map showing all orbital paths and current body positions. The orrery provides a visual overview of the solar system layout, letting you see at a glance which destinations are currently close together and which are far apart. Hover over any dot to see a tooltip with the location name and distance; click to select it and expand its details in the legend below.',
+          'Use the orrery to build spatial intuition about orbital timing. When two destinations are on the same side of their parent body, travel between them is short. When they are on opposite sides, the trip is much longer. Your current location pulses red, and your flight destination glows blue.',
         ],
       },
     ],

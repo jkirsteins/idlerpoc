@@ -98,6 +98,75 @@ interface MarkerRefs {
   dot: SVGCircleElement; // the body dot
   label: SVGTextElement; // name label
   hitArea: SVGCircleElement; // invisible click target
+  leaderLine: SVGLineElement; // connects dot to displaced label
+}
+
+// SVG namespace
+const SVG_NS = 'http://www.w3.org/2000/svg';
+const ORRERY_SIZE = 400; // viewBox is -200..200
+const ORRERY_HALF = ORRERY_SIZE / 2;
+
+/** Minimum SVG-unit separation between label centers before repulsion kicks in */
+const MIN_LABEL_SEPARATION = 14;
+/** Displacement threshold before a leader line is shown */
+const LEADER_LINE_THRESHOLD = 4;
+/** Number of repulsion iterations per tick */
+const DECONFLICT_ITERATIONS = 3;
+
+/**
+ * Generic label deconfliction — no location-specific layout logic.
+ *
+ * Design principle: the orrery must never contain location-specific layout
+ * logic. All visual positioning derives from orbital data through generic
+ * algorithms. Adding new locations to the world should "just work" without
+ * any orrery-specific code changes.
+ */
+interface LabelEntry {
+  id: string;
+  dotX: number;
+  dotY: number;
+  labelX: number;
+  labelY: number;
+}
+
+function deconflictLabels(entries: LabelEntry[]): void {
+  for (let iter = 0; iter < DECONFLICT_ITERATIONS; iter++) {
+    for (let i = 0; i < entries.length; i++) {
+      for (let j = i + 1; j < entries.length; j++) {
+        const a = entries[i];
+        const b = entries[j];
+        const dx = b.labelX - a.labelX;
+        const dy = b.labelY - a.labelY;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < MIN_LABEL_SEPARATION && dist > 0.01) {
+          // Push labels apart along the line connecting them
+          const overlap = MIN_LABEL_SEPARATION - dist;
+          const pushX = (dx / dist) * overlap * 0.5;
+          const pushY = (dy / dist) * overlap * 0.5;
+          a.labelX -= pushX;
+          a.labelY -= pushY;
+          b.labelX += pushX;
+          b.labelY += pushY;
+        } else if (dist <= 0.01) {
+          // Labels exactly coincide — push radially outward from centroid
+          const cx = (a.dotX + b.dotX) * 0.5;
+          const cy = (a.dotY + b.dotY) * 0.5;
+          const angleA = Math.atan2(a.dotY - cy, a.dotX - cx) + Math.PI * 0.1;
+          const angleB = angleA + Math.PI;
+          a.labelX += Math.cos(angleA) * MIN_LABEL_SEPARATION * 0.5;
+          a.labelY += Math.sin(angleA) * MIN_LABEL_SEPARATION * 0.5;
+          b.labelX += Math.cos(angleB) * MIN_LABEL_SEPARATION * 0.5;
+          b.labelY += Math.sin(angleB) * MIN_LABEL_SEPARATION * 0.5;
+        }
+      }
+    }
+  }
+  // Clamp to viewBox bounds
+  const bound = ORRERY_HALF - 10;
+  for (const e of entries) {
+    e.labelX = Math.max(-bound, Math.min(bound, e.labelX));
+    e.labelY = Math.max(-bound, Math.min(bound, e.labelY));
+  }
 }
 
 /** Ship flight trajectory line and moving dot */
@@ -105,11 +174,6 @@ interface FlightLineRefs {
   line: SVGLineElement;
   shipDot: SVGCircleElement;
 }
-
-// SVG namespace
-const SVG_NS = 'http://www.w3.org/2000/svg';
-const ORRERY_SIZE = 400; // viewBox is -200..200
-const ORRERY_HALF = ORRERY_SIZE / 2;
 
 /**
  * Map an orbital radius (km) to SVG visual radius.
@@ -158,6 +222,10 @@ function alignmentColor(alignment: AlignmentQuality): string {
 /** Per-location refs for the legend item */
 interface LegendItemRefs {
   item: HTMLElement;
+  summary: HTMLElement; // always-visible accordion header
+  summaryDist: HTMLElement; // compact distance in summary
+  chevron: HTMLElement; // expand/collapse indicator
+  details: HTMLElement; // collapsible detail section
   name: HTMLElement;
   badgesContainer: HTMLElement;
   distance: HTMLElement;
@@ -187,6 +255,9 @@ export function createNavigationView(
 
   // Track latest gameData for handlers that close over it
   let latestGameData = gameData;
+
+  // Selection state — links map dots to legend cards
+  let selectedLocationId: string | null = null;
 
   // Refs to travel estimate elements — updated in-place on slider drag
   let estimateRefs: {
@@ -323,6 +394,137 @@ export function createNavigationView(
 
   const flightRefs: FlightLineRefs = { line: flightLine, shipDot };
 
+  // Current-location pulsing ring (visual prominence)
+  const currentRing = document.createElementNS(SVG_NS, 'circle');
+  currentRing.setAttribute('fill', 'none');
+  currentRing.setAttribute('stroke', '#e94560');
+  currentRing.setAttribute('stroke-width', '1');
+  currentRing.setAttribute('stroke-opacity', '0');
+  currentRing.style.display = 'none';
+  const currentRingAnim = document.createElementNS(SVG_NS, 'animate');
+  currentRingAnim.setAttribute('attributeName', 'r');
+  currentRingAnim.setAttribute('from', '6');
+  currentRingAnim.setAttribute('to', '16');
+  currentRingAnim.setAttribute('dur', '2s');
+  currentRingAnim.setAttribute('repeatCount', 'indefinite');
+  currentRing.appendChild(currentRingAnim);
+  const currentRingOpacAnim = document.createElementNS(SVG_NS, 'animate');
+  currentRingOpacAnim.setAttribute('attributeName', 'stroke-opacity');
+  currentRingOpacAnim.setAttribute('values', '0.7;0');
+  currentRingOpacAnim.setAttribute('dur', '2s');
+  currentRingOpacAnim.setAttribute('repeatCount', 'indefinite');
+  currentRing.appendChild(currentRingOpacAnim);
+  flightLayer.appendChild(currentRing);
+
+  // Destination glow ring (steady)
+  const destRing = document.createElementNS(SVG_NS, 'circle');
+  destRing.setAttribute('fill', 'none');
+  destRing.setAttribute('stroke', '#4a9eff');
+  destRing.setAttribute('stroke-width', '1.5');
+  destRing.setAttribute('stroke-opacity', '0.6');
+  destRing.setAttribute('r', '10');
+  destRing.style.display = 'none';
+  flightLayer.appendChild(destRing);
+
+  // Selection highlight ring
+  const selectionRing = document.createElementNS(SVG_NS, 'circle');
+  selectionRing.setAttribute('fill', 'none');
+  selectionRing.setAttribute('stroke', '#4a9eff');
+  selectionRing.setAttribute('stroke-width', '2');
+  selectionRing.setAttribute('stroke-opacity', '0.8');
+  selectionRing.setAttribute('r', '12');
+  selectionRing.style.display = 'none';
+  flightLayer.appendChild(selectionRing);
+
+  // SVG tooltip (single reusable group, positioned on hover/select)
+  const tooltipGroup = document.createElementNS(SVG_NS, 'g');
+  tooltipGroup.style.display = 'none';
+  tooltipGroup.style.pointerEvents = 'none';
+  const tooltipBg = document.createElementNS(SVG_NS, 'rect');
+  tooltipBg.setAttribute('rx', '3');
+  tooltipBg.setAttribute('ry', '3');
+  tooltipBg.setAttribute('fill', 'rgba(10, 15, 30, 0.92)');
+  tooltipBg.setAttribute('stroke', '#4a9eff');
+  tooltipBg.setAttribute('stroke-width', '0.5');
+  tooltipGroup.appendChild(tooltipBg);
+  const tooltipName = document.createElementNS(SVG_NS, 'text');
+  tooltipName.setAttribute('fill', '#fff');
+  tooltipName.setAttribute('font-size', '6');
+  tooltipName.setAttribute('font-weight', '600');
+  tooltipGroup.appendChild(tooltipName);
+  const tooltipDist = document.createElementNS(SVG_NS, 'text');
+  tooltipDist.setAttribute('fill', '#aaa');
+  tooltipDist.setAttribute('font-size', '5');
+  tooltipGroup.appendChild(tooltipDist);
+  const tooltipServices = document.createElementNS(SVG_NS, 'text');
+  tooltipServices.setAttribute('fill', '#888');
+  tooltipServices.setAttribute('font-size', '4.5');
+  tooltipGroup.appendChild(tooltipServices);
+  svg.appendChild(tooltipGroup);
+
+  /** Position and show the SVG tooltip near a dot */
+  function showTooltip(locId: string, svgPos: { x: number; y: number }): void {
+    const loc = latestGameData.world.locations.find((l) => l.id === locId);
+    if (!loc) return;
+
+    const ship = getActiveShip(latestGameData);
+    const curLocId = ship.location.dockedAt || ship.location.orbitingAt || null;
+    const curKm = getShipPositionKm(ship, latestGameData.world);
+    const virtualOrigin: WorldLocation = curLocId
+      ? latestGameData.world.locations.find((l) => l.id === curLocId)!
+      : ({
+          id: '__current_position__',
+          name: 'Current Position',
+          type: 'orbital' as const,
+          description: '',
+          distanceFromEarth: curKm,
+          x: 0,
+          y: 0,
+          services: [] as WorldLocation['services'],
+          size: 0,
+          pilotingRequirement: 0,
+        } as WorldLocation);
+
+    const dist = getDistanceBetween(virtualOrigin, loc);
+    const distText = dist < 0.5 ? 'Current Location' : formatDistance(dist);
+
+    tooltipName.textContent = loc.name;
+    tooltipDist.textContent = distText;
+    const svcText = loc.services
+      .map((s) => NAV_SERVICE_LABELS[s]?.icon)
+      .filter(Boolean)
+      .join(' ');
+    tooltipServices.textContent = svcText || '';
+
+    // Position: flip based on quadrant
+    const lineCount = svcText ? 3 : 2;
+    const boxW = Math.max(loc.name.length * 4, distText.length * 3.5) + 12;
+    const boxH = lineCount * 8 + 6;
+
+    const above = svgPos.y > 0;
+    const leftSide = svgPos.x > 0;
+    const tx = leftSide ? svgPos.x - boxW - 5 : svgPos.x + 5;
+    const ty = above ? svgPos.y - boxH - 5 : svgPos.y + 15;
+
+    tooltipGroup.setAttribute('transform', `translate(${tx}, ${ty})`);
+    tooltipBg.setAttribute('width', String(boxW));
+    tooltipBg.setAttribute('height', String(boxH));
+    tooltipName.setAttribute('x', '6');
+    tooltipName.setAttribute('y', '10');
+    tooltipDist.setAttribute('x', '6');
+    tooltipDist.setAttribute('y', '20');
+    if (svcText) {
+      tooltipServices.setAttribute('x', '6');
+      tooltipServices.setAttribute('y', '29');
+    }
+
+    tooltipGroup.style.display = '';
+  }
+
+  function hideTooltip(): void {
+    tooltipGroup.style.display = 'none';
+  }
+
   mapArea.appendChild(svg);
   container.appendChild(mapArea);
 
@@ -368,75 +570,94 @@ export function createNavigationView(
     dot.setAttribute('stroke-width', '1');
     bodyLayer.appendChild(dot);
 
+    // Leader line (connects dot to displaced label, hidden by default)
+    const leaderLine = document.createElementNS(SVG_NS, 'line');
+    leaderLine.setAttribute('stroke', '#4a6fa5');
+    leaderLine.setAttribute('stroke-width', '0.3');
+    leaderLine.setAttribute('stroke-opacity', '0.3');
+    leaderLine.style.display = 'none';
+    bodyLayer.appendChild(leaderLine);
+
     const markerLabel = document.createElementNS(SVG_NS, 'text');
     markerLabel.setAttribute('x', String(pos.x));
     markerLabel.setAttribute('y', String(pos.y + dotRadius + 6));
     markerLabel.setAttribute('text-anchor', 'middle');
     markerLabel.setAttribute('fill', '#ccc');
-    markerLabel.setAttribute('font-size', isEarthSatellite ? '4' : '5');
+    markerLabel.setAttribute('font-size', '6');
     markerLabel.textContent = location.name;
     bodyLayer.appendChild(markerLabel);
 
-    // Invisible hit area for click events
+    // Invisible hit area for click/hover events (15-unit radius for mobile)
     const hitArea = document.createElementNS(SVG_NS, 'circle');
     hitArea.setAttribute('cx', String(pos.x));
     hitArea.setAttribute('cy', String(pos.y));
-    hitArea.setAttribute('r', '10');
+    hitArea.setAttribute('r', '15');
     hitArea.setAttribute('fill', 'transparent');
     hitArea.style.cursor = 'pointer';
     bodyLayer.appendChild(hitArea);
 
-    // Click handler — checks conditions against latestGameData at click time
+    // Click handler — selects location (scrolls legend + highlights)
     hitArea.addEventListener('click', () => {
-      if (!callbacks.onStartTrip) return;
-      const gd = latestGameData;
-      const s = getActiveShip(gd);
-      const curLocId = s.location.dockedAt || s.location.orbitingAt || null;
-      const inFlight = s.location.status === 'in_flight';
-      const flightDest = inFlight
-        ? (s.activeFlightPlan?.destination ?? null)
-        : null;
-      const canStart =
-        !s.activeContract &&
-        !s.miningRoute &&
-        (s.location.status === 'docked' ||
-          s.location.status === 'orbiting' ||
-          s.location.status === 'in_flight');
-      if (!canStart) return;
-      if (location.id === curLocId || location.id === flightDest) return;
-      const curKm = getShipPositionKm(s, gd.world);
-      const vOrigin: WorldLocation = curLocId
-        ? gd.world.locations.find((l) => l.id === curLocId)!
-        : ({
-            id: '__current_position__',
-            name: 'Current Position',
-            type: 'orbital' as const,
-            description: '',
-            distanceFromEarth: curKm,
-            x: 0,
-            y: 0,
-            services: [] as WorldLocation['services'],
-            size: 0,
-            pilotingRequirement: 0,
-          } as WorldLocation);
-      if (!isLocationReachable(s, location, vOrigin)) return;
-      callbacks.onStartTrip(location.id);
+      selectedLocationId = location.id;
+      applySelection();
     });
 
-    markerMap.set(location.id, { dot, label: markerLabel, hitArea });
+    // Hover feedback on desktop
+    hitArea.addEventListener('mouseenter', () => {
+      dot.setAttribute('stroke', '#4a9eff');
+      dot.setAttribute('stroke-width', '2');
+      const svgPos = projectToSvg(location.x, location.y);
+      showTooltip(location.id, svgPos);
+    });
+    hitArea.addEventListener('mouseleave', () => {
+      // Restore stroke based on selection/current/reachable state
+      // The next tick update will correct it; for now just reset to default
+      if (selectedLocationId !== location.id) {
+        dot.setAttribute('stroke', '#0f3460');
+        dot.setAttribute('stroke-width', '1');
+      }
+      hideTooltip();
+    });
 
-    // --- Legend item ---
+    markerMap.set(location.id, {
+      dot,
+      label: markerLabel,
+      hitArea,
+      leaderLine,
+    });
+
+    // --- Legend item (accordion: summary always visible, details toggled) ---
     const item = document.createElement('div');
     item.className = 'nav-legend-item';
 
+    // Summary row — always visible, clickable to select
+    const summary = document.createElement('div');
+    summary.className = 'nav-legend-summary';
+    summary.style.cursor = 'pointer';
+
+    const summaryTop = document.createElement('div');
+    summaryTop.style.cssText = 'display: flex; align-items: center; gap: 6px;';
+
+    const chevron = document.createElement('span');
+    chevron.className = 'nav-legend-chevron';
+    chevron.textContent = '\u25B6'; // right-pointing triangle
+    summaryTop.appendChild(chevron);
+
     const name = document.createElement('strong');
     name.textContent = location.name;
-    item.appendChild(name);
+    summaryTop.appendChild(name);
+
+    const summaryDist = document.createElement('span');
+    summaryDist.style.cssText =
+      'margin-left: auto; font-size: 0.8em; color: #888;';
+    summaryTop.appendChild(summaryDist);
+
+    summary.appendChild(summaryTop);
 
     // Service badges — static since services don't change
     const badgesContainer = document.createElement('div');
     badgesContainer.style.cssText =
-      'display: flex; gap: 4px; flex-wrap: wrap; margin: 3px 0;';
+      'display: flex; gap: 4px; flex-wrap: wrap; margin: 3px 0 0 18px;';
     if (location.services.length > 0) {
       for (const svc of location.services) {
         const info = NAV_SERVICE_LABELS[svc];
@@ -448,84 +669,104 @@ export function createNavigationView(
         badgesContainer.appendChild(badge);
       }
     }
-    item.appendChild(badgesContainer);
+    summary.appendChild(badgesContainer);
+
+    item.appendChild(summary);
+
+    // Click on summary → select this location (and toggle expansion)
+    summary.addEventListener('click', () => {
+      selectedLocationId = location.id;
+      applySelection();
+    });
+
+    // Details section — hidden by default, shown when selected
+    const details = document.createElement('div');
+    details.className = 'nav-legend-details';
+    details.style.display = 'none';
 
     const distance = document.createElement('div');
-    item.appendChild(distance);
+    details.appendChild(distance);
 
     const alignmentLine = document.createElement('div');
     alignmentLine.style.fontSize = '0.85em';
     alignmentLine.style.marginTop = '0.15rem';
     alignmentLine.style.display = 'none';
-    item.appendChild(alignmentLine);
+    details.appendChild(alignmentLine);
 
     const travelInfo = document.createElement('div');
     travelInfo.style.fontSize = '0.85em';
     travelInfo.style.color = '#4ade80';
     travelInfo.style.marginTop = '0.25rem';
     travelInfo.style.display = 'none';
-    item.appendChild(travelInfo);
+    details.appendChild(travelInfo);
 
     const description = document.createElement('div');
     description.textContent = location.description;
     description.style.fontSize = '0.9em';
     description.style.color = '#aaa';
-    item.appendChild(description);
+    details.appendChild(description);
 
     // Contracts container — compact contract lines, updated on tick
     const contractsContainer = document.createElement('div');
     contractsContainer.className = 'nav-contracts-summary';
     contractsContainer.style.display = 'none';
-    item.appendChild(contractsContainer);
+    details.appendChild(contractsContainer);
 
     const riskLine = document.createElement('div');
     riskLine.style.marginTop = '6px';
     riskLine.style.display = 'none';
-    item.appendChild(riskLine);
+    details.appendChild(riskLine);
 
     const gravityWarning = document.createElement('div');
     gravityWarning.style.fontSize = '0.85em';
     gravityWarning.style.color = '#fbbf24';
     gravityWarning.style.marginTop = '0.25rem';
     gravityWarning.style.display = 'none';
-    item.appendChild(gravityWarning);
+    details.appendChild(gravityWarning);
 
     // Action area elements — all created once, visibility toggled
     const currentBadge = document.createElement('div');
     currentBadge.className = 'nav-current-label';
     currentBadge.textContent = 'Current Location';
     currentBadge.style.display = 'none';
-    item.appendChild(currentBadge);
+    details.appendChild(currentBadge);
 
     const destBadge = document.createElement('div');
     destBadge.className = 'nav-current-label';
     destBadge.textContent = 'Destination';
     destBadge.style.display = 'none';
-    item.appendChild(destBadge);
+    details.appendChild(destBadge);
 
     const statusText = document.createElement('div');
     statusText.className = 'nav-travel-disabled-reason';
     statusText.style.display = 'none';
-    item.appendChild(statusText);
+    details.appendChild(statusText);
 
     const travelButton = document.createElement('button');
     travelButton.className = 'nav-travel-button';
     travelButton.style.display = 'none';
-    travelButton.addEventListener('click', () => {
+    travelButton.addEventListener('click', (e) => {
+      e.stopPropagation();
       if (callbacks.onStartTrip) {
         callbacks.onStartTrip(location.id);
       }
     });
-    item.appendChild(travelButton);
+    details.appendChild(travelButton);
 
     const unreachableReason = document.createElement('div');
     unreachableReason.className = 'nav-travel-disabled-reason';
     unreachableReason.style.display = 'none';
-    item.appendChild(unreachableReason);
+    details.appendChild(unreachableReason);
+
+    item.appendChild(details);
 
     legend.appendChild(item);
     legendMap.set(location.id, {
       item,
+      summary,
+      summaryDist,
+      chevron,
+      details,
       name,
       badgesContainer,
       distance,
@@ -541,6 +782,42 @@ export function createNavigationView(
       travelButton,
       unreachableReason,
     });
+  }
+
+  /** Apply selection state — highlight map dot + scroll/expand legend card */
+  function applySelection(): void {
+    // Update SVG selection ring position
+    if (selectedLocationId) {
+      const loc = latestGameData.world.locations.find(
+        (l) => l.id === selectedLocationId
+      );
+      if (loc) {
+        const svgPos = projectToSvg(loc.x, loc.y);
+        selectionRing.setAttribute('cx', String(svgPos.x));
+        selectionRing.setAttribute('cy', String(svgPos.y));
+        selectionRing.style.display = '';
+        showTooltip(selectedLocationId, svgPos);
+      }
+    } else {
+      selectionRing.style.display = 'none';
+      hideTooltip();
+    }
+
+    // Toggle accordion: expand selected, collapse others
+    for (const [locId, refs] of legendMap) {
+      const isSelected = locId === selectedLocationId;
+      refs.item.classList.toggle('nav-legend-item--selected', isSelected);
+      refs.details.style.display = isSelected ? '' : 'none';
+      refs.chevron.textContent = isSelected ? '\u25BC' : '\u25B6';
+    }
+
+    // Scroll selected legend item into view
+    if (selectedLocationId) {
+      const refs = legendMap.get(selectedLocationId);
+      if (refs) {
+        refs.item.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+    }
   }
 
   // --- Update function: patches refs in-place ---
@@ -592,6 +869,77 @@ export function createNavigationView(
       (c) => getGravityDegradationLevel(c.zeroGExposure) !== 'none'
     );
 
+    // Collect label entries for deconfliction
+    const labelEntries: LabelEntry[] = [];
+    const svgPositions = new Map<
+      string,
+      { x: number; y: number; dotR: number }
+    >();
+
+    // First pass: compute SVG positions and dot radii
+    for (const location of gameData.world.locations) {
+      const svgPos = projectToSvg(location.x, location.y);
+      const isEarthSat = location.orbital?.parentId === 'earth';
+      const dotR =
+        location.id === 'earth' || location.id === 'mars'
+          ? 5
+          : isEarthSat
+            ? 2.5
+            : 3.5;
+      svgPositions.set(location.id, { ...svgPos, dotR });
+      labelEntries.push({
+        id: location.id,
+        dotX: svgPos.x,
+        dotY: svgPos.y,
+        labelX: svgPos.x,
+        labelY: svgPos.y + dotR + 6,
+      });
+    }
+
+    // Run generic deconfliction
+    deconflictLabels(labelEntries);
+
+    // Build lookup for deconflicted label positions
+    const labelPositions = new Map<string, { x: number; y: number }>();
+    for (const entry of labelEntries) {
+      labelPositions.set(entry.id, { x: entry.labelX, y: entry.labelY });
+    }
+
+    // Update current-location and destination pulsing rings
+    if (currentLocationId) {
+      const pos = svgPositions.get(currentLocationId);
+      if (pos) {
+        currentRing.setAttribute('cx', String(pos.x));
+        currentRing.setAttribute('cy', String(pos.y));
+        currentRing.style.display = '';
+      }
+    } else {
+      currentRing.style.display = 'none';
+    }
+
+    if (flightDestinationId) {
+      const pos = svgPositions.get(flightDestinationId);
+      if (pos) {
+        destRing.setAttribute('cx', String(pos.x));
+        destRing.setAttribute('cy', String(pos.y));
+        destRing.style.display = '';
+      }
+    } else {
+      destRing.style.display = 'none';
+    }
+
+    // Update selection ring position if a location is selected
+    if (selectedLocationId) {
+      const pos = svgPositions.get(selectedLocationId);
+      if (pos) {
+        selectionRing.setAttribute('cx', String(pos.x));
+        selectionRing.setAttribute('cy', String(pos.y));
+        selectionRing.style.display = '';
+      }
+    } else {
+      selectionRing.style.display = 'none';
+    }
+
     for (const location of gameData.world.locations) {
       const refs = markerMap.get(location.id);
       const legendRefs = legendMap.get(location.id);
@@ -603,21 +951,32 @@ export function createNavigationView(
       const isOtherDestination = !isCurrent && !isFlightDest && reachable;
 
       // --- Update SVG marker position ---
-      const svgPos = projectToSvg(location.x, location.y);
-      const isEarthSat = location.orbital?.parentId === 'earth';
-      const dotR =
-        location.id === 'earth' || location.id === 'mars'
-          ? 5
-          : isEarthSat
-            ? 2.5
-            : 3.5;
+      const svgPos = svgPositions.get(location.id)!;
+      const dotR = svgPos.dotR;
+      const labelPos = labelPositions.get(location.id)!;
 
       refs.dot.setAttribute('cx', String(svgPos.x));
       refs.dot.setAttribute('cy', String(svgPos.y));
-      refs.label.setAttribute('x', String(svgPos.x));
-      refs.label.setAttribute('y', String(svgPos.y + dotR + 6));
+      refs.label.setAttribute('x', String(labelPos.x));
+      refs.label.setAttribute('y', String(labelPos.y));
       refs.hitArea.setAttribute('cx', String(svgPos.x));
       refs.hitArea.setAttribute('cy', String(svgPos.y));
+
+      // Leader line: show when label is displaced from its dot
+      const labelDx = labelPos.x - svgPos.x;
+      const labelDy = labelPos.y - (svgPos.y + dotR + 6);
+      const labelDisplacement = Math.sqrt(
+        labelDx * labelDx + labelDy * labelDy
+      );
+      if (labelDisplacement > LEADER_LINE_THRESHOLD) {
+        refs.leaderLine.setAttribute('x1', String(svgPos.x));
+        refs.leaderLine.setAttribute('y1', String(svgPos.y));
+        refs.leaderLine.setAttribute('x2', String(labelPos.x));
+        refs.leaderLine.setAttribute('y2', String(labelPos.y - 3));
+        refs.leaderLine.style.display = '';
+      } else {
+        refs.leaderLine.style.display = 'none';
+      }
 
       // Visual state
       if (isCurrent || isFlightDest) {
@@ -673,6 +1032,14 @@ export function createNavigationView(
           : `Distance: ${formatDistance(distanceFromCurrent)}`;
       if (legendRefs.distance.textContent !== distText) {
         legendRefs.distance.textContent = distText;
+      }
+      // Update compact summary distance
+      const summaryDistText =
+        distanceFromCurrent < 0.5
+          ? '\u2302'
+          : formatDistance(distanceFromCurrent);
+      if (legendRefs.summaryDist.textContent !== summaryDistText) {
+        legendRefs.summaryDist.textContent = summaryDistText;
       }
 
       // Launch window alignment
