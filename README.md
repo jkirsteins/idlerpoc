@@ -72,7 +72,7 @@ npm run dev
   - Dynamic reachability based on ship range, fuel, and piloting skill
   - **Mid-flight redirect**: change destination while in flight — distances, threat levels, and fuel estimates update live from the ship's 2D position in space
   - Redirect replots a fresh intercept trajectory from the ship's current 2D coordinates (not available during contracts or mining routes)
-  - **Gravity assist corridors**: trajectories passing near massive bodies (Earth, Moon, Mars, Ceres, Jupiter) trigger piloting skill checks — success saves 2-10% fuel, failure costs ~1-2% correction burn. Pre-flight preview in Nav tab shows available assists per destination
+  - **Gravity assist corridors**: trajectories passing near massive bodies (Earth, Moon, Mars, Ceres, Jupiter) trigger piloting skill checks — success saves 2-10% fuel, failure costs ~1-2% correction burn. Pre-flight preview in Nav tab shows available assists per destination. Per-body mastery rewards repeated approaches with improved success chance, fuel refund, and reduced failure penalty
 - **Quest & Contract System**:
   - Accept delivery, passenger, and freight contracts with completion deadlines
   - **Active vs passive income**: Finite contracts pay ~2-3x more than automated trade routes — rewarding attentive play while keeping idle income reliable (see `docs/quest-reward-balancing.md`)

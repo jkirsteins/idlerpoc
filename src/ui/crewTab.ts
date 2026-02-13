@@ -50,11 +50,14 @@ import {
   ORE_MASTERY_BONUSES,
   TRADE_MASTERY_BONUSES,
   EQUIPMENT_REPAIR_MASTERY_BONUSES,
+  GRAVITY_ASSIST_MASTERY_BONUSES,
   routeMasteryKey,
   tradeRouteMasteryKey,
+  gravityAssistMasteryKey,
 } from '../masterySystem';
 import type { MasteryBonus } from '../masterySystem';
 import { getAllOreDefinitions } from '../oreTypes';
+import { GRAVITY_BODIES } from '../gravityAssistSystem';
 import type { Component } from './component';
 
 // ─── Pure helpers (no DOM) ─────────────────────────────────────────
@@ -92,6 +95,12 @@ function getMasteryItemLabel(
     );
     return eqDef ? `${eqDef.icon} ${eqDef.name}` : itemId;
   }
+  // Gravity assist body mastery (prefixed with "ga:")
+  if (itemId.startsWith('ga:')) {
+    const bodyId = itemId.slice(3);
+    const body = GRAVITY_BODIES.find((b) => b.locationId === bodyId);
+    return body ? body.bodyName : bodyId;
+  }
   const separator = skillId === 'piloting' ? '->' : '<=>';
   const parts = itemId.split(separator);
   if (parts.length === 2) {
@@ -104,15 +113,22 @@ function getMasteryItemLabel(
   return itemId;
 }
 
-function getBonusTable(skillId: SkillId): MasteryBonus[] {
-  if (skillId === 'piloting') return ROUTE_MASTERY_BONUSES;
+function getBonusTable(skillId: SkillId, itemId?: string): MasteryBonus[] {
+  if (skillId === 'piloting') {
+    if (itemId?.startsWith('ga:')) return GRAVITY_ASSIST_MASTERY_BONUSES;
+    return ROUTE_MASTERY_BONUSES;
+  }
   if (skillId === 'mining') return ORE_MASTERY_BONUSES;
   if (skillId === 'repairs') return EQUIPMENT_REPAIR_MASTERY_BONUSES;
   return TRADE_MASTERY_BONUSES;
 }
 
-function getCurrentBonusLabel(skillId: SkillId, level: number): string | null {
-  const table = getBonusTable(skillId);
+function getCurrentBonusLabel(
+  skillId: SkillId,
+  level: number,
+  itemId?: string
+): string | null {
+  const table = getBonusTable(skillId, itemId);
   let best: MasteryBonus | null = null;
   for (const bonus of table) {
     if (level >= bonus.level) best = bonus;
@@ -122,9 +138,10 @@ function getCurrentBonusLabel(skillId: SkillId, level: number): string | null {
 
 function getNextBonusLabel(
   skillId: SkillId,
-  level: number
+  level: number,
+  itemId?: string
 ): { level: number; label: string } | null {
-  const table = getBonusTable(skillId);
+  const table = getBonusTable(skillId, itemId);
   for (const bonus of table) {
     if (level < bonus.level) return bonus;
   }
@@ -132,7 +149,7 @@ function getNextBonusLabel(
 }
 
 function getMasteryItemTypeName(skillId: SkillId): string {
-  if (skillId === 'piloting') return 'Routes';
+  if (skillId === 'piloting') return 'Routes & Bodies';
   if (skillId === 'mining') return 'Ores';
   if (skillId === 'repairs') return 'Equipment';
   return 'Trade Routes';
@@ -393,8 +410,8 @@ function updateMasteryItemRow(
     }
 
     // Bonus hint line
-    const currentBonus = getCurrentBonusLabel(skillId, level);
-    const nextBonus = getNextBonusLabel(skillId, level);
+    const currentBonus = getCurrentBonusLabel(skillId, level, entry.id);
+    const nextBonus = getNextBonusLabel(skillId, level, entry.id);
 
     if (currentBonus || nextBonus) {
       refs.hintLine.style.display = '';
@@ -731,6 +748,8 @@ function updateMasterySection(
     // Also show any previously mastered routes not from current location
     for (const [itemId, itemMastery] of Object.entries(state.itemMasteries)) {
       if (entries.some((e) => e.id === itemId)) continue;
+      // Gravity assist bodies are added separately below
+      if (itemId.startsWith('ga:')) continue;
       entries.push({
         id: itemId,
         label: getMasteryItemLabel(skillId, itemId, world),
@@ -738,6 +757,21 @@ function updateMasterySection(
         locked: false,
         lockReason: '',
       });
+    }
+
+    // Add all gravity assist bodies (piloting only)
+    if (skillId === 'piloting') {
+      for (const body of GRAVITY_BODIES) {
+        const key = gravityAssistMasteryKey(body.locationId);
+        const mastery = state.itemMasteries[key] ?? null;
+        entries.push({
+          id: key,
+          label: getMasteryItemLabel(skillId, key, world),
+          mastery,
+          locked: false,
+          lockReason: '',
+        });
+      }
     }
   }
 
@@ -898,6 +932,27 @@ interface CargoItemRefs {
   item: HTMLDivElement;
   itemInfo: HTMLDivElement;
   equipButton: HTMLButtonElement;
+}
+
+function updateCargoItem(
+  refs: CargoItemRefs,
+  definitionId: CrewEquipmentId,
+  crew: CrewMember
+): void {
+  const def = getCrewEquipmentDefinition(definitionId);
+  refs.itemInfo.textContent = `${def.icon} ${def.name}`;
+
+  const categoryOccupied = crew.equipment.some((equipped) => {
+    const equippedDef = getCrewEquipmentDefinition(equipped.definitionId);
+    return equippedDef.category === def.category;
+  });
+
+  refs.equipButton.disabled = categoryOccupied;
+  if (categoryOccupied) {
+    refs.equipButton.title = `${def.category} slot already occupied`;
+  } else {
+    refs.equipButton.title = '';
+  }
 }
 
 // ─── Main createCrewTab factory ───────────────────────────────────
@@ -2142,26 +2197,7 @@ export function createCrewTab(
     return { item, itemInfo, equipButton };
   }
 
-  function updateCargoItem(
-    refs: CargoItemRefs,
-    definitionId: CrewEquipmentId,
-    crew: CrewMember
-  ): void {
-    const def = getCrewEquipmentDefinition(definitionId);
-    refs.itemInfo.textContent = `${def.icon} ${def.name}`;
-
-    const categoryOccupied = crew.equipment.some((equipped) => {
-      const equippedDef = getCrewEquipmentDefinition(equipped.definitionId);
-      return equippedDef.category === def.category;
-    });
-
-    refs.equipButton.disabled = categoryOccupied;
-    if (categoryOccupied) {
-      refs.equipButton.title = `${def.category} slot already occupied`;
-    } else {
-      refs.equipButton.title = '';
-    }
-  }
+  // updateCargoItem extracted to module scope to reduce function length
 
   // ── Initial render ──
   update(gameData);

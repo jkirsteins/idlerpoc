@@ -21,7 +21,7 @@ import {
   getEffectiveRadiationShielding,
   getEffectiveHeatDissipation,
 } from './equipment';
-import { calculateRepairPoints, getBestCrewMemberName } from './crewRoles';
+import { calculateRepairPoints, getBestCrewMember } from './crewRoles';
 import {
   applyGravityTick,
   applyGravityRecovery,
@@ -57,7 +57,11 @@ import {
   getRepairsPoolSpeedBonus,
   getRepairsPoolFilterReduction,
   getRepairsPoolBonusChance,
+  gravityAssistMasteryKey,
+  GRAVITY_ASSIST_MASTERY_XP_SUCCESS,
+  GRAVITY_ASSIST_MASTERY_XP_FAILURE,
 } from './masterySystem';
+import { countPilotingMasteryItems } from './contractExec';
 import { getAllEquipmentDefinitions } from './equipment';
 
 /**
@@ -352,12 +356,19 @@ function checkGravityAssists(ship: Ship, gameData: GameData): boolean {
 
   // NOTE: The catch-up report builder (catchUpReportBuilder.ts) parses these
   // gravity_assist log messages to aggregate stats. Update both if changing format.
-  const pilotName = getBestCrewMemberName(ship.crew, 'piloting');
+  const bestPilot = getBestCrewMember(ship.crew, 'piloting');
+  const pilotName = bestPilot?.name;
   const pilotSuffix = pilotName ? ` (${pilotName} piloting)` : '';
+  const totalPilotingItems = countPilotingMasteryItems(gameData);
 
   for (const assist of flight.gravityAssists) {
     if (!assist.checked && progress >= assist.approachProgress) {
-      resolveGravityAssist(assist, ship, tripFuelKg);
+      // Look up body mastery level for the best pilot
+      const bodyMasteryKey = gravityAssistMasteryKey(assist.bodyId);
+      const bodyMasteryLevel =
+        bestPilot?.mastery.piloting.itemMasteries[bodyMasteryKey]?.level ?? 0;
+
+      resolveGravityAssist(assist, ship, tripFuelKg, bodyMasteryLevel);
       if (assist.result === 'success') {
         ship.fuelKg = Math.min(
           ship.maxFuelKg,
@@ -380,6 +391,31 @@ function checkGravityAssists(ship: Ship, gameData: GameData): boolean {
           ship.name
         );
       }
+
+      // Award gravity assist body mastery XP to the best pilot
+      if (bestPilot) {
+        const masteryXp =
+          assist.result === 'success'
+            ? GRAVITY_ASSIST_MASTERY_XP_SUCCESS
+            : GRAVITY_ASSIST_MASTERY_XP_FAILURE;
+        const masteryResult = awardMasteryXp(
+          bestPilot.mastery.piloting,
+          bodyMasteryKey,
+          masteryXp,
+          Math.floor(bestPilot.skills.piloting),
+          totalPilotingItems
+        );
+        if (masteryResult.leveledUp) {
+          addLog(
+            gameData.log,
+            gameData.gameTime,
+            'crew_level_up',
+            `${bestPilot.name}'s ${assist.bodyName} mastery reached level ${masteryResult.newLevel}`,
+            ship.name
+          );
+        }
+      }
+
       resolved = true;
     }
   }

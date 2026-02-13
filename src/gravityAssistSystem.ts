@@ -6,6 +6,11 @@ import {
   lerpVec2,
 } from './orbitalMechanics';
 import { getBestCrewSkill } from './crewRoles';
+import {
+  getGravityAssistMasterySuccessBonus,
+  getGravityAssistMasteryRefundBonus,
+  getGravityAssistMasteryPenaltyReduction,
+} from './masterySystem';
 
 /**
  * Gravity Assist Corridors
@@ -172,7 +177,8 @@ export function scanForGravityAssists(
 export function resolveGravityAssist(
   opportunity: GravityAssistOpportunity,
   ship: Ship,
-  tripFuelKg: number
+  tripFuelKg: number,
+  bodyMasteryLevel: number = 0
 ): void {
   opportunity.checked = true;
 
@@ -188,23 +194,31 @@ export function resolveGravityAssist(
     opportunity.closestApproachKm / opportunity.thresholdKm;
   const difficultyModifier = 0.5 + 0.5 * approachFraction;
 
-  const adjustedChance = baseChance * difficultyModifier;
+  // Body mastery provides additive success bonus (capped at 0.95)
+  const masterySuccessBonus =
+    getGravityAssistMasterySuccessBonus(bodyMasteryLevel);
+  const adjustedChance = Math.min(
+    0.95,
+    baseChance * difficultyModifier + masterySuccessBonus
+  );
 
   if (Math.random() < adjustedChance) {
-    // Success — calculate fuel refund
+    // Success — calculate fuel refund (mastery boosts refund)
     opportunity.result = 'success';
-    opportunity.fuelRefundKg = calculateAssistFuelRefund(
+    const baseRefund = calculateAssistFuelRefund(
       opportunity,
       bestPiloting,
       tripFuelKg
     );
+    const refundBonus = getGravityAssistMasteryRefundBonus(bodyMasteryLevel);
+    opportunity.fuelRefundKg = baseRefund * (1 + refundBonus);
   } else {
-    // Failure — calculate correction burn penalty
+    // Failure — calculate correction burn penalty (mastery reduces penalty)
     opportunity.result = 'failure';
-    opportunity.fuelPenaltyKg = calculateAssistFuelPenalty(
-      opportunity,
-      tripFuelKg
-    );
+    const basePenalty = calculateAssistFuelPenalty(opportunity, tripFuelKg);
+    const penaltyReduction =
+      getGravityAssistMasteryPenaltyReduction(bodyMasteryLevel);
+    opportunity.fuelPenaltyKg = basePenalty * (1 - penaltyReduction);
   }
 }
 
