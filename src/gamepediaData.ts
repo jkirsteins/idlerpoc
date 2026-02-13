@@ -1974,13 +1974,13 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
     sections: [
       {
         paragraphs: [
-          'All drives above chemical emit radiation proportional to their power output. On [[ship-classes|Class III]] fusion vessels ("torch ships"), radiation management is a critical concern.',
+          'All drives above chemical emit radiation proportional to their power output. All ships with nuclear or fusion engines come equipped with [[ship-equipment|radiation shielding]] to protect crew. On [[ship-classes|Class III]] fusion vessels ("torch ships"), radiation management is a critical concern due to high output and containment complexity.',
         ],
       },
       {
         heading: 'Radiation Sources',
         paragraphs: [
-          'Fission drives: Mild radiation, manageable on short flights but cumulative on long ones.',
+          'Fission drives: Mild radiation, fully blocked by the standard-issue Type-I Radiation Barrier.',
           'Fusion drives: Significant radiation requiring dedicated shielding equipment.',
           'Advanced fusion: Extreme radiation requiring heavy shielding.',
           'Reactor containment failures cause radiation spikes far exceeding normal output.',

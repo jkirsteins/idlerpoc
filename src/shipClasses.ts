@@ -87,7 +87,12 @@ export const SHIP_CLASSES: ShipClass[] = [
       { tags: ['standard'] },
     ],
     features: [],
-    defaultEquipment: ['life_support', 'air_filters', 'mining_laser'],
+    defaultEquipment: [
+      'life_support',
+      'air_filters',
+      'mining_laser',
+      'rad_shield_basic',
+    ],
     defaultEngineId: 'ntr_mk1',
     mass: 200000, // kg
   },
@@ -122,7 +127,7 @@ export const SHIP_CLASSES: ShipClass[] = [
       { tags: ['standard', 'structural'] },
     ],
     features: ['rotating_habitat'],
-    defaultEquipment: ['life_support', 'air_filters'],
+    defaultEquipment: ['life_support', 'air_filters', 'rad_shield_basic'],
     defaultEngineId: 'ntr_heavy',
     mass: 500000, // kg
     resourceCost: [
