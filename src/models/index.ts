@@ -270,8 +270,6 @@ export interface CrewMember {
   morale: number; // 0-100
   health: number; // 0-100
   skills: CrewSkills;
-  xp: number;
-  level: number;
   isCaptain: boolean;
   equipment: CrewEquipmentInstance[];
   unpaidTicks: number; // Accumulated ticks of unpaid salary

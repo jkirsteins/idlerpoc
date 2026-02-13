@@ -15,7 +15,6 @@ import { getShipClass } from './shipClasses';
 import { CURRENT_SAVE_VERSION } from './storage';
 import { generateCrewName } from './names';
 import { generateWorld } from './worldGen';
-import { getLevelForXP } from './levelSystem';
 import {
   generateSkillsForRole,
   rollCrewQuality,
@@ -50,9 +49,6 @@ function createCrewMember(
   isCaptain: boolean = false,
   quality: number = 0
 ): CrewMember {
-  const xp = 0;
-  const level = getLevelForXP(xp);
-
   // Captain starts at zero; hired crew get archetype-weighted skills
   const skills = generateSkillsForRole(targetRole, quality);
 
@@ -69,8 +65,6 @@ function createCrewMember(
     morale: isCaptain ? 85 : 75,
     health: 100,
     skills,
-    xp,
-    level,
     isCaptain,
     equipment: [],
     unpaidTicks: 0,

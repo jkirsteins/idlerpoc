@@ -13,7 +13,6 @@ import { getActiveShip } from '../models';
 import { canShipAccessLocation } from '../worldGen';
 import type { TabbedViewCallbacks } from './types';
 import { getCrewEquipmentDefinition } from '../crewEquipment';
-import { getLevelForXP } from '../levelSystem';
 import {
   getCrewRoleName,
   getPrimarySkillForRole,
@@ -198,7 +197,7 @@ function snapshotCrewProps(
     crew: ship.crew
       .map(
         (c) =>
-          `${c.id},${c.health},${c.morale},${c.level},${c.xp},${c.unpaidTicks},${c.zeroGExposure},${c.equipment.length},${c.hiredAt},${c.boardedShipAt}`
+          `${c.id},${c.health},${c.morale},${c.unpaidTicks},${c.zeroGExposure},${c.equipment.length},${c.hiredAt},${c.boardedShipAt}`
       )
       .join(';'),
     crewSkills: ship.crew
@@ -922,7 +921,6 @@ interface CrewRowRefs {
   row: HTMLDivElement;
   nameDiv: HTMLDivElement;
   roleDiv: HTMLDivElement;
-  levelDiv: HTMLDivElement;
   unpaidBadge: HTMLDivElement;
 }
 
@@ -1005,10 +1003,6 @@ export function createCrewTab(
     roleDiv.className = 'crew-list-role';
     row.appendChild(roleDiv);
 
-    const levelDiv = document.createElement('div');
-    levelDiv.className = 'crew-list-level';
-    row.appendChild(levelDiv);
-
     const unpaidBadge = document.createElement('div');
     unpaidBadge.className = 'unpaid-badge';
     unpaidBadge.style.color = '#ff4444';
@@ -1019,7 +1013,7 @@ export function createCrewTab(
 
     row.addEventListener('click', () => callbacks.onSelectCrew(crew.id));
 
-    return { row, nameDiv, roleDiv, levelDiv, unpaidBadge };
+    return { row, nameDiv, roleDiv, unpaidBadge };
   }
 
   function updateCrewRow(refs: CrewRowRefs, crew: CrewMember): void {
@@ -1041,8 +1035,6 @@ export function createCrewTab(
         ? `${rankName} ${roleName}`
         : roleName;
     }
-    refs.levelDiv.textContent = `Level ${crew.level}`;
-
     if (crew.unpaidTicks > 0 && !crew.isCaptain) {
       refs.unpaidBadge.textContent = '⚠️ UNPAID';
       refs.unpaidBadge.style.display = '';
@@ -1383,17 +1375,6 @@ export function createCrewTab(
   trainingDiv.style.color = '#4ade80';
   trainingDiv.style.display = 'none';
   detailPanel.appendChild(trainingDiv);
-
-  // ── Level up button ──
-  const levelUpBtn = document.createElement('button');
-  levelUpBtn.className = 'level-up-button';
-  levelUpBtn.style.display = 'none';
-  levelUpBtn.addEventListener('click', () => {
-    if (currentSelectedCrewId) {
-      callbacks.onLevelUp(currentSelectedCrewId);
-    }
-  });
-  detailPanel.appendChild(levelUpBtn);
 
   // ── Skills & Mastery section ──
   const skillsSection = document.createElement('div');
@@ -1859,16 +1840,6 @@ export function createCrewTab(
       trainingDiv.style.display = '';
     } else {
       trainingDiv.style.display = 'none';
-    }
-
-    // ── Level up button ──
-    const eligibleLevel = getLevelForXP(crew.xp);
-    if (eligibleLevel > crew.level) {
-      levelUpBtn.style.display = '';
-      const levelsGained = eligibleLevel - crew.level;
-      levelUpBtn.textContent = `Level Up! (+${levelsGained} skill point${levelsGained > 1 ? 's' : ''})`;
-    } else {
-      levelUpBtn.style.display = 'none';
     }
 
     // ── Skills & Mastery ──

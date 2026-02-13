@@ -27,7 +27,6 @@ import {
   drainEncounterResults,
   drainRadiationToasts,
 } from './gameTick';
-import { getLevelForXP } from './levelSystem';
 import { createRefuelDialog, getFuelPricePerKg } from './ui/refuelDialog';
 import { formatFuelMass, calculateFuelPercentage } from './ui/fuelFormatting';
 import { formatCredits } from './formatting';
@@ -512,24 +511,6 @@ const callbacks: RendererCallbacks = {
       selectedCrewId: crewId,
     };
     renderApp();
-  },
-
-  onLevelUp: (crewId) => {
-    if (state.phase !== 'playing') return;
-    const ship = getActiveShip(state.gameData);
-
-    const crew = ship.crew.find((c) => c.id === crewId);
-    if (!crew) return;
-
-    const newLevel = getLevelForXP(crew.xp);
-    const levelsGained = newLevel - crew.level;
-
-    if (levelsGained > 0) {
-      crew.level = newLevel;
-
-      saveGame(state.gameData);
-      renderApp();
-    }
   },
 
   onEquipItem: (crewId, itemId) => {
