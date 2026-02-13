@@ -70,7 +70,7 @@ export const ENGINE_DEFINITIONS: EngineDefinition[] = [
     fuelConsumptionRate: 0.12,
     warmupRate: 20, // 5 ticks to warm up
     selfPowerDraw: 10,
-    thrust: 10000, // 0.0029g on 350t Corsair
+    thrust: 10000, // N
     maxDeltaV: 30000, // m/s
     radiationOutput: 8,
     wasteHeatOutput: 15,
@@ -93,25 +93,6 @@ export const ENGINE_DEFINITIONS: EngineDefinition[] = [
     maxDeltaV: 40000, // m/s
     radiationOutput: 15,
     wasteHeatOutput: 30,
-    maxThrust: 5, // milli-g
-    containmentComplexity: 1,
-  },
-  {
-    id: 'ntr_stealth',
-    name: 'NTR-300S Low-Sig Drive',
-    type: 'Nuclear Fission',
-    description:
-      'Low-signature stealth drive. Good power output with minimal heat signature and fast warmup.',
-    icon: '🌑',
-    powerOutput: 140,
-    fuelType: 'Liquid Hydrogen',
-    fuelConsumptionRate: 0.1,
-    warmupRate: 25, // 4 ticks to warm up
-    selfPowerDraw: 8,
-    thrust: 7500, // 0.003g on 250t Phantom
-    maxDeltaV: 25000, // m/s
-    radiationOutput: 5,
-    wasteHeatOutput: 10,
     maxThrust: 5, // milli-g
     containmentComplexity: 1,
   },

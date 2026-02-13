@@ -14,25 +14,41 @@ For each ship class and representative routes:
 4. Verify quest payment (130-200% floor) covers costs with profit margin
 5. Identify any routes that become unprofitable
 
-## Fuel Pricing Assumptions
+## Fuel Pricing Model
 
-From `docs/fuel-cargo-tradeoff-design.md`:
+Fuel pricing is now implemented in `src/fuelPricing.ts` with two multiplier axes:
 
-| Fuel Type             | Base Price | Used By               |
+### Engine-Type Multipliers
+
+| Engine Type           | Multiplier | Ships                 |
 | --------------------- | ---------- | --------------------- |
-| Liquid Hydrogen (LH2) | 2 cr/kg    | Chemical, Fission NTR |
-| Deuterium (D)         | 20 cr/kg   | Fusion drives         |
+| Chemical Bipropellant | 1x         | Station Keeper        |
+| Nuclear Fission       | 3x         | Wayfarer, Dreadnought |
+| Fusion (D-D)          | 10x        | Firebrand             |
+| Fusion (D-He3)        | 30x        | Leviathan             |
 
 ### Location Multipliers
 
-| Location        | Multiplier | LH2 Price | D Price  |
-| --------------- | ---------- | --------- | -------- |
-| Earth           | 0.8x       | 1.6 cr/kg | 16 cr/kg |
-| Gateway Station | 1.0x       | 2.0 cr/kg | 20 cr/kg |
-| Meridian Depot  | 1.0x       | 2.0 cr/kg | 20 cr/kg |
-| Forge Station   | 1.2x       | 2.4 cr/kg | 24 cr/kg |
-| Mars            | 0.9x       | 1.8 cr/kg | 18 cr/kg |
-| Freeport        | 1.5x       | 3.0 cr/kg | 30 cr/kg |
+| Distance Range    | Multiplier | Locations                         |
+| ----------------- | ---------- | --------------------------------- |
+| < 1,000 km        | 0.8x       | Earth, Gateway                    |
+| < 500,000 km      | 1.0x       | Meridian, Forge, Graveyard, Tycho |
+| < 5,000,000 km    | 1.5x       | Freeport, Scatter                 |
+| < 100,000,000 km  | 2.0x       | Mars                              |
+| >= 100,000,000 km | 2.5x       | Vesta, Crucible, Ceres, Jupiter   |
+
+Formula: `basePricePerKg(2) × locationMult × engineTypeMult × (1 - commerceDiscount)`
+
+### Distance-Scaled Quest Margins
+
+Quest profit margins now scale inversely with distance (implemented in `src/questGen.ts`):
+
+| Distance Range | Cost Floor   | Profit Margin | Effect                                              |
+| -------------- | ------------ | ------------- | --------------------------------------------------- |
+| < 50,000 km    | 1.3 - 2.0x   | 30-100%       | Class I: trade is reliable income                   |
+| 50K - 5M km    | 1.2 - 1.5x   | 20-50%        | Class II: good margins, mining supplements          |
+| 5M - 100M km   | 1.1 - 1.3x   | 10-30%        | Class III: thin margins, mining needed              |
+| > 100M km      | 1.05 - 1.15x | 5-15%         | Deep space: break-even trade, mining is real income |
 
 ## Class I: Station Keeper (Chemical Propulsion)
 
@@ -175,61 +191,7 @@ From `docs/fuel-cargo-tradeoff-design.md`:
 
 **Verdict**: IMPOSSIBLE by design - Requires Class III fusion ship ✓
 
-## Class II: Corsair (Combat Freighter)
-
-**Ship Specs**:
-
-- Engine: NTR-450 Mk2 (900s Isp, 10,000 N thrust)
-- Mass: 350,000 kg dry
-- Max Fuel: 42,000 kg (70% of 60,000 kg capacity)
-- Crew: Captain + 3 (5.5 cr/tick)
-- Fuel Type: Liquid Hydrogen (LH2)
-
-### Route 1: Earth → Gateway (400 km)
-
-**Fuel Analysis**:
-
-- Heavier ship (350k vs 200k kg) but more powerful engine
-- Estimated fuel: ~12,000 kg one-way (accounting for higher mass)
-- Round trip: ~24,000 kg
-
-**Capacity Check**:
-
-- Max fuel: 42,000 kg
-- Required: 24,000 kg
-- Margin: 18,000 kg (75% reserve) ✓
-
-**Cost Breakdown**:
-
-- Fuel cost: 24,000 kg × 1.6 cr/kg = 38,400 cr
-- Crew cost: ~3,300 cr (600 ticks)
-- **Total cost**: 41,700 cr
-
-**Quest Payment** (130-200% floor):
-
-- Minimum: 54,210 cr
-- Maximum: 83,400 cr
-- **Profit**: 12,510 - 41,700 cr ✓
-
-**Verdict**: PROFITABLE
-
-### Route 2: Earth → Meridian (20,000 km)
-
-**Fuel Analysis**:
-
-- Higher thrust but also higher mass (350k kg)
-- Estimated fuel: ~90,000 kg one-way (worse than Wayfarer due to mass)
-- Round trip: ~180,000 kg
-
-**Capacity Check**:
-
-- Max fuel: 42,000 kg
-- Required: 180,000 kg
-- **INSUFFICIENT**
-
-**Verdict**: IMPOSSIBLE - Same issue as Wayfarer
-
-## Class II: Dreadnought (Heavy Cruiser)
+## Class II: Dreadnought (Heavy Industrial)
 
 **Ship Specs**:
 
@@ -438,8 +400,6 @@ From `docs/fuel-cargo-tradeoff-design.md`:
 | Wayfarer       | Earth→Gateway  | 400 km     | 32,000 cr  | 34,400 cr  | 44,720 - 68,800 cr   | ✓ PROFITABLE          |
 | Wayfarer       | Earth→Meridian | 20,000 km  | N/A        | N/A        | N/A                  | ✗ IMPOSSIBLE (fuel)   |
 | Wayfarer       | Earth→Forge    | 384,400 km | N/A        | N/A        | N/A                  | ✗ IMPOSSIBLE (fuel)   |
-| Corsair        | Earth→Gateway  | 400 km     | 38,400 cr  | 41,700 cr  | 54,210 - 83,400 cr   | ✓ PROFITABLE          |
-| Corsair        | Earth→Meridian | 20,000 km  | N/A        | N/A        | N/A                  | ✗ IMPOSSIBLE (fuel)   |
 | Dreadnought    | Earth→Gateway  | 400 km     | 48,000 cr  | 52,800 cr  | 68,640 - 105,600 cr  | ✓ PROFITABLE          |
 | Dreadnought    | Earth→Meridian | 20,000 km  | N/A        | N/A        | N/A                  | ✗ IMPOSSIBLE (fuel)   |
 | Firebrand      | Earth→Gateway  | 400 km     | 112,000 cr | 119,200 cr | 154,960 - 238,400 cr | ✓ PROFITABLE          |
@@ -606,3 +566,11 @@ Range limitations create strategic decisions:
 - Cost vs time trade-offs (fusion expensive but fast)
 
 **Task #7 Status: COMPLETE** - Economics validated, no rebalancing needed beyond automatic scaling.
+
+## Update: Distance-Scaled Margins & Engine-Type Pricing (v10)
+
+The flat 130-200% cost floor has been replaced with distance-scaled margins (see table above). Short-route trade remains lucrative (30-100% margins), but deep-space trade routes offer only 5-15% margins — forcing players to supplement income with mining at outer-system destinations. This makes mining a necessity, not an option, for ships operating beyond Mars.
+
+Engine-type fuel pricing (Chemical 1x, Fission 3x, D-D 10x, D-He3 30x) creates significant operating cost differences between ship classes. A full Leviathan refuel at Earth costs ~19.2M credits (400,000 kg × 48 cr/kg), while a Station Keeper costs ~12,800 cr (8,000 kg × 1.6 cr/kg). This economic pressure is intentional — higher-tier ships must mine to cover fuel costs.
+
+Resource costs for ship purchases (Dreadnought: 200 Ti + 50 Pt, Firebrand: 300 Ti + 100 Pt, Leviathan: 500 Ti + 200 Pt + 50 He-3) gate progression behind mining activity. Players cannot simply buy their way to endgame ships — they must engage with the mining system.

@@ -173,11 +173,11 @@ describe('Fuel Physics - Tank Capacity', () => {
   it('should have route-appropriate fuel capacities per ship class', () => {
     const stationKeeper = getShipClass('station_keeper')!;
     const wayfarer = getShipClass('wayfarer')!;
-    const corsair = getShipClass('corsair')!;
+    const dreadnought = getShipClass('dreadnought')!;
 
     const capacity1 = calculateFuelTankCapacity(stationKeeper);
     const capacity2 = calculateFuelTankCapacity(wayfarer);
-    const capacity3 = calculateFuelTankCapacity(corsair);
+    const capacity3 = calculateFuelTankCapacity(dreadnought);
 
     // Higher-tier ships have larger fuel tanks
     expect(capacity2).toBeGreaterThan(capacity1);
@@ -186,7 +186,7 @@ describe('Fuel Physics - Tank Capacity', () => {
     // Each matches its dedicated fuelCapacity
     expect(capacity1).toBe(stationKeeper.fuelCapacity);
     expect(capacity2).toBe(wayfarer.fuelCapacity);
-    expect(capacity3).toBe(corsair.fuelCapacity);
+    expect(capacity3).toBe(dreadnought.fuelCapacity);
   });
 });
 
@@ -356,7 +356,7 @@ describe('Fuel Physics - Edge Cases', () => {
  * Implemented System (dedicated fuelCapacity per ship class):
  * - Wayfarer: 150,000 kg fuel tank (Inner System range)
  * - Station Keeper: 8,000 kg (LEO/MEO range)
- * - Corsair: 300,000 kg (Inner System+ range)
+ * - Dreadnought: 500,000 kg (Earth-Mars range)
  * - Dreadnought: 500,000 kg (Earth-Mars range)
  * - Leviathan: 400,000 kg with fusion drive (Jupiter+ range)
  *

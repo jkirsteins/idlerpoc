@@ -295,8 +295,10 @@ describe('Mining Route System', () => {
       ship.oreCargo.push({ oreId: 'iron_ore', quantity: 5 });
 
       // Set fuel very low (below 30%) and give enough credits for refuel
+      // NTR engine (3x fuel multiplier) at Earth (0.8x) = 4.8 cr/kg
+      // 90% of 150K maxFuel = 135K kg needed, ~648K cr
       ship.fuelKg = ship.maxFuelKg * 0.1;
-      gameData.credits = 500_000;
+      gameData.credits = 1_000_000;
       ship.location = { status: 'docked', dockedAt: TRADE_LOCATION_ID };
       delete ship.activeFlightPlan;
 

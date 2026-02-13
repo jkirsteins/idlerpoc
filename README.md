@@ -13,7 +13,7 @@ npm run dev
 
 - **Captain as Playable Character**: You start solo — just a captain at the helm. Hire crew as you progress
 - **Ship Creation**: Choose your captain name, ship name, and starting ship class
-- **Ship Classes**: 7 ship classes from orbital tenders to fusion torch ships (Class I-III) (see `src/shipClasses.ts`)
+- **Ship Classes**: 5 ship classes from orbital tenders to fusion torch ships (Class I-III), with resource costs gating higher-tier purchases (see `src/shipClasses.ts`)
 - **Fleet Panel**: Always-visible header panel showing every ship's activity (contracts, trade routes, mining, idle), location, fuel, crew, equipment, and range. Click to switch active ship
 - **Tabbed Interface**: Switch between Ship, Station, Crew, Work, Nav, Fleet, Log, Guide, and Settings tabs
 - **Station Tab**: Consolidated interface for all docked-station services — fuel depot, ore exchange, hiring office, and station store. Randomized atmospheric flavor text per location type, service badges, and location descriptions

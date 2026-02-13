@@ -56,6 +56,7 @@ import {
   getGravityDegradationLevel,
 } from './gravitySystem';
 import { getShipClass } from './shipClasses';
+import { canAffordResources, deductResourceCost } from './resourceCost';
 import {
   isHelmManned,
   unassignCrewFromAllSlots,
@@ -1204,7 +1205,11 @@ const callbacks: RendererCallbacks = {
     // Check credits
     if (state.gameData.credits < shipClass.price) return;
 
+    // Check resource costs (mined ore requirements)
+    if (!canAffordResources(state.gameData.ships, shipClass)) return;
+
     state.gameData.credits -= shipClass.price;
+    deductResourceCost(state.gameData, shipClass);
 
     const stationId = activeShip.location.dockedAt!;
     const newShip = createAdditionalShip(

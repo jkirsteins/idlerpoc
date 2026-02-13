@@ -6,6 +6,7 @@ import type {
   EquipmentSlotTag,
   ShipFeatureId,
   ShipClassTier,
+  OreId,
 } from './models';
 
 export type { ShipClassTier };
@@ -28,6 +29,7 @@ export interface ShipClass {
   defaultEquipment: EquipmentId[];
   defaultEngineId: EngineId;
   mass: number; // kg
+  resourceCost?: { oreId: OreId; amount: number }[]; // mined ore required for purchase
 }
 
 export const SHIP_CLASSES: ShipClass[] = [
@@ -90,43 +92,10 @@ export const SHIP_CLASSES: ShipClass[] = [
     mass: 200000, // kg
   },
   {
-    id: 'corsair',
-    name: 'Voidstar AC-450 "Corsair"',
-    description:
-      'Combat-capable armed freighter with enhanced cargo and weapons systems.',
-    tier: 'II',
-    price: 25_000_000,
-    rooms: [
-      'bridge',
-      'engine_room',
-      'medbay',
-      'cargo_hold',
-      'armory',
-      'mining_bay',
-    ],
-    maxCrew: 8,
-    unlockThreshold: 1_000_000,
-    rangeLabel: 'Inner System+',
-    cargoCapacity: 60000,
-    fuelCapacity: 300_000, // NTR Mk2, reaches Mars at good alignment
-    equipmentSlots: 5,
-    equipmentSlotDefs: [
-      { tags: ['standard'] },
-      { tags: ['standard'] },
-      { tags: ['standard'] },
-      { tags: ['standard'] },
-      { tags: ['standard', 'structural'] },
-    ],
-    features: [],
-    defaultEquipment: ['life_support', 'air_filters'],
-    defaultEngineId: 'ntr_mk2',
-    mass: 350000, // kg
-  },
-  {
     id: 'dreadnought',
     name: 'Prometheus DHC-800 "Dreadnought"',
     description:
-      'Military-surplus heavy cruiser. Maximum firepower and full crew amenities.',
+      'Heavy industrial vessel. Massive cargo bays and dedicated mining facilities. Built for long-duration resource extraction operations.',
     tier: 'II',
     price: 45_000_000,
     rooms: [
@@ -134,7 +103,7 @@ export const SHIP_CLASSES: ShipClass[] = [
       'engine_room',
       'medbay',
       'cargo_hold',
-      'armory',
+      'mining_bay',
       'quarters',
       'mining_bay',
     ],
@@ -156,41 +125,11 @@ export const SHIP_CLASSES: ShipClass[] = [
     defaultEquipment: ['life_support', 'air_filters'],
     defaultEngineId: 'ntr_heavy',
     mass: 500000, // kg
-  },
-  {
-    id: 'phantom',
-    name: 'Voidstar SX-300 "Phantom"',
-    description:
-      'Stealth courier with low heat signature. Built for covert operations.',
-    tier: 'II',
-    price: 35_000_000,
-    rooms: [
-      'bridge',
-      'engine_room',
-      'medbay',
-      'cargo_hold',
-      'armory',
-      'quarters',
+    resourceCost: [
+      { oreId: 'titanium_ore', amount: 200 },
+      { oreId: 'platinum_ore', amount: 50 },
     ],
-    maxCrew: 8,
-    unlockThreshold: 1_000_000,
-    rangeLabel: 'Inner System',
-    cargoCapacity: 30000,
-    fuelCapacity: 200_000, // NTR Stealth, Scatter/Mars fringe
-    equipmentSlots: 5,
-    equipmentSlotDefs: [
-      { tags: ['standard'] },
-      { tags: ['standard'] },
-      { tags: ['standard'] },
-      { tags: ['standard'] },
-      { tags: ['standard', 'structural'] },
-    ],
-    features: [],
-    defaultEquipment: ['life_support', 'air_filters'],
-    defaultEngineId: 'ntr_stealth',
-    mass: 250000, // kg
   },
-
   // Class III: Interplanetary Vessels (Torch Ships)
   {
     id: 'firebrand',
@@ -234,6 +173,10 @@ export const SHIP_CLASSES: ShipClass[] = [
     ],
     defaultEngineId: 'fdr_sunfire',
     mass: 800000, // kg
+    resourceCost: [
+      { oreId: 'titanium_ore', amount: 300 },
+      { oreId: 'platinum_ore', amount: 100 },
+    ],
   },
   {
     id: 'leviathan',
@@ -248,7 +191,7 @@ export const SHIP_CLASSES: ShipClass[] = [
       'reactor_room',
       'medbay',
       'cargo_hold',
-      'armory',
+      'mining_bay',
       'quarters',
       'point_defense_station',
       'mining_bay',
@@ -283,6 +226,11 @@ export const SHIP_CLASSES: ShipClass[] = [
     ],
     defaultEngineId: 'fdr_hellion',
     mass: 1200000, // kg
+    resourceCost: [
+      { oreId: 'titanium_ore', amount: 500 },
+      { oreId: 'platinum_ore', amount: 200 },
+      { oreId: 'helium3', amount: 50 },
+    ],
   },
 ];
 

@@ -127,9 +127,8 @@
 **Typical Thrust Values**:
 
 - NTR-200 Mk1: 4,000 N (0.002g on 200t Wayfarer)
-- NTR-450 Mk2: 10,000 N (0.0029g on 350t Corsair)
+- NTR-450 Mk2: 10,000 N (available as upgrade)
 - NTR-800 Heavy: 20,000 N (0.004g on 500t Dreadnought)
-- NTR-300S Stealth: 7,500 N (0.003g on 250t Phantom)
 
 **Advantages**:
 
@@ -388,7 +387,7 @@ Examples of orbital radii (semi-major axes): Gateway Station at LEO (400 km from
 Ore availability and effective value increase with distance from Earth. Expanding outward is always rewarded:
 
 - **Cislunar** (Graveyard Drift, Tycho Colony): Basic and mid-tier ores — max effective value ~60 cr (Titanium)
-- **Near-Earth extended** (The Scatter): Mid-tier ores — Titanium, Rare Earth, Iron
+- **Near-Earth extended** (The Scatter): Mid-tier ores — Titanium, Platinum, Iron (M-type NEA cluster)
 - **Mars / Inner Belt** (Mars, Vesta Station): Trade hub gateways with supplementary mining
 - **Mid-Belt** (The Crucible): First access to Platinum (120 cr) — dense metallic asteroid swarm
 - **Outer Belt** (Ceres Station): Platinum, Rare Earth, Water Ice hub
@@ -401,10 +400,10 @@ Ore distribution reflects real planetary science:
 - **Lunar ilmenite** → Titanium (Tycho Colony)
 - **KREEP basalt** → Rare Earth Elements (Tycho Colony)
 - **Polar crater ice** → Water Ice (Tycho, Mars, Vesta, Ceres)
-- **Metallic asteroid cores** → Platinum (The Crucible, Ceres — M-type asteroids from protoplanetary differentiation)
+- **Metallic asteroid cores** → Platinum (The Scatter, The Crucible, Ceres — M-type asteroids from protoplanetary differentiation)
 - **Gas giant atmospheric scooping** → Helium-3 (Jupiter Station)
 - **Magnetosphere anomalies** → Exotic Matter (Jupiter Station)
-- **Captured minimoons** → Iron, Titanium, Rare Earth (The Scatter — small S/C-type NEAs, too small for concentrated PGMs)
+- **Captured minimoons** → Iron, Titanium, Platinum (The Scatter — M-type NEA cluster with platinum group metals)
 
 ### Yield Multipliers
 
