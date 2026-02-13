@@ -75,7 +75,7 @@ export const SHIP_CLASSES: ShipClass[] = [
     price: 8_500_000,
     rooms: ['bridge', 'engine_room', 'cargo_hold', 'quarters', 'mining_bay'],
     maxCrew: 6,
-    unlockThreshold: 1_000_000,
+    unlockThreshold: 20_000_000,
     rangeLabel: 'Inner System',
     cargoCapacity: 40000,
     fuelCapacity: 150_000, // NTR Mk1, reaches Freeport/Scatter cislunar
@@ -108,7 +108,7 @@ export const SHIP_CLASSES: ShipClass[] = [
       'mining_bay',
     ],
     maxCrew: 12,
-    unlockThreshold: 1_000_000,
+    unlockThreshold: 100_000_000,
     rangeLabel: 'Earth-Mars',
     cargoCapacity: 80000,
     fuelCapacity: 500_000, // NTR Heavy, reliably reaches Mars
