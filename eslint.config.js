@@ -39,6 +39,16 @@ export default tseslint.config(
           allowNamedExports: true,
         },
       ],
+      // Ban all TS suppression directives — resolve the underlying issue instead.
+      '@typescript-eslint/ban-ts-comment': [
+        'error',
+        {
+          'ts-expect-error': true,
+          'ts-ignore': true,
+          'ts-nocheck': true,
+          'ts-check': false,
+        },
+      ],
       // Enforce strict equality, except for idiomatic == null / != null checks.
       eqeqeq: ['error', 'smart'],
       // Ensure switch statements over union types handle every member.
@@ -70,9 +80,18 @@ export default tseslint.config(
       // passes as-is, but new code can't get worse. Tighten over time.
       complexity: ['warn', 112],
       'max-lines': ['warn', 2400],
-      'max-lines-per-function': ['warn', { max: 1510 }],
+      'max-lines-per-function': ['warn', { max: 1260 }],
       'max-depth': ['warn', 9],
       'max-params': ['warn', 7],
+    },
+  },
+  // Pure data files: exempt from line-count caps since they grow with game
+  // content (articles, catalogs) and splitting them would hurt discoverability.
+  {
+    files: ['src/gamepediaData.ts'],
+    rules: {
+      'max-lines': 'off',
+      'max-lines-per-function': 'off',
     },
   }
 );
