@@ -119,6 +119,21 @@ export type ShipStatus = 'docked' | 'in_flight' | 'orbiting';
 
 export type FlightPhase = 'accelerating' | 'coasting' | 'decelerating';
 
+/** A gravity assist opportunity detected along a flight trajectory. */
+export interface GravityAssistOpportunity {
+  bodyId: string; // location ID of the massive body
+  bodyName: string; // display name for UI/logs
+  massKg: number; // body mass (for fuel refund calculation)
+  closestApproachKm: number; // min distance from trajectory to body
+  thresholdKm: number; // detection threshold used
+  approachProgress: number; // 0-1: fraction along flight path at closest approach
+  approachGameTime: number; // gameTime at closest approach
+  checked: boolean; // has the skill check been performed?
+  result: 'pending' | 'success' | 'failure';
+  fuelRefundKg: number; // fuel saved on success (0 until resolved)
+  fuelPenaltyKg: number; // correction burn cost on failure (0 until resolved)
+}
+
 export interface FlightState {
   origin: string;
   destination: string;
@@ -140,6 +155,7 @@ export interface FlightState {
   shipPos?: Vec2; // current ship 2D position (km), interpolated each tick between originPos and interceptPos
   estimatedArrivalGameTime?: number; // predicted arrival gameTime
   originBodyId?: string; // real origin body ID (set for normal flights, undefined for redirects where origin is a point in space)
+  gravityAssists?: GravityAssistOpportunity[]; // detected gravity assist opportunities along this trajectory
 }
 
 export interface ShipLocation {
@@ -436,6 +452,7 @@ export type LogEntryType =
   | 'ore_sold'
   | 'cargo_full'
   | 'mining_route'
+  | 'gravity_assist'
   | 'radiation_warning'
   | 'provisions_warning'
   | 'crew_death'

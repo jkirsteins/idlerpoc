@@ -1112,6 +1112,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
       'time-system',
       'orbital-mechanics',
       'launch-windows',
+      'gravity-assists',
     ],
   },
 
@@ -1362,6 +1363,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
       'flight-physics',
       'orbital-mechanics',
       'launch-windows',
+      'gravity-assists',
       'encounters',
       'factions',
       'contracts',
@@ -1601,6 +1603,71 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
       'flight-physics',
       'ship-classes',
       'time-system',
+      'gravity-assists',
+    ],
+  },
+
+  {
+    id: 'gravity-assists',
+    title: 'Gravity Assist Corridors',
+    category: 'Space',
+    summary:
+      'Free delta-v from passing near massive bodies during transit — save fuel or risk a correction burn.',
+    sections: [
+      {
+        paragraphs: [
+          "When a ship's trajectory passes close to a massive body during flight, the crew can attempt a gravity assist maneuver to gain free delta-v, saving fuel. This is detected automatically at departure based on the planned [[flight-physics|trajectory]] and the current [[orbital-mechanics|orbital positions]] of massive bodies.",
+          'Gravity assists add a strategic layer to route planning. Checking the [[navigation|Nav tab]] before departure shows which routes currently have assist opportunities, letting you time departures for maximum fuel savings.',
+        ],
+      },
+      {
+        heading: 'Detection',
+        paragraphs: [
+          "At departure, the flight computer samples the planned trajectory and checks proximity to massive bodies. Each body has a sphere of influence proportional to its mass — Jupiter's gravity well extends far further than the Moon's.",
+          "If the trajectory passes within a body's influence zone, a gravity assist opportunity is flagged. The Nav tab shows available assists per destination before departure, and the flight status panel tracks them during transit.",
+        ],
+      },
+      {
+        heading: 'Skill Check',
+        paragraphs: [
+          'When the ship reaches the closest approach point, the crew attempts to execute the maneuver. Success depends on [[skill-system|piloting]] skill — higher skill means better odds.',
+          'A closer approach yields more fuel savings but is harder to execute. Even master pilots cannot guarantee success every time — space is unforgiving.',
+        ],
+      },
+      {
+        heading: 'Success: Fuel Refund',
+        paragraphs: [
+          "On success, the ship receives a fuel refund proportional to the body's mass, the closeness of the approach, and the pilot's skill. Typical fuel savings range from 2-10% of the trip's fuel cost.",
+        ],
+      },
+      {
+        heading: 'Failure: Correction Burn',
+        paragraphs: [
+          "On failure, the ship must execute a correction burn to recover from the botched maneuver, costing ~1-2% of the trip's fuel. Closer approaches incur larger corrections on failure.",
+          'This creates a risk/reward tradeoff: a close approach to a massive body offers the best potential savings but carries the steepest penalty for low-skill crews.',
+        ],
+      },
+      {
+        heading: 'Eligible Bodies',
+        paragraphs: [],
+        table: {
+          headers: ['Body', 'Influence Zone', 'Potential Savings'],
+          rows: [
+            ['Jupiter', '~75M km', 'Highest (most massive)'],
+            ['Earth', '~3M km', 'High'],
+            ['Mars', '~3M km', 'Moderate'],
+            ['Moon', '~200K km', 'Low'],
+            ['Ceres', '~200K km', 'Minimal'],
+          ],
+        },
+      },
+    ],
+    relatedArticles: [
+      'flight-physics',
+      'navigation',
+      'orbital-mechanics',
+      'launch-windows',
+      'skill-system',
     ],
   },
 
