@@ -431,10 +431,13 @@ Ship maximum range is not a fixed value but emerges from the interaction of mult
 
 - **Engine thrust & ship mass** → acceleration
 - **Engine maxDeltaV** → fuel budget for cruise velocity
-- **Cargo capacity** → consumable supplies (30% reserved for food, water, air)
-- **Crew count** → consumption rate (15 kg/crew/day base, reduced by life support recycling to ~5 kg effective)
+- **Dedicated fuel tank** → each ship class has a `fuelCapacity` (kg) sized for its intended routes, independent of cargo
+- **Provisions** → tracked as `ship.provisionsKg`, consumed at 15 kg/crew/day base (reduced by life support recycling to ~5 kg effective)
+- **Crew count** → consumption rate scales with crew size
 
-Mission endurance constrains range: even with abundant fuel, a ship can only go as far as its consumables allow. A slow ship with low thrust CAN travel far if it has enough supplies and time. A fast ship with many crew burns through consumables quickly, limiting effective range despite powerful engines.
+Fuel tanks are sized per ship class to support their labeled operational range at moderate orbital alignment with reserve margin. Cargo capacity is fully available for trade goods, mined ore, and provisions — fuel does not compete with cargo.
+
+Mission endurance constrains range: even with abundant fuel, a ship can only go as far as its provisions allow. A slow ship with low thrust CAN travel far if it has enough supplies and time. A fast ship with many crew burns through provisions quickly, limiting effective range despite powerful engines.
 
 This creates natural trade-offs: Class I ships are slow AND supply-limited, making them truly orbital-only. Class II ships can reach Mars slowly but require long journey times. Class III torch ships have high acceleration but large crews, balancing range through different constraints.
 

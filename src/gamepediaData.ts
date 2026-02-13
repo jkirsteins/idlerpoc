@@ -920,6 +920,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
       {
         paragraphs: [
           'Ships are classified by operational range and capability. Higher classes are more powerful but more expensive and complex to operate.',
+          'Each ship class has a dedicated fuel tank sized for its intended operational range. Fuel capacity is independent of cargo capacity — bigger fuel tanks support longer journeys without sacrificing cargo space.',
         ],
       },
       {

@@ -1,23 +1,26 @@
 # Fuel/Cargo Trade-off System Design
 
-## Executive Summary
+> **STATUS (save v9):** The shared fuel/cargo pool described below has been **superseded**. Each ship class now has a dedicated `fuelCapacity` (kg) independent of `cargoCapacity`. Fuel tanks are route-targeted (sized so the ship can reach its intended destinations at moderate orbital alignment with reserve). Full `cargoCapacity` is available for trade goods, ore, and provisions. The `FUEL_CARGO_SPLIT` constant has been removed. See `src/shipClasses.ts` for current fuel capacities.
 
-This document defines the fuel/cargo capacity allocation system for mass-based realistic fuel consumption. The design ensures:
+## Executive Summary (historical)
+
+This document originally defined the fuel/cargo capacity allocation system for mass-based realistic fuel consumption. The design assumed:
 
 1. **Physical realism** - Fuel and cargo compete for the same mass budget (per WORLDRULES.md)
 2. **Emergent gameplay** - Ship range and cargo capacity emerge from player decisions
 3. **Strategic depth** - Players must balance fuel reserves vs cargo profits
 4. **Progressive complexity** - Simple for beginners, strategically rich for advanced players
 
-## Core Principle: Shared Capacity Pool
+## Core Principle: ~~Shared Capacity Pool~~ (Superseded)
 
-**Fuel and cargo share the same mass capacity pool.** Every kg of cargo reduces fuel capacity by 1 kg, and vice versa.
+~~**Fuel and cargo share the same mass capacity pool.**~~ This was replaced with dedicated fuel tanks per ship class. Fuel and cargo are now independent resources.
 
 ```
-Total Capacity = Fuel Mass + Cargo Mass + Crew Mass
+Old: Total Capacity = Fuel Mass + Cargo Mass + Crew Mass
+New: Ship has fuelCapacity (dedicated tank) + cargoCapacity (cargo hold) independently
 ```
 
-This creates the fundamental trade-off: carrying more cargo means shorter range OR more frequent refueling.
+The original trade-off ("carrying more cargo means shorter range") no longer applies. Range is determined by the ship's fixed fuel tank and engine characteristics.
 
 ## Ship Capacity Specifications
 

@@ -25,8 +25,6 @@ import {
 import { createInitialMastery } from './masterySystem';
 import { generateAllLocationQuests } from './questGen';
 import { getEquipmentDefinition, canEquipInSlot } from './equipment';
-import { calculateFuelTankCapacity } from './flightPhysics';
-import { getEngineDefinition } from './engines';
 import {
   PROVISIONS_KG_PER_CREW_PER_DAY,
   MAX_PROVISION_DAYS,
@@ -237,12 +235,8 @@ function createStartingShip(
     definitionId: 'sidearm',
   }));
 
-  // Calculate fuel tank capacity based on ship class cargo capacity
-  const engineDef = getEngineDefinition(engine.definitionId);
-  const maxFuelKg = calculateFuelTankCapacity(
-    shipClass.cargoCapacity,
-    engineDef
-  );
+  // Fuel tank capacity from dedicated ship class fuel tanks
+  const maxFuelKg = shipClass.fuelCapacity;
 
   const ship: Ship = {
     id: generateId(),
@@ -308,12 +302,8 @@ export function createAdditionalShip(
   const { equipmentSlots, equipment } = createShipEquipment(shipClassId);
   const engine = createEngineInstance(shipClassId);
 
-  // Calculate fuel tank capacity based on ship class cargo capacity
-  const engineDef = getEngineDefinition(engine.definitionId);
-  const maxFuelKg = calculateFuelTankCapacity(
-    shipClass.cargoCapacity,
-    engineDef
-  );
+  // Fuel tank capacity from dedicated ship class fuel tanks
+  const maxFuelKg = shipClass.fuelCapacity;
 
   const ship: Ship = {
     id: generateId(),
