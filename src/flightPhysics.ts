@@ -554,8 +554,32 @@ export function redirectShipFlight(
     id: ship.activeFlightPlan?.origin ?? '',
   } as WorldLocation;
 
-  // Use ship's current 2D position for redirect origin if available
-  const currentShipPos = ship.activeFlightPlan?.shipPos;
+  // Compute ship's current 2D position in current-time coordinates.
+  // The stored shipPos is interpolated between originPos and interceptPos,
+  // which are both at the *arrival* time of the original flight. Using that
+  // directly would compare an arrival-time position against the destination's
+  // current-time position, producing a phantom distance (and absurd ETAs)
+  // when the destination is nearby but the original flight was long.
+  // Fix: re-interpolate using origin/destination positions at current gameTime.
+  let currentShipPos: Vec2 | undefined;
+  const flight = ship.activeFlightPlan;
+  if (flight && gameTime !== undefined && world) {
+    const originLoc = world.locations.find((l) => l.id === flight.origin);
+    const destLoc = world.locations.find((l) => l.id === flight.destination);
+    if (originLoc && destLoc && flight.totalDistance > 0) {
+      const originPosNow = getLocationPosition(originLoc, gameTime, world);
+      const destPosNow = getLocationPosition(destLoc, gameTime, world);
+      const progress = Math.min(
+        1,
+        flight.distanceCovered / flight.totalDistance
+      );
+      currentShipPos = lerpVec2(originPosNow, destPosNow, progress);
+    }
+  }
+  // Fallback to stored shipPos if we couldn't compute current-time position
+  if (!currentShipPos) {
+    currentShipPos = flight?.shipPos;
+  }
 
   ship.activeFlightPlan = initializeFlight(
     ship,
