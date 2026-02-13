@@ -119,6 +119,8 @@ export interface RendererCallbacks {
   onDismissCatchUp: () => void;
   onDismissGettingStarted: () => void;
   onImportState?: (json: string) => void;
+  onDismissStory?: (arcId: string) => void;
+  onShareStory?: (arcId: string) => void;
 }
 
 // ── Mounted playing layout ─────────────────────────────────────────
@@ -443,6 +445,8 @@ function mountPlayingLayout(
       onSpendPoolXp: callbacks.onSpendPoolXp,
       onImportState: callbacks.onImportState,
       onSpecializeCrew: callbacks.onSpecializeCrew,
+      onDismissStory: callbacks.onDismissStory,
+      onShareStory: callbacks.onShareStory,
     },
     state.selectedCrewId
   );

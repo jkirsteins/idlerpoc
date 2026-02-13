@@ -13,6 +13,7 @@ import { createFinancesTab } from './financesTab';
 import { createLogTab } from './logTab';
 import { createSettingsTab } from './settingsTab';
 import { createGamepediaTab } from './gamepediaTab';
+import { createStoriesTab } from './storiesTab';
 import { createStationTab } from './stationTab';
 import { createNavigationView } from './navigationView';
 import { formatCredits } from '../formatting';
@@ -314,6 +315,7 @@ export function createTabbedView(
     { label: 'Fleet', tab: 'fleet' },
     { label: 'Finances', tab: 'finances' },
     { label: 'Log', tab: 'log' },
+    { label: 'Stories', tab: 'stories' },
     { label: 'Guide', tab: 'guide' },
     { label: 'Settings', tab: 'settings' },
   ];
@@ -367,6 +369,10 @@ export function createTabbedView(
 
       let badgeCount = 0;
       if (ref.tab === 'log') badgeCount = unreadCount;
+      if (ref.tab === 'stories') {
+        const arcCount = gameData.stories?.detectedArcs.length ?? 0;
+        if (arcCount > 0 && currentTab !== 'stories') badgeCount = arcCount;
+      }
 
       if (badgeCount > 0) {
         ref.badge.textContent = badgeCount.toString();
@@ -436,6 +442,11 @@ export function createTabbedView(
         return createFinancesTab(gameData);
       case 'log':
         return createLogTab(gameData);
+      case 'stories':
+        return createStoriesTab(gameData, {
+          onDismissStory: callbacks.onDismissStory ?? (() => {}),
+          onShareStory: callbacks.onShareStory ?? (() => {}),
+        });
       case 'guide':
         return createGamepediaTab(gameData, undefined, () => {
           callbacks.onTabChange(previousTab);

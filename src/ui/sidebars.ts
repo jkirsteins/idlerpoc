@@ -33,6 +33,7 @@ import {
   calculatePositionDanger,
   getThreatLevel,
 } from '../encounterSystem';
+import { getFeaturedArc } from '../arcDetector';
 
 interface SidebarCallbacks {
   onBuyFuel?: () => void;
@@ -873,6 +874,35 @@ export function createRightSidebar(gameData: GameData): Component {
 
   sidebar.appendChild(questSection);
 
+  // ── FEATURED STORY SECTION ──
+  const storySection = document.createElement('div');
+  storySection.className = 'sidebar-section';
+  storySection.style.display = 'none';
+
+  const storyLabel = document.createElement('h3');
+  storyLabel.textContent = 'Featured Story';
+  storySection.appendChild(storyLabel);
+
+  const storyCard = document.createElement('div');
+  storyCard.style.cssText =
+    'padding:0.4rem;border-left:2px solid #e94560;background:#16162a;border-radius:3px;';
+
+  const storyTitleEl = document.createElement('div');
+  storyTitleEl.style.cssText =
+    'color:#e94560;font-weight:bold;font-size:0.85rem;';
+  storyCard.appendChild(storyTitleEl);
+
+  const storyActorEl = document.createElement('div');
+  storyActorEl.style.cssText = 'color:#888;font-size:0.8rem;';
+  storyCard.appendChild(storyActorEl);
+
+  const storyRatingEl = document.createElement('div');
+  storyRatingEl.style.cssText = 'color:#ffc107;font-size:0.85rem;';
+  storyCard.appendChild(storyRatingEl);
+
+  storySection.appendChild(storyCard);
+  sidebar.appendChild(storySection);
+
   // ── UPDATE FUNCTION ──
   function update(gameData: GameData): void {
     const ship = getActiveShip(gameData);
@@ -1009,6 +1039,18 @@ export function createRightSidebar(gameData: GameData): Component {
       questTitle.textContent = 'No active quest';
       questRewardValue.textContent = '—';
       questSection.style.opacity = '0.4';
+    }
+
+    // Featured story
+    const featured = getFeaturedArc(gameData);
+    if (featured) {
+      storySection.style.display = '';
+      storyTitleEl.textContent = featured.title;
+      storyActorEl.textContent = featured.actorName;
+      storyRatingEl.textContent =
+        '\u2605'.repeat(featured.rating) + '\u2606'.repeat(5 - featured.rating);
+    } else {
+      storySection.style.display = 'none';
     }
   }
 

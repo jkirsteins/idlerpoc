@@ -11,6 +11,7 @@ import type {
   RouteSnapshot,
 } from './models';
 import { getMiningRouteName } from './utils';
+import { detectArcs } from './arcDetector';
 
 /** Snapshot each ship's automated route assignment before catch-up ticks run. */
 export function snapshotRoutes(gameData: GameData): Map<string, RouteSnapshot> {
@@ -478,6 +479,9 @@ export function buildCatchUpReport(
       (s.crewHighlights && s.crewHighlights.length > 0)
   );
 
+  // Run arc detection after all catch-up ticks to find new stories
+  const newStories = detectArcs(gameData);
+
   return {
     totalTicks,
     elapsedRealSeconds,
@@ -486,5 +490,6 @@ export function buildCatchUpReport(
     crewLost,
     shipSummaries: filteredSummaries,
     logHighlights,
+    newStories: newStories.length > 0 ? newStories : undefined,
   };
 }

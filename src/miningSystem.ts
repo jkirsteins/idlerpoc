@@ -45,6 +45,7 @@ import {
 import { getBestCrewSkill, getBestCrewPool } from './crewRoles';
 import { getAllOreDefinitions } from './oreTypes';
 import { addLog } from './logSystem';
+import { getTraitModifier } from './personalitySystem';
 import { getCargoUsedKg, getCrewEquipmentCargoWeight } from './flightPhysics';
 import { getShipClass } from './shipClasses';
 import { formatCredits } from './formatting';
@@ -343,6 +344,9 @@ export function applyMiningTick(
         ore.id
       );
 
+      // Personality trait mining yield modifier
+      const traitMiningMod = getTraitModifier(miner, 'mining_yield');
+
       // Health efficiency — injured/starving crew work slower
       const healthEfficiency = getCrewHealthEfficiency(miner.health);
 
@@ -355,6 +359,7 @@ export function applyMiningTick(
         (1 + poolYieldBonus) *
         captainMiningMultiplier *
         yieldMult *
+        traitMiningMod *
         healthEfficiency;
 
       // Accumulate fractional ore

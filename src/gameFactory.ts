@@ -23,6 +23,7 @@ import {
   calculateSalaryMultiplier,
 } from './crewRoles';
 import { createInitialMastery } from './masterySystem';
+import { generatePersonality } from './personalitySystem';
 import { generateAllLocationQuests } from './questGen';
 import { getEquipmentDefinition, canEquipInSlot } from './equipment';
 import {
@@ -63,8 +64,9 @@ function createCrewMember(
   // but we store the initial multiplier for reference / future UI comparisons.
   const salaryMultiplier = isCaptain ? 1.0 : calculateSalaryMultiplier(skills);
 
+  const crewId = generateId();
   return {
-    id: generateId(),
+    id: crewId,
     name,
     role,
     morale: isCaptain ? 85 : 75,
@@ -79,6 +81,7 @@ function createCrewMember(
     mastery: createInitialMastery(),
     hiredAt: 0, // Set to actual gameTime when hired; 0 = game epoch for captain
     boardedShipAt: 0, // Set to actual gameTime when assigned to a ship
+    personality: generatePersonality(crewId),
   };
 }
 

@@ -230,3 +230,111 @@ Ideal pacing matches the player's natural attention curve. Multiple resource sys
 2. New mechanics "unfolding" over time (not just bigger numbers)
 3. Offline progress creating anticipation to return
 4. Always having a visible "next goal" within reach
+
+---
+
+## Emergent Storytelling & Narrative Intelligence
+
+References for the Fleet Chronicles emergent storytelling system. See `docs/emergent-storytelling.md` for system design.
+
+### Academic Papers
+
+#### **Kreminski, Dickinson, Wardrip-Fruin — "Felt: A Simple Story Sifter" (2019)** ★
+
+Introduces "story sifting" — automatically finding interesting narrative patterns in simulation logs using declarative pattern queries. Felt provides a query language for detecting story arcs in event streams. **Most directly relevant**: our arc detector uses the same core idea of pattern-matching over a structured event history, though with hand-coded patterns rather than a query language.
+
+- Proceedings of the International Conference on Interactive Digital Storytelling (ICIDS 2019)
+
+#### **Kreminski, Dickinson, Wardrip-Fruin — "Winnow: A Domain-Specific Language for Incremental Story Sifting" (2021)** ★
+
+Extends Felt with an incremental evaluation model — instead of re-scanning the full history on every tick, Winnow maintains partial match state and only processes new events. Critical for performance in long-running simulations. **Most directly relevant**: our 480-tick detection interval and chronicle-based architecture follow the same incremental philosophy.
+
+- Proceedings of the AAAI Conference on Artificial Intelligence and Interactive Digital Entertainment (AIIDE 2021)
+
+#### **Kreminski, Dickinson, Mateas — "Select the Unexpected: A Statistical Heuristic for Story Sifting" (2022)** ★
+
+Proposes ranking sifted stories by statistical surprise — events that deviate from the simulation's baseline distribution are more narratively interesting. A "survivor" arc is more compelling when the survival odds were genuinely low. **Most directly relevant**: our emotional weight system and arc scoring capture a simplified version of this idea (high-weight events are implicitly rarer).
+
+- Proceedings of the International Conference on the Foundations of Digital Games (FDG 2022)
+
+#### **Ryan — "Curating Simulated Storyworlds" (2018)** ★
+
+James Ryan's PhD dissertation on the theory of curation in simulated storyworlds. Argues that the gap between what happens in a simulation and what constitutes a "story" requires an active curatorial layer — you cannot just expose raw simulation data and expect narrative coherence. **Most directly relevant**: our chronicle system is essentially the curatorial layer Ryan advocates for, filtering raw events into per-actor narrative records.
+
+- University of California, Santa Cruz, PhD dissertation
+
+#### Mateas & Sengers — "Narrative Intelligence" (2003)
+
+Foundational collection on computationally modeling narrative understanding and generation. Establishes the intellectual framework for treating narrative as a first-class computational concern rather than an afterthought layered on top of simulation. Relevant as theoretical grounding for why emergent storytelling systems need intentional design rather than being emergent themselves.
+
+- In _Narrative Intelligence_, John Benjamins Publishing
+
+### GDC Talks
+
+#### Sylvester — "RimWorld's AI Storyteller" (GDC 2017)
+
+Tynan Sylvester explains RimWorld's three AI storytellers (Cassandra, Phoebe, Randy) that control event pacing and difficulty curves. Key insight: the storyteller does not generate stories — it creates conditions under which stories emerge. Threat timing, resource pressure, and dramatic pacing curves are tuned to maximize narrative potential without scripting specific outcomes. Relevant to our approach of observing emergent patterns rather than forcing narrative beats.
+
+#### Paradox Interactive — "Crusader Kings II: Emergent Storytelling" (GDC 2013)
+
+How Crusader Kings II's character-driven simulation produces memorable stories through trait interactions, relationship dynamics, and dynastic events. The trait system (brave, craven, lustful, etc.) colors character behavior and creates personality-driven narrative. **Directly influenced** our personality trait system — CK2 demonstrates that even simple trait modifiers create rich narrative texture when applied to characters the player cares about.
+
+#### Adams — "Dwarf Fortress: Generating Worlds and Histories" (GDC 2016)
+
+Tarn Adams discusses Dwarf Fortress's world generation and simulation philosophy: simulate everything, let stories emerge from systemic interactions. The legendary story of Boatmurdered emerged entirely from player observation of simulation events — no narrative system was needed because the simulation was rich enough. Relevant as the aspirational end-state: systems so deep that stories write themselves. Our chronicle system is the pragmatic middle ground for a game with less simulation depth.
+
+#### Grinblat & Bucklew — "Caves of Qud: Emergent History Generation" (Roguelike Celebration 2019)
+
+Caves of Qud generates thousands of years of history for its world, including faction conflicts, legendary artifacts, and historical figures. The game then sifts this history for "interesting" events to surface to the player. Relevant for their approach to post-hoc narrative extraction from simulation data — similar to our arc detector running over accumulated chronicles.
+
+#### Manning — "Civilization VII: Narrative in Strategy Games" (GDC 2024)
+
+How the Civilization series creates narrative from emergent gameplay. Discusses the challenge of making systemic games feel like they tell a story when the systems are fundamentally about numbers and optimization. Relevant for the UI/presentation layer — how to make stats feel like stories through framing, language, and visual design.
+
+### Open-Source Projects
+
+#### **Felt** (Kreminski et al.)
+
+Reference implementation of the story sifter described in the 2019 paper. JavaScript library that takes a simulation database and a set of sifting patterns, returning matching story instances. Our arc detector is architecturally similar but domain-specific rather than general-purpose.
+
+- GitHub: https://github.com/mkremins/felt
+
+#### **Winnow** (Kreminski et al.)
+
+Incremental story sifting DSL extending Felt. Compiles pattern queries into incremental evaluators that process events as they arrive rather than re-scanning history. Performance architecture relevant to our design even though we use hand-coded patterns.
+
+- GitHub: https://github.com/mkremins/winnow
+
+#### NarrativeArc (Open Source)
+
+Generic narrative arc detection library for event-stream data. Implements Campbell's monomyth and Vonnegut's story shape curves as mathematical templates matched against sentiment-tagged event sequences. Relevant as an alternative approach to pattern matching — continuous curve fitting rather than discrete pattern matching.
+
+### Developer Articles
+
+#### Emily Short — "Storylets: You Want Them" (2019)
+
+Emily Short's influential essay on storylet-based narrative design, where small self-contained narrative units are selected and assembled based on world state. While our system is observational rather than generative (we detect stories rather than create them), the storylet philosophy of small composable narrative pieces directly influenced our template-based narrative generation.
+
+- https://emshort.blog/2019/11/29/storylets-you-want-them/
+
+#### Emily Short — "Beyond Branching: Quality-Based, Salience-Based, and Storylet Narrative Structures"
+
+Categorizes narrative structures in games and interactive fiction. Quality-based narrative (where content is gated by world-state qualities) and salience-based narrative (where the most relevant content is surfaced dynamically) both inform our arc detection model — arcs are essentially the most "salient" narrative patterns in the simulation state.
+
+#### Emergent Narrative Design Patterns (Various)
+
+A loose body of writing across blogs, postmortems, and GDC talks about patterns that reliably produce emergent stories in simulation games: the "crucible" (confine characters in stressful conditions), the "inversion" (reverse a character's fortune), and the "bond under fire" (shared danger creates relationships). Our 12 arc patterns map loosely to these established patterns.
+
+### Books
+
+#### Short & Adams — _Procedural Storytelling in Game Design_ (2019)
+
+Edited anthology covering the state of the art in procedural narrative for games. Chapters on emergent narrative in simulation games, quality-based narrative systems, and the relationship between authored and generated content. Essential background reading for understanding where our approach (observation + templates) sits in the design space relative to fully procedural generation.
+
+- CRC Press, ISBN 978-1138595309
+
+#### Sylvester — _Designing Games: A Guide to Engineering Experiences_ (2013)
+
+Tynan Sylvester (RimWorld) on experience engineering, including chapters on emergent complexity, narrative mechanics, and how systems create stories. The book's core argument — that game design is about engineering emotional experiences through systems — underpins our approach of detecting emotionally weighted events and assembling them into narrative arcs.
+
+- O'Reilly Media, ISBN 978-1449337933

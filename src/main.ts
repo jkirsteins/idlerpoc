@@ -41,6 +41,7 @@ import {
 import { initProvisionsEvents } from './provisionsSystem';
 import { getSkillRank } from './skillRanks';
 import { addLog } from './logSystem';
+import { emit } from './gameEvents';
 import { getCrewEquipmentDefinition } from './crewEquipment';
 import { getShipClass } from './shipClasses';
 import { canAffordResources, deductResourceCost } from './resourceCost';
@@ -59,6 +60,9 @@ import {
 } from './miningRoute';
 import { getEquipmentDefinition, canEquipInSlot } from './equipment';
 import { spendPoolXpOnItem } from './masterySystem';
+import { initChronicleSystem } from './chronicleSystem';
+import { dismissArc } from './arcDetector';
+import { shareStory } from './ui/storyCard';
 
 const app = document.getElementById('app')!;
 
@@ -871,6 +875,13 @@ const callbacks: RendererCallbacks = {
       ship.name
     );
 
+    emit(state.gameData, {
+      type: 'crew_hired',
+      crew,
+      ship,
+      locationId: dockedAt,
+    });
+
     saveGame(state.gameData);
     renderApp();
   },
@@ -1297,6 +1308,22 @@ const callbacks: RendererCallbacks = {
       renderApp();
     }
   },
+
+  onDismissStory: (arcId: string) => {
+    if (state.phase !== 'playing') return;
+    dismissArc(state.gameData, arcId);
+    saveGame(state.gameData);
+    renderApp();
+  },
+
+  onShareStory: (arcId: string) => {
+    if (state.phase !== 'playing') return;
+    const arc = state.gameData.stories?.detectedArcs.find(
+      (a) => a.id === arcId
+    );
+    if (!arc) return;
+    void shareStory(arc);
+  },
 };
 
 // ── Module initialisation ──
@@ -1311,6 +1338,7 @@ function init(): void {
   // Register cross-module callbacks
   initCombatSystem();
   initProvisionsEvents();
+  initChronicleSystem();
 
   try {
     state = initializeState();

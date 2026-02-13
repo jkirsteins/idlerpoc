@@ -11,6 +11,7 @@ import { getShipClass } from './shipClasses';
 import { GAME_SECONDS_PER_TICK } from './timeSystem';
 import { getCrewForJobType } from './jobSlots';
 import { getBestCrewSkill } from './crewRoles';
+import { getTraitModifier } from './personalitySystem';
 
 /**
  * Encounter Detection System
@@ -210,11 +211,22 @@ export function calculateEncounterChance(
   const heatSignature = calculateHeatSignature(engineDef, flight.phase);
   const crewSkillFactor = calculateCrewSkillFactor(ship);
 
+  // Personality trait encounter rate modifier (worst-case across all crew)
+  // A reckless crew member attracts encounters for the whole ship
+  let traitEncounterMod = 1.0;
+  for (const crew of ship.crew) {
+    const mod = getTraitModifier(crew, 'encounter_rate');
+    if (mod > traitEncounterMod) {
+      traitEncounterMod = mod;
+    }
+  }
+
   return (
     ENCOUNTER_CONSTANTS.BASE_RATE *
     positionDanger *
     heatSignature *
-    crewSkillFactor
+    crewSkillFactor *
+    traitEncounterMod
   );
 }
 

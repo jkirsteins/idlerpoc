@@ -1,5 +1,6 @@
 import type {
   CrewMember,
+  GameData,
   Ship,
   SkillId,
   JobSlotType,
@@ -12,6 +13,8 @@ import { getCrewJobSlot, getJobSlotDefinition } from './jobSlots';
 import { checkRankCrossing } from './skillRanks';
 import { getSpecializationMultiplier } from './skillRanks';
 import { getCrewHealthEfficiency } from './provisionsSystem';
+import { getTraitModifier } from './personalitySystem';
+import { emit } from './gameEvents';
 
 /**
  * Direct Skill Training System
@@ -94,8 +97,16 @@ export function calculateTickTraining(
     crew.specialization
   );
 
+  // Personality trait modifier: ambitious +10%, stoic -5%, etc.
+  const traitMod = getTraitModifier(crew, 'training_speed');
+
   const gain =
-    RATE_SCALE * baseRate * diminishingFactor * matchBonus * specMultiplier;
+    RATE_SCALE *
+    baseRate *
+    diminishingFactor *
+    matchBonus *
+    specMultiplier *
+    traitMod;
 
   return { skill, gain };
 }
@@ -166,6 +177,7 @@ export function applyPassiveTraining(
 
     const training = calculateTickTraining(crew, jobSlotType);
     if (training) {
+      // traitMod already applied inside calculateTickTraining
       const healthEfficiency = getCrewHealthEfficiency(crew.health);
       const gain = training.gain * trainingMultiplier * healthEfficiency;
       const skillUp = applyTraining(crew, training.skill, gain);
@@ -314,12 +326,16 @@ export function awardEventSkillGains(
 
 /**
  * Log skill-up events for a ship's crew.
+ * When gameData and ship are provided, rank milestones also emit
+ * crew_skill_milestone events for the chronicle system.
  */
 export function logSkillUps(
   log: LogEntry[],
   gameTime: number,
   shipName: string,
-  skillUps: SkillUpResult[]
+  skillUps: SkillUpResult[],
+  gameData?: GameData,
+  ship?: Ship
 ): void {
   for (const su of skillUps) {
     const skillName = su.skill.charAt(0).toUpperCase() + su.skill.slice(1);
@@ -332,6 +348,21 @@ export function logSkillUps(
         `${su.crewName} has become ${su.newRank} in ${skillName} (${su.newLevel})!`,
         shipName
       );
+
+      // Emit chronicle event when gameData and ship are available
+      if (gameData && ship) {
+        const crew = ship.crew.find((c) => c.id === su.crewId);
+        if (crew) {
+          emit(gameData, {
+            type: 'crew_skill_milestone',
+            crew,
+            ship,
+            skill: su.skill,
+            newLevel: su.newLevel,
+            newRank: su.newRank,
+          });
+        }
+      }
     } else {
       addLog(
         log,
