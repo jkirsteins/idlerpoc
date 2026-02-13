@@ -971,7 +971,11 @@ function renderEnhancedShipCard(
  */
 interface PurchaseCardRefs {
   classId: string;
-  lockMsg: HTMLElement;
+  card: HTMLElement;
+  mysteryContainer: HTMLElement;
+  mysteryProgressFill: HTMLElement;
+  mysteryProgressLabel: HTMLElement;
+  detailContainer: HTMLElement;
   affordMsg: HTMLElement;
   resourceMsg: HTMLElement;
   buyContainer: HTMLElement;
@@ -1017,6 +1021,71 @@ function createShipPurchase(
     card.style.border = '1px solid #555';
     card.style.borderRadius = '4px';
 
+    // ── Mystery container (shown when locked) ──
+    const mysteryContainer = document.createElement('div');
+    mysteryContainer.style.textAlign = 'center';
+    mysteryContainer.style.padding = '0.75rem 0.5rem';
+
+    const mysteryTierBadge = document.createElement('span');
+    mysteryTierBadge.style.fontSize = '0.75rem';
+    mysteryTierBadge.style.fontWeight = 'bold';
+    mysteryTierBadge.style.padding = '2px 6px';
+    mysteryTierBadge.style.borderRadius = '3px';
+    const tierColor = getTierColor(shipClass.tier);
+    mysteryTierBadge.style.background = `${tierColor}33`;
+    mysteryTierBadge.style.color = tierColor;
+    mysteryTierBadge.textContent = `Class ${shipClass.tier}`;
+    mysteryContainer.appendChild(mysteryTierBadge);
+
+    const mysteryIcon = document.createElement('div');
+    mysteryIcon.textContent = '???';
+    mysteryIcon.style.fontSize = '2rem';
+    mysteryIcon.style.fontWeight = 'bold';
+    mysteryIcon.style.color = '#555';
+    mysteryIcon.style.margin = '0.75rem 0 0.5rem';
+    mysteryContainer.appendChild(mysteryIcon);
+
+    const mysteryTitle = document.createElement('div');
+    mysteryTitle.textContent = 'Unknown Vessel';
+    mysteryTitle.style.fontWeight = 'bold';
+    mysteryTitle.style.color = '#888';
+    mysteryTitle.style.marginBottom = '0.25rem';
+    mysteryContainer.appendChild(mysteryTitle);
+
+    const mysterySub = document.createElement('div');
+    mysterySub.textContent =
+      'Earn more lifetime credits to discover this ship class';
+    mysterySub.style.fontSize = '0.8rem';
+    mysterySub.style.color = '#666';
+    mysterySub.style.marginBottom = '0.75rem';
+    mysteryContainer.appendChild(mysterySub);
+
+    const mysteryProgressBar = document.createElement('div');
+    mysteryProgressBar.style.width = '100%';
+    mysteryProgressBar.style.height = '6px';
+    mysteryProgressBar.style.background = 'rgba(255, 255, 255, 0.1)';
+    mysteryProgressBar.style.borderRadius = '3px';
+    mysteryProgressBar.style.overflow = 'hidden';
+    mysteryProgressBar.style.marginBottom = '0.25rem';
+
+    const mysteryProgressFill = document.createElement('div');
+    mysteryProgressFill.style.height = '100%';
+    mysteryProgressFill.style.background = tierColor;
+    mysteryProgressFill.style.transition = 'width 0.3s ease';
+    mysteryProgressFill.style.borderRadius = '3px';
+    mysteryProgressBar.appendChild(mysteryProgressFill);
+    mysteryContainer.appendChild(mysteryProgressBar);
+
+    const mysteryProgressLabel = document.createElement('div');
+    mysteryProgressLabel.style.fontSize = '0.75rem';
+    mysteryProgressLabel.style.color = '#666';
+    mysteryContainer.appendChild(mysteryProgressLabel);
+
+    card.appendChild(mysteryContainer);
+
+    // ── Detail container (shown when unlocked) ──
+    const detailContainer = document.createElement('div');
+
     // Static header
     const header = document.createElement('div');
     header.style.display = 'flex';
@@ -1035,7 +1104,7 @@ function createShipPurchase(
     priceDiv.textContent = formatCredits(shipClass.price);
     header.appendChild(priceDiv);
 
-    card.appendChild(header);
+    detailContainer.appendChild(header);
 
     // Static description
     const desc = document.createElement('div');
@@ -1043,7 +1112,7 @@ function createShipPurchase(
     desc.style.color = '#aaa';
     desc.style.marginBottom = '0.5rem';
     desc.textContent = shipClass.description;
-    card.appendChild(desc);
+    detailContainer.appendChild(desc);
 
     // Static specs
     const specs = document.createElement('div');
@@ -1073,7 +1142,7 @@ function createShipPurchase(
 
     specs.innerHTML = `Crew: ${shipClass.maxCrew} | Cargo: ${formatMass(availableCargoKg)} | Equip: ${slotLabel}<br>Range: <span style="color: #4ade80; font-weight: bold;">${rangeFormatted} km</span> <span style="color: #aaa;">(${rangeLabel})</span>`;
     specs.title = `Max range with default engine: ${maxRangeKm.toLocaleString()} km`;
-    card.appendChild(specs);
+    detailContainer.appendChild(specs);
 
     // #4: Default engine line
     const engineLine = document.createElement('div');
@@ -1081,7 +1150,7 @@ function createShipPurchase(
     engineLine.style.color = '#888';
     engineLine.style.marginBottom = '0.5rem';
     engineLine.innerHTML = `Engine: ${defaultEngine.icon} <span style="color: #aaa;">${defaultEngine.name}</span> <span style="color: #666;">(${defaultEngine.type})</span>`;
-    card.appendChild(engineLine);
+    detailContainer.appendChild(engineLine);
 
     // #1: Facilities — room/feature icon badges
     const facilitiesRow = document.createElement('div');
@@ -1135,7 +1204,7 @@ function createShipPurchase(
       facilitiesRow.appendChild(badge);
     }
 
-    card.appendChild(facilitiesRow);
+    detailContainer.appendChild(facilitiesRow);
 
     // #2: Included equipment
     const equipSection = document.createElement('div');
@@ -1159,7 +1228,7 @@ function createShipPurchase(
     equipList.textContent = equipNames;
     equipSection.appendChild(equipList);
 
-    card.appendChild(equipSection);
+    detailContainer.appendChild(equipSection);
 
     // Resource cost display (static — only shown for ships with resource costs)
     const resCosts = formatResourceCost(shipClass);
@@ -1184,28 +1253,22 @@ function createShipPurchase(
         .join(', ');
       resCostDiv.appendChild(resValues);
 
-      card.appendChild(resCostDiv);
+      detailContainer.appendChild(resCostDiv);
     }
 
-    // State 1: Locked message (toggled via display)
-    const lockMsg = document.createElement('div');
-    lockMsg.style.fontSize = '0.85rem';
-    lockMsg.style.color = '#ff4444';
-    card.appendChild(lockMsg);
-
-    // State 2: Insufficient funds message (toggled via display)
+    // Insufficient funds message (toggled via display)
     const affordMsg = document.createElement('div');
     affordMsg.style.fontSize = '0.85rem';
     affordMsg.style.color = '#ffa500';
-    card.appendChild(affordMsg);
+    detailContainer.appendChild(affordMsg);
 
-    // State 2b: Insufficient resources message (toggled via display)
+    // Insufficient resources message (toggled via display)
     const resourceMsg = document.createElement('div');
     resourceMsg.style.fontSize = '0.85rem';
     resourceMsg.style.color = '#ff8800';
-    card.appendChild(resourceMsg);
+    detailContainer.appendChild(resourceMsg);
 
-    // State 3: Buy form (toggled via display)
+    // Buy form (toggled via display)
     const buyContainer = document.createElement('div');
     buyContainer.style.display = 'flex';
     buyContainer.style.flexWrap = 'wrap';
@@ -1255,11 +1318,17 @@ function createShipPurchase(
     });
     buyContainer.appendChild(buyBtn);
 
-    card.appendChild(buyContainer);
+    detailContainer.appendChild(buyContainer);
+
+    card.appendChild(detailContainer);
 
     cardRefs.push({
       classId: shipClass.id,
-      lockMsg,
+      card,
+      mysteryContainer,
+      mysteryProgressFill,
+      mysteryProgressLabel,
+      detailContainer,
       affordMsg,
       resourceMsg,
       buyContainer,
@@ -1277,38 +1346,47 @@ function createShipPurchase(
       if (!sc) continue;
 
       const isUnlocked = gameData.lifetimeCreditsEarned >= sc.unlockThreshold;
-      const canAffordCredits = gameData.credits >= sc.price;
-      const hasResources = canAffordResources(gameData.ships, sc);
-      const shortfalls = canAffordCredits
-        ? checkResourceCost(gameData.ships, sc)
-        : [];
+
+      // Toggle mystery vs detail containers
+      refs.mysteryContainer.style.display = isUnlocked ? 'none' : '';
+      refs.detailContainer.style.display = isUnlocked ? '' : 'none';
+      refs.card.style.borderStyle = isUnlocked ? 'solid' : 'dashed';
+      refs.card.style.borderColor = isUnlocked ? '#555' : '#333';
 
       if (!isUnlocked) {
-        refs.lockMsg.textContent = `Unlock at ${sc.unlockThreshold.toLocaleString()} lifetime credits earned`;
-        refs.lockMsg.style.display = '';
-        refs.affordMsg.style.display = 'none';
-        refs.resourceMsg.style.display = 'none';
-        refs.buyContainer.style.display = 'none';
-      } else if (!canAffordCredits) {
-        refs.lockMsg.style.display = 'none';
-        refs.affordMsg.textContent = `Insufficient funds (need ${(sc.price - gameData.credits).toLocaleString()} more credits)`;
-        refs.affordMsg.style.display = '';
-        refs.resourceMsg.style.display = 'none';
-        refs.buyContainer.style.display = 'none';
-      } else if (!hasResources) {
-        refs.lockMsg.style.display = 'none';
-        refs.affordMsg.style.display = 'none';
-        const missing = shortfalls
-          .map((s) => `${s.name}: ${s.available}/${s.required}`)
-          .join(', ');
-        refs.resourceMsg.textContent = `Insufficient resources (${missing})`;
-        refs.resourceMsg.style.display = '';
-        refs.buyContainer.style.display = 'none';
+        // Update mystery progress bar
+        const progress =
+          sc.unlockThreshold > 0
+            ? (gameData.lifetimeCreditsEarned / sc.unlockThreshold) * 100
+            : 100;
+        refs.mysteryProgressFill.style.width = `${Math.min(100, progress)}%`;
+        refs.mysteryProgressLabel.textContent = `${formatCredits(gameData.lifetimeCreditsEarned)} / ${formatCredits(sc.unlockThreshold)} (${Math.floor(progress)}%)`;
       } else {
-        refs.lockMsg.style.display = 'none';
-        refs.affordMsg.style.display = 'none';
-        refs.resourceMsg.style.display = 'none';
-        refs.buyContainer.style.display = '';
+        // Existing affordability/resource logic
+        const canAffordCredits = gameData.credits >= sc.price;
+        const hasResources = canAffordResources(gameData.ships, sc);
+        const shortfalls = canAffordCredits
+          ? checkResourceCost(gameData.ships, sc)
+          : [];
+
+        if (!canAffordCredits) {
+          refs.affordMsg.textContent = `Insufficient funds (need ${(sc.price - gameData.credits).toLocaleString()} more credits)`;
+          refs.affordMsg.style.display = '';
+          refs.resourceMsg.style.display = 'none';
+          refs.buyContainer.style.display = 'none';
+        } else if (!hasResources) {
+          refs.affordMsg.style.display = 'none';
+          const missing = shortfalls
+            .map((s) => `${s.name}: ${s.available}/${s.required}`)
+            .join(', ');
+          refs.resourceMsg.textContent = `Insufficient resources (${missing})`;
+          refs.resourceMsg.style.display = '';
+          refs.buyContainer.style.display = 'none';
+        } else {
+          refs.affordMsg.style.display = 'none';
+          refs.resourceMsg.style.display = 'none';
+          refs.buyContainer.style.display = '';
+        }
       }
     }
   }

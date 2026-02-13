@@ -945,7 +945,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
         heading: 'Ship Class Access',
         paragraphs: [
           'Higher-class ships require higher [[skill-system|piloting]] skill from the helm crew member. Class II requires Piloting 25 (Competent), Class III requires Piloting 50 (Able).',
-          'Ships are also unlocked by lifetime [[credits-economy|credits]] earned — progress bars on each ship card in the Fleet tab and in Settings show how close you are to unlocking the next tier.',
+          'Ships are unlocked by lifetime [[credits-economy|credits]] earned. Locked ships appear as mystery placeholders — the Settings tab and Fleet tab show progress toward the next discovery.',
         ],
       },
     ],
