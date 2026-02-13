@@ -398,10 +398,15 @@ export function initializeFlight(
   let estimatedArrivalGameTime: number | undefined;
 
   if (orbital) {
-    // Compute origin position
+    // Compute origin position at launch time (initial guess)
     flightOriginPos =
       orbital.originPos ??
       getLocationPosition(origin, orbital.gameTime, orbital.world);
+
+    // For non-redirect flights, pass origin location so the solver
+    // computes both positions at the same future time. This cancels out
+    // common orbital motion for co-orbiting bodies (e.g. LEO station → Earth).
+    const originForSolver = orbital.originPos ? undefined : origin;
 
     // Solve intercept: where will the destination be when we arrive?
     const interceptResult = solveIntercept(
@@ -417,11 +422,16 @@ export function initializeFlight(
         return timing.totalTime;
       },
       orbital.gameTime,
-      orbital.world
+      orbital.world,
+      10,
+      originForSolver
     );
 
     distanceKm = interceptResult.travelDistanceKm;
     flightInterceptPos = interceptResult.interceptPos;
+    // Use co-moving origin position so originPos and interceptPos share
+    // the same time reference, keeping the interpolated path correct.
+    flightOriginPos = interceptResult.originPosAtArrival;
     estimatedArrivalGameTime = interceptResult.arrivalGameTime;
   } else {
     // Legacy: use static distance
@@ -719,6 +729,20 @@ export function advanceFlight(flight: FlightState): boolean {
         0.5 * flight.acceleration * timeIntoDecel * timeIntoDecel;
       flight.distanceCovered = accelDistance + coastDistance + decelDistance;
     }
+  }
+
+  // Safety: if distance covered meets or exceeds totalDistance (e.g. after a
+  // course correction reduced totalDistance mid-flight), complete immediately.
+  // This prevents ships from being stuck for the original (stale) totalTime
+  // while crew starves.
+  if (flight.distanceCovered >= flight.totalDistance) {
+    flight.distanceCovered = flight.totalDistance;
+    flight.currentVelocity = 0;
+    flight.phase = 'decelerating';
+    if (flight.interceptPos) {
+      flight.shipPos = { ...flight.interceptPos };
+    }
+    return true;
   }
 
   // Update 2D ship position via linear interpolation
