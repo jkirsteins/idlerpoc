@@ -263,6 +263,103 @@ export interface EngineInstance {
   warmupProgress: number; // 0-100
 }
 
+// ─── Personality & Chronicle Types ──────────────────────────────
+
+export type PersonalityTrait =
+  | 'stoic'
+  | 'reckless'
+  | 'cautious'
+  | 'gregarious'
+  | 'meticulous'
+  | 'pragmatic'
+  | 'idealistic'
+  | 'sardonic'
+  | 'loyal'
+  | 'ambitious';
+
+export interface CrewPersonality {
+  trait1: PersonalityTrait;
+  trait2: PersonalityTrait;
+}
+
+export type ChronicleEventType =
+  | 'hired'
+  | 'death'
+  | 'near_death'
+  | 'skill_milestone'
+  | 'role_change'
+  | 'combat_victory'
+  | 'negotiation_save'
+  | 'rescue_participant'
+  | 'stranded'
+  | 'gravity_assist_master'
+  | 'contract_milestone'
+  | 'crew_departed'
+  | 'boarding_survived'
+  | 'close_call'
+  | 'first_visit'
+  | 'mining_bonanza'
+  | 'ship_maiden_voyage'
+  | 'relationship_formed'
+  | 'comrade_lost';
+
+export interface ChronicleEntry {
+  gameTime: number;
+  type: ChronicleEventType;
+  actorId: string;
+  actorType: 'crew' | 'ship';
+  shipId: string;
+  shipName: string;
+  locationId?: string;
+  details: Record<string, string | number | boolean>;
+  emotionalWeight: number; // -3 (devastating) to +3 (triumphant)
+  tags: string[];
+}
+
+export type ArcType =
+  | 'rags_to_riches'
+  | 'survivor'
+  | 'iron_crew'
+  | 'legend_pilot'
+  | 'merchant_prince'
+  | 'rescue_hero'
+  | 'old_reliable'
+  | 'cursed_ship'
+  | 'lucky_ship'
+  | 'from_ashes'
+  | 'frontier_pioneer'
+  | 'battle_brothers'
+  | 'mentor_protege';
+
+export interface StoryArc {
+  id: string;
+  arcType: ArcType;
+  title: string;
+  actorId: string;
+  actorName: string;
+  shipId?: string;
+  shipName?: string;
+  entries: ChronicleEntry[];
+  detectedAt: number;
+  emotionalArc: number[];
+  shareText?: string;
+  rating: number; // 1-5 drama rating
+}
+
+export interface StoryState {
+  detectedArcs: StoryArc[];
+  dismissedArcIds: string[];
+  lastScanGameTime: number;
+}
+
+export interface CrewRelationship {
+  otherCrewId: string;
+  otherCrewName: string;
+  bond: number; // 0-100
+  bondType: 'shipmate' | 'battle_brother' | 'mentor';
+  sharedEvents: number;
+}
+
 export interface CrewMember {
   id: string;
   name: string;
@@ -281,6 +378,9 @@ export interface CrewMember {
   hiredAt: number; // gameTime when hired (0 = game start / captain)
   boardedShipAt: number; // gameTime when joined current ship
   hiredLocation?: string; // location ID where recruited (undefined for captain)
+  personality?: CrewPersonality; // narrative traits with light mechanical effects
+  chronicle?: ChronicleEntry[]; // persistent story-relevant event history (capped at 50)
+  relationships?: CrewRelationship[]; // dynamic crew-crew bonds from shared experiences
 }
 
 export interface Room {
@@ -358,6 +458,7 @@ export interface Ship {
   activeFlightPlan?: FlightState; // Current flight plan (replaces location.flight)
   flightProfileBurnFraction: number; // 0.1-1.0: per-ship flight profile setting (1.0 = max speed, lower = more coasting, less fuel)
   selectedMiningOreId?: OreId; // Player-chosen ore to mine (undefined = auto-select highest value)
+  chronicle?: ChronicleEntry[]; // persistent ship-centric event history (capped at 50)
 }
 
 export type QuestType =
@@ -589,6 +690,7 @@ export interface CatchUpReport {
   crewLost: number; // total crew deaths across fleet during catch-up
   shipSummaries: CatchUpShipSummary[]; // per-ship consolidated summaries
   logHighlights: LogEntry[]; // notable log entries (skill-ups, etc.) from the idle period
+  newStories?: StoryArc[]; // story arcs detected during catch-up
 }
 
 /** Snapshot of lifetime earnings at the end of a game day, for rolling income averages. */
@@ -614,6 +716,7 @@ export interface GameData {
   hireableCrewByLocation: Record<string, CrewMember[]>; // key = location ID
   visitedLocations: string[]; // location IDs the player has docked at
   encounterStats?: EncounterStats;
+  stories?: StoryState; // emergent storytelling arcs and chronicle metadata
   // Time system state
   isPaused: boolean; // Global pause state
   timeSpeed: 1 | 2 | 5; // Current time speed multiplier

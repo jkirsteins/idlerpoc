@@ -197,7 +197,25 @@ function checkFirstArrival(
       locationId,
     });
     if (skillUps.length > 0) {
-      logSkillUps(gameData.log, gameData.gameTime, ship.name, skillUps);
+      logSkillUps(
+        gameData.log,
+        gameData.gameTime,
+        ship.name,
+        skillUps,
+        gameData,
+        ship
+      );
+    }
+
+    const location = gameData.world.locations.find((l) => l.id === locationId);
+    if (location) {
+      emit(gameData, {
+        type: 'first_visit',
+        ship,
+        locationId,
+        locationName: location.name,
+        distanceFromEarth: location.distanceFromEarth,
+      });
     }
   }
 }
@@ -606,6 +624,14 @@ export function completeLeg(gameData: GameData, ship: Ship): void {
         ship.name
       );
 
+      emit(gameData, {
+        type: 'contract_completed',
+        ship,
+        questTitle: quest.title,
+        tripsCompleted: 1,
+        totalCreditsEarned: 0,
+      });
+
       dockShipAtLocation(gameData, ship, arrivalLocation.id);
       ship.activeContract = null;
 
@@ -638,7 +664,14 @@ export function completeLeg(gameData: GameData, ship: Ship): void {
         tripsCompleted: 1,
       });
       if (skillUps.length > 0) {
-        logSkillUps(gameData.log, gameTime, ship.name, skillUps);
+        logSkillUps(
+          gameData.log,
+          gameTime,
+          ship.name,
+          skillUps,
+          gameData,
+          ship
+        );
       }
 
       awardCommerceRouteMastery(
@@ -647,6 +680,14 @@ export function completeLeg(gameData: GameData, ship: Ship): void {
         quest.origin,
         quest.destination
       );
+
+      emit(gameData, {
+        type: 'contract_completed',
+        ship,
+        questTitle: quest.title,
+        tripsCompleted: 1,
+        totalCreditsEarned: earned,
+      });
 
       dockShipAtLocation(gameData, ship, arrivalLocation.id);
       ship.activeContract = null;
@@ -728,8 +769,16 @@ export function completeLeg(gameData: GameData, ship: Ship): void {
       tripsCompleted: activeContract.tripsCompleted,
     });
     if (skillUps.length > 0) {
-      logSkillUps(gameData.log, gameTime, ship.name, skillUps);
+      logSkillUps(gameData.log, gameTime, ship.name, skillUps, gameData, ship);
     }
+
+    emit(gameData, {
+      type: 'contract_completed',
+      ship,
+      questTitle: quest.title,
+      tripsCompleted: activeContract.tripsCompleted,
+      totalCreditsEarned: activeContract.creditsEarned,
+    });
 
     dockShipAtLocation(gameData, ship, arrivalLocation.id);
 

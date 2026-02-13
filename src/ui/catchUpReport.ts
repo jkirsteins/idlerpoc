@@ -392,6 +392,41 @@ export function renderCatchUpReport(
     container.appendChild(quietSection);
   }
 
+  // New stories detected during catch-up
+  if (report.newStories && report.newStories.length > 0) {
+    const storiesSection = document.createElement('div');
+    storiesSection.className = 'catchup-stories';
+    storiesSection.style.marginTop = '1rem';
+
+    const storiesHeader = document.createElement('h4');
+    storiesHeader.textContent = 'New Stories Detected';
+    storiesHeader.style.color = '#e94560';
+    storiesHeader.style.marginBottom = '0.5rem';
+    storiesSection.appendChild(storiesHeader);
+
+    for (const arc of report.newStories) {
+      const storyLine = document.createElement('div');
+      storyLine.style.cssText =
+        'padding:0.4rem 0;border-bottom:1px solid #333;';
+
+      const stars =
+        '\u2605'.repeat(arc.rating) + '\u2606'.repeat(5 - arc.rating);
+      storyLine.innerHTML =
+        `<span style="color:#e94560;font-weight:bold">${arc.title}</span> ` +
+        `<span style="color:#ffc107">${stars}</span> ` +
+        `<span style="color:#888">— ${arc.actorName}</span>`;
+
+      storiesSection.appendChild(storyLine);
+    }
+
+    const hint = document.createElement('div');
+    hint.textContent = 'Visit the Stories tab to read more.';
+    hint.style.cssText = 'color:#666;font-size:0.8rem;margin-top:0.5rem;';
+    storiesSection.appendChild(hint);
+
+    container.appendChild(storiesSection);
+  }
+
   // Dismiss button
   const dismissBtn = document.createElement('button');
   dismissBtn.className = 'catchup-dismiss';

@@ -152,6 +152,16 @@ Remaining follow-up:
   - Requires combat equipment, skilled crew, and investigation capabilities
   - Could tie into encounter system, combat mechanics, reputation/faction features, and potential Investigation/Charisma skills
 
+## Deferred Storytelling Features
+
+- **LLM-Enhanced Narrative**: Use an LLM API to generate richer, more varied narrative text for detected story arcs instead of template-based synthesis. Would require API key configuration and rate limiting.
+- **Faction Reputation Arcs**: Track player reputation with the three factions (Terran Alliance, Free Traders Guild, Kreth Collective) and generate story arcs based on faction standing changes (e.g., "from outlaw to ally").
+- **Crew Diary Entries**: Periodic first-person log entries from crew members, colored by their personality traits. Would add flavor between major arc events.
+- **Cross-Ship Story Arcs**: Detect patterns that span multiple ships in the fleet (e.g., crew transferred from a cursed ship to a lucky one, fleet-wide rescue coordination).
+- **Story Arc Completion**: Track when an arc's conditions are no longer met (e.g., survivor dies) and mark it as complete with an epilogue.
+- **Seasonal/Timed Arcs**: Detect patterns tied to game time milestones (e.g., "first year anniversary" for long-serving crew).
+- **Player-Written Annotations**: Allow players to add their own notes/captions to detected story arcs.
+
 ## Other Known Gaps
 
 - ~~**Equipment Repair at Stations**~~: Resolved — repair job slots now work in all ship states (docked, in flight, orbiting).

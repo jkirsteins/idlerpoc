@@ -13,6 +13,7 @@ export type PlayingTab =
   | 'nav'
   | 'fleet'
   | 'log'
+  | 'stories'
   | 'guide'
   | 'settings';
 
@@ -61,4 +62,6 @@ export interface TabbedViewCallbacks {
   onSelectMiningOre: (oreId: string | null) => void;
   onSpendPoolXp?: (crewId: string, skillId: SkillId, itemId: string) => void;
   onImportState?: (json: string) => void;
+  onDismissStory?: (arcId: string) => void;
+  onShareStory?: (arcId: string) => void;
 }

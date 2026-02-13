@@ -1,6 +1,7 @@
 import type { Ship, GameData } from './models';
 import { unassignCrewFromAllSlots } from './jobSlots';
 import { addLog } from './logSystem';
+import { emit } from './gameEvents';
 
 // ── Death cause tracking ────────────────────────────────────────
 // Each damage site calls recordCrewDamage() during the tick.
@@ -26,6 +27,13 @@ export function recordCrewDamage(crewId: string, cause: CrewDeathCause): void {
   _lastDamageSource[crewId] = cause;
 }
 
+/** Get the last recorded damage cause for a crew member (for near-death events). */
+export function getLastDamageSource(
+  crewId: string
+): CrewDeathCause | undefined {
+  return _lastDamageSource[crewId];
+}
+
 /**
  * Check for crew deaths after all health modifications in a tick.
  * Crew members with health <= 0 are removed from the ship.
@@ -46,6 +54,21 @@ export function processCrewDeaths(ship: Ship, gameData: GameData): boolean {
   if (deadCrew.length === 0) return false;
 
   for (const crew of deadCrew) {
+    const cause = _lastDamageSource[crew.id] as
+      | 'radiation'
+      | 'suffocation'
+      | 'starvation'
+      | 'combat'
+      | undefined;
+
+    // Emit before removing so chronicle handlers can access crew on ship
+    emit(gameData, {
+      type: 'crew_death',
+      crew,
+      ship,
+      cause: cause ?? 'combat',
+    });
+
     const crewIndex = ship.crew.indexOf(crew);
     if (crewIndex !== -1) {
       ship.crew.splice(crewIndex, 1);
@@ -53,7 +76,6 @@ export function processCrewDeaths(ship: Ship, gameData: GameData): boolean {
 
     unassignCrewFromAllSlots(ship, crew.id);
 
-    const cause = _lastDamageSource[crew.id];
     const causeText = cause ? ` ${CAUSE_MESSAGES[cause]}` : '';
     delete _lastDamageSource[crew.id];
 

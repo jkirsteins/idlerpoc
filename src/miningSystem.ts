@@ -45,6 +45,7 @@ import {
 import { getBestCrewSkill, getBestCrewPool } from './crewRoles';
 import { getAllOreDefinitions } from './oreTypes';
 import { addLog } from './logSystem';
+import { getTraitModifier } from './personalitySystem';
 import { calculateAvailableCargoCapacity } from './flightPhysics';
 import { getShipClass } from './shipClasses';
 import { formatCredits } from './formatting';
@@ -355,6 +356,9 @@ export function applyMiningTick(
         ore.id
       );
 
+      // Personality trait mining yield modifier
+      const traitMiningMod = getTraitModifier(miner, 'mining_yield');
+
       // Final yield per tick
       const oreYield =
         BASE_MINING_RATE *
@@ -363,7 +367,8 @@ export function applyMiningTick(
         (1 + masteryYieldBonus) *
         (1 + poolYieldBonus) *
         captainMiningMultiplier *
-        yieldMult;
+        yieldMult *
+        traitMiningMod;
 
       // Accumulate fractional ore
       const prevAccum = ship.miningAccumulator[ore.id] ?? 0;

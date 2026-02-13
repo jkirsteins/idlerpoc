@@ -35,7 +35,11 @@ import { getCommandTrainingMultiplier } from './captainBonus';
 import { getCrewForJobType, isRoomStaffed, getCrewJobSlot } from './jobSlots';
 import { applyOxygenTick, getOxygenHealthDamage } from './lifeSupportSystem';
 import { applyProvisionsTick } from './provisionsSystem';
-import { processCrewDeaths, recordCrewDamage } from './crewDeath';
+import {
+  processCrewDeaths,
+  recordCrewDamage,
+  getLastDamageSource,
+} from './crewDeath';
 import { checkStrandedShips } from './strandedSystem';
 import { applyMiningTick } from './miningSystem';
 import {
@@ -43,6 +47,7 @@ import {
   retryMiningRouteDeparture,
 } from './miningRoute';
 import { addLog } from './logSystem';
+import { emit } from './gameEvents';
 import {
   updateWorldPositions,
   getLocationPosition,
@@ -67,6 +72,7 @@ import {
 import { countPilotingMasteryItems } from './contractExec';
 import { getAllEquipmentDefinitions } from './equipment';
 import { getBestCrewPool } from './crewRoles';
+import { detectArcs, shouldRunArcScan } from './arcDetector';
 
 /**
  * Determine which job slot types should NOT train passively given the
@@ -390,6 +396,16 @@ function checkGravityAssists(ship: Ship, gameData: GameData): boolean {
           `${ship.name}: Gravity assist off ${assist.bodyName} — saved ${formatMass(assist.fuelRefundKg)} fuel${pilotSuffix}`,
           ship.name
         );
+
+        emit(gameData, {
+          type: 'gravity_assist',
+          ship,
+          pilotName: pilotName ?? 'unknown',
+          pilotId: bestPilot?.id ?? '',
+          bodyName: assist.bodyName,
+          fuelSaved: assist.fuelRefundKg,
+          success: true,
+        });
       } else {
         ship.fuelKg = Math.max(0, ship.fuelKg - assist.fuelPenaltyKg);
         addLog(
@@ -399,6 +415,16 @@ function checkGravityAssists(ship: Ship, gameData: GameData): boolean {
           `${ship.name}: Gravity assist at ${assist.bodyName} failed — correction burn cost ${formatMass(assist.fuelPenaltyKg)} fuel${pilotSuffix}`,
           ship.name
         );
+
+        emit(gameData, {
+          type: 'gravity_assist',
+          ship,
+          pilotName: pilotName ?? 'unknown',
+          pilotId: bestPilot?.id ?? '',
+          bodyName: assist.bodyName,
+          fuelSaved: assist.fuelPenaltyKg,
+          success: false,
+        });
       }
 
       // Award gravity assist body mastery XP to the best pilot
@@ -434,6 +460,12 @@ function checkGravityAssists(ship: Ship, gameData: GameData): boolean {
 
 function applyShipTick(gameData: GameData, ship: Ship): boolean {
   let changed = false;
+
+  // Snapshot crew health for near-death detection (before any damage sources)
+  const healthSnapshot = new Map<string, number>();
+  for (const crew of ship.crew) {
+    healthSnapshot.set(crew.id, crew.health);
+  }
 
   // Track flight vs idle time
   if (ship.location.status === 'in_flight') {
@@ -844,7 +876,14 @@ function applyShipTick(gameData: GameData, ship: Ship): boolean {
       inactiveJobs
     );
     if (skillUps.length > 0) {
-      logSkillUps(gameData.log, gameData.gameTime, ship.name, skillUps);
+      logSkillUps(
+        gameData.log,
+        gameData.gameTime,
+        ship.name,
+        skillUps,
+        gameData,
+        ship
+      );
     }
 
     // === MINING ===
@@ -957,6 +996,8 @@ function applyShipTick(gameData: GameData, ship: Ship): boolean {
     changed = true;
   }
 
+  emitNearDeathEvents(gameData, ship, healthSnapshot);
+
   // Crew death check — runs after all health modifications (radiation, oxygen,
   // starvation, combat). Captain health floors at 1 (player avatar).
   if (processCrewDeaths(ship, gameData)) {
@@ -964,6 +1005,33 @@ function applyShipTick(gameData: GameData, ship: Ship): boolean {
   }
 
   return changed;
+}
+
+/**
+ * Emit near-death events for crew who dropped below 15 HP but are still alive.
+ * Extracted from applyShipTick to reduce cyclomatic complexity.
+ */
+function emitNearDeathEvents(
+  gameData: GameData,
+  ship: Ship,
+  healthSnapshot: Map<string, number>
+): void {
+  for (const crew of ship.crew) {
+    if (crew.isCaptain) continue; // Captain can't die
+    const prevHealth = healthSnapshot.get(crew.id) ?? 100;
+    if (prevHealth >= 15 && crew.health < 15 && crew.health > 0) {
+      const cause = getLastDamageSource(crew.id) ?? 'combat';
+
+      emit(gameData, {
+        type: 'crew_near_death',
+        crew,
+        ship,
+        healthRemaining: crew.health,
+        prevHealth,
+        cause,
+      });
+    }
+  }
 }
 
 /**
@@ -1056,6 +1124,11 @@ export function applyTick(
 
   // Check for stranded ships (log warnings, auto-pause)
   checkStrandedShips(gameData);
+
+  // Periodic arc detection (~every game day)
+  if (shouldRunArcScan(gameData)) {
+    detectArcs(gameData);
+  }
 
   return changed;
 }

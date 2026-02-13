@@ -3,6 +3,7 @@ import { calculateOneLegFuelKg } from './flightPhysics';
 import { getDistanceBetween } from './utils';
 import { getProvisionsSurvivalDays } from './provisionsSystem';
 import { addLog } from './logSystem';
+import { emit } from './gameEvents';
 
 /**
  * Stranded Ship Detection
@@ -190,6 +191,13 @@ export function checkStrandedShips(gameData: GameData): void {
         `${ship.name} is stranded at ${info?.location.name ?? 'unknown location'}! No fuel to reach a refueling station.${survivalMsg}`,
         ship.name
       );
+
+      emit(gameData, {
+        type: 'ship_stranded',
+        ship,
+        locationId: info?.locationId ?? '',
+        provisionsDays: info?.survivalDays ?? 0,
+      });
 
       // Auto-pause on critical alert
       if (gameData.autoPauseSettings.onCriticalAlert) {

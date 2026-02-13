@@ -105,6 +105,18 @@ When adding new mechanics that react to state transitions:
 - **Keep handlers idempotent.** They may fire multiple times for the same logical event (e.g. dock → fail to depart → dock again at the same location).
 - **The event bus module (`src/gameEvents.ts`) must have zero game-system imports** (only type imports from `models`). Game systems subscribe from their own init functions to avoid circular dependencies.
 
+# Emergent Storytelling System
+
+The game features a passive emergent storytelling layer that observes gameplay events and detects narrative arcs. See `docs/emergent-storytelling.md` for the full system design and `docs/bibliography.md` for prior art references.
+
+Key architectural rules:
+
+- **Chronicle entries** are actor-centric (per crew/ship), capped at 50 per actor, and enriched with emotional weight. They are distinct from log entries.
+- **Personality traits** provide light mechanical effects (±5-10%) that stack additively. Both traits are generated deterministically from crew ID hash. Apply trait modifiers via `getTraitModifier(crew, effect)` from `src/personalitySystem.ts`.
+- **Arc detection** runs every 480 ticks (~1 game day) and after catch-up. Patterns are defined in `src/arcPatterns.ts`. The system is read-only — it observes but never generates gameplay events.
+- **The event bus** (`src/gameEvents.ts`) is the integration point. Chronicle-worthy events are emitted from game systems and consumed by `src/chronicleSystem.ts`. New chronicle-worthy events should emit via the event bus, not hook into `addLog()`.
+- **All new fields** (personality, chronicle, relationships, stories) are optional on existing types — no save migration needed.
+
 # Additional rules
 
 - Consult README for project scope before starting work. See if any other markdown files (\*.md pattern, in root and in docs/ folder) might be relevant. If so, read them.

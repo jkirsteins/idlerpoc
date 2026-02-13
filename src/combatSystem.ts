@@ -1,5 +1,6 @@
 import type {
   Ship,
+  CrewMember,
   GameData,
   EncounterResult,
   EncounterOutcome,
@@ -16,7 +17,11 @@ import {
   type SkillEvent,
 } from './skillProgression';
 import { getCrewForJobType } from './jobSlots';
-import { getBestCrewSkill, getBestCrewPool } from './crewRoles';
+import {
+  getBestCrewSkill,
+  getBestCrewPool,
+  getBestCrewMember,
+} from './crewRoles';
 import {
   getCommandPilotingBonus,
   getCommandRallyBonus,
@@ -24,6 +29,8 @@ import {
 } from './captainBonus';
 import { recordCrewDamage } from './crewDeath';
 import { getPilotingPoolEvasionBonus } from './masterySystem';
+import { emit } from './gameEvents';
+import { getTraitModifier } from './personalitySystem';
 
 /**
  * Combat System
@@ -175,6 +182,12 @@ export function attemptEvasion(ship: Ship): {
   const bestPiloting = getBestCrewSkill(bridgeCrew, 'piloting');
   const pilotingBonus = bestPiloting * COMBAT_CONSTANTS.EVASION_SKILL_FACTOR;
 
+  // Personality trait evasion modifier (from best pilot)
+  const bestPilot = getBestCrewMember(bridgeCrew, 'piloting');
+  const traitEvasionMod = bestPilot
+    ? getTraitModifier(bestPilot, 'evasion')
+    : 1.0;
+
   // Captain command bonus: captain's piloting adds extra evasion
   const commandEvasionBonus = getCommandPilotingBonus(ship) * 0.15;
 
@@ -184,11 +197,12 @@ export function attemptEvasion(ship: Ship): {
   );
 
   const chance =
-    velocityFactor +
-    scannerBonus +
-    pilotingBonus +
-    commandEvasionBonus +
-    poolEvasionBonus;
+    (velocityFactor +
+      scannerBonus +
+      pilotingBonus +
+      commandEvasionBonus +
+      poolEvasionBonus) *
+    traitEvasionMod;
   const success = Math.random() < chance;
 
   return { success, chance };
@@ -207,16 +221,24 @@ export function attemptNegotiation(ship: Ship): {
   let bestCommerce = 0;
   let negotiatorName = '';
   let negotiatorId = '';
+  let bestNegotiator: CrewMember | undefined;
 
   for (const crew of ship.crew) {
     if (crew.skills.commerce > bestCommerce) {
       bestCommerce = crew.skills.commerce;
       negotiatorName = crew.name;
       negotiatorId = crew.id;
+      bestNegotiator = crew;
     }
   }
 
-  const chance = bestCommerce / COMBAT_CONSTANTS.NEGOTIATION_DIVISOR;
+  // Personality trait negotiation modifier
+  const traitNegMod = bestNegotiator
+    ? getTraitModifier(bestNegotiator, 'negotiation')
+    : 1.0;
+
+  const chance =
+    (bestCommerce / COMBAT_CONSTANTS.NEGOTIATION_DIVISOR) * traitNegMod;
   const success = Math.random() < chance;
 
   return { success, chance, negotiatorName, negotiatorId };
@@ -266,6 +288,9 @@ export function calculateDefenseScore(ship: Ship): number {
       const eqDef = getCrewEquipmentDefinition(eq.definitionId);
       crewCombat += eqDef.attackScore;
     }
+
+    // Personality trait modifier: reckless +10%, meticulous -5%
+    crewCombat *= getTraitModifier(crew, 'combat_attack');
 
     // Health modifier
     crewCombat *= crew.health / 100;
@@ -479,7 +504,14 @@ export function applyEncounterOutcome(
   if (skillEvent) {
     const skillUps = awardEventSkillGains(ship, skillEvent);
     if (skillUps.length > 0) {
-      logSkillUps(gameData.log, gameData.gameTime, ship.name, skillUps);
+      logSkillUps(
+        gameData.log,
+        gameData.gameTime,
+        ship.name,
+        skillUps,
+        gameData,
+        ship
+      );
     }
   }
 }
@@ -666,6 +698,7 @@ export function resolveEncounter(
       positionKm: currentKm,
     };
     applyEncounterOutcome(result, ship, gameData);
+    emit(gameData, { type: 'encounter_resolved', result, ship });
     return result;
   }
 
@@ -691,6 +724,7 @@ export function resolveEncounter(
       negotiatorId: negotiation.negotiatorId,
     };
     applyEncounterOutcome(result, ship, gameData);
+    emit(gameData, { type: 'encounter_resolved', result, ship });
     return result;
   }
 
@@ -743,6 +777,7 @@ export function resolveEncounter(
     }
 
     applyEncounterOutcome(result, ship, gameData);
+    emit(gameData, { type: 'encounter_resolved', result, ship });
     return result;
   }
 
@@ -833,6 +868,7 @@ export function resolveEncounter(
   }
 
   applyEncounterOutcome(result, ship, gameData);
+  emit(gameData, { type: 'encounter_resolved', result, ship });
   return result;
 }
 

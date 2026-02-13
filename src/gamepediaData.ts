@@ -461,6 +461,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
       'commerce-skill',
       'crew-roles',
       'job-slots',
+      'fleet-chronicles',
     ],
   },
 
@@ -752,7 +753,13 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
         ],
       },
     ],
-    relatedArticles: ['crew-roles', 'crew-hiring', 'skill-system', 'job-slots'],
+    relatedArticles: [
+      'crew-roles',
+      'crew-hiring',
+      'skill-system',
+      'job-slots',
+      'fleet-chronicles',
+    ],
   },
 
   {
@@ -1411,6 +1418,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
       'skill-system',
       'captain-command',
       'crew-death',
+      'fleet-chronicles',
     ],
   },
 
@@ -2349,6 +2357,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
       'stranded-ships',
       'crew-hiring',
       'job-slots',
+      'fleet-chronicles',
     ],
   },
 
@@ -2431,6 +2440,149 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
       'contracts',
       'flight-physics',
       'navigation',
+    ],
+  },
+
+  // ═══════════════════════════════════════════════════════════
+  // CREW — FLEET CHRONICLES
+  // ═══════════════════════════════════════════════════════════
+  {
+    id: 'fleet-chronicles',
+    title: 'Fleet Chronicles',
+    category: 'Crew',
+    summary:
+      'Emergent stories from your crew and ships — detected automatically from gameplay events.',
+    sections: [
+      {
+        paragraphs: [
+          'Fleet Chronicles are stories that emerge naturally from your fleet operations. The game watches what happens to your crew and ships — the close calls, the long partnerships, the dramatic reversals — and assembles them into short narratives you can read and share.',
+          "You don't write these stories. They write themselves, from the events your fleet actually experiences. A pilot who survives three boardings earns a Survivor chronicle. A green recruit who climbs to Master rank gets a Rags to Riches arc. Two crew members who fight side by side through a dozen encounters become Brothers in Arms.",
+        ],
+      },
+      {
+        heading: 'How Stories Are Detected',
+        paragraphs: [
+          "The chronicle system watches for patterns in your fleet's history. Every notable event — [[encounters|combat outcomes]], [[crew-death|crew deaths]], [[contracts|contract completions]], [[rescue-missions|rescues]], [[skill-system|skill milestones]] — is recorded in each crew member's personal chronicle. Once enough events accumulate to match a recognizable story pattern, a new Fleet Chronicle is detected.",
+          'Detection runs automatically during play and after returning from an absence. The system checks for twelve story patterns:',
+        ],
+        table: {
+          headers: ['Pattern', 'What Triggers It'],
+          rows: [
+            [
+              'The Survivor',
+              'A crew member endures 3+ near-death events (boardings, starvation) and lives to tell the tale',
+            ],
+            [
+              'Rags to Riches',
+              'A green recruit rises to Proficient rank or higher in any [[skill-system|skill]]',
+            ],
+            [
+              'Old Reliable',
+              'A crew member completes 20+ trips on the same [[contracts|trade route]]',
+            ],
+            [
+              'Legend of the Void',
+              'A crew member reaches Master rank in [[skill-system|Piloting]] with 5+ combat chronicles',
+            ],
+            [
+              'The Rescue',
+              'A crew member participates in a [[rescue-missions|rescue mission]] to save a stranded ship',
+            ],
+            [
+              'Brothers in Arms',
+              'Two crew members share 5+ combat events on the same ship',
+            ],
+            [
+              'Mentor & Protege',
+              'A veteran crew member serves alongside a junior who gains 20+ skill points under their guidance',
+            ],
+            [
+              'The Cursed Ship',
+              'A ship suffers 5+ boarding/harassment events and 2+ [[crew-death|crew deaths]]',
+            ],
+            [
+              "Fortune's Favor",
+              'A ship achieves 8+ successful [[encounters|evasions]] or negotiations with zero boardings',
+            ],
+            [
+              'From the Ashes',
+              'A [[stranded-ships|stranded]] ship is rescued and goes on to complete 10+ contracts',
+            ],
+            [
+              'Frontier Pioneer',
+              'A crew member visits 5+ unique locations, exploring the solar system',
+            ],
+            [
+              'The Iron Crew',
+              'A ship keeps the same crew for 30+ days with 10+ completed contracts and zero losses',
+            ],
+          ],
+        },
+      },
+      {
+        heading: 'Personality Traits',
+        paragraphs: [
+          "Every crew member has two personality traits that affect how they perform and how their stories are told. Traits are innate — they're determined when a crew member is generated and never change.",
+          'Traits provide small gameplay bonuses and penalties (typically 5-10%) to specific activities. A reckless crew member hits harder in [[encounters|combat]] but is worse at evasion. An ambitious crew member trains faster but demands higher [[crew-salaries|pay]]. A meticulous crew member excels at [[ship-equipment|repairs]] but reacts slower to threats.',
+        ],
+        table: {
+          headers: ['Trait', 'Bonus', 'Penalty'],
+          rows: [
+            ['Stoic', '+10% morale recovery', '-5% negotiation'],
+            ['Reckless', '+10% combat attack', '-10% evasion'],
+            ['Cautious', '+10% evasion', '-5% combat attack'],
+            [
+              'Gregarious',
+              '+10% negotiation',
+              '-5% [[mining-system|mining]] yield',
+            ],
+            ['Meticulous', '+10% repair speed', '-5% encounter reaction'],
+            [
+              'Pragmatic',
+              '+10% [[contracts|trade]] income',
+              '-5% morale recovery',
+            ],
+            [
+              'Idealistic',
+              '+10% departure resistance',
+              '-5% salary expectation',
+            ],
+            ['Sardonic', '+5% morale recovery', '-5% departure resistance'],
+            ['Loyal', '+10% departure resistance', '-5% trade income'],
+            ['Ambitious', '+10% training speed', '-10% salary expectation'],
+          ],
+        },
+      },
+      {
+        heading: 'Personality and Narration',
+        paragraphs: [
+          "Beyond gameplay effects, traits color the narrative text in each chronicle. A stoic survivor's story is told with quiet understatement. A sardonic survivor's story is told with dark humor. The same events produce different stories depending on who experienced them.",
+          'Crew relationships also develop over time. Crew members who serve together on the same ship build bonds. Shared danger accelerates this — combat events and crises forge stronger connections. When a bonded crew member dies, their shipmates gain a Comrade Lost entry in their chronicle, acknowledging the loss in their personal story.',
+        ],
+      },
+      {
+        heading: 'Finding and Reading Stories',
+        paragraphs: [
+          'Detected stories appear in the Stories tab. Each story card shows the title, the crew member or ship involved, a narrative summary, and a rating based on how dramatic the underlying events were.',
+          'The fleet keeps up to 30 active stories. When new stories are detected and the list is full, the lowest-rated story is automatically archived to make room. You can also dismiss stories manually — dismissed stories move to an archive section where they can still be read.',
+        ],
+      },
+      {
+        heading: 'Sharing Stories',
+        paragraphs: [
+          "Every story card has sharing options. Copy as Text produces a formatted text version for pasting into messages or forums. Export as Image creates a styled PNG with the game's visual theme — suitable for sharing on social media or with friends.",
+          "On devices that support it, a Share button uses your device's native sharing capabilities to send the story directly to other apps.",
+        ],
+      },
+    ],
+    relatedArticles: [
+      'skill-system',
+      'crew-roles',
+      'crew-profiles',
+      'encounters',
+      'crew-death',
+      'rescue-missions',
+      'contracts',
     ],
   },
 ];

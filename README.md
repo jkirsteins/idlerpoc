@@ -166,6 +166,7 @@ npm run dev
   - Fast-forward severity cap (boarding → harassment during catch-up)
   - Catch-up report modal summarizing encounters that occurred while away
   - Encounter cooldown prevents rapid consecutive encounters per ship
+- **Emergent Storytelling**: Dwarf Fortress-inspired narrative system that passively observes gameplay events and detects story arcs (survivor, rags-to-riches, cursed ship, battle brothers, etc.). Crew personalities with 10 trait types provide light mechanical effects and color narrative text. Stories are shareable via clipboard text or PNG image export. See the Stories tab and `docs/emergent-storytelling.md`
 - **Event Log**: Rolling log of the most recent 200 events (departures, arrivals, payments, contract completions, encounters); older entries pruned automatically
 - **Resource Tracking**: Monitor credits, fuel, oxygen, crew count, and power consumption
 - **Daily Ledger**: Fleet-wide financial overview with 7-day rolling income average, projected crew/fuel expenses per day, net income rate, and runway indicator. Appears in header bar, left sidebar, and Fleet Performance Dashboard
