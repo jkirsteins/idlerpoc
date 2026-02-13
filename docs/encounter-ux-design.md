@@ -2,7 +2,7 @@
 
 **Prepared by:** UX Designer
 **For:** Phase B Implementation Team
-**Status:** Design specification for implementation
+**Status:** Implemented — encounter UI integrated into Ship, Nav, Work, and Log tabs
 
 ---
 
@@ -289,7 +289,7 @@ interface CatchUpReport {
 
 ## 7. Information Architecture: Three Categories
 
-Following phase_b.md's grouping, encounter info is organized into three categories wherever detailed information is shown (expanded quest cards, navigation legend, future ship readiness panel):
+Encounter info is organized into three categories wherever detailed information is shown (expanded quest cards, navigation legend, future ship readiness panel):
 
 ### 7.1 Route Risk
 

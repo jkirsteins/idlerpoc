@@ -2,13 +2,13 @@
 
 ## Purpose
 
-Validate that the cost-based quest payment system (from `economy-rebalancing.md`) remains profitable under realistic kg-based fuel costs.
+Validate that the cost-based quest payment system (implemented in `src/questGen.ts`) remains profitable under realistic kg-based fuel costs.
 
 ## Methodology
 
 For each ship class and representative routes:
 
-1. Calculate realistic fuel consumption (kg) from fuel_analysis.md
+1. Calculate realistic fuel consumption (kg) from `src/flightPhysics.ts`
 2. Calculate fuel costs using proposed refueling prices
 3. Calculate crew costs from existing salary system
 4. Verify quest payment (130-200% floor) covers costs with profit margin
@@ -62,7 +62,7 @@ Quest profit margins now scale inversely with distance (implemented in `src/ques
 
 ### Route 1: Earth → Gateway Station (400 km)
 
-**Fuel Analysis** (from fuel_analysis.md):
+**Fuel Analysis** (from `src/flightPhysics.ts`):
 
 - Chemical engines very inefficient
 - Estimated fuel: ~500 kg one-way (limited delta-v budget)
@@ -71,7 +71,7 @@ Quest profit margins now scale inversely with distance (implemented in `src/ques
 **Cost Breakdown**:
 
 - Fuel cost: 1,000 kg × 1.6 cr/kg (Earth price) = 1,600 cr
-- Trip time: ~1,191 ticks (from economy-rebalancing.md)
+- Trip time: ~1,191 ticks
 - Crew cost: 2.5 cr/tick × 1,191 = 2,978 cr
 - **Total cost**: 4,578 cr
 
@@ -105,7 +105,7 @@ Quest profit margins now scale inversely with distance (implemented in `src/ques
 
 ### Route 1: Earth → Gateway Station (400 km)
 
-**Fuel Analysis** (from fuel_analysis.md):
+**Fuel Analysis** (from `src/flightPhysics.ts`):
 
 - Δv required: ~430 m/s
 - Fuel mass: ~10,000 kg one-way
@@ -134,7 +134,7 @@ Quest profit margins now scale inversely with distance (implemented in `src/ques
 
 ### Route 2: Earth → Meridian Depot (20,000 km)
 
-**Fuel Analysis** (from fuel_analysis.md):
+**Fuel Analysis** (from `src/flightPhysics.ts`):
 
 - Δv required: ~3,000 m/s
 - Fuel mass: ~80,000 kg one-way
@@ -183,7 +183,7 @@ Quest profit margins now scale inversely with distance (implemented in `src/ques
 
 ### Route 4: Earth → Mars (54.6M km)
 
-**Fuel Analysis** (from fuel_analysis.md):
+**Fuel Analysis** (from `src/flightPhysics.ts`):
 
 - Δv required: ~20,000 m/s
 - Fuel mass: ~600,000 kg one-way
@@ -321,7 +321,7 @@ Quest profit margins now scale inversely with distance (implemented in `src/ques
 
 ### Route 3: Earth → Mars (54.6M km)
 
-**Fuel Analysis** (from fuel_analysis.md):
+**Fuel Analysis** (from `src/flightPhysics.ts`):
 
 - Δv required: ~20,000 m/s
 - Fusion Isp (~10,000s) makes this achievable

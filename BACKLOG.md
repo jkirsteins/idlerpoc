@@ -27,7 +27,7 @@ Full design in `docs/captain-flagship-design.md`.
 ## Deferred Encounter System Features (Phase B2/B3)
 
 - **Fleet Ship Positions on Nav Map**: Show in-flight ship positions as markers on the navigation chart.
-- **Convoy Protection System**: Nearby ships on similar routes reduce encounter probability (formula in phase_b.md).
+- **Convoy Protection System**: Nearby ships on similar routes reduce encounter probability.
 - **Convoy Protection UI**: Display convoy status and risk reduction in navigation view and flight status.
 - **Ship Readiness Summary on Quest Cards**: Show defense equipment status for CAUTION+ routes.
 - **Crew Competence Display**: Show best piloting/mining/commerce skills as compact readiness line.
@@ -101,7 +101,7 @@ Current ship equipment (20 items) is dominated by mandatory survival systems. "F
 
 - **Enforce Piloting Tier Requirements**: Block ship purchase/departure when no helm crew meets the piloting tier. Currently defined in skillRanks.ts but not enforced.
 - **Enforce Piloting-Gated Destinations**: Prevent navigation to locations where crew piloting skill doesn't meet `pilotingRequirement`. Currently defined but not enforced in flight initialization.
-- **Mastery Pool Spending UI**: Allow players to spend mastery pool XP to boost specific item mastery levels. Core mechanic designed in `docs/skill-revamp-design.md` but UI not built.
+- **Mastery Pool Spending UI**: Allow players to spend mastery pool XP to boost specific item mastery levels. Core mechanic designed in `src/masterySystem.ts` but UI not built.
 - **Mastery Pool Checkpoint Bonuses (Active)**: The mastery pool checkpoint definitions exist in `masterySystem.ts` but actual gameplay effects (auto-refuel at 95%, preserve ore on fail at 50%, etc.) are not wired into game systems yet.
 - **Item Mastery Bonuses (Active)**: Per-item mastery bonuses for routes and trade routes are defined but not applied during gameplay calculations. Mining ore mastery yield bonuses are now active.
 - ~~**Mining Ore Selection UI**~~: **DONE** — Ore material picker allows selecting which ore to mine per-ship. Auto-select defaults to highest-value ore. See mining panel in Work tab.
@@ -153,7 +153,7 @@ Remaining follow-up:
 - ~~**Equipment Repair at Stations**~~: Resolved — repair job slots now work in all ship states (docked, in flight, orbiting).
 - **Morale System**: Morale is initialized on crew members but never modified or used. No decay, recovery, or gameplay effects. Galley and rest slots reference morale in design but provide no morale effect in code.
 - **Loyalty Skill Thresholds**: Three loyalty thresholds (morale decay reduction at 25, salary discount at 50, departure delay at 75) are documented in `skillRanks.ts` comments but none are implemented. Loyalty is not a current skill.
-- **Additional Skills**: Astrogation, Engineering, Strength, Charisma, and Loyalty skills are designed in WORLDRULES.md but not implemented. Only Piloting, Mining, and Commerce exist.
+- **Additional Skills**: Astrogation, Engineering, Strength, Charisma, and Loyalty skills are designed in WORLDRULES.md but not implemented. Only Piloting, Mining, Commerce, and Repairs exist.
 - **Health Recovery Mechanic**: Health can decrease; patient job slot provides in-flight recovery. Station recovery not yet implemented.
 - **Ship Unlocking**: All ships except Station Keeper are locked. Need unlock progression system.
 - **Cargo Weight Estimation**: Currently hardcoded `* 100`. Need proper cargo weight tracking.
