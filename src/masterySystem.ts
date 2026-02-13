@@ -306,6 +306,11 @@ export function getPilotingPoolMasteryXpBonus(pool: MasteryPool): number {
   return isCheckpointActive(pool, 0.1) ? 0.05 : 0;
 }
 
+/** Piloting pool: +5% warmup speed at 25%. */
+export function getPilotingPoolWarmupBonus(pool: MasteryPool): number {
+  return isCheckpointActive(pool, 0.25) ? 0.05 : 0;
+}
+
 /** Piloting pool: +5% fuel efficiency at 50%. */
 export function getPilotingPoolFuelBonus(pool: MasteryPool): number {
   return isCheckpointActive(pool, 0.5) ? 0.05 : 0;
@@ -354,6 +359,11 @@ export function getCommercePoolSellBonus(pool: MasteryPool): number {
 /** Commerce pool: +10% contract payment at 95%. */
 export function getCommercePoolPaymentBonus(pool: MasteryPool): number {
   return isCheckpointActive(pool, 0.95) ? 0.1 : 0;
+}
+
+/** Repairs pool: +5% mastery XP at 10%. */
+export function getRepairsPoolMasteryXpBonus(pool: MasteryPool): number {
+  return isCheckpointActive(pool, 0.1) ? 0.05 : 0;
 }
 
 /** Repairs pool: +5% repair speed at 25%. */

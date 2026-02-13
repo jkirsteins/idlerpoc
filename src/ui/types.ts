@@ -59,5 +59,6 @@ export interface TabbedViewCallbacks {
   onStartMiningRoute: (sellLocationId: string) => void;
   onCancelMiningRoute: () => void;
   onSelectMiningOre: (oreId: string | null) => void;
+  onSpendPoolXp?: (crewId: string, skillId: SkillId, itemId: string) => void;
   onImportState?: (json: string) => void;
 }

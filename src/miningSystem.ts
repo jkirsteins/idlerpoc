@@ -40,7 +40,9 @@ import {
   getMiningPoolYieldBonus,
   getMiningPoolDoubleChance,
   getMiningPoolWearReduction,
+  getCommercePoolSellBonus,
 } from './masterySystem';
+import { getBestCrewSkill, getBestCrewPool } from './crewRoles';
 import { getAllOreDefinitions } from './oreTypes';
 import { addLog } from './logSystem';
 import { calculateAvailableCargoCapacity } from './flightPhysics';
@@ -498,16 +500,15 @@ export function getOreSellPrice(
   const locationMult = getOrePriceMultiplier(location);
 
   // Commerce skill bonus: best commerce skill on ship (captain + crew)
-  let bestCommerce = 0;
-  for (const crew of ship.crew) {
-    if (crew.skills.commerce > bestCommerce) {
-      bestCommerce = crew.skills.commerce;
-    }
-  }
+  const bestCommerce = getBestCrewSkill(ship.crew, 'commerce');
   // Commerce bonus: +0.5% per skill point (max +50% at skill 100)
   const commerceMult = 1 + bestCommerce * 0.005;
 
-  return Math.round(basePrice * locationMult * commerceMult);
+  // Commerce pool 50% checkpoint: +5% sell price for all ore and goods
+  const commercePool = getBestCrewPool(ship.crew, 'commerce');
+  const poolSellBonus = 1 + getCommercePoolSellBonus(commercePool);
+
+  return Math.round(basePrice * locationMult * commerceMult * poolSellBonus);
 }
 
 /**

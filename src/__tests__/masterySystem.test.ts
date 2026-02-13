@@ -18,6 +18,13 @@ import {
   getGravityAssistMasterySuccessBonus,
   getGravityAssistMasteryRefundBonus,
   getGravityAssistMasteryPenaltyReduction,
+  getPilotingPoolWarmupBonus,
+  getPilotingPoolFuelBonus,
+  getPilotingPoolEvasionBonus,
+  getCommercePoolSalaryReduction,
+  getCommercePoolSellBonus,
+  getCommercePoolPaymentBonus,
+  getRepairsPoolMasteryXpBonus,
 } from '../masterySystem';
 
 describe('Mastery System', () => {
@@ -377,6 +384,101 @@ describe('Mastery System', () => {
         expect(mastery[skillId].pool.maxXp).toBe(0);
         expect(Object.keys(mastery[skillId].itemMasteries)).toHaveLength(0);
       }
+    });
+  });
+
+  // ── Pool Checkpoint Bonus Helpers ─────────────────────────────
+
+  describe('pool checkpoint bonus helpers', () => {
+    const emptyPool = { xp: 0, maxXp: 0 };
+    const belowAll = { xp: 50, maxXp: 1000 }; // 5%
+    const at10 = { xp: 100, maxXp: 1000 }; // 10%
+    const at25 = { xp: 250, maxXp: 1000 }; // 25%
+    const at50 = { xp: 500, maxXp: 1000 }; // 50%
+    const at95 = { xp: 950, maxXp: 1000 }; // 95%
+
+    describe('getPilotingPoolWarmupBonus (25%)', () => {
+      it('returns 0 below threshold', () => {
+        expect(getPilotingPoolWarmupBonus(emptyPool)).toBe(0);
+        expect(getPilotingPoolWarmupBonus(belowAll)).toBe(0);
+        expect(getPilotingPoolWarmupBonus(at10)).toBe(0);
+      });
+
+      it('returns 0.05 at or above 25%', () => {
+        expect(getPilotingPoolWarmupBonus(at25)).toBe(0.05);
+        expect(getPilotingPoolWarmupBonus(at50)).toBe(0.05);
+        expect(getPilotingPoolWarmupBonus(at95)).toBe(0.05);
+      });
+    });
+
+    describe('getPilotingPoolFuelBonus (50%)', () => {
+      it('returns 0 below threshold', () => {
+        expect(getPilotingPoolFuelBonus(emptyPool)).toBe(0);
+        expect(getPilotingPoolFuelBonus(at25)).toBe(0);
+      });
+
+      it('returns 0.05 at or above 50%', () => {
+        expect(getPilotingPoolFuelBonus(at50)).toBe(0.05);
+        expect(getPilotingPoolFuelBonus(at95)).toBe(0.05);
+      });
+    });
+
+    describe('getPilotingPoolEvasionBonus (95%)', () => {
+      it('returns 0 below threshold', () => {
+        expect(getPilotingPoolEvasionBonus(emptyPool)).toBe(0);
+        expect(getPilotingPoolEvasionBonus(at50)).toBe(0);
+      });
+
+      it('returns 0.1 at or above 95%', () => {
+        expect(getPilotingPoolEvasionBonus(at95)).toBe(0.1);
+      });
+    });
+
+    describe('getCommercePoolSalaryReduction (25%)', () => {
+      it('returns 0 below threshold', () => {
+        expect(getCommercePoolSalaryReduction(emptyPool)).toBe(0);
+        expect(getCommercePoolSalaryReduction(at10)).toBe(0);
+      });
+
+      it('returns 0.05 at or above 25%', () => {
+        expect(getCommercePoolSalaryReduction(at25)).toBe(0.05);
+        expect(getCommercePoolSalaryReduction(at95)).toBe(0.05);
+      });
+    });
+
+    describe('getCommercePoolSellBonus (50%)', () => {
+      it('returns 0 below threshold', () => {
+        expect(getCommercePoolSellBonus(emptyPool)).toBe(0);
+        expect(getCommercePoolSellBonus(at25)).toBe(0);
+      });
+
+      it('returns 0.05 at or above 50%', () => {
+        expect(getCommercePoolSellBonus(at50)).toBe(0.05);
+        expect(getCommercePoolSellBonus(at95)).toBe(0.05);
+      });
+    });
+
+    describe('getCommercePoolPaymentBonus (95%)', () => {
+      it('returns 0 below threshold', () => {
+        expect(getCommercePoolPaymentBonus(emptyPool)).toBe(0);
+        expect(getCommercePoolPaymentBonus(at50)).toBe(0);
+      });
+
+      it('returns 0.1 at or above 95%', () => {
+        expect(getCommercePoolPaymentBonus(at95)).toBe(0.1);
+      });
+    });
+
+    describe('getRepairsPoolMasteryXpBonus (10%)', () => {
+      it('returns 0 below threshold', () => {
+        expect(getRepairsPoolMasteryXpBonus(emptyPool)).toBe(0);
+        expect(getRepairsPoolMasteryXpBonus(belowAll)).toBe(0);
+      });
+
+      it('returns 0.05 at or above 10%', () => {
+        expect(getRepairsPoolMasteryXpBonus(at10)).toBe(0.05);
+        expect(getRepairsPoolMasteryXpBonus(at50)).toBe(0.05);
+      });
     });
   });
 });

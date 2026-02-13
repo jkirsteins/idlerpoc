@@ -16,13 +16,14 @@ import {
   type SkillEvent,
 } from './skillProgression';
 import { getCrewForJobType } from './jobSlots';
-import { getBestCrewSkill } from './crewRoles';
+import { getBestCrewSkill, getBestCrewPool } from './crewRoles';
 import {
   getCommandPilotingBonus,
   getCommandRallyBonus,
   canNegotiate,
 } from './captainBonus';
 import { recordCrewDamage } from './crewDeath';
+import { getPilotingPoolEvasionBonus } from './masterySystem';
 
 /**
  * Combat System
@@ -177,8 +178,17 @@ export function attemptEvasion(ship: Ship): {
   // Captain command bonus: captain's piloting adds extra evasion
   const commandEvasionBonus = getCommandPilotingBonus(ship) * 0.15;
 
+  // Piloting pool 95% checkpoint: +10% evasion on all routes
+  const poolEvasionBonus = getPilotingPoolEvasionBonus(
+    getBestCrewPool(bridgeCrew, 'piloting')
+  );
+
   const chance =
-    velocityFactor + scannerBonus + pilotingBonus + commandEvasionBonus;
+    velocityFactor +
+    scannerBonus +
+    pilotingBonus +
+    commandEvasionBonus +
+    poolEvasionBonus;
   const success = Math.random() < chance;
 
   return { success, chance };

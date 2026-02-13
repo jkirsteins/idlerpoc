@@ -53,8 +53,10 @@ import {
   routeMasteryKey,
   tradeRouteMasteryKey,
   gravityAssistMasteryKey,
+  POOL_CHECKPOINTS,
 } from '../masterySystem';
 import type { MasteryBonus } from '../masterySystem';
+import { formatLargeNumber } from '../formatting';
 import { getAllOreDefinitions } from '../oreTypes';
 import { GRAVITY_BODIES } from '../gravityAssistSystem';
 import type { Component } from './component';
@@ -273,16 +275,26 @@ interface MasteryItemRowRefs {
   row: HTMLDivElement;
   nameSpan: HTMLSpanElement;
   rightSpan: HTMLSpanElement;
-  // Progress bar section (may or may not be showing)
+  // Right span children (stable, toggled via display)
+  lockSpan: HTMLSpanElement;
+  levelSpan: HTMLSpanElement;
+  undiscoveredSpan: HTMLSpanElement;
+  // Progress bar section
   barOuter: HTMLDivElement;
   barFill: HTMLDivElement;
-  // Hint line
+  // Hint line and children (stable, toggled via display)
   hintLine: HTMLDivElement;
+  hintActiveSpan: HTMLSpanElement;
+  hintSepSpan: HTMLSpanElement;
+  hintNextSpan: HTMLSpanElement;
+  // Spend pool XP button
+  spendBtn: HTMLButtonElement;
 }
 
 function createMasteryItemRow(
-  skillId: SkillId,
-  entry: MasteryItemEntry
+  _skillId: SkillId,
+  _entry: MasteryItemEntry,
+  onSpend?: () => void
 ): MasteryItemRowRefs {
   const row = document.createElement('div');
   row.style.padding = '3px 6px';
@@ -304,6 +316,36 @@ function createMasteryItemRow(
 
   row.appendChild(topLine);
 
+  // Right span children — created once, toggled via display
+  const lockSpan = document.createElement('span');
+  lockSpan.style.color = '#665522';
+  lockSpan.style.fontSize = '0.75rem';
+  lockSpan.style.display = 'none';
+  rightSpan.appendChild(lockSpan);
+
+  const levelSpan = document.createElement('span');
+  levelSpan.style.display = 'none';
+  rightSpan.appendChild(levelSpan);
+
+  const undiscoveredSpan = document.createElement('span');
+  undiscoveredSpan.style.color = '#555';
+  undiscoveredSpan.style.fontSize = '0.75rem';
+  undiscoveredSpan.style.display = 'none';
+  rightSpan.appendChild(undiscoveredSpan);
+
+  // Spend pool XP button
+  const spendBtn = document.createElement('button');
+  spendBtn.className = 'small-button';
+  spendBtn.style.display = 'none';
+  spendBtn.textContent = '+1 Lv';
+  if (onSpend) {
+    spendBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      onSpend();
+    });
+  }
+  rightSpan.appendChild(spendBtn);
+
   // Progress bar (always present, toggled via display)
   const barOuter = document.createElement('div');
   barOuter.style.width = '100%';
@@ -321,7 +363,7 @@ function createMasteryItemRow(
   barOuter.appendChild(barFill);
   row.appendChild(barOuter);
 
-  // Hint line (always present, toggled via display)
+  // Hint line and children — created once, toggled via display
   const hintLine = document.createElement('div');
   hintLine.style.fontSize = '0.7rem';
   hintLine.style.marginTop = '2px';
@@ -329,24 +371,95 @@ function createMasteryItemRow(
   hintLine.style.display = 'none';
   row.appendChild(hintLine);
 
-  const refs: MasteryItemRowRefs = {
+  const hintActiveSpan = document.createElement('span');
+  hintActiveSpan.style.color = '#4ade80';
+  hintActiveSpan.style.display = 'none';
+  hintLine.appendChild(hintActiveSpan);
+
+  const hintSepSpan = document.createElement('span');
+  hintSepSpan.textContent = ' \u00b7 ';
+  hintSepSpan.style.display = 'none';
+  hintLine.appendChild(hintSepSpan);
+
+  const hintNextSpan = document.createElement('span');
+  hintNextSpan.style.color = '#666';
+  hintNextSpan.style.display = 'none';
+  hintLine.appendChild(hintNextSpan);
+
+  return {
     row,
     nameSpan,
     rightSpan,
+    lockSpan,
+    levelSpan,
+    undiscoveredSpan,
     barOuter,
     barFill,
     hintLine,
+    hintActiveSpan,
+    hintSepSpan,
+    hintNextSpan,
+    spendBtn,
   };
+}
 
-  updateMasteryItemRow(refs, skillId, entry);
+/** Compute the pool XP cost to gain 1 level on an item at the given level. */
+function poolXpCostForNextLevel(currentLevel: number): number {
+  if (currentLevel >= 99) return Infinity;
+  return xpForMasteryLevel(currentLevel + 1) - xpForMasteryLevel(currentLevel);
+}
 
-  return refs;
+/**
+ * Check if spending `cost` pool XP would drop below any active checkpoint.
+ * Returns the highest checkpoint that would be lost, or null.
+ */
+function wouldLoseCheckpoint(
+  pool: { xp: number; maxXp: number },
+  cost: number
+): number | null {
+  if (pool.maxXp <= 0) return null;
+  const currentPct = pool.xp / pool.maxXp;
+  const afterPct = (pool.xp - cost) / pool.maxXp;
+  for (let i = POOL_CHECKPOINTS.length - 1; i >= 0; i--) {
+    const cp = POOL_CHECKPOINTS[i];
+    if (currentPct >= cp && afterPct < cp) return cp;
+  }
+  return null;
+}
+
+/** Update the spend button state in-place using CSS classes. */
+function updateSpendButton(
+  btn: HTMLButtonElement,
+  level: number,
+  pool: { xp: number; maxXp: number }
+): void {
+  if (level >= 99 || pool.maxXp <= 0) {
+    btn.style.display = 'none';
+    return;
+  }
+  const cost = poolXpCostForNextLevel(level);
+  const canAfford = pool.xp >= cost;
+  const lostCheckpoint = canAfford ? wouldLoseCheckpoint(pool, cost) : null;
+
+  btn.style.display = '';
+  btn.disabled = !canAfford;
+
+  if (lostCheckpoint) {
+    btn.className = 'small-button small-button--caution';
+    btn.title = `Spend ${formatLargeNumber(cost)} pool XP to gain 1 level (drops below ${Math.round(lostCheckpoint * 100)}% checkpoint!)`;
+  } else {
+    btn.className = 'small-button';
+    btn.title = canAfford
+      ? `Spend ${formatLargeNumber(cost)} pool XP to gain 1 level`
+      : `Need ${formatLargeNumber(cost)} pool XP (have ${formatLargeNumber(Math.floor(pool.xp))})`;
+  }
 }
 
 function updateMasteryItemRow(
   refs: MasteryItemRowRefs,
   skillId: SkillId,
-  entry: MasteryItemEntry
+  entry: MasteryItemEntry,
+  pool: { xp: number; maxXp: number }
 ): void {
   // Row background
   refs.row.style.background = entry.locked
@@ -357,35 +470,33 @@ function updateMasteryItemRow(
   refs.nameSpan.style.color = entry.locked ? '#555' : '#ccc';
   refs.nameSpan.textContent = entry.label;
 
-  // Right span - rebuild inline since it's small and varies by state
-  // Clear existing children
-  while (refs.rightSpan.firstChild) {
-    refs.rightSpan.removeChild(refs.rightSpan.firstChild);
-  }
-
+  // Right span children — toggle visibility, update textContent in-place
   if (entry.locked) {
-    const lockSpan = document.createElement('span');
-    lockSpan.style.color = '#665522';
-    lockSpan.style.fontSize = '0.75rem';
-    lockSpan.textContent = `🔒 ${entry.lockReason}`;
-    refs.rightSpan.appendChild(lockSpan);
+    refs.lockSpan.style.display = '';
+    refs.lockSpan.textContent = `🔒 ${entry.lockReason}`;
+    refs.levelSpan.style.display = 'none';
+    refs.undiscoveredSpan.style.display = 'none';
+    refs.spendBtn.style.display = 'none';
   } else if (entry.mastery) {
-    const levelSpan = document.createElement('span');
-    levelSpan.style.color =
+    refs.lockSpan.style.display = 'none';
+    refs.levelSpan.style.display = '';
+    refs.levelSpan.style.color =
       entry.mastery.level >= 99
         ? '#fbbf24'
         : entry.mastery.level >= 50
           ? '#4ade80'
           : '#aaa';
-    levelSpan.style.fontWeight = entry.mastery.level >= 99 ? 'bold' : 'normal';
-    levelSpan.textContent = `Lv ${entry.mastery.level}`;
-    refs.rightSpan.appendChild(levelSpan);
+    refs.levelSpan.style.fontWeight =
+      entry.mastery.level >= 99 ? 'bold' : 'normal';
+    refs.levelSpan.textContent = `Lv ${entry.mastery.level}`;
+    refs.undiscoveredSpan.style.display = 'none';
+    updateSpendButton(refs.spendBtn, entry.mastery.level, pool);
   } else {
-    const undiscovered = document.createElement('span');
-    undiscovered.style.color = '#555';
-    undiscovered.style.fontSize = '0.75rem';
-    undiscovered.textContent = 'Lv 0';
-    refs.rightSpan.appendChild(undiscovered);
+    refs.lockSpan.style.display = 'none';
+    refs.levelSpan.style.display = 'none';
+    refs.undiscoveredSpan.style.display = '';
+    refs.undiscoveredSpan.textContent = 'Lv 0';
+    updateSpendButton(refs.spendBtn, 0, pool);
   }
 
   // Progress bar
@@ -408,39 +519,44 @@ function updateMasteryItemRow(
       refs.barOuter.style.display = 'none';
     }
 
-    // Bonus hint line
+    // Bonus hint line — update children in-place
     const currentBonus = getCurrentBonusLabel(skillId, level, entry.id);
     const nextBonus = getNextBonusLabel(skillId, level, entry.id);
 
     if (currentBonus || nextBonus) {
       refs.hintLine.style.display = '';
-      // Clear and rebuild hint content
-      while (refs.hintLine.firstChild) {
-        refs.hintLine.removeChild(refs.hintLine.firstChild);
-      }
 
       if (currentBonus) {
-        const activeSpan = document.createElement('span');
-        activeSpan.style.color = '#4ade80';
-        activeSpan.textContent = currentBonus;
-        refs.hintLine.appendChild(activeSpan);
+        refs.hintActiveSpan.style.display = '';
+        refs.hintActiveSpan.textContent = currentBonus;
+      } else {
+        refs.hintActiveSpan.style.display = 'none';
+      }
+
+      if (currentBonus && nextBonus) {
+        refs.hintSepSpan.style.display = '';
+      } else {
+        refs.hintSepSpan.style.display = 'none';
       }
 
       if (nextBonus) {
-        if (currentBonus) {
-          refs.hintLine.appendChild(document.createTextNode(' · '));
-        }
-        const nextSpan = document.createElement('span');
-        nextSpan.style.color = '#666';
-        nextSpan.textContent = `Next Lv ${nextBonus.level}: ${nextBonus.label}`;
-        refs.hintLine.appendChild(nextSpan);
+        refs.hintNextSpan.style.display = '';
+        refs.hintNextSpan.textContent = `Next Lv ${nextBonus.level}: ${nextBonus.label}`;
+      } else {
+        refs.hintNextSpan.style.display = 'none';
       }
     } else {
       refs.hintLine.style.display = 'none';
+      refs.hintActiveSpan.style.display = 'none';
+      refs.hintSepSpan.style.display = 'none';
+      refs.hintNextSpan.style.display = 'none';
     }
   } else {
     refs.barOuter.style.display = 'none';
     refs.hintLine.style.display = 'none';
+    refs.hintActiveSpan.style.display = 'none';
+    refs.hintSepSpan.style.display = 'none';
+    refs.hintNextSpan.style.display = 'none';
   }
 }
 
@@ -460,6 +576,8 @@ interface MasterySectionRefs {
   // Pool section
   poolLabel: HTMLSpanElement;
   poolValue: HTMLSpanElement;
+  // Callback for spending pool XP on items
+  onSpendPoolXp?: (crewId: string, skillId: SkillId, itemId: string) => void;
   barOuter: HTMLDivElement;
   barFill: HTMLDivElement;
   // Checkpoint markers and labels are recreated since count can change
@@ -476,7 +594,8 @@ function createMasterySection(
   skillId: SkillId,
   state: SkillMasteryState,
   crew: CrewMember,
-  gameData: GameData
+  gameData: GameData,
+  onSpendPoolXp?: (crewId: string, skillId: SkillId, itemId: string) => void
 ): MasterySectionRefs {
   const container = document.createElement('div');
   container.className = 'mastery-section';
@@ -566,6 +685,7 @@ function createMasterySection(
     itemHeader,
     itemList,
     itemRowMap: new Map(),
+    onSpendPoolXp,
   };
 
   updateMasterySection(refs, skillId, state, crew, gameData);
@@ -780,12 +900,14 @@ function updateMasterySection(
     currentIds.add(entry.id);
     let rowRefs = refs.itemRowMap.get(entry.id);
     if (!rowRefs) {
-      rowRefs = createMasteryItemRow(skillId, entry);
+      const onSpend = refs.onSpendPoolXp
+        ? () => refs.onSpendPoolXp!(crew.id, skillId, entry.id)
+        : undefined;
+      rowRefs = createMasteryItemRow(skillId, entry, onSpend);
       refs.itemRowMap.set(entry.id, rowRefs);
       refs.itemList.appendChild(rowRefs.row);
-    } else {
-      updateMasteryItemRow(rowRefs, skillId, entry);
     }
+    updateMasteryItemRow(rowRefs, skillId, entry, state.pool);
   }
 
   // Remove departed items
@@ -2014,7 +2136,8 @@ export function createCrewTab(
           skillId,
           crew.mastery[skillId],
           crew,
-          gameData
+          gameData,
+          callbacks.onSpendPoolXp
         );
         masterySectionRefs[skillId] = ms;
         skillsDiv.appendChild(ms.container);

@@ -59,6 +59,7 @@ import { sellOre, sellAllOre } from './miningSystem';
 import { assignMiningRoute, cancelMiningRoute } from './miningRoute';
 import { getEquipmentDefinition, canEquipInSlot } from './equipment';
 import { recordDailySnapshot } from './dailyLedger';
+import { spendPoolXpOnItem } from './masterySystem';
 
 const app = document.getElementById('app')!;
 
@@ -1320,6 +1321,25 @@ const callbacks: RendererCallbacks = {
     ship.selectedMiningOreId = (oreId as import('./models').OreId) || undefined;
     saveGame(state.gameData);
     renderApp();
+  },
+
+  onSpendPoolXp: (
+    crewId: string,
+    skillId: import('./models').SkillId,
+    itemId: string
+  ) => {
+    if (state.phase !== 'playing') return;
+    const ship = getActiveShip(state.gameData);
+    const crew = ship.crew.find((c) => c.id === crewId);
+    if (!crew) return;
+    const masteryState = crew.mastery[skillId];
+    if (!masteryState) return;
+
+    const levelsGained = spendPoolXpOnItem(masteryState, itemId, 1);
+    if (levelsGained > 0) {
+      saveGame(state.gameData);
+      renderApp();
+    }
   },
 };
 

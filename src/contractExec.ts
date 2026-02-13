@@ -32,7 +32,9 @@ import {
   awardMasteryXp,
   routeMasteryKey,
   tradeRouteMasteryKey,
+  getCommercePoolPaymentBonus,
 } from './masterySystem';
+import { getBestCrewPool } from './crewRoles';
 
 /**
  * Contract Execution
@@ -163,8 +165,16 @@ function removeUnpaidCrew(gameData: GameData, ship: Ship): void {
  * based on the ship's proximity to the captain.
  */
 function addCredits(gameData: GameData, amount: number, ship?: Ship): number {
-  const multiplier = ship ? getFleetAuraIncomeMultiplier(ship, gameData) : 1.0;
-  const boosted = Math.round(amount * multiplier);
+  const auraMultiplier = ship
+    ? getFleetAuraIncomeMultiplier(ship, gameData)
+    : 1.0;
+
+  // Commerce pool 95% checkpoint: +10% payment on all contracts
+  const commercePoolMultiplier = ship
+    ? 1 + getCommercePoolPaymentBonus(getBestCrewPool(ship.crew, 'commerce'))
+    : 1.0;
+
+  const boosted = Math.round(amount * auraMultiplier * commercePoolMultiplier);
   gameData.credits += boosted;
   gameData.lifetimeCreditsEarned += boosted;
   return boosted;
