@@ -66,12 +66,13 @@ export interface Vec2 {
   y: number;
 }
 
-/** Circular orbital parameters for a world location. */
+/** Orbital parameters for a world location (circular or elliptical). */
 export interface OrbitalParams {
   parentId: string | null; // null = orbits Sun; 'earth' = orbits Earth
-  orbitalRadiusKm: number; // circular orbit radius in km
+  orbitalRadiusKm: number; // semi-major axis in km
   orbitalPeriodSec: number; // orbital period in game-seconds
-  initialAngleRad: number; // angle at gameTime=0
+  initialAngleRad: number; // mean anomaly at gameTime=0
+  eccentricity?: number; // 0 = circular (default), 0.01–0.1 for elliptical
 }
 
 export type CrewEquipmentId =

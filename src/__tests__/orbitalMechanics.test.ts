@@ -55,8 +55,12 @@ describe('getLocationPosition', () => {
   it('places Sun-orbiting body on x-axis at angle 0', () => {
     const world = createTestWorld();
     const earth = world.locations.find((l) => l.id === 'earth')!;
+    const e = earth.orbital!.eccentricity ?? 0;
+    const a = earth.orbital!.orbitalRadiusKm;
+    // At mean anomaly 0 (perihelion for e > 0), r = a(1-e)
+    const expectedR = a * (1 - e);
     const pos = getLocationPosition(earth, 0, world);
-    expect(pos.x).toBeCloseTo(earth.orbital!.orbitalRadiusKm, 0);
+    expect(pos.x).toBeCloseTo(expectedR, 0);
     expect(pos.y).toBeCloseTo(0, 0);
   });
 
@@ -83,6 +87,28 @@ describe('getLocationPosition', () => {
     // At half period, should be on opposite side (roughly 2× orbital radius apart)
     const dist = euclideanDistance(pos0, posHalf);
     expect(dist).toBeCloseTo(mars.orbital!.orbitalRadiusKm * 2, -3);
+  });
+
+  it('elliptical orbit produces perihelion at angle 0 and aphelion at half period', () => {
+    const world = createTestWorld();
+    const mars = world.locations.find((l) => l.id === 'mars')!;
+    const a = mars.orbital!.orbitalRadiusKm;
+    const e = mars.orbital!.eccentricity ?? 0;
+    expect(e).toBeGreaterThan(0); // Mars should have eccentricity
+
+    // At t=0 (mean anomaly 0), Mars is at perihelion: r = a(1-e)
+    const pos0 = getLocationPosition(mars, 0, world);
+    const r0 = Math.sqrt(pos0.x * pos0.x + pos0.y * pos0.y);
+    expect(r0).toBeCloseTo(a * (1 - e), -2);
+
+    // At half period, Mars is at aphelion: r = a(1+e)
+    const posHalf = getLocationPosition(
+      mars,
+      mars.orbital!.orbitalPeriodSec / 2,
+      world
+    );
+    const rHalf = Math.sqrt(posHalf.x * posHalf.x + posHalf.y * posHalf.y);
+    expect(rHalf).toBeCloseTo(a * (1 + e), -2);
   });
 });
 

@@ -4,11 +4,15 @@ import { GAME_SECONDS_PER_DAY } from './timeSystem';
 /**
  * Orbital Mechanics Engine
  *
- * All bodies follow circular orbits. Earth satellites orbit Earth (hierarchical),
- * everything else orbits the Sun. Positions are in km with Sun at origin (0,0).
+ * Bodies follow circular or elliptical orbits. Earth satellites orbit Earth
+ * (hierarchical), everything else orbits the Sun. Positions are in km with
+ * Sun at origin (0,0).
+ *
+ * Elliptical orbits use Kepler's equation solved via Newton-Raphson iteration.
+ * For eccentricity < 0.1 (all game bodies), convergence is near-instant.
  *
  * Key functions:
- * - getOrbitalAngle(): angle at a given gameTime
+ * - getOrbitalAngle(): true anomaly at a given gameTime
  * - getLocationPosition(): 2D position (recursive for hierarchical orbits)
  * - updateWorldPositions(): batch-update all locations each tick
  * - solveIntercept(): aim at a moving target for flight planning
@@ -17,24 +21,91 @@ import { GAME_SECONDS_PER_DAY } from './timeSystem';
 
 const TWO_PI = 2 * Math.PI;
 
+// ─── Kepler Equation Solver ───────────────────────────────────────
+
+/**
+ * Solve Kepler's equation M = E - e·sin(E) for eccentric anomaly E.
+ * Uses Newton-Raphson iteration. For e < 0.1, converges in 2-3 iterations.
+ */
+function solveKepler(meanAnomaly: number, eccentricity: number): number {
+  if (eccentricity === 0) return meanAnomaly;
+  let E = meanAnomaly; // initial guess
+  for (let i = 0; i < 6; i++) {
+    const dE =
+      (meanAnomaly - E + eccentricity * Math.sin(E)) /
+      (1 - eccentricity * Math.cos(E));
+    E += dE;
+    if (Math.abs(dE) < 1e-10) break;
+  }
+  return E;
+}
+
+/**
+ * Convert eccentric anomaly E to true anomaly θ.
+ */
+function eccentricToTrueAnomaly(E: number, eccentricity: number): number {
+  if (eccentricity === 0) return E;
+  return (
+    2 *
+    Math.atan2(
+      Math.sqrt(1 + eccentricity) * Math.sin(E / 2),
+      Math.sqrt(1 - eccentricity) * Math.cos(E / 2)
+    )
+  );
+}
+
 // ─── Core Position Functions ──────────────────────────────────────
 
-/** Calculate orbital angle (radians) at a given gameTime. */
+/**
+ * Calculate true anomaly (radians) at a given gameTime.
+ * For circular orbits (e=0), this equals the mean anomaly.
+ * For elliptical orbits, solves Kepler's equation.
+ */
 export function getOrbitalAngle(
   orbital: OrbitalParams,
   gameTime: number
 ): number {
   if (orbital.orbitalPeriodSec <= 0) return orbital.initialAngleRad;
-  const angle =
+  const e = orbital.eccentricity ?? 0;
+
+  // Mean anomaly advances linearly with time
+  const meanAnomaly =
     orbital.initialAngleRad + (TWO_PI * gameTime) / orbital.orbitalPeriodSec;
-  // Normalise to [0, 2π) for consistency
-  return angle % TWO_PI;
+
+  if (e === 0) {
+    // Circular orbit — true anomaly equals mean anomaly
+    return meanAnomaly % TWO_PI;
+  }
+
+  // Solve Kepler's equation for eccentric anomaly, then convert to true anomaly
+  const M = meanAnomaly % TWO_PI;
+  const E = solveKepler(M, e);
+  return eccentricToTrueAnomaly(E, e);
+}
+
+/**
+ * Compute the orbital radius at a given true anomaly for an elliptical orbit.
+ * r = a(1 - e²) / (1 + e·cos(θ))
+ * For circular orbits (e=0), r = a.
+ */
+function orbitalRadius(
+  semiMajorAxis: number,
+  eccentricity: number,
+  trueAnomaly: number
+): number {
+  if (eccentricity === 0) return semiMajorAxis;
+  return (
+    (semiMajorAxis * (1 - eccentricity * eccentricity)) /
+    (1 + eccentricity * Math.cos(trueAnomaly))
+  );
 }
 
 /**
  * Get the 2D position (km from Sun) of a location at a given gameTime.
  * Recursive: if location orbits Earth, first computes Earth's position,
  * then adds the local orbital offset.
+ *
+ * For elliptical orbits, the radius varies with the true anomaly.
  */
 export function getLocationPosition(
   location: WorldLocation,
@@ -47,9 +118,11 @@ export function getLocationPosition(
     return { x: location.x, y: location.y };
   }
 
-  const angle = getOrbitalAngle(orbital, gameTime);
-  const localX = orbital.orbitalRadiusKm * Math.cos(angle);
-  const localY = orbital.orbitalRadiusKm * Math.sin(angle);
+  const e = orbital.eccentricity ?? 0;
+  const trueAnomaly = getOrbitalAngle(orbital, gameTime);
+  const r = orbitalRadius(orbital.orbitalRadiusKm, e, trueAnomaly);
+  const localX = r * Math.cos(trueAnomaly);
+  const localY = r * Math.sin(trueAnomaly);
 
   if (orbital.parentId === null) {
     // Orbits the Sun directly
