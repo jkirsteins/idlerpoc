@@ -135,9 +135,9 @@ export interface FlightState {
   dockOnArrival: boolean;
   burnFraction: number; // 0.1-1.0: fraction of delta-v budget to use (1.0 = max speed)
   // 2D orbital trajectory fields
-  originPos?: Vec2; // ship 2D position at flight start (km) — at arrival time for body-origin flights, at launch time for redirects
-  interceptPos?: Vec2; // predicted destination 2D position at arrival (km)
-  shipPos?: Vec2; // current ship 2D position, updated each tick (km)
+  originPos?: Vec2; // origin 2D position (km), recomputed each tick from originBodyId or fixed for redirects
+  interceptPos?: Vec2; // destination 2D position (km), recomputed each tick from destination body
+  shipPos?: Vec2; // current ship 2D position (km), interpolated each tick between originPos and interceptPos
   estimatedArrivalGameTime?: number; // predicted arrival gameTime
   originBodyId?: string; // real origin body ID (set for normal flights, undefined for redirects where origin is a point in space)
 }

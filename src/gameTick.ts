@@ -340,7 +340,10 @@ function applyShipTick(gameData: GameData, ship: Ship): boolean {
       // Update 2D positions (originPos, interceptPos, shipPos) from
       // current-time body positions. Runs every tick so shipPos is always
       // accurate — no stale arrival-time snapshots.
-      updateFlightPosition(ship.activeFlightPlan, gameData);
+      // Skip on completion — completeLeg docks the ship and discards positions.
+      if (!flightComplete) {
+        updateFlightPosition(ship.activeFlightPlan, gameData);
+      }
 
       // Fuel consumption during burn phases (mass-based, pro-rated)
       // Burns are pro-rated to the actual seconds spent accelerating/decelerating
