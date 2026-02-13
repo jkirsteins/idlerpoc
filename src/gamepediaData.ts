@@ -118,7 +118,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
           '[[crew-salaries|Crew salaries]] are deducted every day, including during manual day advancement while docked. A typical crew of 1 pilot + 1 miner + 1 trader costs 144 credits per day.',
           "Fuel must be purchased at stations with refueling services. Fuel pricing varies by location and [[engines|engine type]] — a Leviathan's D-He3 fusion fuel costs 30x more per kg than a Station Keeper's chemical propellant. Managing fuel costs is critical for higher-tier [[ship-classes|ships]].",
           '[[ship-equipment|Equipment]] can be bought at stations with trade services. Selling equipment returns 50% of the retail value.',
-          '[[provisions|Provisions]] (food and water) are auto-purchased when docked at trade stations. Base consumption is 15 kg per crew per day, but [[life-support|life support]] recycling reduces this to ~5 kg effective. At 0.50 cr/kg base price, a 4-crew ship costs about 10 cr/day in provisions — more at outer-system stations.',
+          '[[provisions|Provisions]] (food and water) are auto-purchased when docked at trade stations. Crew eat station-side at trade stations, so ship provisions are only consumed during flight and at remote locations without trade services. Base consumption is 15 kg per crew per day, but [[life-support|life support]] recycling reduces this to ~5 kg effective.',
           'If credits reach zero, crew become unpaid. Unpaid crew will leave the ship at the next port. The captain (you) never leaves.',
         ],
       },
@@ -190,7 +190,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
       {
         heading: 'Provisions Resupply',
         paragraphs: [
-          'When docked at a location with trade services, your ship automatically purchases [[provisions|provisions]] (food and water) up to 30 days of supply. This happens silently every tick while docked. Pricing varies by region — outer-system stations charge up to 2.5x the base rate.',
+          'When docked at a location with trade services, your ship automatically purchases [[provisions|provisions]] (food and water) up to 30 days of supply. Crew eat station-side at trade stations, so ship provisions are not consumed until departure. At mining-only locations without trade services, provisions are still consumed. Pricing varies by region — outer-system stations charge up to 2.5x the base rate.',
         ],
       },
       {
@@ -1154,7 +1154,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
       {
         heading: 'Provisions',
         paragraphs: [
-          'Alongside oxygen, crew require [[provisions|food and water]] to survive. Base provision consumption is 15 kg per crew member per day, but [[life-support|life support]] equipment recycles a portion — with standard life support, effective consumption drops to ~5 kg per crew per day. Provisions auto-resupply when docked at trade stations. While oxygen failure is an equipment problem, [[provisions|provision]] depletion is an economic one — running out of [[credits-economy|credits]] means no resupply.',
+          'Alongside oxygen, crew require [[provisions|food and water]] to survive. Base provision consumption is 15 kg per crew member per day, but [[life-support|life support]] equipment recycles a portion — with standard life support, effective consumption drops to ~5 kg per crew per day. Crew eat station-side at trade stations, so provisions are only consumed during flight, orbiting, and while docked at remote locations without trade services. Provisions auto-resupply when docked at trade stations. While oxygen failure is an equipment problem, [[provisions|provision]] depletion is an economic one — running out of [[credits-economy|credits]] means no resupply.',
         ],
       },
     ],
@@ -2076,7 +2076,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
     sections: [
       {
         paragraphs: [
-          'Provisions represent the food, water, and basic consumables your crew needs to survive. Every ship carries provisions measured in kilograms, and every crew member consumes them continuously. Running out of provisions causes [[crew-death|starvation damage]] that can kill crew members.',
+          'Provisions represent the food, water, and basic consumables your crew needs to survive. Every ship carries provisions measured in kilograms, and every crew member consumes them while in flight or orbiting. When docked at a [[station-services|trade station]], crew eat station-side and ship provisions are not consumed. At remote locations without trade services (asteroid swarms, mining-only sites), provisions are still consumed normally. Running out of provisions causes [[crew-death|starvation damage]] that can kill crew members.',
         ],
       },
       {
@@ -2089,7 +2089,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
       {
         heading: 'Auto-Resupply',
         paragraphs: [
-          'When docked at a location with trade services, provisions are automatically purchased up to 30 days of supply for your current crew count. Resupply happens every tick while docked, so provisions stay topped up without manual intervention.',
+          'When docked at a location with trade services, provisions are automatically purchased up to 30 days of supply for your current crew count. Since crew eat station-side at trade stations, your ship provisions remain at the level they were resupplied to until departure. At locations without trade services (such as asteroid mining sites), provisions continue to be consumed normally — plan accordingly for extended mining operations.',
           'If your [[credits-economy|credits]] are insufficient for a full resupply, the ship buys as much as it can afford. Partial resupply is logged so you know the ship departed without full provisions.',
         ],
       },
@@ -2110,7 +2110,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
       {
         heading: 'Starvation',
         paragraphs: [
-          'When provisions reach zero, all crew take 3.0 health damage per tick — aggressive damage that will kill unprotected crew within days. The captain is exempt from [[crew-death|death]] (health floors at 1) but still suffers damage effects.',
+          'When provisions reach zero, all crew take 3.0 health damage per day — aggressive damage that will kill unprotected crew within days. The captain is exempt from [[crew-death|death]] (health floors at 1) but still suffers damage effects. Starvation cannot occur at trade stations (crew eat station-side), but can happen at remote mining locations without trade services.',
           'Starvation warnings appear at 7 days and 3 days remaining. At zero provisions, a critical alert fires and the game auto-pauses if critical alert pausing is enabled.',
           'Provisions are the survival clock for [[stranded-ships|stranded ships]] — when fuel runs out and provisions deplete, crew begin dying.',
         ],

@@ -82,10 +82,18 @@ export function getStarvationHealthDamage(provisionsKg: number): number {
 export function applyProvisionsTick(ship: Ship, gameData: GameData): boolean {
   if (ship.crew.length === 0) return false;
 
-  // Auto-resupply when docked at a trade station (runs every tick, but
+  // Auto-resupply when docked at a trade station (tops up on arrival;
   // only actually purchases when provisions are below max)
   if (ship.location.status === 'docked' && ship.location.dockedAt) {
     autoResupplyProvisions(gameData, ship, ship.location.dockedAt);
+
+    // Crew eat station-side at locations with trade services (proper stations
+    // with facilities). At mining-only locations (asteroid swarms etc.) the
+    // ship's own provisions are still consumed.
+    const loc = gameData.world.locations.find(
+      (l) => l.id === ship.location.dockedAt
+    );
+    if (loc?.services.includes('trade')) return false;
   }
 
   const consumptionPerTick =
