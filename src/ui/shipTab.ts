@@ -22,6 +22,8 @@ import {
   calculateAvailableCargoCapacity,
   computeMaxRange,
 } from '../flightPhysics';
+import { getOreCargoWeight } from '../miningSystem';
+import { getOreDefinition } from '../oreTypes';
 import {
   formatDualTime,
   GAME_SECONDS_PER_TICK,
@@ -97,6 +99,7 @@ function snapshotShipProps(gameData: GameData, showNav: boolean) {
     burnFraction: ship.flightProfileBurnFraction,
     crewCount: ship.crew.length,
     cargoCount: ship.cargo.length,
+    oreCargoKey: ship.oreCargo.map((o) => `${o.oreId}:${o.quantity}`).join(','),
     equipCount: ship.equipment.length,
     // Crew roster identity + stats that affect the rendered UI
     crew: ship.crew.map((c) => c.id + c.name + c.isCaptain).join(),
@@ -145,6 +148,7 @@ interface RoomCardRefs {
   cargoSection: HTMLDivElement | null;
   cargoCapacity: HTMLDivElement | null;
   cargoFill: HTMLDivElement | null;
+  oreBreakdown: HTMLDivElement | null;
   crewCount: HTMLDivElement | null;
   crewList: HTMLDivElement | null;
   bridgeActions: HTMLDivElement | null;
@@ -449,6 +453,7 @@ export function createShipTab(
     let cargoSection: HTMLDivElement | null = null;
     let cargoCapacity: HTMLDivElement | null = null;
     let cargoFill: HTMLDivElement | null = null;
+    let oreBreakdown: HTMLDivElement | null = null;
     if (room.type === 'cargo_hold') {
       cargoSection = document.createElement('div');
 
@@ -467,6 +472,12 @@ export function createShipTab(
       cargoFill.className = 'cargo-progress-fill';
       progressBar.appendChild(cargoFill);
       cargoSection.appendChild(progressBar);
+
+      // Ore cargo breakdown (always present, hidden when empty)
+      oreBreakdown = document.createElement('div');
+      oreBreakdown.style.cssText =
+        'margin-top: 0.35rem; font-size: 0.8rem; color: #aaa;';
+      cargoSection.appendChild(oreBreakdown);
 
       card.appendChild(cargoSection);
     }
@@ -526,6 +537,7 @@ export function createShipTab(
       cargoSection,
       cargoCapacity,
       cargoFill,
+      oreBreakdown,
       crewCount: crewCountEl,
       crewList,
       bridgeActions,
@@ -576,11 +588,40 @@ export function createShipTab(
       const maxCapacity = shipClass
         ? Math.floor(calculateAvailableCargoCapacity(shipClass.cargoCapacity))
         : 0;
-      const currentCargo = ship.cargo.length * 100;
+      const equipmentWeight = ship.cargo.length * 100;
+      const oreWeight = getOreCargoWeight(ship);
+      const provisionsWeight = ship.provisionsKg || 0;
+      const currentCargo = equipmentWeight + oreWeight + provisionsWeight;
       const cargoPercent =
         maxCapacity > 0 ? (currentCargo / maxCapacity) * 100 : 0;
       refs.cargoCapacity.textContent = `Cargo: ${formatMass(currentCargo)} / ${formatMass(maxCapacity)}`;
       refs.cargoFill.style.width = `${Math.min(100, cargoPercent)}%`;
+      refs.cargoFill.style.backgroundColor =
+        cargoPercent >= 90 ? '#e94560' : cargoPercent >= 70 ? '#ffa500' : '';
+    }
+
+    // Ore cargo breakdown
+    if (refs.oreBreakdown) {
+      if (ship.oreCargo.length > 0) {
+        refs.oreBreakdown.style.display = '';
+        // Reconcile ore lines in-place
+        const lines: string[] = [];
+        for (const item of ship.oreCargo) {
+          const ore = getOreDefinition(item.oreId);
+          lines.push(`${ore.icon} ${ore.name}: ${item.quantity} units`);
+        }
+        const content = lines.join('\n');
+        if (refs.oreBreakdown.textContent !== content) {
+          refs.oreBreakdown.textContent = '';
+          for (const line of lines) {
+            const div = document.createElement('div');
+            div.textContent = line;
+            refs.oreBreakdown.appendChild(div);
+          }
+        }
+      } else {
+        refs.oreBreakdown.style.display = 'none';
+      }
     }
 
     // Crew count
