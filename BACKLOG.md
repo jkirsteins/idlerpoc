@@ -36,13 +36,14 @@ Full design in `docs/captain-flagship-design.md`, research sources in `docs/bibl
 
 ## Deferred Fuel/Cargo System Features
 
-- **Manual Fuel/Cargo Allocation**: Allow players to adjust fuel/cargo split before departure. Needs slider UI, presets, and validation. See `docs/fuel-cargo-tradeoff-design.md` Option 2.
+- ~~**Fuel/Cargo Decoupling**~~: **DONE** — Each ship class has a dedicated `fuelCapacity` (kg) independent of cargo. Fuel tanks are route-targeted (sized for the ship's intended operational range). Full `cargoCapacity` is now available for trade goods, ore, and provisions. See `src/shipClasses.ts`.
 - ~~**Fuel Reserve System**~~: **DONE** — Stranded ship detection warns when ships can't reach any refuel station. Soft warnings on quest cards for insufficient fuel/provisions on round trips. Auto-pause on critical alert.
-- **Modular Fuel Tanks**: Purchasable tank upgrades (Extended Range Tank, Cargo Maximizer). Requires equipment installation UI.
+- **Modular Fuel Tanks**: Purchasable tank upgrades (Extended Range Tank). Requires equipment installation UI.
 - **Fuel Trading Mechanics**: Buy fuel at low prices, sell at high prices for speculation gameplay. Requires cargo system integration.
 - ~~**Emergency Fuel Delivery**~~: **DONE** — Rescue quest type generated when ships are stranded. Fleet emergency broadcast appears at all locations. Rescue ship carries fuel as cargo payload; transfers on arrival. See `src/rescueSystem.ts`, `src/strandedSystem.ts`.
 - **Fuel Efficiency Upgrades**: Engine modifications to reduce fuel consumption (e.g., "Optimized Nozzles" equipment).
 - **Alternative Propellant Support**: Chemical bipropellant vs monopropellant, ion drives, etc. Needs fuel type system per engine.
+- **Advanced Recycling Equipment**: Purchasable tiers of life support recycling (Advanced Recycler, Closed-Loop Life Support) that reduce provisions consumption further.
 - **Hub Station Route Bonuses**: +10% payment for multi-leg routes using major stations as waypoints. Rewards emergent route planning.
 - **Trade Route Distance Multiplier**: Scale trade route base pay by distance (120% short → 140% long). See `docs/quest-reward-balancing.md`.
 

@@ -18,7 +18,7 @@ const BACKUP_KEY = 'spaceship_game_data_backup';
  *
  * See docs/save-migration.md for the full migration architecture.
  */
-export const CURRENT_SAVE_VERSION = 8;
+export const CURRENT_SAVE_VERSION = 9;
 
 /** Whether the last save attempt failed (used for UI warnings). */
 let _lastSaveFailed = false;
@@ -612,6 +612,47 @@ const migrations: Record<number, MigrationFn> = {
     }
 
     data.saveVersion = 8;
+    return data;
+  },
+
+  /**
+   * v8 → v9: Fuel capacity decoupling.
+   * - Fuel tanks are now independent of cargo capacity (shipClass.fuelCapacity).
+   * - Update ship.maxFuelKg to match new dedicated fuel tank sizes.
+   * - Refuel docked ships to new max; in-flight ships keep current fuel.
+   */
+  8: (data: RawSave): RawSave => {
+    const FUEL_CAPACITIES: Record<string, number> = {
+      station_keeper: 8_000,
+      wayfarer: 150_000,
+      corsair: 300_000,
+      dreadnought: 500_000,
+      phantom: 200_000,
+      firebrand: 200_000,
+      leviathan: 400_000,
+    };
+
+    const ships = data.ships as Array<Record<string, unknown>> | undefined;
+    if (ships) {
+      for (const ship of ships) {
+        const classId = ship.classId as string;
+        const newMax = FUEL_CAPACITIES[classId];
+        if (newMax !== undefined) {
+          ship.maxFuelKg = newMax;
+          // Refuel docked ships generously; in-flight ships keep current fuel
+          const loc = ship.location as Record<string, unknown> | undefined;
+          if (loc?.status === 'docked') {
+            ship.fuelKg = newMax;
+          }
+          // Cap in-flight fuel at new max (shouldn't exceed, but safety)
+          if (typeof ship.fuelKg === 'number' && ship.fuelKg > newMax) {
+            ship.fuelKg = newMax;
+          }
+        }
+      }
+    }
+
+    data.saveVersion = 9;
     return data;
   },
 };

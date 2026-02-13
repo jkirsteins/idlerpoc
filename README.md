@@ -123,12 +123,12 @@ npm run dev
   - Oxygen bar on Ship tab with tooltip showing generation/consumption breakdown
   - Station atmosphere resupply when docked
 - **Provisions System**:
-  - Crew consume provisions (food & water) at 30 kg/crew/day — tracked as ship cargo mass
+  - Crew consume provisions (food & water) at 15 kg/crew/day base (reduced to ~5 kg effective with life support recycling) — tracked as ship provisions mass
   - Provisions bar on Ship tab, left sidebar, and mobile header shows current supply and days remaining
   - Auto-resupply when docked at trade stations (targets 30 days of supplies)
   - Pricing scales with distance from Earth (0.50 cr/kg inner system → 1.25 cr/kg outer)
   - Starvation health damage when provisions run out — crew can die
-  - Provisions mass competes with quest cargo capacity, creating meaningful tradeoffs
+  - Provisions mass competes with available cargo capacity, creating meaningful tradeoffs
   - Quest cards warn when provisions are insufficient for the round trip
 - **Crew Death**:
   - Crew members die when health reaches 0 (starvation, oxygen deprivation, radiation, combat)

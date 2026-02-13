@@ -15,8 +15,8 @@ describe('flightPhysics', () => {
     it('should produce longer travel time for farther destinations', () => {
       const ship = createTestShip({
         classId: 'wayfarer',
-        fuelKg: 28000, // Full tank
-        maxFuelKg: 28000,
+        fuelKg: 150_000, // Full Wayfarer tank
+        maxFuelKg: 150_000,
       });
       const world = generateWorld();
 
@@ -53,8 +53,8 @@ describe('flightPhysics', () => {
     it('should show that ~89x distance difference produces meaningful time difference', () => {
       const ship = createTestShip({
         classId: 'wayfarer',
-        fuelKg: 28000, // Full tank
-        maxFuelKg: 28000,
+        fuelKg: 150_000, // Full Wayfarer tank
+        maxFuelKg: 150_000,
       });
       const world = generateWorld();
 
@@ -87,8 +87,8 @@ describe('flightPhysics', () => {
     it('should verify mini-brachistochrone branch for very short distances', () => {
       const ship = createTestShip({
         classId: 'wayfarer',
-        fuelKg: 28000, // Full tank
-        maxFuelKg: 28000,
+        fuelKg: 150_000, // Full Wayfarer tank
+        maxFuelKg: 150_000,
       });
 
       const shipClass = getShipClass(ship.classId)!;
@@ -138,8 +138,8 @@ describe('flightPhysics', () => {
     it('should verify burn-coast-burn branch for longer distances', () => {
       const ship = createTestShip({
         classId: 'wayfarer',
-        fuelKg: 28000, // Full tank
-        maxFuelKg: 28000,
+        fuelKg: 150_000, // Full Wayfarer tank
+        maxFuelKg: 150_000,
       });
       const world = generateWorld();
 
@@ -166,8 +166,8 @@ describe('flightPhysics', () => {
     it('should use same cruise velocity logic as computeMaxRange', () => {
       const ship = createTestShip({
         classId: 'wayfarer',
-        fuelKg: 28000, // Full tank
-        maxFuelKg: 28000,
+        fuelKg: 150_000, // Full Wayfarer tank
+        maxFuelKg: 150_000,
       });
       const world = generateWorld();
 
@@ -209,8 +209,8 @@ describe('flightPhysics', () => {
     it('should advance flight state correctly over time', () => {
       const ship = createTestShip({
         classId: 'wayfarer',
-        fuelKg: 28000, // Full tank
-        maxFuelKg: 28000,
+        fuelKg: 150_000, // Full Wayfarer tank
+        maxFuelKg: 150_000,
       });
       const world = generateWorld();
 

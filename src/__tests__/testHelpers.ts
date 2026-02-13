@@ -147,9 +147,9 @@ export function createTestShip(overrides: Partial<Ship> = {}): Ship {
     rooms: [bridge, engineRoom, miningBay],
     crew: [captain, bridgeCrew],
     jobSlots: [],
-    fuelKg: 22400, // 80% of 28,000 kg max fuel (Wayfarer)
-    maxFuelKg: 28000, // 70% of 40,000 kg cargo capacity
-    provisionsKg: 1800, // 30 days for 2 crew at 30 kg/day
+    fuelKg: 120_000, // 80% of 150,000 kg max fuel (Wayfarer)
+    maxFuelKg: 150_000, // Wayfarer dedicated fuel tank
+    provisionsKg: 300, // 30 days for 2 crew at effective 5 kg/day
     oxygenLevel: 100,
     equipment: [
       createTestEquipment({ definitionId: 'life_support' }),

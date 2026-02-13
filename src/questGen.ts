@@ -8,7 +8,6 @@ import {
   calculateDeltaV,
   calculateDryMass,
   calculateFuelMassRequired,
-  calculateFuelTankCapacity,
   getSpecificImpulse,
 } from './flightPhysics';
 import { gameSecondsToTicks, GAME_SECONDS_PER_TICK } from './timeSystem';
@@ -66,9 +65,7 @@ export function calculateTripFuelKg(
   const dryMass = calculateDryMass(ship);
 
   // Wet mass at full fuel tank
-  const maxFuelKg = shipClass
-    ? calculateFuelTankCapacity(shipClass.cargoCapacity, engineDef)
-    : 0;
+  const maxFuelKg = shipClass ? shipClass.fuelCapacity : 0;
   const fullMass = dryMass + maxFuelKg;
 
   // Acceleration at full fuel (worst case, heaviest)
@@ -253,10 +250,7 @@ export function estimateTripTime(
   // halves of calculatePayment (crew cost from trip time, fuel cost from
   // fuel mass) are computed under identical assumptions.
   const dryMass = calculateDryMass(ship);
-  const maxFuelKg = calculateFuelTankCapacity(
-    shipClass.cargoCapacity,
-    engineDef
-  );
+  const maxFuelKg = shipClass.fuelCapacity;
   const fullMass = dryMass + maxFuelKg;
   const thrust = engineDef.thrust;
   const acceleration = thrust / fullMass;
