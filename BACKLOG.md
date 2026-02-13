@@ -120,7 +120,8 @@ Current ship equipment (20 items) is dominated by mandatory survival systems. "F
 - ~~**2D/3D Coordinate System**~~: **DONE** — All 13 locations have 2D circular orbital parameters. Sun-orbiting bodies (Mars, belt, Jupiter) and Earth-orbiting satellites follow circular orbits with realistic radii and periods. Distances computed dynamically each tick via `updateWorldPositions()`. See `src/orbitalMechanics.ts`.
 - **Patrol Corridor System**: Define patrolled routes between major locations. Ships traveling along established corridors get reduced encounter rates; deviating into unpatrolled space increases danger. Only meaningful with 2D+ coordinates where "off-corridor" is spatially distinct from "on-corridor."
 - ~~**Orbital Position Drift**~~: **DONE** — All bodies move on circular orbits each tick. Earth-Mars distance varies ~55M–400M km. Launch window alignment system classifies timing quality. See `src/orbitalMechanics.ts`, `computeLaunchWindow()`.
-- **Gravity Assist Corridors**: When a ship's straight-line trajectory passes within a threshold of a massive body during transit, offer a nav skill check. Success refunds delta-v (fuel savings) based on body mass, closest approach distance, and navigator skill. Emergent: mass matters, geometry matters, crew skill matters. Implementation: sample body positions along the transit path, check proximity, roll against piloting/astrogation. No integration needed — just proximity checks against existing orbital position data.
+- ~~**Gravity Assist Corridors**~~: **DONE** — Ships detect massive bodies (Earth, Moon, Mars, Ceres, Jupiter) along their trajectory at departure. Piloting skill check at approach point; success refunds 2-10% fuel, failure costs ~1-2% correction burn. Pre-flight preview in Nav tab. Orrery shows assist markers. See `src/gravityAssistSystem.ts`.
+- **Tighten Gravity Assist Thresholds**: Current influence zone thresholds are gameplay-expanded (e.g., Jupiter 75M km, Mars 3M km) for ~30-50% trigger rate. Revisit to tighten toward physically realistic Hill sphere values once the mechanic is established and player feedback is available. Consider making thresholds scale with a `gravityAssistDifficulty` setting.
 - **Lagrange Point Stationkeeping Costs**: L1/L2 stations get a `stationkeepingCost` — a periodic fuel/credit drain reflecting their unstable orbital position. Surfaces as higher docking fees or occasional "drift events" where the station temporarily shifts position. L4/L5 (Trojan) stations have zero or negligible cost. Differentiates station types economically and teaches players that L-point geometry matters without any physics simulation.
 
 ## Duplicate Logic Consolidation (DONE)
@@ -159,6 +160,7 @@ Remaining follow-up:
 - **Cargo Space Limit**: Currently hardcoded `maxSpace = 20`. Should use ship cargo capacity.
 - **Class IV/V Ships**: Ship classes defined in WORLDRULES.md but not implemented.
 - **Remove Debug Console Logs**: Clean up `console.log` statements throughout codebase.
+- **Move `regenerateQuestsIfNewDay` into `applyTick`**: Daily quest/hiring regeneration is a simulation event (midnight world reset) but currently lives in UI orchestration (`main.ts`) and is called from three separate sites. Should move into `gameTick.ts` so it fires naturally at day boundaries. Small and large catch-up paths duplicate this call; unifying them into one batched path would remove the duplication. No gameplay impact — cosmetic/architectural only.
 
 ## Deferred Ship & Economy Features
 

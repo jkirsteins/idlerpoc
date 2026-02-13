@@ -5,7 +5,7 @@ import {
   formatRealDuration,
   GAME_SECONDS_PER_TICK,
 } from '../timeSystem';
-import { formatCredits } from '../formatting';
+import { formatCredits, formatMass } from '../formatting';
 import { getGForce } from '../flightPhysics';
 import { getEngineDefinition } from '../engines';
 import {
@@ -105,6 +105,13 @@ export function createFlightStatusComponent(
   const etaEl = document.createElement('div');
   etaEl.className = 'flight-eta';
   flightSection.appendChild(etaEl);
+
+  // Gravity assist indicator (always shown when in flight)
+  const gravAssistEl = document.createElement('div');
+  gravAssistEl.className = 'gravity-assist-status';
+  gravAssistEl.style.cssText =
+    'font-size: 0.85rem; margin-top: 4px; color: #888;';
+  flightSection.appendChild(gravAssistEl);
 
   container.appendChild(flightSection);
 
@@ -234,6 +241,43 @@ export function createFlightStatusComponent(
       totalRealSeconds += estimatedWarmupTicks;
     }
     etaEl.textContent = `ETA: ${formatDuration(remainingTime)} (~${formatRealDuration(totalRealSeconds)} real)`;
+
+    // Gravity assist status
+    const assists = flight.gravityAssists;
+    if (!assists || assists.length === 0) {
+      const noAssistText = 'Gravity assists: None on this trajectory';
+      if (gravAssistEl.textContent !== noAssistText) {
+        gravAssistEl.textContent = noAssistText;
+        gravAssistEl.style.color = '#666';
+      }
+    } else {
+      const parts: string[] = [];
+      for (const a of assists) {
+        if (a.result === 'pending') {
+          const pctToApproach = (a.approachProgress * 100).toFixed(0);
+          parts.push(`${a.bodyName} (at ${pctToApproach}%)`);
+        } else if (a.result === 'success') {
+          parts.push(
+            `${a.bodyName} \u2714 saved ${formatMass(a.fuelRefundKg)}`
+          );
+        } else {
+          parts.push(
+            `${a.bodyName} \u2718 cost ${formatMass(a.fuelPenaltyKg)}`
+          );
+        }
+      }
+      const assistText = `Gravity assists: ${parts.join(', ')}`;
+      if (gravAssistEl.textContent !== assistText) {
+        gravAssistEl.textContent = assistText;
+        const hasSuccess = assists.some((a) => a.result === 'success');
+        const hasFailure = assists.some((a) => a.result === 'failure');
+        gravAssistEl.style.color = hasSuccess
+          ? '#4caf50'
+          : hasFailure
+            ? '#f44336'
+            : '#ffc107';
+      }
+    }
   }
 
   // ── Update: radio group ──

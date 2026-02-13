@@ -27,6 +27,7 @@ import {
 } from './flightProfileControl';
 import {
   computeLaunchWindow,
+  getLocationPosition,
   type AlignmentQuality,
 } from '../orbitalMechanics';
 
@@ -230,6 +231,7 @@ interface LegendItemRefs {
   badgesContainer: HTMLElement;
   distance: HTMLElement;
   alignmentLine: HTMLElement; // launch window alignment badge
+  gravAssistLine: HTMLElement; // gravity assist preview
   travelInfo: HTMLElement;
   description: HTMLElement;
   riskLine: HTMLElement;
@@ -435,6 +437,36 @@ export function createNavigationView(
   selectionRing.setAttribute('r', '12');
   selectionRing.style.display = 'none';
   flightLayer.appendChild(selectionRing);
+
+  // Gravity assist markers pool (max 5 — created once, show/hide as needed)
+  const MAX_ASSIST_MARKERS = 5;
+
+  interface AssistMarkerRefs {
+    halo: SVGCircleElement; // influence zone halo around body
+    diamond: SVGPolygonElement; // marker on trajectory line
+  }
+
+  const assistMarkers: AssistMarkerRefs[] = [];
+  for (let i = 0; i < MAX_ASSIST_MARKERS; i++) {
+    const halo = document.createElementNS(SVG_NS, 'circle');
+    halo.setAttribute('r', '10');
+    halo.setAttribute('fill', 'none');
+    halo.setAttribute('stroke', '#ffc107');
+    halo.setAttribute('stroke-width', '1');
+    halo.setAttribute('stroke-opacity', '0.5');
+    halo.setAttribute('stroke-dasharray', '2,2');
+    halo.style.display = 'none';
+    flightLayer.appendChild(halo);
+
+    const diamond = document.createElementNS(SVG_NS, 'polygon');
+    diamond.setAttribute('fill', '#ffc107');
+    diamond.setAttribute('stroke', '#fff');
+    diamond.setAttribute('stroke-width', '0.3');
+    diamond.style.display = 'none';
+    flightLayer.appendChild(diamond);
+
+    assistMarkers.push({ halo, diamond });
+  }
 
   // SVG tooltip (single reusable group, positioned on hover/select)
   const tooltipGroup = document.createElementNS(SVG_NS, 'g');
@@ -693,6 +725,11 @@ export function createNavigationView(
     alignmentLine.style.display = 'none';
     details.appendChild(alignmentLine);
 
+    const gravAssistLine = document.createElement('div');
+    gravAssistLine.style.cssText =
+      'font-size: 0.85em; margin-top: 0.15rem; color: #ffc107; display: none;';
+    details.appendChild(gravAssistLine);
+
     const travelInfo = document.createElement('div');
     travelInfo.style.fontSize = '0.85em';
     travelInfo.style.color = '#4ade80';
@@ -771,6 +808,7 @@ export function createNavigationView(
       badgesContainer,
       distance,
       alignmentLine,
+      gravAssistLine,
       travelInfo,
       description,
       contractsContainer,
@@ -1081,7 +1119,7 @@ export function createNavigationView(
         legendRefs.alignmentLine.style.display = 'none';
       }
 
-      // Travel info
+      // Travel info + gravity assist preview
       if (isOtherDestination) {
         const shipClass = getShipClass(ship.classId);
         if (shipClass) {
@@ -1091,7 +1129,8 @@ export function createNavigationView(
               virtualOrigin,
               location,
               false,
-              ship.flightProfileBurnFraction
+              ship.flightProfileBurnFraction,
+              { gameTime: gameData.gameTime, world: gameData.world }
             );
             const travelTime = formatDualTime(flight.totalTime);
             const distanceKm = getDistanceBetween(virtualOrigin, location);
@@ -1111,14 +1150,35 @@ export function createNavigationView(
               origin: virtualOrigin,
               destination: location,
             });
+
+            // Gravity assist preview from the simulated flight
+            const assists = flight.gravityAssists;
+            if (assists && assists.length > 0) {
+              const bodyNames = assists
+                .map((a) => {
+                  const pct = (a.approachProgress * 100).toFixed(0);
+                  return `${a.bodyName} (at ${pct}%)`;
+                })
+                .join(', ');
+              const assistText = `Gravity assist: ${bodyNames}`;
+              if (legendRefs.gravAssistLine.textContent !== assistText) {
+                legendRefs.gravAssistLine.textContent = assistText;
+              }
+              legendRefs.gravAssistLine.style.display = '';
+            } else {
+              legendRefs.gravAssistLine.style.display = 'none';
+            }
           } catch {
             legendRefs.travelInfo.style.display = 'none';
+            legendRefs.gravAssistLine.style.display = 'none';
           }
         } else {
           legendRefs.travelInfo.style.display = 'none';
+          legendRefs.gravAssistLine.style.display = 'none';
         }
       } else {
         legendRefs.travelInfo.style.display = 'none';
+        legendRefs.gravAssistLine.style.display = 'none';
       }
 
       // Risk badge
@@ -1329,9 +1389,66 @@ export function createNavigationView(
       flightRefs.shipDot.setAttribute('cx', String(shipSvg.x));
       flightRefs.shipDot.setAttribute('cy', String(shipSvg.y));
       flightRefs.shipDot.style.display = '';
+
+      // --- Update gravity assist markers ---
+      const assists = fp.gravityAssists || [];
+      for (let i = 0; i < MAX_ASSIST_MARKERS; i++) {
+        const marker = assistMarkers[i];
+        if (i < assists.length) {
+          const a = assists[i];
+
+          // Color based on result
+          const color =
+            a.result === 'success'
+              ? '#4caf50'
+              : a.result === 'failure'
+                ? '#f44336'
+                : '#ffc107';
+
+          // Halo around the gravity body's current position
+          const bodyLoc = gameData.world.locations.find(
+            (l) => l.id === a.bodyId
+          );
+          if (bodyLoc) {
+            const bodyPos = getLocationPosition(
+              bodyLoc,
+              gameData.gameTime,
+              gameData.world
+            );
+            const bodySvg = projectToSvg(bodyPos.x, bodyPos.y);
+            marker.halo.setAttribute('cx', String(bodySvg.x));
+            marker.halo.setAttribute('cy', String(bodySvg.y));
+            marker.halo.setAttribute('stroke', color);
+            marker.halo.style.display = '';
+          } else {
+            marker.halo.style.display = 'none';
+          }
+
+          // Diamond on the trajectory line at approachProgress
+          const dx = destSvg.x - originSvg.x;
+          const dy = destSvg.y - originSvg.y;
+          const mx = originSvg.x + dx * a.approachProgress;
+          const my = originSvg.y + dy * a.approachProgress;
+          const ds = 2.5; // diamond half-size
+          marker.diamond.setAttribute(
+            'points',
+            `${mx},${my - ds} ${mx + ds},${my} ${mx},${my + ds} ${mx - ds},${my}`
+          );
+          marker.diamond.setAttribute('fill', color);
+          marker.diamond.style.display = '';
+        } else {
+          marker.halo.style.display = 'none';
+          marker.diamond.style.display = 'none';
+        }
+      }
     } else {
       flightRefs.line.style.display = 'none';
       flightRefs.shipDot.style.display = 'none';
+      // Hide all assist markers when not in flight
+      for (const marker of assistMarkers) {
+        marker.halo.style.display = 'none';
+        marker.diamond.style.display = 'none';
+      }
     }
   }
 
