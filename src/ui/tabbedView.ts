@@ -67,6 +67,7 @@ export function createTabbedView(
   let currentTab = activeTab;
   let currentShowNav = showNavigation;
   let currentSelectedCrewId = selectedCrewId;
+  let previousTab: PlayingTab = activeTab !== 'guide' ? activeTab : 'ship';
 
   // ── Mount-once header elements ─────────────────────────────────────
   const headerEl = document.createElement('div');
@@ -446,7 +447,9 @@ export function createTabbedView(
       case 'log':
         return createLogTab(gameData);
       case 'guide':
-        return createGamepediaTab(gameData);
+        return createGamepediaTab(gameData, undefined, () => {
+          callbacks.onTabChange(previousTab);
+        });
       case 'settings':
         return createSettingsTab(gameData, callbacks);
       default:
@@ -781,6 +784,10 @@ export function createTabbedView(
       update(gameData);
     },
     updateView(state: TabbedViewState) {
+      // Track previous tab before switching to guide
+      if (state.activeTab === 'guide' && currentTab !== 'guide') {
+        previousTab = currentTab;
+      }
       currentTab = state.activeTab;
       currentShowNav = state.showNavigation;
       currentSelectedCrewId = state.selectedCrewId;

@@ -3363,6 +3363,7 @@ button:disabled:hover {
   overflow-y: auto;
   max-height: calc(100vh - 200px);
   border: 1px solid #0f3460;
+  min-width: 0;
 }
 
 .gamepedia-welcome {
@@ -3445,6 +3446,7 @@ button:disabled:hover {
   margin: 0 0 20px 0;
   padding-bottom: 16px;
   border-bottom: 1px solid #0f3460;
+  overflow-wrap: break-word;
 }
 
 .gamepedia-section-heading {
@@ -3458,6 +3460,7 @@ button:disabled:hover {
   font-size: 14px;
   line-height: 1.6;
   margin: 0 0 10px 0;
+  overflow-wrap: break-word;
 }
 
 /* Tables */
@@ -3466,6 +3469,8 @@ button:disabled:hover {
   border-collapse: collapse;
   margin: 12px 0 20px 0;
   font-size: 13px;
+  display: block;
+  overflow-x: auto;
 }
 
 .gamepedia-table th {
@@ -3475,12 +3480,14 @@ button:disabled:hover {
   color: #4a9eff;
   font-weight: 600;
   border-bottom: 2px solid #0f3460;
+  word-break: break-word;
 }
 
 .gamepedia-table td {
   padding: 8px 12px;
   color: #ccc;
   border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  word-break: break-word;
 }
 
 .gamepedia-table tr:hover td {
@@ -3516,6 +3523,11 @@ button:disabled:hover {
   color: #6db3ff;
   text-decoration-color: #6db3ff;
   background: none;
+}
+
+/* Gamepedia mobile header (back button) */
+.gamepedia-mobile-header {
+  display: none; /* Hidden on desktop */
 }
 
 /* ==========================================
@@ -4087,14 +4099,21 @@ button:disabled:hover {
     grid-template-columns: 1fr;
   }
 
-  /* Gamepedia: stack sidebar above content */
+  /* Gamepedia: fullscreen overlay on mobile */
   .gamepedia-tab {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    background: #1a1a2e;
+    padding: 16px;
     flex-direction: column;
     min-height: auto;
+    overflow-y: auto;
   }
 
   .gamepedia-sidebar {
     width: 100%;
+    flex-shrink: 0;
   }
 
   .gamepedia-topic-list {
@@ -4103,6 +4122,30 @@ button:disabled:hover {
 
   .gamepedia-main {
     max-height: none;
+    flex: 1;
+    overflow-y: auto;
+  }
+
+  /* Show mobile back button */
+  .gamepedia-mobile-header {
+    display: block;
+    margin-bottom: 12px;
+  }
+
+  .gamepedia-back-btn {
+    background: rgba(74, 158, 255, 0.2);
+    border: 1px solid #4a9eff;
+    color: #4a9eff;
+    padding: 10px 14px;
+    font-size: 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    width: 100%;
+    font-weight: 600;
+  }
+
+  .gamepedia-back-btn:hover {
+    background: rgba(74, 158, 255, 0.3);
   }
 }
 
@@ -4440,6 +4483,10 @@ button:disabled:hover {
   .gamepedia-cat-btn {
     padding: 3px 6px;
     font-size: 10px;
+  }
+
+  .gamepedia-topic-list {
+    max-height: 150px;
   }
 
   /* Ensure no horizontal scroll */
