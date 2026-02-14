@@ -34,7 +34,6 @@ interface SidebarCallbacks {
   onToggleNavigation?: () => void;
   onUndock?: () => void;
   onDock?: () => void;
-  onAdvanceDay?: () => void;
   onTogglePause?: () => void;
   onSetSpeed?: (speed: 1 | 2 | 5) => void;
   onTabChange?: (tab: PlayingTab) => void;

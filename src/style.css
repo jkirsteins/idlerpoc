@@ -113,65 +113,6 @@ body {
   margin-bottom: 20px;
 }
 
-/* Global Status Bar (ship header) */
-.global-status-bar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-top: 1rem;
-  padding: 0.75rem;
-  background: rgba(0, 0, 0, 0.3);
-  border-radius: 4px;
-  border: 1px solid #444;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-}
-
-.global-status-stats {
-  display: flex;
-  gap: 2rem;
-  flex-wrap: nowrap;
-  white-space: nowrap;
-  font-variant-numeric: tabular-nums;
-}
-
-.global-status-actions {
-  display: flex;
-  gap: 0.5rem;
-  align-items: center;
-  flex-wrap: nowrap;
-}
-
-.global-status-text {
-  margin-right: 0.5rem;
-  color: #aaa;
-  white-space: nowrap;
-}
-
-.global-status-btn {
-  padding: 0.5rem 1rem;
-}
-
-/* Ledger breakdown (collapsible) */
-.ledger-breakdown {
-  display: flex;
-  gap: 1rem;
-  flex-basis: 100%;
-  padding: 6px 8px;
-  background: rgba(0, 0, 0, 0.2);
-  border-radius: 4px;
-  font-size: 12px;
-  flex-wrap: wrap;
-}
-
-.ledger-item {
-  white-space: nowrap;
-}
-
-.ledger-toggle {
-  min-height: auto !important;
-}
-
 /* Ship Capabilities Grid */
 .ship-capabilities-grid {
   display: grid;
@@ -648,23 +589,6 @@ button:active:not(:disabled) {
   margin-bottom: 24px;
   padding-bottom: 16px;
   border-bottom: 1px solid #0f3460;
-}
-
-.ship-name {
-  margin: 0 0 4px;
-  font-size: 28px;
-}
-
-.ship-class-label {
-  color: #888;
-  font-size: 14px;
-  margin-bottom: 8px;
-}
-
-.captain-label {
-  color: #e94560;
-  font-size: 16px;
-  font-weight: 500;
 }
 
 /* Room Grid */
@@ -2834,14 +2758,6 @@ button:disabled:hover {
   background: rgba(0, 0, 0, 0.5);
 }
 
-/* Header flight progress bar */
-.header-flight-progress {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  margin-left: 12px;
-}
-
 /* Day progress bar */
 .day-progress-bar {
   width: 100%;
@@ -3201,28 +3117,6 @@ button:disabled:hover {
   to {
     opacity: 0;
   }
-}
-
-/* Credit Delta Animation */
-@keyframes credit-delta-float {
-  0% {
-    opacity: 0;
-    transform: translateY(0);
-  }
-  10% {
-    opacity: 1;
-  }
-  90% {
-    opacity: 1;
-  }
-  100% {
-    opacity: 0;
-    transform: translateY(-10px);
-  }
-}
-
-.credit-delta {
-  pointer-events: none;
 }
 
 /* Tab Badges */
@@ -3969,11 +3863,6 @@ button:disabled:hover {
     gap: 1rem;
   }
 
-  /* Ship name smaller */
-  .ship-name {
-    font-size: 22px;
-  }
-
   /* Ship status banner: stack on narrow */
   .ship-status-banner {
     flex-direction: column;
@@ -4097,35 +3986,6 @@ button:disabled:hover {
     flex-direction: column;
   }
 
-  /* Global status bar: stack vertically */
-  .global-status-bar {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 0.75rem;
-  }
-
-  .global-status-stats {
-    gap: 1rem;
-    font-size: 13px;
-  }
-
-  .global-status-actions {
-    flex-wrap: wrap;
-    gap: 0.5rem;
-  }
-
-  .global-status-text {
-    width: 100%;
-    margin-right: 0;
-    margin-bottom: 0.25rem;
-  }
-
-  .global-status-btn {
-    flex: 1;
-    min-width: 0;
-    text-align: center;
-  }
-
   /* Prevent horizontal overflow */
   .game-container {
     overflow-x: hidden;
@@ -4139,9 +3999,6 @@ button:disabled:hover {
   }
 
   /* Ship header text: prevent overflow */
-  .ship-name,
-  .ship-class-label,
-  .captain-label,
   .date-header-global {
     overflow: hidden;
     text-overflow: ellipsis;
@@ -4173,14 +4030,6 @@ button:disabled:hover {
 
   .fleet-row-stat {
     min-width: 0;
-  }
-
-  .global-status-stats {
-    flex-wrap: wrap;
-  }
-
-  .global-status-actions {
-    flex-wrap: wrap;
   }
 
   .fleet-row-activity {
@@ -4355,11 +4204,6 @@ button:disabled:hover {
   /* Ship specs: single column */
   .ship-specs {
     grid-template-columns: 1fr;
-  }
-
-  /* Ship name */
-  .ship-name {
-    font-size: 18px;
   }
 
   /* Nav map: larger on mobile for readability */
@@ -4568,17 +4412,6 @@ button:disabled:hover {
   .cargo-item {
     flex-wrap: wrap;
     gap: 8px;
-  }
-
-  /* Global status bar: even more compact */
-  .global-status-stats {
-    gap: 0.75rem;
-    font-size: 12px;
-  }
-
-  .global-status-btn {
-    padding: 0.4rem 0.75rem;
-    font-size: 12px;
   }
 
   /* Gamepedia: compact on phone */

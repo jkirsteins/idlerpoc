@@ -291,14 +291,6 @@ export function createTabbedView(
   refuelBtn.addEventListener('click', () => callbacks.onBuyFuel());
   actionsDiv.appendChild(refuelBtn);
 
-  // Advance Day button (created once, toggled display)
-  const advanceDayBtn = document.createElement('button');
-  advanceDayBtn.textContent = '\u23ED Advance Day';
-  advanceDayBtn.className = 'global-status-btn';
-  advanceDayBtn.style.display = 'none';
-  advanceDayBtn.addEventListener('click', () => callbacks.onAdvanceDay());
-  actionsDiv.appendChild(advanceDayBtn);
-
   statusBar.appendChild(actionsDiv);
 
   // ── Keep-alive tab components ──────────────────────────────────────
@@ -699,13 +691,6 @@ export function createTabbedView(
       }
     }
     refuelBtn.style.display = showRefuel ? '' : 'none';
-
-    // Advance Day button (only when docked or orbiting with no contract)
-    const canAdvanceDay =
-      (ship.location.status === 'docked' ||
-        ship.location.status === 'orbiting') &&
-      !ship.activeContract;
-    advanceDayBtn.style.display = canAdvanceDay ? '' : 'none';
   }
 
   // ── Main update function ───────────────────────────────────────────

@@ -33,7 +33,6 @@ export interface TabbedViewCallbacks {
   onAcceptQuest: (questId: string) => void;
   onAssignRoute: (questId: string) => void;
   onUnassignRoute: () => void;
-  onAdvanceDay: () => void;
   onDockAtNearestPort: () => void;
   onCancelPause: () => void;
   onRequestAbandon: () => void;

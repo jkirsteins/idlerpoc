@@ -75,7 +75,6 @@ export interface RendererCallbacks {
   onAcceptQuest: (questId: string) => void;
   onAssignRoute: (questId: string) => void;
   onUnassignRoute: () => void;
-  onAdvanceDay: () => void;
   onTogglePause?: () => void;
   onSetSpeed?: (speed: 1 | 2 | 5) => void;
   onAutoPauseSettingChange?: (
@@ -283,7 +282,6 @@ function mountPlayingLayout(
     onToggleNavigation: callbacks.onToggleNavigation,
     onUndock: callbacks.onUndock,
     onDock: callbacks.onDockAtNearestPort,
-    onAdvanceDay: callbacks.onAdvanceDay,
     onTogglePause: callbacks.onTogglePause,
     onSetSpeed: callbacks.onSetSpeed,
     onTabChange: callbacks.onTabChange,
@@ -413,7 +411,6 @@ function mountPlayingLayout(
       onAcceptQuest: callbacks.onAcceptQuest,
       onAssignRoute: callbacks.onAssignRoute,
       onUnassignRoute: callbacks.onUnassignRoute,
-      onAdvanceDay: callbacks.onAdvanceDay,
       onDockAtNearestPort: callbacks.onDockAtNearestPort,
       onCancelPause: callbacks.onCancelPause,
       onRequestAbandon: callbacks.onRequestAbandon,
