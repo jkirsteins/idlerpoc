@@ -33,6 +33,16 @@ import {
   type MineCardRefs,
 } from './miningRouteSetup';
 
+/**
+ * Conditionally set style.display to prevent unnecessary DOM mutations.
+ * Only updates when the value actually changes, eliminating flicker.
+ */
+function setDisplay(element: HTMLElement, value: string): void {
+  if (element.style.display !== value) {
+    element.style.display = value;
+  }
+}
+
 export interface WorkTabCallbacks {
   onAcceptQuest: (questId: string) => void;
   onDockAtNearestPort: () => void;
@@ -189,9 +199,9 @@ function syncCardExpansion(
   refs.expandIcon.textContent = expanded ? '▼' : '▶';
 
   const displayValue = expanded ? '' : 'none';
-  refs.title.style.display = displayValue;
-  refs.description.style.display = displayValue;
-  refs.details.style.display = expanded ? 'flex' : 'none';
+  setDisplay(refs.title, displayValue);
+  setDisplay(refs.description, displayValue);
+  setDisplay(refs.details, expanded ? 'flex' : 'none');
 
   if (!expanded) {
     refs.buttonContainer.style.display = 'none';
@@ -232,7 +242,7 @@ function applyJobFilter(
 
     const category = categorizeQuest(quest, gd);
     const visible = currentJobFilter === 'all' || currentJobFilter === category;
-    refs.card.style.display = visible ? '' : 'none';
+    setDisplay(refs.card, visible ? '' : 'none');
   }
 
   for (const [questId, refs] of regularQuestCards) {
@@ -241,7 +251,7 @@ function applyJobFilter(
 
     const category = categorizeQuest(quest, gd);
     const visible = currentJobFilter === 'all' || currentJobFilter === category;
-    refs.card.style.display = visible ? '' : 'none';
+    setDisplay(refs.card, visible ? '' : 'none');
   }
 }
 
@@ -910,9 +920,9 @@ export function createWorkTab(
     // Show soft warnings
     if (warnings && warnings.length > 0) {
       refs.warningsDiv.textContent = warnings.join(' ');
-      refs.warningsDiv.style.display = '';
+      setDisplay(refs.warningsDiv, '');
     } else {
-      refs.warningsDiv.style.display = 'none';
+      setDisplay(refs.warningsDiv, 'none');
     }
 
     // Card disabled state
@@ -944,9 +954,9 @@ export function createWorkTab(
     // Destination
     if (destination) {
       refs.destInfo.textContent = `Destination: ${destination.name}`;
-      refs.destInfo.style.display = '';
+      setDisplay(refs.destInfo, '');
     } else {
-      refs.destInfo.style.display = 'none';
+      setDisplay(refs.destInfo, 'none');
     }
 
     // Distance
@@ -955,36 +965,36 @@ export function createWorkTab(
         origin.distanceFromEarth - destination.distanceFromEarth
       );
       refs.distanceInfo.textContent = `Distance: ${formatDistance(distance)}`;
-      refs.distanceInfo.style.display = '';
+      setDisplay(refs.distanceInfo, '');
     } else {
-      refs.distanceInfo.style.display = 'none';
+      setDisplay(refs.distanceInfo, 'none');
     }
 
     // Cargo
     if (resolved.cargoRequired > 0) {
       refs.cargoInfo.textContent = `Cargo: ${formatMass(resolved.cargoRequired)}`;
-      refs.cargoInfo.style.display = '';
+      setDisplay(refs.cargoInfo, '');
     } else {
-      refs.cargoInfo.style.display = 'none';
+      setDisplay(refs.cargoInfo, 'none');
     }
 
     // Total cargo
     if (quest.totalCargoRequired > 0) {
       refs.totalCargoInfo.textContent = `Total cargo: ${formatMass(quest.totalCargoRequired)}`;
-      refs.totalCargoInfo.style.display = '';
+      setDisplay(refs.totalCargoInfo, '');
     } else {
-      refs.totalCargoInfo.style.display = 'none';
+      setDisplay(refs.totalCargoInfo, 'none');
     }
 
     // Trips
     if (quest.tripsRequired > 0) {
       refs.tripsInfo.textContent = `Trips: ${quest.tripsRequired}`;
-      refs.tripsInfo.style.display = '';
+      setDisplay(refs.tripsInfo, '');
     } else if (quest.tripsRequired === -1) {
       refs.tripsInfo.textContent = 'Trips: Unlimited';
-      refs.tripsInfo.style.display = '';
+      setDisplay(refs.tripsInfo, '');
     } else {
-      refs.tripsInfo.style.display = 'none';
+      setDisplay(refs.tripsInfo, 'none');
     }
 
     // Fuel and time from resolved per-ship values
@@ -1015,9 +1025,9 @@ export function createWorkTab(
 
     if (tripCrewCost > 0) {
       refs.crewCostInfo.textContent = `Crew Salaries: ~${formatCredits(perHour(tripCrewCost))}/hr`;
-      refs.crewCostInfo.style.display = '';
+      setDisplay(refs.crewCostInfo, '');
     } else {
-      refs.crewCostInfo.style.display = 'none';
+      setDisplay(refs.crewCostInfo, 'none');
     }
 
     refs.fuelCostInfo.textContent = `Fuel Cost: ~${formatCredits(perHour(tripFuelCost))}/hr`;
@@ -1053,9 +1063,9 @@ export function createWorkTab(
       // Replace badge in slot (leaf helper — transient)
       refs.riskBadgeSlot.textContent = '';
       refs.riskBadgeSlot.appendChild(renderThreatBadge(threatLevel, narrative));
-      refs.riskLine.style.display = 'flex';
+      setDisplay(refs.riskLine, 'flex');
     } else {
-      refs.riskLine.style.display = 'none';
+      setDisplay(refs.riskLine, 'none');
     }
 
     // Payment — show per-hour rate for comparability across different trip distances
@@ -1069,15 +1079,15 @@ export function createWorkTab(
 
     // Buttons vs reason
     if (canAccept) {
-      refs.buttonContainer.style.display = 'flex';
-      refs.reasonDiv.style.display = 'none';
+      setDisplay(refs.buttonContainer, 'flex');
+      setDisplay(refs.reasonDiv, 'none');
     } else {
-      refs.buttonContainer.style.display = 'none';
+      setDisplay(refs.buttonContainer, 'none');
       if (reason) {
         refs.reasonDiv.textContent = reason;
-        refs.reasonDiv.style.display = '';
+        setDisplay(refs.reasonDiv, '');
       } else {
-        refs.reasonDiv.style.display = 'none';
+        setDisplay(refs.reasonDiv, 'none');
       }
     }
 
@@ -1096,13 +1106,13 @@ export function createWorkTab(
     ) {
       // Nothing to show — hide content but keep phase visible for structure
       noContractRefs.heading.textContent = 'Available Work';
-      noContractRefs.shipContext.style.display = 'none';
-      noContractRefs.filterBar.style.display = 'none';
-      noContractRefs.tradeSection.style.display = 'none';
-      noContractRefs.contractSection.style.display = 'none';
-      noContractRefs.miningSlot.style.display = 'none';
-      noContractRefs.miningRouteInfoBar.style.display = 'none';
-      noContractRefs.miningRouteSetupSection.style.display = 'none';
+      setDisplay(noContractRefs.shipContext, 'none');
+      setDisplay(noContractRefs.filterBar, 'none');
+      setDisplay(noContractRefs.tradeSection, 'none');
+      setDisplay(noContractRefs.contractSection, 'none');
+      setDisplay(noContractRefs.miningSlot, 'none');
+      setDisplay(noContractRefs.miningRouteInfoBar, 'none');
+      setDisplay(noContractRefs.miningRouteSetupSection, 'none');
       // Remove profile control if it was placed here
       if (profileControl.el.parentNode === noContractRefs.container) {
         profileControl.el.remove();
@@ -1112,13 +1122,13 @@ export function createWorkTab(
 
     const locationData = gd.world.locations.find((l) => l.id === location);
     if (!locationData) {
-      noContractRefs.shipContext.style.display = 'none';
-      noContractRefs.filterBar.style.display = 'none';
-      noContractRefs.tradeSection.style.display = 'none';
-      noContractRefs.contractSection.style.display = 'none';
-      noContractRefs.miningSlot.style.display = 'none';
-      noContractRefs.miningRouteInfoBar.style.display = 'none';
-      noContractRefs.miningRouteSetupSection.style.display = 'none';
+      setDisplay(noContractRefs.shipContext, 'none');
+      setDisplay(noContractRefs.filterBar, 'none');
+      setDisplay(noContractRefs.tradeSection, 'none');
+      setDisplay(noContractRefs.contractSection, 'none');
+      setDisplay(noContractRefs.miningSlot, 'none');
+      setDisplay(noContractRefs.miningRouteInfoBar, 'none');
+      setDisplay(noContractRefs.miningRouteSetupSection, 'none');
       return;
     }
 
@@ -1135,7 +1145,7 @@ export function createWorkTab(
     // Mining status panel (at mine locations only)
     const isAtMine = locationData.services.includes('mine');
     if (isAtMine) {
-      noContractRefs.miningSlot.style.display = '';
+      setDisplay(noContractRefs.miningSlot, '');
       if (!miningPanel) {
         miningPanel = createMiningPanel({
           onStartMiningRoute: callbacks.onStartMiningRoute,
@@ -1146,7 +1156,7 @@ export function createWorkTab(
       }
       miningPanel.update(gd, ship, locationData);
     } else {
-      noContractRefs.miningSlot.style.display = 'none';
+      setDisplay(noContractRefs.miningSlot, 'none');
     }
 
     // Mining route info bar (any station when route is active)
@@ -1177,14 +1187,14 @@ export function createWorkTab(
         locationData
       );
     } else {
-      noContractRefs.miningRouteSetupSection.style.display = 'none';
+      setDisplay(noContractRefs.miningRouteSetupSection, 'none');
     }
 
     // Heading
     noContractRefs.heading.textContent = `Available Work at ${locationData.name}`;
 
     // Ship context
-    noContractRefs.shipContext.style.display = '';
+    setDisplay(noContractRefs.shipContext, '');
     noContractRefs.shipContextName.textContent = ship.name;
 
     // Check for location change and reset filter if needed
@@ -1194,7 +1204,7 @@ export function createWorkTab(
     }
 
     // Show and sync filter bar
-    noContractRefs.filterBar.style.display = 'flex';
+    setDisplay(noContractRefs.filterBar, 'flex');
     syncJobFilterButtons(noContractRefs.filterButtons, currentJobFilter);
 
     // Get quests
@@ -1206,7 +1216,7 @@ export function createWorkTab(
 
     // Trade routes section
     if (tradeRoutes.length > 0) {
-      noContractRefs.tradeSection.style.display = '';
+      setDisplay(noContractRefs.tradeSection, '');
 
       // Sort: acceptable first
       const sortedTrade = [...tradeRoutes].sort((a, b) => {
@@ -1225,7 +1235,7 @@ export function createWorkTab(
         gd
       );
     } else {
-      noContractRefs.tradeSection.style.display = 'none';
+      setDisplay(noContractRefs.tradeSection, 'none');
       // Clean up stale cards
       for (const [id, refs] of tradeQuestCards) {
         refs.card.remove();
@@ -1234,21 +1244,23 @@ export function createWorkTab(
     }
 
     // Regular contracts section
-    noContractRefs.contractSection.style.display = '';
+    setDisplay(noContractRefs.contractSection, '');
 
     // Show/hide heading based on whether both sections exist
-    noContractRefs.contractHeading.style.display =
-      tradeRoutes.length > 0 && regularQuests.length > 0 ? '' : 'none';
+    setDisplay(
+      noContractRefs.contractHeading,
+      tradeRoutes.length > 0 && regularQuests.length > 0 ? '' : 'none'
+    );
 
     if (regularQuests.length === 0 && tradeRoutes.length === 0) {
-      noContractRefs.noQuestsMsg.style.display = '';
+      setDisplay(noContractRefs.noQuestsMsg, '');
       // Clean up stale cards
       for (const [id, refs] of regularQuestCards) {
         refs.card.remove();
         regularQuestCards.delete(id);
       }
     } else {
-      noContractRefs.noQuestsMsg.style.display = 'none';
+      setDisplay(noContractRefs.noQuestsMsg, 'none');
 
       if (regularQuests.length > 0) {
         const sortedQuests = [...regularQuests].sort((a, b) => {
@@ -1366,18 +1378,18 @@ export function createWorkTab(
     // Status hints
     if (ship.location.status === 'in_flight') {
       if (activeContract.abandonRequested) {
-        refs.abandonHint.style.display = '';
-        refs.pauseHint.style.display = 'none';
+        setDisplay(refs.abandonHint, '');
+        setDisplay(refs.pauseHint, 'none');
       } else if (activeContract.paused) {
-        refs.abandonHint.style.display = 'none';
-        refs.pauseHint.style.display = '';
+        setDisplay(refs.abandonHint, 'none');
+        setDisplay(refs.pauseHint, '');
       } else {
-        refs.abandonHint.style.display = 'none';
-        refs.pauseHint.style.display = 'none';
+        setDisplay(refs.abandonHint, 'none');
+        setDisplay(refs.pauseHint, 'none');
       }
     } else {
-      refs.abandonHint.style.display = 'none';
-      refs.pauseHint.style.display = 'none';
+      setDisplay(refs.abandonHint, 'none');
+      setDisplay(refs.pauseHint, 'none');
     }
 
     // Fuel gauge
@@ -1443,11 +1455,15 @@ export function createWorkTab(
     }
 
     // Toggle phase containers
-    noContractRefs.container.style.display = curPhase === 'none' ? '' : 'none';
-    activeContractRefs.container.style.display =
-      curPhase === 'active' ? '' : 'none';
-    pausedContractRefs.container.style.display =
-      curPhase === 'paused' ? '' : 'none';
+    setDisplay(noContractRefs.container, curPhase === 'none' ? '' : 'none');
+    setDisplay(
+      activeContractRefs.container,
+      curPhase === 'active' ? '' : 'none'
+    );
+    setDisplay(
+      pausedContractRefs.container,
+      curPhase === 'paused' ? '' : 'none'
+    );
 
     // Update the consolidated flight status component (handles its own
     // visibility: shows flight info when in flight, radio buttons when
@@ -1493,8 +1509,8 @@ function updateCaptainBonusDisplay(
   if (hasCaptain && bonusPercent > 0) {
     refs.captainBonusInfo.textContent = `Captain bonus: +${bonusPercent}%`;
     refs.captainBonusInfo.style.color = '#fbbf24';
-    refs.captainBonusInfo.style.display = '';
-    refs.captainHintInfo.style.display = 'none';
+    setDisplay(refs.captainBonusInfo, '');
+    setDisplay(refs.captainHintInfo, 'none');
   } else if (!hasCaptain) {
     if (bonusPercent > 0) {
       refs.captainBonusInfo.textContent = `Acting cpt: +${bonusPercent}%`;
@@ -1502,16 +1518,16 @@ function updateCaptainBonusDisplay(
       refs.captainBonusInfo.textContent = 'No command bonus';
     }
     refs.captainBonusInfo.style.color = '#6b7280';
-    refs.captainBonusInfo.style.display = '';
+    setDisplay(refs.captainBonusInfo, '');
     const hypothetical = getHypotheticalCaptainBonus(ship, gd);
     if (hypothetical > 0) {
       refs.captainHintInfo.textContent = `(Captain: +${Math.round(hypothetical * 100)}%)`;
-      refs.captainHintInfo.style.display = '';
+      setDisplay(refs.captainHintInfo, '');
     } else {
-      refs.captainHintInfo.style.display = 'none';
+      setDisplay(refs.captainHintInfo, 'none');
     }
   } else {
-    refs.captainBonusInfo.style.display = 'none';
-    refs.captainHintInfo.style.display = 'none';
+    setDisplay(refs.captainBonusInfo, 'none');
+    setDisplay(refs.captainHintInfo, 'none');
   }
 }
