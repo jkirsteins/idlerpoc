@@ -534,8 +534,16 @@ function renderFleetPerformanceDashboard(gameData: GameData): HTMLElement {
     ledger.incomeDays > 0
       ? `<span style="color: #666; font-size: 0.8rem;">(${ledger.incomeDays}d avg)</span>`
       : '';
+  const expensesText =
+    ledger.expenseDays > 0
+      ? `-${formatCredits(Math.round(ledger.totalExpensePerDay))}/day`
+      : 'collecting data\u2026';
+  const expensesBreakdown =
+    ledger.expenseDays > 0
+      ? `<span style="color: #666; font-size: 0.8rem;">(crew: ${Math.round(ledger.crewCostPerDay).toLocaleString()}, fuel: ${Math.round(ledger.fuelCostPerDay).toLocaleString()})</span>`
+      : '';
   const runwayText =
-    ledger.incomeDays === 0
+    ledger.incomeDays === 0 || ledger.expenseDays === 0
       ? '<span style="color: #666;">collecting data\u2026</span>'
       : ledger.runwayDays !== null
         ? `<span style="color: ${ledger.runwayDays < 3 ? '#ff4444' : '#ffa500'};">${ledger.runwayDays.toFixed(1)} days</span>`
@@ -552,7 +560,7 @@ function renderFleetPerformanceDashboard(gameData: GameData): HTMLElement {
       </div>
       <div style="border-top: 1px solid #333; padding-top: 0.5rem; display: flex; gap: 2rem; flex-wrap: wrap;">
         <div><span style="color: #aaa;">Income:</span> <span style="color: #4ade80;">${incomeText}</span> ${incomeNote}</div>
-        <div><span style="color: #aaa;">Expenses:</span> <span style="color: #ffa500;">-${formatCredits(Math.round(ledger.totalExpensePerDay))}/day</span> <span style="color: #666; font-size: 0.8rem;">(crew: ${Math.round(ledger.crewCostPerDay).toLocaleString()}, fuel: ${Math.round(ledger.fuelCostPerDay).toLocaleString()})</span></div>
+        <div><span style="color: #aaa;">Expenses:</span> <span style="color: ${ledger.expenseDays > 0 ? '#ffa500' : '#666'};">${expensesText}</span> ${expensesBreakdown}</div>
         <div><span style="color: #aaa;">Net Rate:</span> <span style="color: ${dailyNetColor}; font-weight: bold;">${dailyNetSign}${formatCredits(dailyNet)}/day</span></div>
         <div><span style="color: #aaa;">Runway:</span> ${runwayText}</div>
       </div>
