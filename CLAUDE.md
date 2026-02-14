@@ -6,6 +6,19 @@ E.g. space ship range is derived from engines generating thrust, consuming fuel,
 
 Similarly, all game updates need to happen in some central "update tick" method. All systems need to be updated with every tick.
 
+# Design Goals Compliance
+
+Every new feature or mechanic must pass these checks from `DESIGN_GOALS.md` before implementation:
+
+1. **Emergent, not arbitrary.** Does the feature derive its values from simulation systems? If you're adding a flat "+X%" bonus that doesn't trace to physics, crew, or equipment — redesign it.
+2. **Idle-first.** Does it respect absence? No energy gates, no punishment for being offline, no advantage that requires constant attention to maintain.
+3. **Show the mountain, hide the details.** If the feature is gated behind progression, its _existence_ should be visible (dimmed, with unlock condition), but its deep mechanics should stay hidden until active. New players should see what's ahead without being forced to process it.
+4. **Clarity over realism.** Every derived value needs a tooltip breakdown. If you can't explain why a number is what it is in a tooltip, the system is too opaque.
+5. **Within scope.** Check the v1 scope guardrails in DESIGN_GOALS.md before adding new content types (ship classes, locations, skills, ores, encounter types).
+6. **Serves the loop.** Does this feature plug into the active loop (5-8 min decisions), the passive loop (idle progression), or the expansion loop (long-term goals)? If it doesn't serve any loop, it probably doesn't belong.
+
+When in doubt, consult DESIGN_GOALS.md for the full design philosophy.
+
 # UI Component Architecture
 
 UI components follow a **mount-once / update-on-tick** pattern (see `src/ui/component.ts`):
@@ -53,6 +66,7 @@ When designing metric displays, status sections, or info panels:
 - **Test with extreme values.** Check how the layout behaves when values are 0, in the millions, or negative. Ensure no value causes wrapping or column reflow.
 
 Example of a **stable** metric display:
+
 ```typescript
 // Single-row flex layout, each metric is one nowrap line
 section.style.display = 'flex';
@@ -67,6 +81,7 @@ metric.innerHTML = `
 ```
 
 Example of an **unstable** metric display (avoid):
+
 ```typescript
 // Multi-row grid with auto-fit, multi-line text, minHeight band-aid
 grid.style.display = 'grid';
@@ -82,7 +97,7 @@ metric.innerHTML = `
 
 # UI Discoverability
 
-**Always show UI indicators, never conditionally hide them.** Every game system that has a UI indicator (status bars, gauges, panels) must be rendered at all times, even when the system is inactive or the current ship/equipment doesn't engage with it. Hidden controls hide the existence of features from players. Showing an indicator in a "neutral" or "N/A" state encourages players to explore how to interact with systems they haven't encountered yet. Use disabled/dimmed/zero states instead of removing elements from the DOM.
+**Show the mountain, hide the details.** Every game system should be _visible_ to the player even before it's active — but only at the level of "this exists and here's how to unlock it." Show system names, locked states with unlock requirements, and dimmed/zero-state indicators. Hide deep stat breakdowns, detailed panels, and failure mechanics until the system is active for the player. This creates anticipation without overwhelm. Use disabled/dimmed/zero states and brief unlock hints (e.g. "Requires Class III ship") instead of removing elements from the DOM.
 
 # Value Display Formatting
 
