@@ -4,13 +4,9 @@ import type {
   CrewEquipmentId,
   SkillId,
   SkillMasteryState,
-  ItemMastery,
   Ship,
-  World,
-  WorldLocation,
 } from '../models';
 import { getActiveShip } from '../models';
-import { canShipAccessLocation } from '../worldGen';
 import type { TabbedViewCallbacks } from './types';
 import { getCrewEquipmentDefinition } from '../crewEquipment';
 import {
@@ -29,10 +25,7 @@ import {
 } from '../gravitySystem';
 import { TICKS_PER_DAY, formatDualTime, formatGameDate } from '../timeSystem';
 import { getEngineDefinition } from '../engines';
-import {
-  getEquipmentDefinition,
-  getAllEquipmentDefinitions,
-} from '../equipment';
+import { getEquipmentDefinition } from '../equipment';
 import { calculateTickTraining } from '../skillProgression';
 import { getCrewJobSlot, getJobSlotDefinition } from '../jobSlots';
 import {
@@ -41,25 +34,13 @@ import {
   getRankProgress,
   SPECIALIZATION_THRESHOLD,
 } from '../skillRanks';
-import {
-  getPoolFillPercent,
-  getCheckpointBonuses,
-  xpForMasteryLevel,
-  ROUTE_MASTERY_BONUSES,
-  ORE_MASTERY_BONUSES,
-  TRADE_MASTERY_BONUSES,
-  EQUIPMENT_REPAIR_MASTERY_BONUSES,
-  GRAVITY_ASSIST_MASTERY_BONUSES,
-  routeMasteryKey,
-  tradeRouteMasteryKey,
-  gravityAssistMasteryKey,
-  POOL_CHECKPOINTS,
-} from '../masterySystem';
-import type { MasteryBonus } from '../masterySystem';
-import { formatLargeNumber } from '../formatting';
-import { getAllOreDefinitions } from '../oreTypes';
-import { GRAVITY_BODIES } from '../gravityAssistSystem';
+import { getPoolFillPercent, getCheckpointBonuses } from '../masterySystem';
 import type { Component } from './component';
+import {
+  createMasterySection,
+  updateMasterySection,
+} from './crewMasterySection';
+import type { MasterySectionRefs } from './crewMasterySection';
 
 // ─── Pure helpers (no DOM) ─────────────────────────────────────────
 
@@ -79,105 +60,6 @@ function calculateAttackScore(crew: CrewMember): number {
   }
 
   return attack;
-}
-
-function getMasteryItemLabel(
-  skillId: SkillId,
-  itemId: string,
-  world: World
-): string {
-  if (skillId === 'mining') {
-    const ore = getAllOreDefinitions().find((o) => o.id === itemId);
-    return ore ? `${ore.icon} ${ore.name}` : itemId;
-  }
-  if (skillId === 'repairs') {
-    const eqDef = getEquipmentDefinition(
-      itemId as import('../models').EquipmentId
-    );
-    return eqDef ? `${eqDef.icon} ${eqDef.name}` : itemId;
-  }
-  // Gravity assist body mastery (prefixed with "ga:")
-  if (itemId.startsWith('ga:')) {
-    const bodyId = itemId.slice(3);
-    const body = GRAVITY_BODIES.find((b) => b.locationId === bodyId);
-    return body ? body.bodyName : bodyId;
-  }
-  const separator = skillId === 'piloting' ? '->' : '<=>';
-  const parts = itemId.split(separator);
-  if (parts.length === 2) {
-    const locA = world.locations.find((l) => l.id === parts[0]);
-    const locB = world.locations.find((l) => l.id === parts[1]);
-    const nameA = locA?.name ?? parts[0];
-    const nameB = locB?.name ?? parts[1];
-    return `${nameA} ↔ ${nameB}`;
-  }
-  return itemId;
-}
-
-function getBonusTable(skillId: SkillId, itemId?: string): MasteryBonus[] {
-  if (skillId === 'piloting') {
-    if (itemId?.startsWith('ga:')) return GRAVITY_ASSIST_MASTERY_BONUSES;
-    return ROUTE_MASTERY_BONUSES;
-  }
-  if (skillId === 'mining') return ORE_MASTERY_BONUSES;
-  if (skillId === 'repairs') return EQUIPMENT_REPAIR_MASTERY_BONUSES;
-  return TRADE_MASTERY_BONUSES;
-}
-
-function getCurrentBonusLabel(
-  skillId: SkillId,
-  level: number,
-  itemId?: string
-): string | null {
-  const table = getBonusTable(skillId, itemId);
-  let best: MasteryBonus | null = null;
-  for (const bonus of table) {
-    if (level >= bonus.level) best = bonus;
-  }
-  return best ? best.label : null;
-}
-
-function getNextBonusLabel(
-  skillId: SkillId,
-  level: number,
-  itemId?: string
-): { level: number; label: string } | null {
-  const table = getBonusTable(skillId, itemId);
-  for (const bonus of table) {
-    if (level < bonus.level) return bonus;
-  }
-  return null;
-}
-
-function getMasteryItemTypeName(skillId: SkillId): string {
-  if (skillId === 'piloting') return 'Routes & Bodies';
-  if (skillId === 'mining') return 'Ores';
-  if (skillId === 'repairs') return 'Equipment';
-  return 'Trade Routes';
-}
-
-function generateRoutesFromCurrentLocation(
-  ship: Ship,
-  currentLocation: WorldLocation,
-  world: World,
-  skillId: 'piloting' | 'commerce'
-): Array<{ key: string; locked: boolean; lockReason: string }> {
-  const keyFn = skillId === 'piloting' ? routeMasteryKey : tradeRouteMasteryKey;
-  const routes: Array<{ key: string; locked: boolean; lockReason: string }> =
-    [];
-
-  for (const dest of world.locations) {
-    if (dest.id === currentLocation.id) continue;
-    const key = keyFn(currentLocation.id, dest.id);
-    const locked = !canShipAccessLocation(ship, dest);
-
-    routes.push({
-      key,
-      locked,
-      lockReason: locked ? `Piloting ${dest.pilotingRequirement}` : '',
-    });
-  }
-  return routes;
 }
 
 // ─── Snapshot comparison ───────────────────────────────────────────
@@ -259,663 +141,172 @@ function crewPropsChanged(a: CrewSnapshot | null, b: CrewSnapshot): boolean {
   return false;
 }
 
-// ─── Mastery item entry type ──────────────────────────────────────
+// ─── Collapsible Skill Block ─────────────────────────────────────
 
-type MasteryItemEntry = {
-  id: string;
-  label: string;
-  mastery: ItemMastery | null;
-  locked: boolean;
-  lockReason: string;
-};
-
-// ─── Mastery item row refs ────────────────────────────────────────
-
-interface MasteryItemRowRefs {
-  row: HTMLDivElement;
-  nameSpan: HTMLSpanElement;
-  rightSpan: HTMLSpanElement;
-  // Right span children (stable, toggled via display)
-  lockSpan: HTMLSpanElement;
-  levelSpan: HTMLSpanElement;
-  undiscoveredSpan: HTMLSpanElement;
-  // Progress bar section
-  barOuter: HTMLDivElement;
-  barFill: HTMLDivElement;
-  // Hint line and children (stable, toggled via display)
-  hintLine: HTMLDivElement;
-  hintActiveSpan: HTMLSpanElement;
-  hintSepSpan: HTMLSpanElement;
-  hintNextSpan: HTMLSpanElement;
-  // Spend pool XP button
-  spendBtn: HTMLButtonElement;
-}
-
-function createMasteryItemRow(
-  _skillId: SkillId,
-  _entry: MasteryItemEntry,
-  onSpend?: () => void
-): MasteryItemRowRefs {
-  const row = document.createElement('div');
-  row.style.padding = '3px 6px';
-  row.style.borderRadius = '3px';
-
-  const topLine = document.createElement('div');
-  topLine.style.display = 'flex';
-  topLine.style.justifyContent = 'space-between';
-  topLine.style.alignItems = 'center';
-
-  const nameSpan = document.createElement('span');
-  topLine.appendChild(nameSpan);
-
-  const rightSpan = document.createElement('span');
-  rightSpan.style.display = 'flex';
-  rightSpan.style.alignItems = 'center';
-  rightSpan.style.gap = '0.4rem';
-  topLine.appendChild(rightSpan);
-
-  row.appendChild(topLine);
-
-  // Right span children — created once, toggled via display
-  const lockSpan = document.createElement('span');
-  lockSpan.style.color = '#665522';
-  lockSpan.style.fontSize = '0.75rem';
-  lockSpan.style.display = 'none';
-  rightSpan.appendChild(lockSpan);
-
-  const levelSpan = document.createElement('span');
-  levelSpan.style.display = 'none';
-  rightSpan.appendChild(levelSpan);
-
-  const undiscoveredSpan = document.createElement('span');
-  undiscoveredSpan.style.color = '#555';
-  undiscoveredSpan.style.fontSize = '0.75rem';
-  undiscoveredSpan.style.display = 'none';
-  rightSpan.appendChild(undiscoveredSpan);
-
-  // Spend pool XP button
-  const spendBtn = document.createElement('button');
-  spendBtn.className = 'small-button';
-  spendBtn.style.display = 'none';
-  spendBtn.textContent = '+1 Lv';
-  if (onSpend) {
-    spendBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      onSpend();
-    });
-  }
-  rightSpan.appendChild(spendBtn);
-
-  // Progress bar (always present, toggled via display)
-  const barOuter = document.createElement('div');
-  barOuter.style.width = '100%';
-  barOuter.style.height = '3px';
-  barOuter.style.backgroundColor = 'rgba(255,255,255,0.08)';
-  barOuter.style.borderRadius = '2px';
-  barOuter.style.overflow = 'hidden';
-  barOuter.style.marginTop = '2px';
-  barOuter.style.display = 'none';
-
-  const barFill = document.createElement('div');
-  barFill.style.width = '0%';
-  barFill.style.height = '100%';
-  barFill.style.borderRadius = '2px';
-  barOuter.appendChild(barFill);
-  row.appendChild(barOuter);
-
-  // Hint line and children — created once, toggled via display
-  const hintLine = document.createElement('div');
-  hintLine.style.fontSize = '0.7rem';
-  hintLine.style.marginTop = '2px';
-  hintLine.style.lineHeight = '1.3';
-  hintLine.style.display = 'none';
-  row.appendChild(hintLine);
-
-  const hintActiveSpan = document.createElement('span');
-  hintActiveSpan.style.color = '#4ade80';
-  hintActiveSpan.style.display = 'none';
-  hintLine.appendChild(hintActiveSpan);
-
-  const hintSepSpan = document.createElement('span');
-  hintSepSpan.textContent = ' \u00b7 ';
-  hintSepSpan.style.display = 'none';
-  hintLine.appendChild(hintSepSpan);
-
-  const hintNextSpan = document.createElement('span');
-  hintNextSpan.style.color = '#666';
-  hintNextSpan.style.display = 'none';
-  hintLine.appendChild(hintNextSpan);
-
-  return {
-    row,
-    nameSpan,
-    rightSpan,
-    lockSpan,
-    levelSpan,
-    undiscoveredSpan,
-    barOuter,
-    barFill,
-    hintLine,
-    hintActiveSpan,
-    hintSepSpan,
-    hintNextSpan,
-    spendBtn,
-  };
-}
-
-/** Compute the pool XP cost to gain 1 level on an item at the given level. */
-function poolXpCostForNextLevel(currentLevel: number): number {
-  if (currentLevel >= 99) return Infinity;
-  return xpForMasteryLevel(currentLevel + 1) - xpForMasteryLevel(currentLevel);
-}
-
-/**
- * Check if spending `cost` pool XP would drop below any active checkpoint.
- * Returns the highest checkpoint that would be lost, or null.
- */
-function wouldLoseCheckpoint(
-  pool: { xp: number; maxXp: number },
-  cost: number
-): number | null {
-  if (pool.maxXp <= 0) return null;
-  const currentPct = pool.xp / pool.maxXp;
-  const afterPct = (pool.xp - cost) / pool.maxXp;
-  for (let i = POOL_CHECKPOINTS.length - 1; i >= 0; i--) {
-    const cp = POOL_CHECKPOINTS[i];
-    if (currentPct >= cp && afterPct < cp) return cp;
-  }
-  return null;
-}
-
-/** Update the spend button state in-place using CSS classes. */
-function updateSpendButton(
-  btn: HTMLButtonElement,
-  level: number,
-  pool: { xp: number; maxXp: number }
-): void {
-  if (level >= 99 || pool.maxXp <= 0) {
-    btn.style.display = 'none';
-    return;
-  }
-  const cost = poolXpCostForNextLevel(level);
-  const canAfford = pool.xp >= cost;
-  const lostCheckpoint = canAfford ? wouldLoseCheckpoint(pool, cost) : null;
-
-  btn.style.display = '';
-  btn.disabled = !canAfford;
-
-  if (lostCheckpoint) {
-    btn.className = 'small-button small-button--caution';
-    btn.title = `Spend ${formatLargeNumber(cost)} pool XP to gain 1 level (drops below ${Math.round(lostCheckpoint * 100)}% checkpoint!)`;
-  } else {
-    btn.className = 'small-button';
-    btn.title = canAfford
-      ? `Spend ${formatLargeNumber(cost)} pool XP to gain 1 level`
-      : `Need ${formatLargeNumber(cost)} pool XP (have ${formatLargeNumber(Math.floor(pool.xp))})`;
-  }
-}
-
-function updateMasteryItemRow(
-  refs: MasteryItemRowRefs,
-  skillId: SkillId,
-  entry: MasteryItemEntry,
-  pool: { xp: number; maxXp: number }
-): void {
-  // Row background
-  refs.row.style.background = entry.locked
-    ? 'rgba(0,0,0,0.2)'
-    : 'rgba(255,255,255,0.02)';
-
-  // Name
-  refs.nameSpan.style.color = entry.locked ? '#555' : '#ccc';
-  refs.nameSpan.textContent = entry.label;
-
-  // Right span children — toggle visibility, update textContent in-place
-  if (entry.locked) {
-    refs.lockSpan.style.display = '';
-    refs.lockSpan.textContent = `🔒 ${entry.lockReason}`;
-    refs.levelSpan.style.display = 'none';
-    refs.undiscoveredSpan.style.display = 'none';
-    refs.spendBtn.style.display = 'none';
-  } else if (entry.mastery) {
-    refs.lockSpan.style.display = 'none';
-    refs.levelSpan.style.display = '';
-    refs.levelSpan.style.color =
-      entry.mastery.level >= 99
-        ? '#fbbf24'
-        : entry.mastery.level >= 50
-          ? '#4ade80'
-          : '#aaa';
-    refs.levelSpan.style.fontWeight =
-      entry.mastery.level >= 99 ? 'bold' : 'normal';
-    refs.levelSpan.textContent = `Lv ${entry.mastery.level}`;
-    refs.undiscoveredSpan.style.display = 'none';
-    updateSpendButton(refs.spendBtn, entry.mastery.level, pool);
-  } else {
-    refs.lockSpan.style.display = 'none';
-    refs.levelSpan.style.display = 'none';
-    refs.undiscoveredSpan.style.display = '';
-    refs.undiscoveredSpan.textContent = 'Lv 0';
-    updateSpendButton(refs.spendBtn, 0, pool);
-  }
-
-  // Progress bar
-  if (!entry.locked) {
-    const level = entry.mastery?.level ?? 0;
-    const xp = entry.mastery?.xp ?? 0;
-
-    if (level < 99) {
-      const currentLevelXp = xpForMasteryLevel(level);
-      const nextLevelXp = xpForMasteryLevel(level + 1);
-      const progress =
-        nextLevelXp > currentLevelXp
-          ? ((xp - currentLevelXp) / (nextLevelXp - currentLevelXp)) * 100
-          : 0;
-
-      refs.barOuter.style.display = '';
-      refs.barFill.style.width = `${Math.min(progress, 100)}%`;
-      refs.barFill.style.backgroundColor = level >= 50 ? '#4ade80' : '#4a90e2';
-    } else {
-      refs.barOuter.style.display = 'none';
-    }
-
-    // Bonus hint line — update children in-place
-    const currentBonus = getCurrentBonusLabel(skillId, level, entry.id);
-    const nextBonus = getNextBonusLabel(skillId, level, entry.id);
-
-    if (currentBonus || nextBonus) {
-      refs.hintLine.style.display = '';
-
-      if (currentBonus) {
-        refs.hintActiveSpan.style.display = '';
-        refs.hintActiveSpan.textContent = currentBonus;
-      } else {
-        refs.hintActiveSpan.style.display = 'none';
-      }
-
-      if (currentBonus && nextBonus) {
-        refs.hintSepSpan.style.display = '';
-      } else {
-        refs.hintSepSpan.style.display = 'none';
-      }
-
-      if (nextBonus) {
-        refs.hintNextSpan.style.display = '';
-        refs.hintNextSpan.textContent = `Next Lv ${nextBonus.level}: ${nextBonus.label}`;
-      } else {
-        refs.hintNextSpan.style.display = 'none';
-      }
-    } else {
-      refs.hintLine.style.display = 'none';
-      refs.hintActiveSpan.style.display = 'none';
-      refs.hintSepSpan.style.display = 'none';
-      refs.hintNextSpan.style.display = 'none';
-    }
-  } else {
-    refs.barOuter.style.display = 'none';
-    refs.hintLine.style.display = 'none';
-    refs.hintActiveSpan.style.display = 'none';
-    refs.hintSepSpan.style.display = 'none';
-    refs.hintNextSpan.style.display = 'none';
-  }
-}
-
-// ─── Checkpoint row refs ──────────────────────────────────────────
-
-interface CheckpointRowRefs {
-  row: HTMLDivElement;
-  indicator: HTMLSpanElement;
-  threshLabel: HTMLSpanElement;
-  bonusLabel: HTMLSpanElement;
-}
-
-// ─── Mastery section refs for one skill ───────────────────────────
-
-interface MasterySectionRefs {
-  container: HTMLDivElement;
-  // Pool section
-  poolLabel: HTMLSpanElement;
-  poolValue: HTMLSpanElement;
-  // Callback for spending pool XP on items
-  onSpendPoolXp?: (crewId: string, skillId: SkillId, itemId: string) => void;
-  barOuter: HTMLDivElement;
-  barFill: HTMLDivElement;
-  // Checkpoint markers and labels are recreated since count can change
-  checkpointMarkersContainer: HTMLDivElement;
-  bonusList: HTMLDivElement;
-  checkpointRows: CheckpointRowRefs[];
-  // Item mastery section
-  itemHeader: HTMLDivElement;
-  itemList: HTMLDivElement;
-  itemRowMap: Map<string, MasteryItemRowRefs>;
-}
-
-function createMasterySection(
-  skillId: SkillId,
-  state: SkillMasteryState,
+function createSkillBlock(
   crew: CrewMember,
+  skillId: SkillId,
   gameData: GameData,
-  onSpendPoolXp?: (crewId: string, skillId: SkillId, itemId: string) => void
-): MasterySectionRefs {
+  onSpendPoolXp:
+    | ((crewId: string, skillId: SkillId, itemId: string) => void)
+    | undefined,
+  skillExpandedState: Map<SkillId, boolean>
+): SkillBlockRefs {
   const container = document.createElement('div');
-  container.className = 'mastery-section';
-  container.style.marginLeft = '0.5rem';
-  container.style.marginBottom = '1rem';
-  container.style.padding = '0.5rem 0.75rem';
-  container.style.background = 'rgba(255,255,255,0.03)';
-  container.style.borderLeft = '2px solid rgba(255,255,255,0.1)';
-  container.style.fontSize = '0.85rem';
+  container.style.marginBottom = '0.5rem';
 
-  // ── Mastery Pool section ──
-  const poolSection = document.createElement('div');
-  poolSection.style.marginBottom = '0.5rem';
+  // Header click target (skill row + chevron)
+  const headerClickTarget = document.createElement('div');
+  headerClickTarget.className = 'skill-block-header';
+  headerClickTarget.style.display = 'flex';
+  headerClickTarget.style.alignItems = 'center';
+  headerClickTarget.style.justifyContent = 'space-between';
+  headerClickTarget.style.cursor = 'pointer';
+  headerClickTarget.style.minHeight = '44px';
+  headerClickTarget.style.padding = '0 0.5rem';
+  headerClickTarget.style.borderRadius = '4px';
+  headerClickTarget.style.transition = 'background 0.2s';
 
-  // Pool header
-  const poolHeader = document.createElement('div');
-  poolHeader.style.display = 'flex';
-  poolHeader.style.justifyContent = 'space-between';
-  poolHeader.style.alignItems = 'center';
-  poolHeader.style.marginBottom = '3px';
+  // Embed skill row
+  const skillRow = createSkillRow(crew, skillId);
+  skillRow.row.style.flex = '1';
+  skillRow.row.style.padding = '0';
+  skillRow.row.style.background = 'none';
+  headerClickTarget.appendChild(skillRow.row);
 
-  const poolLabel = document.createElement('span');
-  poolLabel.style.color = '#aaa';
-  poolLabel.textContent = 'Mastery Pool';
-  poolHeader.appendChild(poolLabel);
+  // Chevron
+  const chevron = document.createElement('span');
+  chevron.textContent = '▶';
+  chevron.style.fontSize = '0.8rem';
+  chevron.style.color = '#888';
+  chevron.style.transition = 'transform 0.2s';
+  chevron.style.flexShrink = '0';
+  chevron.style.marginLeft = '0.5rem';
+  headerClickTarget.appendChild(chevron);
 
-  const poolValue = document.createElement('span');
-  poolHeader.appendChild(poolValue);
+  container.appendChild(headerClickTarget);
 
-  poolSection.appendChild(poolHeader);
+  // Summary line
+  const summaryLine = document.createElement('div');
+  summaryLine.style.fontSize = '0.8rem';
+  summaryLine.style.color = '#888';
+  summaryLine.style.marginTop = '0.25rem';
+  summaryLine.style.marginLeft = '0.5rem';
+  summaryLine.style.display = 'flex';
+  summaryLine.style.gap = '1rem';
+  summaryLine.style.flexWrap = 'wrap';
 
-  // Pool progress bar outer (with checkpoint markers overlaid)
-  const checkpointMarkersContainer = document.createElement('div');
-  checkpointMarkersContainer.style.position = 'relative';
-  checkpointMarkersContainer.style.width = '100%';
-  checkpointMarkersContainer.style.height = '14px';
-  checkpointMarkersContainer.style.backgroundColor = 'rgba(0,0,0,0.4)';
-  checkpointMarkersContainer.style.borderRadius = '3px';
-  checkpointMarkersContainer.style.overflow = 'visible';
-  checkpointMarkersContainer.style.display = 'none';
+  const summaryPoolPct = document.createElement('span');
+  summaryLine.appendChild(summaryPoolPct);
 
-  const barFill = document.createElement('div');
-  barFill.style.width = '0%';
-  barFill.style.height = '100%';
-  barFill.style.borderRadius = '3px';
-  barFill.style.transition = 'width 0.3s ease';
-  checkpointMarkersContainer.appendChild(barFill);
+  const summaryItemCount = document.createElement('span');
+  summaryLine.appendChild(summaryItemCount);
 
-  poolSection.appendChild(checkpointMarkersContainer);
+  const summaryHighestLevel = document.createElement('span');
+  summaryLine.appendChild(summaryHighestLevel);
 
-  // Checkpoint bonus list
-  const bonusList = document.createElement('div');
-  bonusList.style.marginTop = '1.2rem';
-  bonusList.style.display = 'none';
-  bonusList.style.flexDirection = 'column';
-  bonusList.style.gap = '2px';
-  poolSection.appendChild(bonusList);
+  const summaryActiveCheckpoints = document.createElement('span');
+  summaryLine.appendChild(summaryActiveCheckpoints);
 
-  container.appendChild(poolSection);
+  container.appendChild(summaryLine);
 
-  // ── Item mastery section ──
-  const itemContainer = document.createElement('div');
-  itemContainer.style.marginTop = '0.5rem';
+  // Mastery section (initially hidden)
+  const masterySection = createMasterySection(
+    skillId,
+    crew.mastery[skillId],
+    crew,
+    gameData,
+    onSpendPoolXp
+  );
+  masterySection.container.style.display = 'none';
+  container.appendChild(masterySection.container);
 
-  const itemHeader = document.createElement('div');
-  itemHeader.style.color = '#aaa';
-  itemHeader.style.marginBottom = '4px';
-  itemContainer.appendChild(itemHeader);
-
-  const itemList = document.createElement('div');
-  itemList.style.display = 'flex';
-  itemList.style.flexDirection = 'column';
-  itemList.style.gap = '4px';
-  itemContainer.appendChild(itemList);
-
-  container.appendChild(itemContainer);
-
-  const refs: MasterySectionRefs = {
+  const refs: SkillBlockRefs = {
     container,
-    poolLabel,
-    poolValue,
-    barOuter: checkpointMarkersContainer,
-    barFill,
-    checkpointMarkersContainer,
-    bonusList,
-    checkpointRows: [],
-    itemHeader,
-    itemList,
-    itemRowMap: new Map(),
-    onSpendPoolXp,
+    headerClickTarget,
+    chevron,
+    skillRow,
+    summaryLine,
+    summaryPoolPct,
+    summaryItemCount,
+    summaryHighestLevel,
+    summaryActiveCheckpoints,
+    masterySection,
   };
 
-  updateMasterySection(refs, skillId, state, crew, gameData);
+  // Click handler (after refs declaration)
+  headerClickTarget.addEventListener('click', () => {
+    const expanded = skillExpandedState.get(skillId) || false;
+    skillExpandedState.set(skillId, !expanded);
+    syncSkillExpansion(refs, skillId, skillExpandedState);
+  });
 
   return refs;
 }
 
-function updateMasterySection(
-  refs: MasterySectionRefs,
+function syncSkillExpansion(
+  refs: SkillBlockRefs,
   skillId: SkillId,
-  state: SkillMasteryState,
-  crew: CrewMember,
-  gameData: GameData
+  skillExpandedState: Map<SkillId, boolean>
 ): void {
-  const world = gameData.world;
+  const expanded = skillExpandedState.get(skillId) || false;
 
-  // ── Pool bar ──
+  // Toggle chevron rotation and text
+  refs.chevron.style.transform = expanded ? 'rotate(90deg)' : '';
+  refs.chevron.textContent = expanded ? '▼' : '▶';
+
+  // Show/hide mastery section
+  refs.masterySection.container.style.display = expanded ? '' : 'none';
+}
+
+function updateMasterySummary(
+  refs: SkillBlockRefs,
+  skillId: SkillId,
+  state: SkillMasteryState
+): void {
   const fillPct = getPoolFillPercent(state.pool);
-  refs.poolValue.style.color = fillPct >= 95 ? '#fbbf24' : '#ccc';
-  refs.poolValue.style.fontWeight = fillPct >= 95 ? 'bold' : 'normal';
-  const displayPct = Math.floor(fillPct * 10) / 10;
-  refs.poolValue.textContent =
-    state.pool.maxXp > 0 ? `${displayPct.toFixed(1)}%` : 'No items discovered';
+  const itemCount = Object.keys(state.itemMasteries).length;
+  const checkpoints = getCheckpointBonuses(skillId, state.pool);
+  const activeCheckpoints = checkpoints.filter((cp) => cp.active).length;
 
+  // Find highest mastery level
+  let highestLevel = 0;
+  for (const mastery of Object.values(state.itemMasteries)) {
+    if (mastery && mastery.level > highestLevel) {
+      highestLevel = mastery.level;
+    }
+  }
+
+  // Pool percentage
   if (state.pool.maxXp === 0) {
-    refs.barOuter.style.display = 'none';
-    refs.bonusList.style.display = 'none';
-    // Clear item mastery rows if pool is empty
+    refs.summaryPoolPct.textContent = 'No items discovered';
+    refs.summaryPoolPct.style.color = '#666';
+    refs.summaryItemCount.textContent = '';
+    refs.summaryHighestLevel.textContent = '';
+    refs.summaryActiveCheckpoints.textContent = '';
   } else {
-    refs.barOuter.style.display = '';
+    const displayPct = Math.floor(fillPct * 10) / 10;
+    refs.summaryPoolPct.textContent = `Pool: ${displayPct.toFixed(1)}%`;
+    refs.summaryPoolPct.style.color = fillPct >= 95 ? '#fbbf24' : '#888';
 
-    refs.barFill.style.width = `${Math.min(fillPct, 100)}%`;
-    if (fillPct >= 95) {
-      refs.barFill.style.backgroundColor = '#fbbf24';
-    } else if (fillPct >= 50) {
-      refs.barFill.style.backgroundColor = '#4ade80';
-    } else if (fillPct >= 25) {
-      refs.barFill.style.backgroundColor = '#60a5fa';
+    // Item count
+    refs.summaryItemCount.textContent = `${itemCount} item${itemCount !== 1 ? 's' : ''}`;
+    refs.summaryItemCount.style.color = '#888';
+
+    // Highest level
+    refs.summaryHighestLevel.textContent = `Best: Lv ${highestLevel}`;
+    if (highestLevel >= 99) {
+      refs.summaryHighestLevel.style.color = '#fbbf24';
+    } else if (highestLevel >= 50) {
+      refs.summaryHighestLevel.style.color = '#4ade80';
     } else {
-      refs.barFill.style.backgroundColor = '#6b7280';
+      refs.summaryHighestLevel.style.color = '#888';
     }
 
-    // Checkpoint markers - recreate since count can change
-    // Remove old markers (everything after barFill)
-    while (refs.barOuter.childNodes.length > 1) {
-      refs.barOuter.removeChild(refs.barOuter.lastChild!);
-    }
-
-    const checkpoints = getCheckpointBonuses(skillId, state.pool);
-    for (const cp of checkpoints) {
-      const pct = cp.threshold * 100;
-
-      const marker = document.createElement('div');
-      marker.style.position = 'absolute';
-      marker.style.left = `${pct}%`;
-      marker.style.top = '0';
-      marker.style.bottom = '0';
-      marker.style.width = '2px';
-      marker.style.backgroundColor = cp.active
-        ? 'rgba(251, 191, 36, 0.8)'
-        : 'rgba(255,255,255,0.3)';
-      marker.style.zIndex = '1';
-      refs.barOuter.appendChild(marker);
-
-      const label = document.createElement('div');
-      label.style.position = 'absolute';
-      label.style.left = `${pct}%`;
-      label.style.top = '16px';
-      label.style.transform = 'translateX(-50%)';
-      label.style.fontSize = '0.65rem';
-      label.style.color = cp.active ? '#fbbf24' : 'rgba(255,255,255,0.4)';
-      label.style.whiteSpace = 'nowrap';
-      label.textContent = `${Math.round(pct)}%`;
-      refs.barOuter.appendChild(label);
-    }
-
-    // Checkpoint bonus rows - recreate since the active state list can change
-    refs.bonusList.style.display = 'flex';
-    while (refs.bonusList.firstChild) {
-      refs.bonusList.removeChild(refs.bonusList.firstChild);
-    }
-    refs.checkpointRows = [];
-
-    for (const cp of checkpoints) {
-      const row = document.createElement('div');
-      row.style.display = 'flex';
-      row.style.alignItems = 'center';
-      row.style.gap = '0.4rem';
-      row.style.fontSize = '0.8rem';
-
-      const indicator = document.createElement('span');
-      if (cp.active) {
-        indicator.textContent = '●';
-        indicator.style.color = '#fbbf24';
-      } else {
-        indicator.textContent = '○';
-        indicator.style.color = '#555';
-      }
-      row.appendChild(indicator);
-
-      const threshLabel = document.createElement('span');
-      threshLabel.style.color = '#888';
-      threshLabel.style.minWidth = '2.5rem';
-      threshLabel.textContent = `${Math.round(cp.threshold * 100)}%`;
-      row.appendChild(threshLabel);
-
-      const bonusLabel = document.createElement('span');
-      bonusLabel.style.color = cp.active ? '#ddd' : '#666';
-      bonusLabel.textContent = cp.label;
-      row.appendChild(bonusLabel);
-
-      refs.bonusList.appendChild(row);
-      refs.checkpointRows.push({ row, indicator, threshLabel, bonusLabel });
-    }
-  }
-
-  // ── Item mastery list ──
-  refs.itemHeader.textContent = getMasteryItemTypeName(skillId);
-
-  // Build entries
-  const entries: MasteryItemEntry[] = [];
-
-  if (skillId === 'mining') {
-    const skillLevel = Math.floor(crew.skills.mining);
-    for (const ore of getAllOreDefinitions()) {
-      const mastery = state.itemMasteries[ore.id] ?? null;
-      const locked = skillLevel < ore.miningLevelRequired;
-      entries.push({
-        id: ore.id,
-        label: `${ore.icon} ${ore.name}`,
-        mastery,
-        locked,
-        lockReason: locked ? `Mining ${ore.miningLevelRequired}` : '',
-      });
-    }
-  } else if (skillId === 'repairs') {
-    // Show all degradable equipment types
-    const degradableEquipment = getAllEquipmentDefinitions().filter(
-      (d) => d.hasDegradation
-    );
-    for (const eqDef of degradableEquipment) {
-      const mastery = state.itemMasteries[eqDef.id] ?? null;
-      entries.push({
-        id: eqDef.id,
-        label: `${eqDef.icon} ${eqDef.name}`,
-        mastery,
-        locked: false,
-        lockReason: '',
-      });
-    }
-  } else {
-    const ship = getActiveShip(gameData);
-    const currentLocId =
-      ship.location.dockedAt ?? ship.location.orbitingAt ?? null;
-    const currentLoc = currentLocId
-      ? world.locations.find((l) => l.id === currentLocId)
-      : null;
-
-    if (currentLoc) {
-      const routes = generateRoutesFromCurrentLocation(
-        ship,
-        currentLoc,
-        world,
-        skillId
-      );
-
-      for (const route of routes) {
-        const mastery = state.itemMasteries[route.key] ?? null;
-        entries.push({
-          id: route.key,
-          label: getMasteryItemLabel(skillId, route.key, world),
-          mastery,
-          locked: route.locked,
-          lockReason: route.lockReason,
-        });
-      }
-    }
-
-    // Also show any previously mastered routes not from current location
-    for (const [itemId, itemMastery] of Object.entries(state.itemMasteries)) {
-      if (entries.some((e) => e.id === itemId)) continue;
-      // Gravity assist bodies are added separately below
-      if (itemId.startsWith('ga:')) continue;
-      entries.push({
-        id: itemId,
-        label: getMasteryItemLabel(skillId, itemId, world),
-        mastery: itemMastery,
-        locked: false,
-        lockReason: '',
-      });
-    }
-
-    // Add all gravity assist bodies (piloting only)
-    if (skillId === 'piloting') {
-      for (const body of GRAVITY_BODIES) {
-        const key = gravityAssistMasteryKey(body.locationId);
-        const mastery = state.itemMasteries[key] ?? null;
-        entries.push({
-          id: key,
-          label: getMasteryItemLabel(skillId, key, world),
-          mastery,
-          locked: false,
-          lockReason: '',
-        });
-      }
-    }
-  }
-
-  // Reconcile item rows
-  const currentIds = new Set<string>();
-  for (const entry of entries) {
-    currentIds.add(entry.id);
-    let rowRefs = refs.itemRowMap.get(entry.id);
-    if (!rowRefs) {
-      const onSpend = refs.onSpendPoolXp
-        ? () => refs.onSpendPoolXp!(crew.id, skillId, entry.id)
-        : undefined;
-      rowRefs = createMasteryItemRow(skillId, entry, onSpend);
-      refs.itemRowMap.set(entry.id, rowRefs);
-      refs.itemList.appendChild(rowRefs.row);
-    }
-    updateMasteryItemRow(rowRefs, skillId, entry, state.pool);
-  }
-
-  // Remove departed items
-  for (const [id, rowRefs] of refs.itemRowMap) {
-    if (!currentIds.has(id)) {
-      rowRefs.row.remove();
-      refs.itemRowMap.delete(id);
-    }
+    // Active checkpoints
+    refs.summaryActiveCheckpoints.textContent = `${activeCheckpoints}/${checkpoints.length} checkpoints`;
+    refs.summaryActiveCheckpoints.style.color =
+      activeCheckpoints === checkpoints.length ? '#fbbf24' : '#888';
   }
 }
 
@@ -930,10 +321,24 @@ interface SkillRowRefs {
   barFill: HTMLDivElement;
 }
 
+// ─── Skill block refs (collapsible skill + mastery) ──────────────
+
+interface SkillBlockRefs {
+  container: HTMLDivElement;
+  headerClickTarget: HTMLDivElement;
+  chevron: HTMLSpanElement;
+  skillRow: SkillRowRefs;
+  summaryLine: HTMLDivElement;
+  summaryPoolPct: HTMLSpanElement;
+  summaryItemCount: HTMLSpanElement;
+  summaryHighestLevel: HTMLSpanElement;
+  summaryActiveCheckpoints: HTMLSpanElement;
+  masterySection: MasterySectionRefs;
+}
+
 function createSkillRow(crew: CrewMember, skillId: SkillId): SkillRowRefs {
   const row = document.createElement('div');
   row.className = 'skill-row';
-  row.style.marginBottom = '0.5rem';
 
   const topRow = document.createElement('div');
   topRow.style.display = 'flex';
@@ -1088,6 +493,9 @@ export function createCrewTab(
   let latestGameData = gameData;
   let currentSelectedCrewId = selectedCrewId;
   let lastSnapshot: CrewSnapshot | null = null;
+
+  // Skill expansion state (persists across crew selection)
+  const skillExpandedState = new Map<SkillId, boolean>();
 
   // ── Layout ──
   const layout = document.createElement('div');
@@ -1523,15 +931,11 @@ export function createCrewTab(
   const skillsDiv = document.createElement('div');
   skillsDiv.className = 'crew-skills';
 
-  // Create 3 fixed skill rows + mastery sections
+  // Create collapsible skill blocks for each skill
   const coreSkillIds: SkillId[] = ['piloting', 'mining', 'commerce', 'repairs'];
-  const skillRowRefs: Record<SkillId, SkillRowRefs> = {} as Record<
+  const skillBlockMap: Record<SkillId, SkillBlockRefs> = {} as Record<
     SkillId,
-    SkillRowRefs
-  >;
-  const masterySectionRefs: Record<SkillId, MasterySectionRefs> = {} as Record<
-    SkillId,
-    MasterySectionRefs
+    SkillBlockRefs
   >;
 
   // These are created lazily in the first update to avoid needing crew data now
@@ -2125,38 +1529,37 @@ export function createCrewTab(
       specBadge.style.display = 'none';
     }
 
-    // Initialize skill rows and mastery sections lazily
+    // Initialize skill blocks lazily
     if (!skillsInitialized) {
       for (const skillId of coreSkillIds) {
-        const sr = createSkillRow(crew, skillId);
-        skillRowRefs[skillId] = sr;
-        skillsDiv.appendChild(sr.row);
-
-        const ms = createMasterySection(
-          skillId,
-          crew.mastery[skillId],
+        const block = createSkillBlock(
           crew,
+          skillId,
           gameData,
-          callbacks.onSpendPoolXp
+          callbacks.onSpendPoolXp,
+          skillExpandedState
         );
-        masterySectionRefs[skillId] = ms;
-        skillsDiv.appendChild(ms.container);
+        skillBlockMap[skillId] = block;
+        skillsDiv.appendChild(block.container);
       }
 
       // Append combat row and mark initialized
       skillsDiv.appendChild(combatRow);
       skillsInitialized = true;
     } else {
-      // Update existing
+      // Update existing skill blocks
       for (const skillId of coreSkillIds) {
-        updateSkillRow(skillRowRefs[skillId], crew, skillId);
+        const block = skillBlockMap[skillId];
+        updateSkillRow(block.skillRow, crew, skillId);
         updateMasterySection(
-          masterySectionRefs[skillId],
+          block.masterySection,
           skillId,
           crew.mastery[skillId],
           crew,
           gameData
         );
+        updateMasterySummary(block, skillId, crew.mastery[skillId]);
+        syncSkillExpansion(block, skillId, skillExpandedState);
       }
     }
 
