@@ -509,9 +509,9 @@ function applyShipTick(gameData: GameData, ship: Ship): boolean {
         applyCourseCorrection(ship.activeFlightPlan, gameData);
       }
 
-      // Update 2D positions (originPos, interceptPos, shipPos) from
-      // current-time body positions. Runs every tick so shipPos is always
-      // accurate — no stale arrival-time snapshots.
+      // Update ship position (shipPos) along the frozen ballistic trajectory.
+      // The trajectory endpoints (originPos, interceptPos) are set at flight
+      // initialization and represent the ship's committed path through space.
       // Skip on completion — completeLeg docks the ship and discards positions.
       if (!flightComplete) {
         updateFlightPosition(ship.activeFlightPlan);

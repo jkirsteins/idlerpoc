@@ -502,9 +502,10 @@ export function initializeFlight(
 
     distanceKm = interceptResult.travelDistanceKm;
     flightInterceptPos = interceptResult.interceptPos;
-    // Use co-moving origin position so originPos and interceptPos share
-    // the same time reference, keeping the interpolated path correct.
-    flightOriginPos = interceptResult.originPosAtArrival;
+    // Keep origin position at departure time (already set above). The
+    // trajectory is frozen in space: originPos at t=0, interceptPos at t=arrival.
+    // We do NOT use originPosAtArrival here — that would shift the visual
+    // trajectory line as we recalculate. The ship commits to a ballistic path.
     estimatedArrivalGameTime = interceptResult.arrivalGameTime;
   } else {
     // Legacy: use static distance
@@ -649,8 +650,7 @@ export function redirectShipFlight(
     id: ship.activeFlightPlan?.origin ?? '',
   } as WorldLocation;
 
-  // shipPos is always in current-time coordinates (updated every tick by
-  // updateFlightPosition in gameTick.ts), so we can use it directly.
+  // shipPos is updated every tick by updateFlightPosition in gameTick.ts.
   const currentShipPos = ship.activeFlightPlan?.shipPos;
 
   ship.activeFlightPlan = initializeFlight(
@@ -838,8 +838,8 @@ export function advanceFlight(flight: FlightState): boolean {
   }
 
   // 2D ship position (shipPos) is updated externally by updateFlightPosition()
-  // in gameTick.ts, which always uses current-time body positions. This keeps
-  // advanceFlight as pure physics (distance, velocity, phase).
+  // in gameTick.ts. This keeps advanceFlight as pure physics (distance, velocity,
+  // phase).
 
   return false;
 }
