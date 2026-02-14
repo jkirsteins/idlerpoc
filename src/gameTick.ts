@@ -100,60 +100,28 @@ function getInactiveTrainingJobTypes(
 }
 
 /**
- * Update a flight's 2D positions (originPos, interceptPos, shipPos) using
- * future-time body positions at estimated arrival. Shows ships along their
- * actual intercept trajectories, not chasing current positions.
+ * Update a flight's ship position along its planned trajectory.
  *
- * For body-origin flights (originBodyId set): compute origin at arrival time.
- * For redirect flights (originBodyId unset): origin is a fixed point in space.
- * Destination is computed at arrival time (where the ship is actually aiming).
+ * The trajectory (originPos → interceptPos) is frozen at flight initialization
+ * and represents the straight-line path the ship follows in heliocentric space.
+ * This function interpolates the ship's current position along that fixed path
+ * based on flight progress.
  *
- * For co-orbiting bodies (e.g. LEO station → Earth), computing both at the
- * same future time cancels out shared orbital motion, showing relative trajectory.
+ * We do NOT update originPos/interceptPos every tick — that would cause the
+ * trajectory to constantly shift as bodies move, making the ship appear to
+ * follow the wrong path. The ship commits to a ballistic trajectory at launch
+ * and follows it to completion.
  */
-function updateFlightPosition(
-  fp: import('./models').FlightState,
-  gameData: import('./models').GameData
-): void {
+function updateFlightPosition(fp: import('./models').FlightState): void {
   if (fp.totalDistance <= 0) return;
 
-  const destLoc = gameData.world.locations.find((l) => l.id === fp.destination);
-  if (!destLoc) return;
-
-  // Calculate predicted destination position at estimated arrival time
-  const remainingSec = Math.max(0, fp.totalTime - fp.elapsedTime);
-  const futureArrival = gameData.gameTime + remainingSec;
-  const destFuturePos = getLocationPosition(
-    destLoc,
-    futureArrival,
-    gameData.world
-  );
-
-  // For co-orbiting bodies, also compute origin at same future time
-  let originFuturePos: import('./models').Vec2 | undefined;
-  if (fp.originBodyId) {
-    const originLoc = gameData.world.locations.find(
-      (l) => l.id === fp.originBodyId
-    );
-    if (originLoc) {
-      originFuturePos = getLocationPosition(
-        originLoc,
-        futureArrival,
-        gameData.world
-      );
-    }
-  }
-  // Redirect flights: originPos is a fixed point in space — keep as-is
-  if (!originFuturePos) {
-    originFuturePos = fp.originPos;
-  }
-  if (!originFuturePos) return;
+  // Use the planned trajectory endpoints stored at flight initialization
+  if (!fp.originPos || !fp.interceptPos) return;
 
   const progress = Math.min(1, fp.distanceCovered / fp.totalDistance);
 
-  fp.originPos = originFuturePos;
-  fp.interceptPos = destFuturePos; // ← Show where we're ACTUALLY aiming
-  fp.shipPos = lerpVec2(originFuturePos, destFuturePos, progress);
+  // Interpolate ship position along the fixed trajectory
+  fp.shipPos = lerpVec2(fp.originPos, fp.interceptPos, progress);
 }
 
 /**
@@ -541,12 +509,12 @@ function applyShipTick(gameData: GameData, ship: Ship): boolean {
         applyCourseCorrection(ship.activeFlightPlan, gameData);
       }
 
-      // Update 2D positions (originPos, interceptPos, shipPos) from
-      // future-time body positions at estimated arrival. Shows ships along
-      // their actual intercept trajectories.
+      // Update ship position (shipPos) along the frozen ballistic trajectory.
+      // The trajectory endpoints (originPos, interceptPos) are set at flight
+      // initialization and represent the ship's committed path through space.
       // Skip on completion — completeLeg docks the ship and discards positions.
       if (!flightComplete) {
-        updateFlightPosition(ship.activeFlightPlan, gameData);
+        updateFlightPosition(ship.activeFlightPlan);
       }
 
       // === GRAVITY ASSIST CHECK ===
