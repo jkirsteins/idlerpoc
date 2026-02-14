@@ -258,23 +258,13 @@ function alignmentColor(alignment: AlignmentQuality): string {
   }
 }
 
-/** Per-location refs for the legend item */
+/** Per-location refs for the legend item (compact card — no accordion) */
 interface LegendItemRefs {
   item: HTMLElement;
-  summary: HTMLElement; // always-visible accordion header
-  summaryDist: HTMLElement; // compact distance in summary
-  chevron: HTMLElement; // expand/collapse indicator
-  details: HTMLElement; // collapsible detail section
   name: HTMLElement;
+  distance: HTMLElement; // distance text (right-aligned in header row)
   badgesContainer: HTMLElement;
-  distance: HTMLElement;
-  alignmentLine: HTMLElement; // launch window alignment badge
-  gravAssistLine: HTMLElement; // gravity assist preview
   travelInfo: HTMLElement;
-  description: HTMLElement;
-  riskLine: HTMLElement;
-  gravityWarning: HTMLElement;
-  contractsContainer: HTMLElement;
   // Action area — all possible children, toggled via display
   currentBadge: HTMLElement;
   destBadge: HTMLElement;
@@ -363,7 +353,7 @@ interface UpdateCtx {
   onStartTrip?: (destinationId: string) => void;
 }
 
-/** Update legend item — shared between overview and focus modes */
+/** Update legend item — compact card with distance, travel info, action */
 function updateLegendItem(
   location: WorldLocation,
   legendRefs: LegendItemRefs,
@@ -377,7 +367,6 @@ function updateLegendItem(
     isInFlight,
     flightDestinationId,
     currentLocationId,
-    degradedCrew,
   } = ctx;
   const reachable = isLocationReachable(ship, location, virtualOrigin);
   const isCurrent = location.id === currentLocationId;
@@ -386,53 +375,15 @@ function updateLegendItem(
 
   legendRefs.item.classList.toggle('unreachable', !reachable);
 
+  // Distance text
   const distanceFromCurrent = getDistanceBetween(virtualOrigin, location);
   const distText =
-    distanceFromCurrent < 0.5
-      ? 'Current Location'
-      : `Distance: ${formatDistance(distanceFromCurrent)}`;
+    distanceFromCurrent < 0.5 ? '\u2302' : formatDistance(distanceFromCurrent);
   if (legendRefs.distance.textContent !== distText) {
     legendRefs.distance.textContent = distText;
   }
-  const summaryDistText =
-    distanceFromCurrent < 0.5 ? '\u2302' : formatDistance(distanceFromCurrent);
-  if (legendRefs.summaryDist.textContent !== summaryDistText) {
-    legendRefs.summaryDist.textContent = summaryDistText;
-  }
 
-  if (isOtherDestination && virtualOrigin.orbital && location.orbital) {
-    const window = computeLaunchWindow(
-      virtualOrigin,
-      location,
-      gd.gameTime,
-      gd.world
-    );
-    if (window) {
-      const distRange = window.maxDistanceKm - window.minDistanceKm;
-      const rangeRatio = distRange / Math.max(window.minDistanceKm, 1);
-      if (rangeRatio > 0.1) {
-        const color = alignmentColor(window.alignment);
-        const label =
-          window.alignment.charAt(0).toUpperCase() + window.alignment.slice(1);
-        let alignText = `Alignment: <span style="color:${color};font-weight:600">${label}</span>`;
-        if (window.alignment !== 'excellent' && window.nextOptimalInDays > 1) {
-          const nextOptDays = Math.round(window.nextOptimalInDays);
-          alignText += ` | Next optimal: ${formatDualTime(nextOptDays * 86400)}`;
-        }
-        if (legendRefs.alignmentLine.innerHTML !== alignText) {
-          legendRefs.alignmentLine.innerHTML = alignText;
-        }
-        legendRefs.alignmentLine.style.display = '';
-      } else {
-        legendRefs.alignmentLine.style.display = 'none';
-      }
-    } else {
-      legendRefs.alignmentLine.style.display = 'none';
-    }
-  } else {
-    legendRefs.alignmentLine.style.display = 'none';
-  }
-
+  // Travel info (time + fuel) — compact card shows only basic estimate
   if (isOtherDestination) {
     const shipClass = getShipClass(ship.classId);
     if (shipClass) {
@@ -452,7 +403,7 @@ function updateLegendItem(
           distanceKm,
           ship.flightProfileBurnFraction
         );
-        const infoText = `\u23F1 Travel Time: ${travelTime} | \u26FD Fuel Cost: ~${formatFuelMass(fuelCostKg)}`;
+        const infoText = `\u23F1 ${travelTime} | \u26FD ~${formatFuelMass(fuelCostKg)}`;
         if (legendRefs.travelInfo.textContent !== infoText) {
           legendRefs.travelInfo.textContent = infoText;
         }
@@ -462,137 +413,17 @@ function updateLegendItem(
           origin: virtualOrigin,
           destination: location,
         });
-
-        const assists = flight.gravityAssists;
-        if (assists && assists.length > 0) {
-          const bodyNames = assists
-            .map((a) => {
-              const pct = (a.approachProgress * 100).toFixed(0);
-              return `${a.bodyName} (at ${pct}%)`;
-            })
-            .join(', ');
-          const assistText = `Gravity assist: ${bodyNames}`;
-          if (legendRefs.gravAssistLine.textContent !== assistText) {
-            legendRefs.gravAssistLine.textContent = assistText;
-          }
-          legendRefs.gravAssistLine.style.display = '';
-        } else {
-          legendRefs.gravAssistLine.style.display = 'none';
-        }
       } catch {
         legendRefs.travelInfo.style.display = 'none';
-        legendRefs.gravAssistLine.style.display = 'none';
       }
     } else {
       legendRefs.travelInfo.style.display = 'none';
-      legendRefs.gravAssistLine.style.display = 'none';
     }
   } else {
     legendRefs.travelInfo.style.display = 'none';
-    legendRefs.gravAssistLine.style.display = 'none';
   }
 
-  if (isOtherDestination) {
-    const routeRisk = estimateRouteRisk(
-      virtualOrigin,
-      location,
-      ship,
-      gd.world
-    );
-    const threatLevel = getThreatLevel(routeRisk);
-    const narrative = getThreatNarrative(threatLevel);
-    const currentThreatAttr =
-      legendRefs.riskLine.getAttribute('data-threat-cache');
-    const newThreatKey = `${threatLevel}:${narrative}`;
-    if (currentThreatAttr !== newThreatKey) {
-      while (legendRefs.riskLine.firstChild) {
-        legendRefs.riskLine.removeChild(legendRefs.riskLine.firstChild);
-      }
-      legendRefs.riskLine.appendChild(
-        renderThreatBadge(threatLevel, narrative)
-      );
-      legendRefs.riskLine.setAttribute('data-threat-cache', newThreatKey);
-    }
-    legendRefs.riskLine.style.display = '';
-  } else {
-    legendRefs.riskLine.style.display = 'none';
-  }
-
-  if (degradedCrew.length > 0 && isOtherDestination) {
-    const warnText = `\u26A0\uFE0F ${degradedCrew.length} crew member${degradedCrew.length > 1 ? 's' : ''} with zero-g atrophy`;
-    if (legendRefs.gravityWarning.textContent !== warnText) {
-      legendRefs.gravityWarning.textContent = warnText;
-    }
-    legendRefs.gravityWarning.style.display = '';
-  } else {
-    legendRefs.gravityWarning.style.display = 'none';
-  }
-
-  const contracts = getContractsForLocation(location.id, gd, ship);
-  if (contracts.length > 0) {
-    legendRefs.contractsContainer.style.display = '';
-    const contractKey = contracts
-      .map((c) => `${c.quest.id}:${c.isActive}:${c.relationship}`)
-      .join('|');
-    const prevKey = legendRefs.contractsContainer.getAttribute(
-      'data-contracts-cache'
-    );
-    if (contractKey !== prevKey) {
-      while (legendRefs.contractsContainer.firstChild) {
-        legendRefs.contractsContainer.removeChild(
-          legendRefs.contractsContainer.firstChild
-        );
-      }
-      const cHeader = document.createElement('div');
-      cHeader.style.cssText =
-        'font-size: 0.8em; color: #4a9eff; margin-bottom: 4px; font-weight: 600;';
-      cHeader.textContent = 'Contracts:';
-      legendRefs.contractsContainer.appendChild(cHeader);
-      for (const info of contracts) {
-        const line = document.createElement('div');
-        line.style.cssText =
-          'font-size: 0.8em; color: #ccc; padding: 2px 0; display: flex; align-items: center; gap: 4px;';
-        const icon = QUEST_TYPE_ICONS[info.quest.type] || '\u2753';
-        const iconSpan = document.createElement('span');
-        iconSpan.textContent = icon;
-        line.appendChild(iconSpan);
-        const titleSpan = document.createElement('span');
-        titleSpan.style.cssText =
-          'flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;';
-        titleSpan.textContent = info.quest.title;
-        line.appendChild(titleSpan);
-        const paySpan = document.createElement('span');
-        paySpan.style.cssText =
-          'color: #4ade80; white-space: nowrap; font-size: 0.85em;';
-        const totalPay =
-          info.quest.paymentPerTrip > 0
-            ? info.quest.paymentPerTrip
-            : info.quest.paymentOnCompletion;
-        paySpan.textContent = formatCredits(totalPay);
-        line.appendChild(paySpan);
-        if (info.isActive) {
-          const badge = document.createElement('span');
-          badge.style.cssText =
-            'font-size: 0.7em; padding: 1px 4px; border-radius: 3px; background: #4a9eff; color: #fff; font-weight: 700;';
-          badge.textContent = 'ACTIVE';
-          line.appendChild(badge);
-        } else {
-          const relSpan = document.createElement('span');
-          relSpan.style.cssText = 'font-size: 0.7em; color: #888;';
-          relSpan.textContent = info.relationship;
-          line.appendChild(relSpan);
-        }
-        legendRefs.contractsContainer.appendChild(line);
-      }
-      legendRefs.contractsContainer.setAttribute(
-        'data-contracts-cache',
-        contractKey
-      );
-    }
-  } else {
-    legendRefs.contractsContainer.style.display = 'none';
-  }
-
+  // Action area — toggle visibility
   legendRefs.currentBadge.style.display = 'none';
   legendRefs.destBadge.style.display = 'none';
   legendRefs.statusText.style.display = 'none';
@@ -617,9 +448,7 @@ function updateLegendItem(
     }
     legendRefs.statusText.style.display = '';
   } else if (reachable && ctx.onStartTrip) {
-    const btnText = isInFlight
-      ? `Redirect to ${location.name}`
-      : `Travel to ${location.name}`;
+    const btnText = isInFlight ? `Redirect to ${location.name}` : `Fly`;
     if (legendRefs.travelButton.textContent !== btnText) {
       legendRefs.travelButton.textContent = btnText;
     }
@@ -740,7 +569,7 @@ function showMarker(refs: MarkerRefs): void {
   refs.hitArea.style.display = '';
 }
 
-/** Create legend item DOM — returns the created element refs */
+/** Create legend item DOM — compact flat card (no accordion) */
 function createLegendItemDom(
   location: WorldLocation,
   onSelect: () => void,
@@ -748,33 +577,27 @@ function createLegendItemDom(
 ): LegendItemRefs {
   const item = document.createElement('div');
   item.className = 'nav-legend-item';
+  item.style.cursor = 'pointer';
 
-  const summary = document.createElement('div');
-  summary.className = 'nav-legend-summary';
-  summary.style.cursor = 'pointer';
-
-  const summaryTop = document.createElement('div');
-  summaryTop.style.cssText = 'display: flex; align-items: center; gap: 6px;';
-
-  const chevron = document.createElement('span');
-  chevron.className = 'nav-legend-chevron';
-  chevron.textContent = '\u25B6';
-  summaryTop.appendChild(chevron);
+  // Header row: name + distance
+  const headerRow = document.createElement('div');
+  headerRow.style.cssText = 'display: flex; align-items: center; gap: 6px;';
 
   const name = document.createElement('strong');
   name.textContent = location.name;
-  summaryTop.appendChild(name);
+  headerRow.appendChild(name);
 
-  const summaryDist = document.createElement('span');
-  summaryDist.style.cssText =
-    'margin-left: auto; font-size: 0.8em; color: #888;';
-  summaryTop.appendChild(summaryDist);
+  const distance = document.createElement('span');
+  distance.style.cssText =
+    'margin-left: auto; font-size: 0.8em; color: #888; white-space: nowrap;';
+  headerRow.appendChild(distance);
 
-  summary.appendChild(summaryTop);
+  item.appendChild(headerRow);
 
+  // Service badges row
   const badgesContainer = document.createElement('div');
   badgesContainer.style.cssText =
-    'display: flex; gap: 4px; flex-wrap: wrap; margin: 3px 0 0 18px;';
+    'display: flex; gap: 4px; flex-wrap: wrap; margin-top: 3px;';
   if (location.services.length > 0) {
     for (const svc of location.services) {
       const info = NAV_SERVICE_LABELS[svc];
@@ -786,115 +609,503 @@ function createLegendItemDom(
       badgesContainer.appendChild(badge);
     }
   }
-  summary.appendChild(badgesContainer);
+  item.appendChild(badgesContainer);
 
-  item.appendChild(summary);
-
-  summary.addEventListener('click', onSelect);
-
-  const details = document.createElement('div');
-  details.className = 'nav-legend-details';
-  details.style.display = 'none';
-
-  const distance = document.createElement('div');
-  details.appendChild(distance);
-
-  const alignmentLine = document.createElement('div');
-  alignmentLine.style.fontSize = '0.85em';
-  alignmentLine.style.marginTop = '0.15rem';
-  alignmentLine.style.display = 'none';
-  details.appendChild(alignmentLine);
-
-  const gravAssistLine = document.createElement('div');
-  gravAssistLine.style.cssText =
-    'font-size: 0.85em; margin-top: 0.15rem; color: #ffc107; display: none;';
-  details.appendChild(gravAssistLine);
-
+  // Travel info (time + fuel cost)
   const travelInfo = document.createElement('div');
-  travelInfo.style.fontSize = '0.85em';
-  travelInfo.style.color = '#4ade80';
-  travelInfo.style.marginTop = '0.25rem';
-  travelInfo.style.display = 'none';
-  details.appendChild(travelInfo);
+  travelInfo.style.cssText =
+    'font-size: 0.8em; color: #4ade80; margin-top: 4px; white-space: nowrap; display: none;';
+  item.appendChild(travelInfo);
 
-  const description = document.createElement('div');
-  description.textContent = location.description;
-  description.style.fontSize = '0.9em';
-  description.style.color = '#aaa';
-  details.appendChild(description);
-
-  const contractsContainer = document.createElement('div');
-  contractsContainer.className = 'nav-contracts-summary';
-  contractsContainer.style.display = 'none';
-  details.appendChild(contractsContainer);
-
-  const riskLine = document.createElement('div');
-  riskLine.style.marginTop = '6px';
-  riskLine.style.display = 'none';
-  details.appendChild(riskLine);
-
-  const gravityWarning = document.createElement('div');
-  gravityWarning.style.fontSize = '0.85em';
-  gravityWarning.style.color = '#fbbf24';
-  gravityWarning.style.marginTop = '0.25rem';
-  gravityWarning.style.display = 'none';
-  details.appendChild(gravityWarning);
-
+  // Action area
   const currentBadge = document.createElement('div');
   currentBadge.className = 'nav-current-label';
+  currentBadge.style.cssText = 'margin-top: 4px; display: none;';
   currentBadge.textContent = 'Current Location';
-  currentBadge.style.display = 'none';
-  details.appendChild(currentBadge);
+  item.appendChild(currentBadge);
 
   const destBadge = document.createElement('div');
   destBadge.className = 'nav-current-label';
+  destBadge.style.cssText = 'margin-top: 4px; display: none;';
   destBadge.textContent = 'Destination';
-  destBadge.style.display = 'none';
-  details.appendChild(destBadge);
+  item.appendChild(destBadge);
 
   const statusText = document.createElement('div');
   statusText.className = 'nav-travel-disabled-reason';
-  statusText.style.display = 'none';
-  details.appendChild(statusText);
+  statusText.style.cssText = 'margin-top: 4px; display: none;';
+  item.appendChild(statusText);
 
   const travelButton = document.createElement('button');
-  travelButton.className = 'nav-travel-button';
+  travelButton.className = 'nav-travel-button nav-travel-button--compact';
   travelButton.style.display = 'none';
   travelButton.addEventListener('click', (e) => {
     e.stopPropagation();
     onTravel();
   });
-  details.appendChild(travelButton);
+  item.appendChild(travelButton);
 
   const unreachableReason = document.createElement('div');
   unreachableReason.className = 'nav-travel-disabled-reason';
-  unreachableReason.style.display = 'none';
-  details.appendChild(unreachableReason);
+  unreachableReason.style.cssText =
+    'margin-top: 4px; font-size: 0.75em; display: none;';
+  item.appendChild(unreachableReason);
 
-  item.appendChild(details);
+  // Clicking card selects in orrery
+  item.addEventListener('click', onSelect);
 
   return {
     item,
-    summary,
-    summaryDist,
-    chevron,
-    details,
     name,
-    badgesContainer,
     distance,
-    alignmentLine,
-    gravAssistLine,
+    badgesContainer,
     travelInfo,
-    description,
-    contractsContainer,
-    riskLine,
-    gravityWarning,
     currentBadge,
     destBadge,
     statusText,
     travelButton,
     unreachableReason,
   };
+}
+
+/** Per-overlay refs for the selection detail panel */
+interface SelectionOverlayRefs {
+  wrapper: HTMLElement;
+  content: HTMLElement;
+  headerName: HTMLElement;
+  closeBtn: HTMLElement;
+  infoRow: HTMLElement;
+  description: HTMLElement;
+  contractsContainer: HTMLElement;
+  alignmentLine: HTMLElement;
+  riskLine: HTMLElement;
+  gravAssistLine: HTMLElement;
+  gravityWarning: HTMLElement;
+  overlayTravelInfo: HTMLElement;
+  overlayTravelButton: HTMLButtonElement;
+  overlayUnreachable: HTMLElement;
+  overlayCurrentBadge: HTMLElement;
+  overlayDestBadge: HTMLElement;
+  overlayStatusText: HTMLElement;
+}
+
+/** Create the selection overlay DOM — appended to orrery map area */
+function createSelectionOverlay(onClose: () => void): SelectionOverlayRefs {
+  const wrapper = document.createElement('div');
+  wrapper.className = 'nav-selection-overlay';
+
+  const content = document.createElement('div');
+  content.className = 'nav-selection-overlay-content';
+  content.style.display = 'none';
+
+  const headerRow = document.createElement('div');
+  headerRow.style.cssText =
+    'display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;';
+
+  const headerName = document.createElement('strong');
+  headerName.style.cssText = 'color: #d4850a; font-size: 0.95em;';
+  headerRow.appendChild(headerName);
+
+  const closeBtn = document.createElement('button');
+  closeBtn.style.cssText =
+    'background: none; border: none; color: #888; cursor: pointer; font-size: 14px; padding: 0 2px; line-height: 1;';
+  closeBtn.textContent = '\u2715';
+  closeBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    onClose();
+  });
+  headerRow.appendChild(closeBtn);
+  content.appendChild(headerRow);
+
+  const infoRow = document.createElement('div');
+  infoRow.style.cssText =
+    'font-size: 0.8em; color: #aaa; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;';
+  content.appendChild(infoRow);
+
+  const alignmentLine = document.createElement('div');
+  alignmentLine.style.cssText =
+    'font-size: 0.8em; margin-top: 4px; display: none;';
+  content.appendChild(alignmentLine);
+
+  const gravAssistLine = document.createElement('div');
+  gravAssistLine.style.cssText =
+    'font-size: 0.8em; margin-top: 2px; color: #ffc107; display: none;';
+  content.appendChild(gravAssistLine);
+
+  const riskLine = document.createElement('div');
+  riskLine.style.cssText = 'margin-top: 4px; display: none;';
+  content.appendChild(riskLine);
+
+  const gravityWarning = document.createElement('div');
+  gravityWarning.style.cssText =
+    'font-size: 0.8em; color: #fbbf24; margin-top: 2px; display: none;';
+  content.appendChild(gravityWarning);
+
+  const description = document.createElement('div');
+  description.style.cssText =
+    'font-size: 0.8em; color: #888; margin-top: 4px; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;';
+  content.appendChild(description);
+
+  const contractsContainer = document.createElement('div');
+  contractsContainer.style.cssText =
+    'border-top: 1px solid rgba(255,255,255,0.06); padding-top: 4px; margin-top: 6px; display: none;';
+  content.appendChild(contractsContainer);
+
+  const overlayTravelInfo = document.createElement('div');
+  overlayTravelInfo.style.cssText =
+    'font-size: 0.8em; color: #4ade80; margin-top: 4px; white-space: nowrap; display: none;';
+  content.appendChild(overlayTravelInfo);
+
+  const overlayCurrentBadge = document.createElement('div');
+  overlayCurrentBadge.className = 'nav-current-label';
+  overlayCurrentBadge.style.cssText = 'margin-top: 6px; display: none;';
+  overlayCurrentBadge.textContent = 'Current Location';
+  content.appendChild(overlayCurrentBadge);
+
+  const overlayDestBadge = document.createElement('div');
+  overlayDestBadge.className = 'nav-current-label';
+  overlayDestBadge.style.cssText = 'margin-top: 6px; display: none;';
+  overlayDestBadge.textContent = 'Destination';
+  content.appendChild(overlayDestBadge);
+
+  const overlayStatusText = document.createElement('div');
+  overlayStatusText.className = 'nav-travel-disabled-reason';
+  overlayStatusText.style.cssText = 'margin-top: 4px; display: none;';
+  content.appendChild(overlayStatusText);
+
+  const overlayTravelButton = document.createElement('button');
+  overlayTravelButton.className = 'nav-travel-button';
+  overlayTravelButton.style.cssText = 'margin-top: 6px; display: none;';
+  content.appendChild(overlayTravelButton);
+
+  const overlayUnreachable = document.createElement('div');
+  overlayUnreachable.className = 'nav-travel-disabled-reason';
+  overlayUnreachable.style.cssText = 'margin-top: 4px; display: none;';
+  content.appendChild(overlayUnreachable);
+
+  wrapper.appendChild(content);
+  return {
+    wrapper,
+    content,
+    headerName,
+    closeBtn,
+    infoRow,
+    description,
+    contractsContainer,
+    alignmentLine,
+    riskLine,
+    gravAssistLine,
+    gravityWarning,
+    overlayTravelInfo,
+    overlayTravelButton,
+    overlayUnreachable,
+    overlayCurrentBadge,
+    overlayDestBadge,
+    overlayStatusText,
+  };
+}
+
+/** Update overlay content for the selected location */
+function updateSelectionOverlay(
+  overlay: SelectionOverlayRefs,
+  selectedLocationId: string | null,
+  ctx: UpdateCtx
+): void {
+  if (!selectedLocationId) {
+    overlay.content.style.display = 'none';
+    return;
+  }
+
+  const location = ctx.gd.world.locations.find(
+    (l) => l.id === selectedLocationId
+  );
+  if (!location) {
+    overlay.content.style.display = 'none';
+    return;
+  }
+
+  overlay.content.style.display = '';
+
+  const {
+    ship,
+    gd,
+    virtualOrigin,
+    canStartTrips,
+    isInFlight,
+    flightDestinationId,
+    currentLocationId,
+    degradedCrew,
+  } = ctx;
+  const reachable = isLocationReachable(ship, location, virtualOrigin);
+  const isCurrent = location.id === currentLocationId;
+  const isFlightDest = location.id === flightDestinationId;
+  const isOtherDestination = !isCurrent && !isFlightDest && reachable;
+
+  // Header name
+  if (overlay.headerName.textContent !== location.name) {
+    overlay.headerName.textContent = location.name;
+  }
+
+  // Info row: distance + services
+  const distanceFromCurrent = getDistanceBetween(virtualOrigin, location);
+  const distText =
+    distanceFromCurrent < 0.5
+      ? 'Current Location'
+      : `Distance: ${formatDistance(distanceFromCurrent)}`;
+  const svcText = location.services
+    .map((s) => NAV_SERVICE_LABELS[s]?.label)
+    .filter(Boolean)
+    .join(' \u00B7 ');
+  const infoText = svcText ? `${distText} | ${svcText}` : distText;
+  if (overlay.infoRow.textContent !== infoText) {
+    overlay.infoRow.textContent = infoText;
+  }
+
+  // Description
+  if (overlay.description.textContent !== location.description) {
+    overlay.description.textContent = location.description;
+  }
+
+  // Alignment
+  if (isOtherDestination && virtualOrigin.orbital && location.orbital) {
+    const window = computeLaunchWindow(
+      virtualOrigin,
+      location,
+      gd.gameTime,
+      gd.world
+    );
+    if (window) {
+      const distRange = window.maxDistanceKm - window.minDistanceKm;
+      const rangeRatio = distRange / Math.max(window.minDistanceKm, 1);
+      if (rangeRatio > 0.1) {
+        const color = alignmentColor(window.alignment);
+        const label =
+          window.alignment.charAt(0).toUpperCase() + window.alignment.slice(1);
+        let alignText = `Alignment: <span style="color:${color};font-weight:600">${label}</span>`;
+        if (window.alignment !== 'excellent' && window.nextOptimalInDays > 1) {
+          const nextOptDays = Math.round(window.nextOptimalInDays);
+          alignText += ` | Next optimal: ${formatDualTime(nextOptDays * 86400)}`;
+        }
+        if (overlay.alignmentLine.innerHTML !== alignText) {
+          overlay.alignmentLine.innerHTML = alignText;
+        }
+        overlay.alignmentLine.style.display = '';
+      } else {
+        overlay.alignmentLine.style.display = 'none';
+      }
+    } else {
+      overlay.alignmentLine.style.display = 'none';
+    }
+  } else {
+    overlay.alignmentLine.style.display = 'none';
+  }
+
+  // Travel info + gravity assists
+  if (isOtherDestination) {
+    const shipClass = getShipClass(ship.classId);
+    if (shipClass) {
+      try {
+        const flight = initializeFlight(
+          ship,
+          virtualOrigin,
+          location,
+          false,
+          ship.flightProfileBurnFraction,
+          { gameTime: gd.gameTime, world: gd.world }
+        );
+        const travelTime = formatDualTime(flight.totalTime);
+        const distanceKm = getDistanceBetween(virtualOrigin, location);
+        const fuelCostKg = calculateTripFuelKg(
+          ship,
+          distanceKm,
+          ship.flightProfileBurnFraction
+        );
+        const travelText = `\u23F1 ${travelTime} | \u26FD ~${formatFuelMass(fuelCostKg)}`;
+        if (overlay.overlayTravelInfo.textContent !== travelText) {
+          overlay.overlayTravelInfo.textContent = travelText;
+        }
+        overlay.overlayTravelInfo.style.display = '';
+        ctx.estimateRefs.push({
+          el: overlay.overlayTravelInfo,
+          origin: virtualOrigin,
+          destination: location,
+        });
+
+        const assists = flight.gravityAssists;
+        if (assists && assists.length > 0) {
+          const bodyNames = assists
+            .map((a) => {
+              const pct = (a.approachProgress * 100).toFixed(0);
+              return `${a.bodyName} (at ${pct}%)`;
+            })
+            .join(', ');
+          const assistText = `Gravity assist: ${bodyNames}`;
+          if (overlay.gravAssistLine.textContent !== assistText) {
+            overlay.gravAssistLine.textContent = assistText;
+          }
+          overlay.gravAssistLine.style.display = '';
+        } else {
+          overlay.gravAssistLine.style.display = 'none';
+        }
+      } catch {
+        overlay.overlayTravelInfo.style.display = 'none';
+        overlay.gravAssistLine.style.display = 'none';
+      }
+    } else {
+      overlay.overlayTravelInfo.style.display = 'none';
+      overlay.gravAssistLine.style.display = 'none';
+    }
+  } else {
+    overlay.overlayTravelInfo.style.display = 'none';
+    overlay.gravAssistLine.style.display = 'none';
+  }
+
+  // Risk/threat
+  if (isOtherDestination) {
+    const routeRisk = estimateRouteRisk(
+      virtualOrigin,
+      location,
+      ship,
+      gd.world
+    );
+    const threatLevel = getThreatLevel(routeRisk);
+    const narrative = getThreatNarrative(threatLevel);
+    const currentThreatAttr =
+      overlay.riskLine.getAttribute('data-threat-cache');
+    const newThreatKey = `${threatLevel}:${narrative}`;
+    if (currentThreatAttr !== newThreatKey) {
+      while (overlay.riskLine.firstChild) {
+        overlay.riskLine.removeChild(overlay.riskLine.firstChild);
+      }
+      overlay.riskLine.appendChild(renderThreatBadge(threatLevel, narrative));
+      overlay.riskLine.setAttribute('data-threat-cache', newThreatKey);
+    }
+    overlay.riskLine.style.display = '';
+  } else {
+    overlay.riskLine.style.display = 'none';
+  }
+
+  // Gravity warning
+  if (degradedCrew.length > 0 && isOtherDestination) {
+    const warnText = `\u26A0\uFE0F ${degradedCrew.length} crew member${degradedCrew.length > 1 ? 's' : ''} with zero-g atrophy`;
+    if (overlay.gravityWarning.textContent !== warnText) {
+      overlay.gravityWarning.textContent = warnText;
+    }
+    overlay.gravityWarning.style.display = '';
+  } else {
+    overlay.gravityWarning.style.display = 'none';
+  }
+
+  // Contracts
+  const contracts = getContractsForLocation(location.id, gd, ship);
+  if (contracts.length > 0) {
+    overlay.contractsContainer.style.display = '';
+    const contractKey = contracts
+      .map((c) => `${c.quest.id}:${c.isActive}:${c.relationship}`)
+      .join('|');
+    const prevKey = overlay.contractsContainer.getAttribute(
+      'data-contracts-cache'
+    );
+    if (contractKey !== prevKey) {
+      while (overlay.contractsContainer.firstChild) {
+        overlay.contractsContainer.removeChild(
+          overlay.contractsContainer.firstChild
+        );
+      }
+      const cHeader = document.createElement('div');
+      cHeader.style.cssText =
+        'font-size: 0.8em; color: #4a9eff; margin-bottom: 4px; font-weight: 600;';
+      cHeader.textContent = 'Contracts:';
+      overlay.contractsContainer.appendChild(cHeader);
+      for (const info of contracts) {
+        const line = document.createElement('div');
+        line.style.cssText =
+          'font-size: 0.8em; color: #ccc; padding: 2px 0; display: flex; align-items: center; gap: 4px;';
+        const icon = QUEST_TYPE_ICONS[info.quest.type] || '\u2753';
+        const iconSpan = document.createElement('span');
+        iconSpan.textContent = icon;
+        line.appendChild(iconSpan);
+        const titleSpan = document.createElement('span');
+        titleSpan.style.cssText =
+          'flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;';
+        titleSpan.textContent = info.quest.title;
+        line.appendChild(titleSpan);
+        const paySpan = document.createElement('span');
+        paySpan.style.cssText =
+          'color: #4ade80; white-space: nowrap; font-size: 0.85em;';
+        const totalPay =
+          info.quest.paymentPerTrip > 0
+            ? info.quest.paymentPerTrip
+            : info.quest.paymentOnCompletion;
+        paySpan.textContent = formatCredits(totalPay);
+        line.appendChild(paySpan);
+        if (info.isActive) {
+          const badge = document.createElement('span');
+          badge.style.cssText =
+            'font-size: 0.7em; padding: 1px 4px; border-radius: 3px; background: #4a9eff; color: #fff; font-weight: 700;';
+          badge.textContent = 'ACTIVE';
+          line.appendChild(badge);
+        } else {
+          const relSpan = document.createElement('span');
+          relSpan.style.cssText = 'font-size: 0.7em; color: #888;';
+          relSpan.textContent = info.relationship;
+          line.appendChild(relSpan);
+        }
+        overlay.contractsContainer.appendChild(line);
+      }
+      overlay.contractsContainer.setAttribute(
+        'data-contracts-cache',
+        contractKey
+      );
+    }
+  } else {
+    overlay.contractsContainer.style.display = 'none';
+  }
+
+  // Overlay action area
+  overlay.overlayCurrentBadge.style.display = 'none';
+  overlay.overlayDestBadge.style.display = 'none';
+  overlay.overlayStatusText.style.display = 'none';
+  overlay.overlayTravelButton.style.display = 'none';
+  overlay.overlayUnreachable.style.display = 'none';
+
+  if (isCurrent) {
+    overlay.overlayCurrentBadge.style.display = '';
+  } else if (isFlightDest) {
+    overlay.overlayDestBadge.style.display = '';
+  } else if (!canStartTrips) {
+    let reason: string;
+    if (ship.activeContract) {
+      reason = 'Contract in progress';
+    } else if (ship.miningRoute) {
+      reason = 'Mining route active';
+    } else {
+      reason = 'Unavailable';
+    }
+    if (overlay.overlayStatusText.textContent !== reason) {
+      overlay.overlayStatusText.textContent = reason;
+    }
+    overlay.overlayStatusText.style.display = '';
+  } else if (reachable && ctx.onStartTrip) {
+    const btnText = isInFlight
+      ? `Redirect to ${location.name}`
+      : `Travel to ${location.name}`;
+    if (overlay.overlayTravelButton.textContent !== btnText) {
+      overlay.overlayTravelButton.textContent = btnText;
+    }
+    overlay.overlayTravelButton.onclick = (e) => {
+      e.stopPropagation();
+      if (ctx.onStartTrip) ctx.onStartTrip(location.id);
+    };
+    overlay.overlayTravelButton.style.display = '';
+  } else {
+    const reason = getUnreachableReason(ship, location, virtualOrigin);
+    if (reason) {
+      if (overlay.overlayUnreachable.textContent !== reason) {
+        overlay.overlayUnreachable.textContent = reason;
+      }
+      overlay.overlayUnreachable.style.display = '';
+    }
+  }
 }
 
 export function createNavigationView(
@@ -957,7 +1168,7 @@ export function createNavigationView(
           distanceKm,
           ship.flightProfileBurnFraction
         );
-        ref.el.textContent = `\u23F1 Travel Time: ${travelTime} | \u26FD Fuel Cost: ~${formatFuelMass(fuelCostKg)}`;
+        ref.el.textContent = `\u23F1 ${travelTime} | \u26FD ~${formatFuelMass(fuelCostKg)}`;
       } catch {
         // skip if estimate fails
       }
@@ -1176,96 +1387,13 @@ export function createNavigationView(
     assistMarkers.push({ halo, diamond });
   }
 
-  // SVG tooltip (single reusable group, positioned on hover/select)
-  const tooltipGroup = document.createElementNS(SVG_NS, 'g');
-  tooltipGroup.style.display = 'none';
-  tooltipGroup.style.pointerEvents = 'none';
-  const tooltipBg = document.createElementNS(SVG_NS, 'rect');
-  tooltipBg.setAttribute('rx', '3');
-  tooltipBg.setAttribute('ry', '3');
-  tooltipBg.setAttribute('fill', 'rgba(10, 15, 30, 0.92)');
-  tooltipBg.setAttribute('stroke', '#4a9eff');
-  tooltipBg.setAttribute('stroke-width', '0.5');
-  tooltipGroup.appendChild(tooltipBg);
-  const tooltipName = document.createElementNS(SVG_NS, 'text');
-  tooltipName.setAttribute('fill', '#fff');
-  tooltipName.setAttribute('font-size', '6');
-  tooltipName.setAttribute('font-weight', '600');
-  tooltipGroup.appendChild(tooltipName);
-  const tooltipDist = document.createElementNS(SVG_NS, 'text');
-  tooltipDist.setAttribute('fill', '#aaa');
-  tooltipDist.setAttribute('font-size', '5');
-  tooltipGroup.appendChild(tooltipDist);
-  const tooltipServices = document.createElementNS(SVG_NS, 'text');
-  tooltipServices.setAttribute('fill', '#888');
-  tooltipServices.setAttribute('font-size', '4.5');
-  tooltipGroup.appendChild(tooltipServices);
-  svg.appendChild(tooltipGroup);
-
-  /** Position and show the SVG tooltip near a dot */
-  function showTooltip(locId: string, svgPos: { x: number; y: number }): void {
-    const loc = latestGameData.world.locations.find((l) => l.id === locId);
-    if (!loc) return;
-
-    const ship = getActiveShip(latestGameData);
-    const curLocId = ship.location.dockedAt || ship.location.orbitingAt || null;
-    const curKm = getShipPositionKm(ship, latestGameData.world);
-    const virtualOrigin: WorldLocation = curLocId
-      ? latestGameData.world.locations.find((l) => l.id === curLocId)!
-      : ({
-          id: '__current_position__',
-          name: 'Current Position',
-          type: 'orbital' as const,
-          description: '',
-          distanceFromEarth: curKm,
-          x: 0,
-          y: 0,
-          services: [] as WorldLocation['services'],
-          size: 0,
-          pilotingRequirement: 0,
-        } as WorldLocation);
-
-    const dist = getDistanceBetween(virtualOrigin, loc);
-    const distText = dist < 0.5 ? 'Current Location' : formatDistance(dist);
-
-    tooltipName.textContent = loc.name;
-    tooltipDist.textContent = distText;
-    const svcText = loc.services
-      .map((s) => NAV_SERVICE_LABELS[s]?.icon)
-      .filter(Boolean)
-      .join(' ');
-    tooltipServices.textContent = svcText || '';
-
-    // Position: flip based on quadrant
-    const lineCount = svcText ? 3 : 2;
-    const boxW = Math.max(loc.name.length * 4, distText.length * 3.5) + 12;
-    const boxH = lineCount * 8 + 6;
-
-    const above = svgPos.y > 0;
-    const leftSide = svgPos.x > 0;
-    const tx = leftSide ? svgPos.x - boxW - 5 : svgPos.x + 5;
-    const ty = above ? svgPos.y - boxH - 5 : svgPos.y + 15;
-
-    tooltipGroup.setAttribute('transform', `translate(${tx}, ${ty})`);
-    tooltipBg.setAttribute('width', String(boxW));
-    tooltipBg.setAttribute('height', String(boxH));
-    tooltipName.setAttribute('x', '6');
-    tooltipName.setAttribute('y', '10');
-    tooltipDist.setAttribute('x', '6');
-    tooltipDist.setAttribute('y', '20');
-    if (svcText) {
-      tooltipServices.setAttribute('x', '6');
-      tooltipServices.setAttribute('y', '29');
-    }
-
-    tooltipGroup.style.display = '';
-  }
-
-  function hideTooltip(): void {
-    tooltipGroup.style.display = 'none';
-  }
-
   mapArea.appendChild(svg);
+
+  const selectionOverlay = createSelectionOverlay(() => {
+    selectedLocationId = null;
+    applySelection();
+  });
+  mapArea.appendChild(selectionOverlay.wrapper);
 
   // Zoom/pan gesture handling (pinch, drag, wheel)
   const zoomControls: MapZoomPanControls = setupMapZoomPan(svg, mapArea);
@@ -1388,7 +1516,7 @@ export function createNavigationView(
       }
     });
 
-    // Hover feedback on desktop
+    // Hover feedback on desktop (dot stroke highlight only)
     hitArea.addEventListener('mouseenter', () => {
       const ship = getActiveShip(latestGameData);
       const currentLocId =
@@ -1405,18 +1533,8 @@ export function createNavigationView(
         dot.setAttribute('stroke', '#4a9eff');
         dot.setAttribute('stroke-width', '1');
       }
-      const svgPos = cachedSvgPositions.get(location.id) ?? { x: 0, y: 0 };
-      showTooltip(location.id, svgPos);
     });
-    hitArea.addEventListener('mouseleave', () => {
-      // Don't reset stroke - let the update tick handle it
-      // This prevents flickering between hover blue and destination red
-      if (selectedLocationId !== location.id) {
-        hideTooltip();
-      }
-      // When selectedLocationId === location.id, keep tooltip visible
-      // so that tap-to-select on mobile shows the tooltip persistently
-    });
+    // mouseleave: stroke reset handled by update tick
 
     markerMap.set(location.id, {
       dot,
@@ -1426,7 +1544,7 @@ export function createNavigationView(
       clusterIndicator,
     });
 
-    // --- Legend item (accordion: summary always visible, details toggled) ---
+    // --- Legend item (compact card) ---
     const legendItem = createLegendItemDom(
       location,
       () => {
@@ -1441,7 +1559,7 @@ export function createNavigationView(
     legendMap.set(location.id, legendItem);
   }
 
-  /** Apply selection state — highlight map dot + scroll/expand legend card */
+  /** Apply selection state — highlight map dot + update overlay + highlight legend card */
   function applySelection(): void {
     // Update SVG selection ring position using cached positions
     if (selectedLocationId) {
@@ -1450,19 +1568,17 @@ export function createNavigationView(
         selectionRing.setAttribute('cx', String(pos.x));
         selectionRing.setAttribute('cy', String(pos.y));
         selectionRing.style.display = '';
-        showTooltip(selectedLocationId, pos);
       }
     } else {
       selectionRing.style.display = 'none';
-      hideTooltip();
     }
 
-    // Toggle accordion: expand selected, collapse others
+    // Toggle selected class on legend cards (no accordion — just highlight)
     for (const [locId, refs] of legendMap) {
-      const isSelected = locId === selectedLocationId;
-      refs.item.classList.toggle('nav-legend-item--selected', isSelected);
-      refs.details.style.display = isSelected ? '' : 'none';
-      refs.chevron.textContent = isSelected ? '\u25BC' : '\u25B6';
+      refs.item.classList.toggle(
+        'nav-legend-item--selected',
+        locId === selectedLocationId
+      );
     }
 
     // Scroll selected legend item into view
@@ -1471,6 +1587,12 @@ export function createNavigationView(
       if (refs) {
         refs.item.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
       }
+    }
+
+    // Overlay is updated by updateSelectionOverlay() on each tick
+    // but also do an immediate update if we have context
+    if (!selectedLocationId) {
+      selectionOverlay.content.style.display = 'none';
     }
   }
 
@@ -1759,6 +1881,9 @@ export function createNavigationView(
     } else {
       updateFocus(ctx, orreryMode.parentId);
     }
+
+    // Update selection overlay every tick (distances/alignment change with orbits)
+    updateSelectionOverlay(selectionOverlay, selectedLocationId, ctx);
   }
 
   /** Update in Overview mode — solar system view, clusters collapsed */
