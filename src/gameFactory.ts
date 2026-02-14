@@ -255,7 +255,6 @@ function createStartingShip(
     oreCargo: [],
     miningAccumulator: {},
     activeContract: null,
-    routeAssignment: null,
     miningRoute: null,
     activeFlightPlan: undefined,
     metrics: {
@@ -321,7 +320,6 @@ export function createAdditionalShip(
     oreCargo: [],
     miningAccumulator: {},
     activeContract: null,
-    routeAssignment: null,
     miningRoute: null,
     activeFlightPlan: undefined,
     metrics: {

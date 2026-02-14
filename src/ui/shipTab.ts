@@ -45,6 +45,13 @@ import { renderStatBar } from './components/statBar';
 import { attachTooltip, formatPowerTooltip } from './components/tooltip';
 import type { Component } from './component';
 import {
+  formatRangeTooltip,
+  formatAccelerationTooltip,
+  formatEquipmentSlotsTooltip,
+  formatShipMassTooltip,
+  formatCrewCountTooltip,
+} from './shipStatsTooltips';
+import {
   formatFuelMass,
   calculateFuelPercentage,
   getFuelColorClass,
@@ -1745,13 +1752,20 @@ function renderShipStatsPanel(gameData: GameData): HTMLElement {
   const rangeLabel = getRangeLabel(maxRangeKm);
   const rangeDiv = document.createElement('div');
   rangeDiv.innerHTML = `<span style="color: #888;">Max Range:</span> <span style="color: #4ade80; font-weight: bold;">${formatLargeNumber(maxRangeKm)} km</span><br><span style="font-size: 0.75rem; color: #aaa;">(${rangeLabel})</span>`;
-  rangeDiv.title = `Derived from: Engine (${engineDef.name}) + Ship Mass (${(shipClass.mass / 1000).toFixed(0)}t) + Consumables`;
+  attachTooltip(rangeDiv, {
+    content: formatRangeTooltip(engineDef, shipClass, maxRangeKm),
+    followMouse: false,
+  });
   statsGrid.appendChild(rangeDiv);
 
   const acceleration = engineDef.thrust / shipClass.mass;
   const accelerationG = acceleration / 9.81;
   const accelDiv = document.createElement('div');
   accelDiv.innerHTML = `<span style="color: #888;">Max Accel:</span> <span style="color: #4ade80;">${accelerationG.toFixed(4)}g</span><br><span style="font-size: 0.75rem; color: #aaa;">(${engineDef.thrust.toLocaleString()} N)</span>`;
+  attachTooltip(accelDiv, {
+    content: formatAccelerationTooltip(engineDef, shipClass.mass),
+    followMouse: false,
+  });
   statsGrid.appendChild(accelDiv);
 
   const maxSlots = shipClass.equipmentSlotDefs.length;
@@ -1764,6 +1778,10 @@ function renderShipStatsPanel(gameData: GameData): HTMLElement {
   ).length;
   const slotsDiv = document.createElement('div');
   slotsDiv.innerHTML = `<span style="color: #888;">Equipment Slots:</span> <span style="color: #4ade80;">${usedSlots}/${maxSlots}</span><br><span style="font-size: 0.75rem; color: #aaa;">${standardSlots} Standard, ${structuralSlots} Structural</span>`;
+  attachTooltip(slotsDiv, {
+    content: formatEquipmentSlotsTooltip(ship, standardSlots, structuralSlots),
+    followMouse: false,
+  });
   statsGrid.appendChild(slotsDiv);
 
   const tierDiv = document.createElement('div');
@@ -1773,10 +1791,18 @@ function renderShipStatsPanel(gameData: GameData): HTMLElement {
 
   const massDiv = document.createElement('div');
   massDiv.innerHTML = `<span style="color: #888;">Ship Mass:</span> <span style="color: #aaa;">${(shipClass.mass / 1000).toFixed(0)} tons</span>`;
+  attachTooltip(massDiv, {
+    content: formatShipMassTooltip(ship, shipClass),
+    followMouse: false,
+  });
   statsGrid.appendChild(massDiv);
 
   const crewDiv = document.createElement('div');
   crewDiv.innerHTML = `<span style="color: #888;">Crew:</span> <span style="color: #aaa;">${ship.crew.length}/${shipClass.maxCrew}</span>`;
+  attachTooltip(crewDiv, {
+    content: formatCrewCountTooltip(ship, shipClass),
+    followMouse: false,
+  });
   statsGrid.appendChild(crewDiv);
 
   // Defense readiness derived from equipment, crew, and mass

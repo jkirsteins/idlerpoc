@@ -28,7 +28,6 @@ describe('Mining Route System', () => {
     };
     delete ship.activeFlightPlan;
     ship.activeContract = null;
-    ship.routeAssignment = null;
     ship.miningRoute = null;
     // Ensure helm crew for flights
     const helmSlot = ship.jobSlots.find((s) => s.type === 'helm');
@@ -88,23 +87,6 @@ describe('Mining Route System', () => {
       const result = assignMiningRoute(gameData, ship, TRADE_LOCATION_ID);
       expect(result.success).toBe(false);
       expect(result.error).toContain('contract');
-    });
-
-    it('fails if ship has freight route assignment', () => {
-      ship.routeAssignment = {
-        questId: 'q1',
-        originId: 'earth',
-        destinationId: 'mars',
-        autoRefuel: true,
-        autoRefuelThreshold: 30,
-        totalTripsCompleted: 0,
-        creditsEarned: 0,
-        assignedAt: 0,
-        lastTripCompletedAt: 0,
-      };
-      const result = assignMiningRoute(gameData, ship, TRADE_LOCATION_ID);
-      expect(result.success).toBe(false);
-      expect(result.error).toContain('freight route');
     });
 
     it('logs mining route creation', () => {

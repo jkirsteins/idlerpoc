@@ -664,55 +664,117 @@ export function createRightSidebar(gameData: GameData): Component {
   ledgerInfo.style.fontSize = '12px';
   ledgerInfo.style.lineHeight = '1.6';
 
-  // Income line
-  const incomeLine = document.createElement('div');
-  const incomeLabelSpan = document.createElement('span');
-  incomeLabelSpan.style.color = '#888';
-  incomeLabelSpan.textContent = 'Income: ';
-  const incomeValue = document.createElement('span');
-  incomeValue.style.color = '#4ade80';
-  incomeLine.appendChild(incomeLabelSpan);
-  incomeLine.appendChild(incomeValue);
-  ledgerInfo.appendChild(incomeLine);
+  // "Today" sub-header
+  const todayHeader = document.createElement('div');
+  todayHeader.textContent = 'Today';
+  todayHeader.style.color = '#aaa';
+  todayHeader.style.fontSize = '11px';
+  todayHeader.style.fontWeight = 'bold';
+  todayHeader.style.marginBottom = '4px';
+  ledgerInfo.appendChild(todayHeader);
 
-  // Crew cost line
-  const ledgerCrewLine = document.createElement('div');
-  const ledgerCrewLabelSpan = document.createElement('span');
-  ledgerCrewLabelSpan.style.color = '#888';
-  ledgerCrewLabelSpan.textContent = 'Crew: ';
-  const ledgerCrewValue = document.createElement('span');
-  ledgerCrewValue.style.color = '#ffa500';
-  ledgerCrewLine.appendChild(ledgerCrewLabelSpan);
-  ledgerCrewLine.appendChild(ledgerCrewValue);
-  ledgerInfo.appendChild(ledgerCrewLine);
+  // Today Earned line
+  const todayEarnedLine = document.createElement('div');
+  const todayEarnedLabelSpan = document.createElement('span');
+  todayEarnedLabelSpan.style.color = '#888';
+  todayEarnedLabelSpan.textContent = 'Earned: ';
+  const todayEarnedValue = document.createElement('span');
+  todayEarnedValue.style.color = '#4caf50';
+  todayEarnedLine.appendChild(todayEarnedLabelSpan);
+  todayEarnedLine.appendChild(todayEarnedValue);
+  ledgerInfo.appendChild(todayEarnedLine);
 
-  // Fuel cost line
-  const ledgerFuelLine = document.createElement('div');
-  const ledgerFuelLabelSpan = document.createElement('span');
-  ledgerFuelLabelSpan.style.color = '#888';
-  ledgerFuelLabelSpan.textContent = 'Fuel: ';
-  const ledgerFuelValue = document.createElement('span');
-  ledgerFuelValue.style.color = '#ffa500';
-  ledgerFuelLine.appendChild(ledgerFuelLabelSpan);
-  ledgerFuelLine.appendChild(ledgerFuelValue);
-  ledgerInfo.appendChild(ledgerFuelLine);
+  // Today Spent line
+  const todaySpentLine = document.createElement('div');
+  const todaySpentLabelSpan = document.createElement('span');
+  todaySpentLabelSpan.style.color = '#888';
+  todaySpentLabelSpan.textContent = 'Spent: ';
+  const todaySpentValue = document.createElement('span');
+  todaySpentValue.style.color = '#ffa500';
+  todaySpentLine.appendChild(todaySpentLabelSpan);
+  todaySpentLine.appendChild(todaySpentValue);
+  ledgerInfo.appendChild(todaySpentLine);
+
+  // Today Net line
+  const todayNetLine = document.createElement('div');
+  const todayNetLabelSpan = document.createElement('span');
+  todayNetLabelSpan.style.color = '#888';
+  todayNetLabelSpan.textContent = 'Net: ';
+  const todayNetValue = document.createElement('span');
+  todayNetValue.style.fontWeight = 'bold';
+  todayNetLine.appendChild(todayNetLabelSpan);
+  todayNetLine.appendChild(todayNetValue);
+  ledgerInfo.appendChild(todayNetLine);
 
   // Separator
-  const ledgerSep = document.createElement('div');
-  ledgerSep.style.borderTop = '1px solid #444';
-  ledgerSep.style.margin = '4px 0';
-  ledgerInfo.appendChild(ledgerSep);
+  const ledgerSep1 = document.createElement('div');
+  ledgerSep1.style.borderTop = '1px solid #444';
+  ledgerSep1.style.margin = '8px 0 4px';
+  ledgerInfo.appendChild(ledgerSep1);
 
-  // Net line
-  const netLine = document.createElement('div');
-  const netLabelSpan = document.createElement('span');
-  netLabelSpan.style.color = '#888';
-  netLabelSpan.textContent = 'Net: ';
-  const netValue = document.createElement('span');
-  netValue.style.fontWeight = 'bold';
-  netLine.appendChild(netLabelSpan);
-  netLine.appendChild(netValue);
-  ledgerInfo.appendChild(netLine);
+  // "Avg/day" sub-header (with days label)
+  const avgHeader = document.createElement('div');
+  avgHeader.style.color = '#aaa';
+  avgHeader.style.fontSize = '11px';
+  avgHeader.style.fontWeight = 'bold';
+  avgHeader.style.marginBottom = '4px';
+  const avgHeaderLabel = document.createElement('span');
+  avgHeaderLabel.textContent = 'Avg/day ';
+  const avgHeaderNote = document.createElement('span');
+  avgHeaderNote.style.fontWeight = 'normal';
+  avgHeader.appendChild(avgHeaderLabel);
+  avgHeader.appendChild(avgHeaderNote);
+  ledgerInfo.appendChild(avgHeader);
+
+  // Average Income line
+  const avgIncomeLine = document.createElement('div');
+  const avgIncomeLabelSpan = document.createElement('span');
+  avgIncomeLabelSpan.style.color = '#888';
+  avgIncomeLabelSpan.textContent = 'Income: ';
+  const avgIncomeValue = document.createElement('span');
+  avgIncomeValue.style.color = '#4caf50';
+  avgIncomeLine.appendChild(avgIncomeLabelSpan);
+  avgIncomeLine.appendChild(avgIncomeValue);
+  ledgerInfo.appendChild(avgIncomeLine);
+
+  // Average Crew line
+  const avgCrewLine = document.createElement('div');
+  const avgCrewLabelSpan = document.createElement('span');
+  avgCrewLabelSpan.style.color = '#888';
+  avgCrewLabelSpan.textContent = 'Crew: ';
+  const avgCrewValue = document.createElement('span');
+  avgCrewValue.style.color = '#ffa500';
+  avgCrewLine.appendChild(avgCrewLabelSpan);
+  avgCrewLine.appendChild(avgCrewValue);
+  ledgerInfo.appendChild(avgCrewLine);
+
+  // Average Fuel line
+  const avgFuelLine = document.createElement('div');
+  const avgFuelLabelSpan = document.createElement('span');
+  avgFuelLabelSpan.style.color = '#888';
+  avgFuelLabelSpan.textContent = 'Fuel: ';
+  const avgFuelValue = document.createElement('span');
+  avgFuelValue.style.color = '#ffa500';
+  avgFuelLine.appendChild(avgFuelLabelSpan);
+  avgFuelLine.appendChild(avgFuelValue);
+  ledgerInfo.appendChild(avgFuelLine);
+
+  // Separator before Net
+  const ledgerSep2 = document.createElement('div');
+  ledgerSep2.style.borderTop = '1px solid #444';
+  ledgerSep2.style.margin = '4px 0';
+  ledgerInfo.appendChild(ledgerSep2);
+
+  // Average Net line
+  const avgNetLine = document.createElement('div');
+  const avgNetLabelSpan = document.createElement('span');
+  avgNetLabelSpan.style.color = '#888';
+  avgNetLabelSpan.textContent = 'Net: ';
+  const avgNetValue = document.createElement('span');
+  avgNetValue.style.fontWeight = 'bold';
+  avgNetLine.appendChild(avgNetLabelSpan);
+  avgNetLine.appendChild(avgNetValue);
+  ledgerInfo.appendChild(avgNetLine);
 
   // Runway line
   const runwayLine = document.createElement('div');
@@ -841,23 +903,58 @@ export function createRightSidebar(gameData: GameData): Component {
     // Daily ledger
     const ledger = calculateDailyLedger(gameData);
 
-    if (ledger.incomeDays > 0) {
-      incomeValue.textContent = `+${formatCredits(Math.round(ledger.incomePerDay))}/day`;
-      incomeValue.style.color = '#4caf50';
+    // Today section
+    todayEarnedValue.textContent = `+${formatCredits(Math.round(ledger.todayIncome))}`;
+    todaySpentValue.textContent = `-${formatCredits(Math.round(ledger.todayExpenses))}`;
+
+    const todayNetRounded = Math.round(ledger.todayNet);
+    const todayNetSign = todayNetRounded >= 0 ? '+' : '';
+    todayNetValue.textContent = `${todayNetSign}${formatCredits(todayNetRounded)}`;
+    todayNetValue.style.color = todayNetRounded >= 0 ? '#4ade80' : '#ff4444';
+
+    // Avg/day section header note
+    const maxDays = Math.max(ledger.incomeDays, ledger.expenseDays);
+    if (maxDays > 0) {
+      avgHeaderNote.textContent = `(${maxDays}d avg)`;
     } else {
-      incomeValue.textContent = 'collecting data\u2026';
-      incomeValue.style.color = '#666';
+      avgHeaderNote.textContent = '';
     }
 
-    ledgerCrewValue.textContent = `-${formatCredits(Math.round(ledger.crewCostPerDay))}/day`;
-    ledgerFuelValue.textContent = `-${formatCredits(Math.round(ledger.fuelCostPerDay))}/day`;
+    // Avg Income
+    if (ledger.incomeDays > 0) {
+      avgIncomeValue.textContent = `+${formatCredits(Math.round(ledger.incomePerDay))}/day`;
+      avgIncomeValue.style.color = '#4caf50';
+    } else {
+      avgIncomeValue.textContent = 'collecting data\u2026';
+      avgIncomeValue.style.color = '#666';
+    }
 
-    const netRounded = Math.round(ledger.netPerDay);
-    const netSign = netRounded >= 0 ? '+' : '';
-    netValue.textContent = `${netSign}${formatCredits(netRounded)}/day`;
-    netValue.style.color = netRounded >= 0 ? '#4ade80' : '#ff4444';
+    // Avg Crew
+    if (ledger.expenseDays > 0) {
+      avgCrewValue.textContent = `-${formatCredits(Math.round(ledger.crewCostPerDay))}/day`;
+      avgCrewValue.style.color = '#ffa500';
+    } else {
+      avgCrewValue.textContent = 'collecting data\u2026';
+      avgCrewValue.style.color = '#666';
+    }
 
-    if (ledger.incomeDays === 0) {
+    // Avg Fuel
+    if (ledger.expenseDays > 0) {
+      avgFuelValue.textContent = `-${formatCredits(Math.round(ledger.fuelCostPerDay))}/day`;
+      avgFuelValue.style.color = '#ffa500';
+    } else {
+      avgFuelValue.textContent = 'collecting data\u2026';
+      avgFuelValue.style.color = '#666';
+    }
+
+    // Avg Net
+    const avgNetRounded = Math.round(ledger.netPerDay);
+    const avgNetSign = avgNetRounded >= 0 ? '+' : '';
+    avgNetValue.textContent = `${avgNetSign}${formatCredits(avgNetRounded)}/day`;
+    avgNetValue.style.color = avgNetRounded >= 0 ? '#4ade80' : '#ff4444';
+
+    // Runway
+    if (ledger.incomeDays === 0 || ledger.expenseDays === 0) {
       runwayValue.textContent = 'collecting data\u2026';
       runwayValue.style.color = '#666';
     } else if (ledger.runwayDays !== null) {

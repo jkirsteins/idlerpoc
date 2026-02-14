@@ -291,8 +291,6 @@ export function createFlightStatusComponent(
         ? 'pause'
         : 'continue';
 
-    const hasRouteAssignment = !!ship.routeAssignment;
-
     const optionData: Record<
       ActiveAction,
       { label: string; desc: string; warn?: string; style: string }
@@ -313,9 +311,6 @@ export function createFlightStatusComponent(
           activeContract.leg === 'inbound'
             ? `Ends contract on arrival. This return trip will still be paid. You keep all earnings from completed trips.`
             : `Ends contract on arrival. No payment for this outbound trip — delivery not yet complete. You keep ${formatCredits(activeContract.creditsEarned)} from prior trips.`,
-        warn: hasRouteAssignment
-          ? 'Your automated route assignment will also end.'
-          : undefined,
         style: 'danger',
       },
     };

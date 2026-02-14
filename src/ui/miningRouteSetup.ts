@@ -28,6 +28,7 @@ export interface MiningRouteSetupRefs {
   section: HTMLDivElement;
   container: HTMLDivElement;
   noMinesMsg: HTMLParagraphElement;
+  lockedMsg: HTMLDivElement;
 }
 
 // ─── Mine Card Refs ─────────────────────────────────────────
@@ -125,9 +126,29 @@ export function updateMiningRouteSetup(
   refs.section.style.display = '';
   refs.noMinesMsg.style.display = 'none';
 
+  const hasMiningBay = ship.rooms.some((r) => r.type === 'mining_bay');
   const shipMiningEquip = getBestShipMiningEquipment(ship);
   const hasEquipment = shipMiningEquip !== undefined;
   const maxCargoKg = getMaxOreCargoCapacity(ship);
+
+  // Capability gate: show locked message and dim cards if ship can't mine
+  if (!hasMiningBay) {
+    refs.lockedMsg.textContent =
+      'Mining routes require a Class II ship with a mining bay.';
+    refs.lockedMsg.style.display = '';
+    refs.container.style.opacity = '0.3';
+    refs.container.style.pointerEvents = 'none';
+  } else if (!hasEquipment) {
+    refs.lockedMsg.textContent =
+      'Install mining equipment at a station store to start mining routes.';
+    refs.lockedMsg.style.display = '';
+    refs.container.style.opacity = '';
+    refs.container.style.pointerEvents = '';
+  } else {
+    refs.lockedMsg.style.display = 'none';
+    refs.container.style.opacity = '';
+    refs.container.style.pointerEvents = '';
+  }
   const salaryCrPerHr = (() => {
     const salaryPerTick = calculateShipSalaryPerTick(ship);
     const ticksPerHour = GAME_SECONDS_PER_HOUR / GAME_SECONDS_PER_TICK;

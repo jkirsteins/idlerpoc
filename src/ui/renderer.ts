@@ -27,7 +27,8 @@ import {
   getMaxProvisionsKg,
   getProvisionsSurvivalDays,
 } from '../provisionsSystem';
-import { formatMass } from '../formatting';
+import { formatMass, formatCredits } from '../formatting';
+import { attachDynamicTooltip, type TooltipHandle } from './components/tooltip';
 import { formatGameDate } from '../timeSystem';
 import { calculateDailyLedger } from '../dailyLedger';
 import type { PlayingTab } from './types';
@@ -73,8 +74,6 @@ export interface RendererCallbacks {
   onEquipItem: (crewId: string, itemId: string) => void;
   onUnequipItem: (crewId: string, itemId: string) => void;
   onAcceptQuest: (questId: string) => void;
-  onAssignRoute: (questId: string) => void;
-  onUnassignRoute: () => void;
   onTogglePause?: () => void;
   onSetSpeed?: (speed: 1 | 2 | 5) => void;
   onAutoPauseSettingChange?: (
@@ -414,8 +413,6 @@ function mountPlayingLayout(
       onEquipItem: callbacks.onEquipItem,
       onUnequipItem: callbacks.onUnequipItem,
       onAcceptQuest: callbacks.onAcceptQuest,
-      onAssignRoute: callbacks.onAssignRoute,
-      onUnassignRoute: callbacks.onUnassignRoute,
       onDockAtNearestPort: callbacks.onDockAtNearestPort,
       onCancelPause: callbacks.onCancelPause,
       onRequestAbandon: callbacks.onRequestAbandon,
@@ -589,6 +586,10 @@ function createMobileHeaderBar(
   creditsStat.appendChild(document.createTextNode(' '));
   creditsStat.appendChild(creditsValueSpan);
   creditsStat.appendChild(creditsRateSpan);
+  const creditRateTooltipHandle: TooltipHandle = attachDynamicTooltip(
+    creditsRateSpan,
+    ''
+  );
   bar.appendChild(creditsStat);
 
   // Fuel stat
@@ -676,6 +677,42 @@ function createMobileHeaderBar(
       creditsRateSpan.style.display = '';
     } else {
       creditsRateSpan.style.display = 'none';
+    }
+
+    // Credit rate tooltip breakdown
+    {
+      const parts: string[] = [];
+      if (ledger.incomeDays > 0) {
+        parts.push(
+          `<div><span class="custom-tooltip-label">Income:</span> <span class="custom-tooltip-value" style="color:#4caf50">+${formatCredits(Math.round(ledger.incomePerDay))}/day</span></div>`
+        );
+      } else {
+        parts.push(
+          `<div><span class="custom-tooltip-label">Income:</span> <span class="custom-tooltip-value" style="color:#666">collecting data\u2026</span></div>`
+        );
+      }
+      parts.push(
+        `<div><span class="custom-tooltip-label">Crew salaries:</span> <span class="custom-tooltip-value" style="color:#ff6b6b">-${formatCredits(Math.round(ledger.crewCostPerDay))}/day</span></div>`
+      );
+      if (ledger.fuelCostPerDay > 0) {
+        parts.push(
+          `<div><span class="custom-tooltip-label">Fuel costs:</span> <span class="custom-tooltip-value" style="color:#ff6b6b">-${formatCredits(Math.round(ledger.fuelCostPerDay))}/day</span></div>`
+        );
+      }
+      const netRounded = Math.round(ledger.netPerDay);
+      const netSign = netRounded >= 0 ? '+' : '';
+      const netColor = netRounded >= 0 ? '#4ade80' : '#ff4444';
+      parts.push('<hr style="border-color:#444;margin:4px 0">');
+      parts.push(
+        `<div><span class="custom-tooltip-label">Net:</span> <span class="custom-tooltip-value" style="color:${netColor}">${netSign}${formatCredits(netRounded)}/day</span></div>`
+      );
+      if (ledger.runwayDays !== null) {
+        const runwayColor = ledger.runwayDays < 3 ? '#ff4444' : '#ffa500';
+        parts.push(
+          `<div><span class="custom-tooltip-label">Runway:</span> <span class="custom-tooltip-value" style="color:${runwayColor}">${ledger.runwayDays.toFixed(1)} days</span></div>`
+        );
+      }
+      creditRateTooltipHandle.updateContent(parts.join(''));
     }
 
     // Fuel
