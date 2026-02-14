@@ -30,12 +30,12 @@
   --text-muted: var(--text-muted);
   --text-disabled: var(--text-disabled);
 
-  /* Typography - will be updated in typography step */
-  --font-display: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen,
-    Ubuntu, sans-serif;
-  --font-body: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen,
-    Ubuntu, sans-serif;
-  --font-mono: 'Courier New', monospace;
+  /* Typography */
+  --font-display: 'IBM Plex Mono', 'Courier New', monospace;
+  --font-body:
+    'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+    Oxygen, Ubuntu, sans-serif;
+  --font-mono: 'IBM Plex Mono', 'Courier New', monospace;
 
   /* Spacing */
   --space-xs: 4px;
@@ -54,18 +54,149 @@
   --border-subtle: var(--border-subtle);
   --border-accent: 1px solid var(--accent-blue);
   --border-danger: 1px solid var(--danger-red);
+
+  /* Depth & Surface */
+  --shadow-panel: 0 2px 8px rgba(0, 0, 0, 0.3), 0 1px 3px rgba(0, 0, 0, 0.2);
+  --shadow-card: 0 1px 4px rgba(0, 0, 0, 0.25), 0 1px 2px rgba(0, 0, 0, 0.15);
+  --shadow-floating:
+    0 8px 32px rgba(0, 0, 0, 0.5), 0 4px 12px rgba(0, 0, 0, 0.3);
+  --shadow-inset-track:
+    inset 0 2px 4px rgba(0, 0, 0, 0.4), inset 0 1px 2px rgba(0, 0, 0, 0.2);
+  --highlight-top: 1px solid rgba(255, 255, 255, 0.05);
+  --glow-blue: 0 0 8px rgba(74, 158, 255, 0.4), 0 0 2px rgba(74, 158, 255, 0.2);
+  --glow-red: 0 0 8px rgba(233, 69, 96, 0.4), 0 0 2px rgba(233, 69, 96, 0.2);
+  --glow-teal: 0 0 8px rgba(78, 205, 196, 0.4), 0 0 2px rgba(78, 205, 196, 0.2);
+  --glow-green: 0 0 8px rgba(76, 175, 80, 0.4), 0 0 2px rgba(76, 175, 80, 0.2);
 }
 
 body {
   font-family: var(--font-body);
-  background: var(--bg-page);
+  background:
+    /* Star layer 1 — small, dense stars */
+    radial-gradient(1px 1px at 10% 15%, rgba(255, 255, 255, 0.7), transparent),
+    radial-gradient(1px 1px at 25% 42%, rgba(255, 255, 255, 0.5), transparent),
+    radial-gradient(1px 1px at 47% 8%, rgba(255, 255, 255, 0.6), transparent),
+    radial-gradient(1px 1px at 62% 35%, rgba(255, 255, 255, 0.4), transparent),
+    radial-gradient(1px 1px at 78% 22%, rgba(255, 255, 255, 0.55), transparent),
+    radial-gradient(1px 1px at 91% 55%, rgba(255, 255, 255, 0.5), transparent),
+    radial-gradient(1px 1px at 5% 68%, rgba(255, 255, 255, 0.45), transparent),
+    radial-gradient(1px 1px at 33% 77%, rgba(255, 255, 255, 0.6), transparent),
+    radial-gradient(1px 1px at 55% 62%, rgba(255, 255, 255, 0.35), transparent),
+    radial-gradient(1px 1px at 72% 88%, rgba(255, 255, 255, 0.5), transparent),
+    radial-gradient(1px 1px at 88% 73%, rgba(255, 255, 255, 0.4), transparent),
+    radial-gradient(1px 1px at 15% 92%, rgba(255, 255, 255, 0.55), transparent),
+    /* Star layer 2 — medium, sparser stars */
+    radial-gradient(
+        1.5px 1.5px at 18% 28%,
+        rgba(200, 220, 255, 0.6),
+        transparent
+      ),
+    radial-gradient(
+      1.5px 1.5px at 42% 52%,
+      rgba(200, 220, 255, 0.5),
+      transparent
+    ),
+    radial-gradient(
+      1.5px 1.5px at 65% 18%,
+      rgba(255, 200, 180, 0.45),
+      transparent
+    ),
+    radial-gradient(
+      1.5px 1.5px at 82% 45%,
+      rgba(200, 220, 255, 0.55),
+      transparent
+    ),
+    radial-gradient(
+      1.5px 1.5px at 38% 85%,
+      rgba(255, 220, 180, 0.4),
+      transparent
+    ),
+    radial-gradient(
+      1.5px 1.5px at 95% 12%,
+      rgba(200, 220, 255, 0.5),
+      transparent
+    ),
+    /* Star layer 3 — bright accent stars */
+    radial-gradient(2px 2px at 30% 20%, rgba(180, 200, 255, 0.8), transparent),
+    radial-gradient(2px 2px at 70% 60%, rgba(255, 210, 180, 0.7), transparent),
+    radial-gradient(2px 2px at 50% 40%, rgba(200, 230, 255, 0.75), transparent),
+    radial-gradient(2px 2px at 85% 80%, rgba(180, 200, 255, 0.65), transparent),
+    /* Nebula glow — subtle radial gradients */
+    radial-gradient(
+        ellipse at 20% 50%,
+        rgba(60, 20, 80, 0.25) 0%,
+        transparent 60%
+      ),
+    radial-gradient(
+      ellipse at 80% 30%,
+      rgba(20, 40, 80, 0.3) 0%,
+      transparent 55%
+    ),
+    radial-gradient(
+      ellipse at 50% 80%,
+      rgba(30, 20, 60, 0.2) 0%,
+      transparent 50%
+    ),
+    /* Base page color */ var(--bg-page);
   color: var(--text-primary);
   margin: 0;
   padding: 20px;
   min-height: 100vh;
+  background-attachment: fixed;
+}
+
+/* Twinkling star overlay — animates a second star layer with opacity pulse */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(
+      1.5px 1.5px at 12% 25%,
+      rgba(255, 255, 255, 0.8),
+      transparent
+    ),
+    radial-gradient(1px 1px at 35% 60%, rgba(200, 220, 255, 0.7), transparent),
+    radial-gradient(
+      1.5px 1.5px at 58% 15%,
+      rgba(255, 230, 200, 0.75),
+      transparent
+    ),
+    radial-gradient(1px 1px at 75% 45%, rgba(255, 255, 255, 0.6), transparent),
+    radial-gradient(2px 2px at 45% 75%, rgba(180, 200, 255, 0.85), transparent),
+    radial-gradient(1px 1px at 90% 35%, rgba(255, 255, 255, 0.65), transparent),
+    radial-gradient(
+      1.5px 1.5px at 22% 88%,
+      rgba(200, 220, 255, 0.7),
+      transparent
+    ),
+    radial-gradient(1px 1px at 68% 92%, rgba(255, 220, 180, 0.6), transparent);
+  animation: starfield-twinkle 10s ease-in-out infinite alternate;
+}
+
+@keyframes starfield-twinkle {
+  0% {
+    opacity: 0.3;
+  }
+  25% {
+    opacity: 0.6;
+  }
+  50% {
+    opacity: 0.2;
+  }
+  75% {
+    opacity: 0.7;
+  }
+  100% {
+    opacity: 0.4;
+  }
 }
 
 #app {
+  position: relative;
+  z-index: 1;
   max-width: 1400px;
   width: 100%;
   margin: 0 auto;
@@ -73,16 +204,142 @@ body {
 }
 
 .game-container {
-  background: var(--bg-container);
+  position: relative;
+  background: rgba(22, 33, 62, 0.85);
   border-radius: var(--radius-lg);
   padding: var(--space-xxl);
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+  box-shadow:
+    0 4px 6px rgba(0, 0, 0, 0.3),
+    0 0 40px rgba(20, 30, 60, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.03);
   overflow-wrap: break-word;
   word-break: break-word;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+/* Subtle noise texture overlay on game container */
+.game-container::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0.03;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+  background-size: 256px 256px;
+  z-index: 0;
+}
+
+/* Ensure game-container children sit above the noise overlay */
+.game-container > * {
+  position: relative;
+  z-index: 1;
 }
 
 .game-header {
   margin-bottom: 20px;
+}
+
+/* ── Game Branding ───────────────────────────────────────────────── */
+
+.game-title {
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  background: linear-gradient(135deg, #e94560 0%, #ff8a65 50%, #e94560 100%);
+  background-size: 200% 200%;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  text-shadow: none;
+  filter: drop-shadow(0 0 8px rgba(233, 69, 96, 0.4));
+  line-height: 1.1;
+}
+
+.game-title-glow {
+  position: relative;
+}
+
+.game-title-glow::after {
+  content: attr(data-text);
+  position: absolute;
+  top: 0;
+  left: 0;
+  font-family: inherit;
+  font-weight: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  background: linear-gradient(135deg, #e94560 0%, #ff8a65 50%, #e94560 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  filter: blur(12px);
+  opacity: 0.5;
+  z-index: -1;
+  pointer-events: none;
+}
+
+.game-subtitle {
+  font-family: var(--font-body);
+  font-size: 14px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
+/* Header title styling */
+.game-header .game-title {
+  font-size: 28px;
+  margin: 0;
+}
+
+/* No-game splash branding */
+.no-game-branding {
+  margin-bottom: 32px;
+}
+
+.no-game-branding .game-title {
+  font-size: 42px;
+  margin-bottom: 8px;
+}
+
+.no-game-branding .game-subtitle {
+  font-size: 15px;
+}
+
+/* Wizard branding */
+.wizard-branding {
+  text-align: center;
+  margin-bottom: 8px;
+}
+
+.wizard-branding .game-title {
+  font-size: 24px;
+  margin-bottom: 4px;
+}
+
+.wizard-branding .game-subtitle {
+  font-size: 12px;
+  letter-spacing: 0.15em;
+}
+
+/* Compact wordmark near version badge */
+.version-badge .wordmark {
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-size: inherit;
+  background: linear-gradient(135deg, #e94560, #ff8a65);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-right: 4px;
 }
 
 /* Getting Started banner — dismissable new-player prompt */
@@ -348,17 +605,42 @@ h1 {
   margin: 0 0 24px;
   text-align: center;
   color: var(--brand-red);
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: 0.5px;
 }
 
 h2 {
   margin: 0 0 16px;
   color: var(--brand-red);
+  font-family: var(--font-display);
+  font-weight: 600;
+  letter-spacing: 0.3px;
 }
 
 h3 {
   margin: 0 0 12px;
   color: var(--brand-red);
   font-size: 16px;
+  font-family: var(--font-display);
+  font-weight: 600;
+  letter-spacing: 0.2px;
+}
+
+/* Typography — display font for ship names */
+.ship-name,
+.catchup-ship-name {
+  font-family: var(--font-display);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+/* Typography — monospace for numeric displays, timestamps, log entries */
+.log-timestamp,
+.version-badge,
+.stat-value,
+.credit-delta {
+  font-family: var(--font-mono);
 }
 
 /* Buttons */
@@ -2312,7 +2594,11 @@ button:disabled:hover {
 
 .progress-bar .fill {
   height: 100%;
-  background: linear-gradient(90deg, var(--positive-teal) 0%, var(--brand-red) 100%);
+  background: linear-gradient(
+    90deg,
+    var(--positive-teal) 0%,
+    var(--brand-red) 100%
+  );
   transition: width 0.3s;
 }
 
@@ -2333,7 +2619,12 @@ button:disabled:hover {
 
 .fuel-fill {
   height: 100%;
-  background: linear-gradient(90deg, var(--danger-red) 0%, var(--positive-teal) 50%, var(--positive-teal) 100%);
+  background: linear-gradient(
+    90deg,
+    var(--danger-red) 0%,
+    var(--positive-teal) 50%,
+    var(--positive-teal) 100%
+  );
   transition: width 0.3s;
 }
 
@@ -2607,7 +2898,7 @@ button:disabled:hover {
   flex-shrink: 0;
   color: var(--text-muted);
   font-size: 12px;
-  font-family: monospace;
+  font-family: var(--font-mono);
   min-width: 140px;
 }
 
@@ -2627,7 +2918,12 @@ button:disabled:hover {
 
 .cargo-progress-fill {
   height: 100%;
-  background: linear-gradient(90deg, var(--positive-teal) 0%, var(--brand-red) 80%, var(--danger-red) 100%);
+  background: linear-gradient(
+    90deg,
+    var(--positive-teal) 0%,
+    var(--brand-red) 80%,
+    var(--danger-red) 100%
+  );
   transition: width 0.3s;
 }
 
@@ -2876,7 +3172,7 @@ button:disabled:hover {
   background: var(--bg-input);
   padding: 4px 8px;
   border-radius: var(--radius-sm);
-  font-family: monospace;
+  font-family: var(--font-mono);
   z-index: 1000;
   user-select: none;
 }
@@ -3248,6 +3544,84 @@ button:disabled:hover {
   }
 }
 
+/* ── Reward / Progression Animations ── */
+
+/* Horizontal shimmer sweep (golden gradient moving left to right) */
+@keyframes shimmer-sweep {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+/* Level-up toast shimmer overlay via ::before pseudo-element */
+.toast-level_up.toast-shimmer {
+  position: relative;
+  overflow: hidden;
+}
+
+.toast-level_up.toast-shimmer::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 215, 0, 0.25) 45%,
+    rgba(255, 215, 0, 0.4) 50%,
+    rgba(255, 215, 0, 0.25) 55%,
+    transparent 100%
+  );
+  animation: shimmer-sweep 0.6s ease-out forwards;
+  pointer-events: none;
+}
+
+/* Credit milestone flash (brief golden glow on credits display) */
+.credits-milestone-flash {
+  animation: credits-milestone-glow 0.4s ease-out;
+}
+
+@keyframes credits-milestone-glow {
+  0% {
+    text-shadow:
+      0 0 8px rgba(255, 215, 0, 0.8),
+      0 0 16px rgba(255, 215, 0, 0.4);
+    color: #ffd700;
+  }
+  100% {
+    text-shadow: none;
+    color: #4a9eff;
+  }
+}
+
+/* Ship unlock / card reveal entrance */
+@keyframes card-reveal {
+  0% {
+    opacity: 0;
+    transform: scale(0.85);
+    box-shadow: 0 0 0 rgba(255, 215, 0, 0);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.02);
+    box-shadow: 0 0 20px rgba(255, 215, 0, 0.3);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+    box-shadow: 0 0 0 rgba(255, 215, 0, 0);
+  }
+}
+
+.card-reveal-entrance {
+  animation: card-reveal 0.4s ease-out;
+}
+
 .stat-label {
   color: var(--text-secondary);
   font-size: 0.9rem;
@@ -3614,6 +3988,259 @@ button:disabled:hover {
 
 .mobile-drawer {
   display: none;
+}
+
+/* ==========================================
+   Panel Depth & Surface Quality
+   ========================================== */
+
+/* ── Panel & Card top highlights ── */
+.game-container {
+  border-top: var(--highlight-top);
+}
+
+.left-sidebar,
+.right-sidebar {
+  box-shadow: var(--shadow-panel);
+  border-top: var(--highlight-top);
+}
+
+/* Section panels (ship specs, equipment, engine, navigation, etc.) */
+.crew-detail-section,
+.equipment-section,
+.engine-section,
+.navigation-view,
+.flight-status,
+.fuel-gauge,
+.contract-summary,
+.settings-section,
+.staging-area,
+.status-bar,
+.ship-status-banner,
+.ship-specs,
+.catchup-report,
+.gamepedia-main {
+  box-shadow: var(--shadow-panel);
+  border-top: var(--highlight-top);
+}
+
+/* Cards (room cards, quest cards, crew list items, etc.) */
+.room-card,
+.quest-card,
+.equipment-item,
+.cargo-item,
+.nav-legend-item,
+.crew-list-item,
+.staging-crew-row,
+.log-entry,
+.catchup-ship,
+.catchup-impact,
+.fleet-panel,
+.fleet-row {
+  box-shadow: var(--shadow-card);
+  border-top: var(--highlight-top);
+}
+
+/* ── Stat bar tracks: recessed instrument feel ── */
+.stat-bar__track,
+.progress-bar-track,
+.degradation-track,
+.xp-progress-bar,
+.fuel-bar,
+.cargo-progress-bar,
+.catchup-progress-bar,
+.day-progress-bar,
+.fleet-row-minibar {
+  box-shadow: var(--shadow-inset-track);
+}
+
+/* Progress bar .bar containers */
+.progress-bar .bar {
+  box-shadow: var(--shadow-inset-track);
+}
+
+/* ── Glowing borders on active/selected elements ── */
+.crew-list-item.selected {
+  box-shadow: var(--glow-red);
+}
+
+.nav-legend-item--selected {
+  box-shadow: var(--glow-blue);
+}
+
+.tab-button.active {
+  text-shadow: 0 0 6px rgba(233, 69, 96, 0.3);
+}
+
+.shop-tab.active {
+  box-shadow: var(--glow-blue);
+}
+
+.fleet-row.active {
+  box-shadow: var(--glow-blue);
+}
+
+.ship-class-option.selected {
+  box-shadow: var(--glow-red);
+}
+
+.time-control-btn {
+  box-shadow: 0 0 6px rgba(74, 158, 255, 0.2);
+}
+
+.time-speed-btn.active {
+  box-shadow: var(--glow-blue);
+}
+
+.gamepedia-topic-item.selected {
+  box-shadow: var(--glow-red);
+}
+
+.filter-btn.active,
+.gamepedia-cat-btn.active {
+  box-shadow: var(--glow-blue);
+}
+
+/* ── Toast floating shadows ── */
+.toast {
+  box-shadow: var(--shadow-floating);
+}
+
+/* ── Custom tooltip floating shadow ── */
+.custom-tooltip {
+  box-shadow: var(--shadow-floating);
+}
+
+/* ── Room card surface textures by status ── */
+.room-card.room-operational {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.02) 0%, transparent 40%),
+    #1a1a2e;
+}
+
+.room-card.room-damaged {
+  background:
+    linear-gradient(
+      180deg,
+      rgba(255, 107, 53, 0.08) 0%,
+      rgba(255, 107, 53, 0.02) 40%
+    ),
+    rgba(255, 107, 53, 0.1);
+  box-shadow:
+    var(--shadow-card),
+    0 0 12px rgba(255, 107, 53, 0.15);
+}
+
+.room-card.room-offline {
+  background:
+    linear-gradient(
+      180deg,
+      rgba(139, 0, 0, 0.08) 0%,
+      rgba(139, 0, 0, 0.02) 40%
+    ),
+    rgba(139, 0, 0, 0.1);
+  box-shadow:
+    var(--shadow-card),
+    0 0 8px rgba(139, 0, 0, 0.1);
+}
+
+/* ── Engine state label depth ── */
+.engine-state-label.online {
+  box-shadow:
+    var(--glow-green),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.engine-state-label.warming {
+  box-shadow:
+    0 0 8px rgba(255, 193, 7, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.engine-state-label.off {
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+/* ── Persistent info bar depth ── */
+.persistent-info {
+  box-shadow: var(--shadow-inset-track);
+}
+
+/* ── Global status bar depth ── */
+.global-status-bar {
+  box-shadow: var(--shadow-inset-track);
+}
+
+/* ── Getting started banner depth ── */
+.getting-started-banner {
+  box-shadow: var(--shadow-card);
+  border-top: var(--highlight-top);
+}
+
+/* ── Action radio card depth ── */
+.action-radio-card--selected.action-radio-card--default {
+  box-shadow: var(--glow-teal);
+}
+
+.action-radio-card--selected.action-radio-card--caution {
+  box-shadow:
+    0 0 8px rgba(255, 165, 0, 0.3),
+    0 0 2px rgba(255, 165, 0, 0.15);
+}
+
+.action-radio-card--selected.action-radio-card--danger {
+  box-shadow:
+    0 0 8px rgba(255, 107, 107, 0.3),
+    0 0 2px rgba(255, 107, 107, 0.15);
+}
+
+/* ── Threat badge glow by level ── */
+.threat-badge.threat-clear {
+  box-shadow: 0 0 6px rgba(76, 175, 80, 0.2);
+}
+
+.threat-badge.threat-caution {
+  box-shadow: 0 0 6px rgba(255, 193, 7, 0.2);
+}
+
+.threat-badge.threat-danger {
+  box-shadow: 0 0 8px rgba(233, 69, 96, 0.25);
+}
+
+.threat-badge.threat-critical {
+  box-shadow: 0 0 10px rgba(255, 107, 107, 0.3);
+}
+
+/* ── Captain badge glow ── */
+.captain-badge {
+  box-shadow: 0 0 4px rgba(233, 69, 96, 0.3);
+}
+
+/* ── Tab badge depth ── */
+.tab-badge {
+  box-shadow:
+    0 2px 6px rgba(0, 0, 0, 0.4),
+    0 0 4px rgba(239, 68, 68, 0.3);
+}
+
+/* ── Catchup dismiss button glow ── */
+.catchup-dismiss:hover {
+  box-shadow: var(--glow-teal);
+}
+
+/* ── Level up button enhanced glow ── */
+.level-up-button {
+  box-shadow: var(--glow-green);
+}
+
+/* ── Nav travel button depth ── */
+.nav-travel-button:hover {
+  box-shadow: var(--glow-teal);
+}
+
+/* ── Version badge subtle depth ── */
+.version-badge {
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
 }
 
 /* ==========================================
@@ -4039,9 +4666,14 @@ button:disabled:hover {
   }
 
   /* Game header: smaller title */
-  .game-header h1 {
+  .game-header h1,
+  .game-header .game-title {
     font-size: 22px;
     margin-bottom: 12px;
+  }
+
+  .no-game-branding .game-title {
+    font-size: 32px;
   }
 
   /* Staging crew: stack assign dropdown */
@@ -4118,7 +4750,8 @@ button:disabled:hover {
   }
 
   /* Title: prevent overflow */
-  .game-header h1 {
+  .game-header h1,
+  .game-header .game-title {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -4265,9 +4898,14 @@ button:disabled:hover {
   }
 
   /* Game header even smaller */
-  .game-header h1 {
+  .game-header h1,
+  .game-header .game-title {
     font-size: 18px;
     margin-bottom: 8px;
+  }
+
+  .no-game-branding .game-title {
+    font-size: 28px;
   }
 
   /* Mobile header bar: tighter */
