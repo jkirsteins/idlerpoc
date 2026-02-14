@@ -31,11 +31,6 @@ import { createRefuelDialog, getFuelPricePerKg } from './ui/refuelDialog';
 import { formatFuelMass, calculateFuelPercentage } from './ui/fuelFormatting';
 import { formatCredits } from './formatting';
 import {
-  advanceToNextDayStart,
-  GAME_SECONDS_PER_TICK,
-  TICKS_PER_DAY,
-} from './timeSystem';
-import {
   acceptQuest,
   pauseContract,
   resumeContract,
@@ -59,7 +54,6 @@ import {
 import { sellOre, sellAllOre } from './miningSystem';
 import { assignMiningRoute, cancelMiningRoute } from './miningRoute';
 import { getEquipmentDefinition, canEquipInSlot } from './equipment';
-import { recordDailySnapshot } from './dailyLedger';
 import { spendPoolXpOnItem } from './masterySystem';
 
 const app = document.getElementById('app')!;
@@ -571,66 +565,6 @@ const callbacks: RendererCallbacks = {
     }
 
     acceptQuest(state.gameData, ship, quest);
-    saveGame(state.gameData);
-    renderApp();
-  },
-
-  onAdvanceDay: () => {
-    if (state.phase !== 'playing') return;
-    const ship = getActiveShip(state.gameData);
-    if (
-      ship.location.status !== 'docked' &&
-      ship.location.status !== 'orbiting'
-    )
-      return;
-    if (ship.activeContract) return;
-
-    // Compute how many ticks are needed to reach the next day boundary.
-    // Using the exact count (rather than a fixed TICKS_PER_DAY) prevents
-    // overshooting when game time isn't aligned to a day boundary.
-    const targetTime = advanceToNextDayStart(state.gameData.gameTime);
-    const ticksNeeded = Math.ceil(
-      (targetTime - state.gameData.gameTime) / GAME_SECONDS_PER_TICK
-    );
-
-    // Always run the full tick loop so ALL ship systems are updated
-    // (oxygen, provisions, medbay healing, gravity, repairs, etc.)
-    for (let i = 0; i < ticksNeeded; i++) {
-      applyTick(state.gameData);
-    }
-
-    // Snap to exact day boundary (avoids rounding from integer tick count)
-    state.gameData.gameTime = targetTime;
-    recordDailySnapshot(state.gameData);
-
-    addLog(
-      state.gameData.log,
-      state.gameData.gameTime,
-      'day_advanced',
-      'Advanced one day'
-    );
-
-    // Regenerate quests & hireable crew for the new day
-    regenerateQuestsIfNewDay(state.gameData);
-
-    // Warn about unpaid crew across all ships
-    for (const s of state.gameData.ships) {
-      for (const crew of s.crew.filter(
-        (c) => c.unpaidTicks > 0 && !c.isCaptain
-      )) {
-        addLog(
-          state.gameData.log,
-          state.gameData.gameTime,
-          'crew_departed',
-          `${crew.name} has unpaid wages (${Math.ceil(crew.unpaidTicks / TICKS_PER_DAY)} days) and will depart if ship leaves port`,
-          s.name
-        );
-      }
-    }
-
-    // Update timestamp so catch-up on reload doesn't replay these ticks
-    state.gameData.lastTickTimestamp = Date.now();
-
     saveGame(state.gameData);
     renderApp();
   },
