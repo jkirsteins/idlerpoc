@@ -1,22 +1,14 @@
 /**
- * Daily Ledger — fleet-wide income/expense projections and trailing averages.
+ * Daily Ledger — fleet-wide income/expense tracking with trailing averages.
  *
- * Income uses a 7-day rolling average of actual earnings (smooths lumpy
- * contract/mining payouts). Expenses are projected deterministically from
- * current fleet state (crew salaries + estimated fuel burn for active routes).
+ * Both income and expenses use 7-day rolling averages of actual spending.
+ * Snapshots are recorded at each day boundary to track lifetime totals.
  */
 
-import type { GameData, Ship } from './models';
+import type { GameData } from './models';
 import { calculateShipSalaryPerTick } from './crewRoles';
-import {
-  TICKS_PER_DAY,
-  getDaysSinceEpoch,
-  GAME_SECONDS_PER_TICK,
-} from './timeSystem';
-import { calculateOneLegFuelKg } from './flightPhysics';
-import { estimateTripTime } from './questGen';
-import { getFuelPricePerKg } from './ui/refuelDialog';
-import { getDistanceBetween } from './utils';
+import { TICKS_PER_DAY, getDaysSinceEpoch } from './timeSystem';
+import { getFinancials } from './models';
 
 /** Maximum number of daily snapshots to retain (7-day window). */
 const MAX_SNAPSHOTS = 7;
@@ -29,6 +21,7 @@ const MAX_SNAPSHOTS = 7;
  */
 export function recordDailySnapshot(gameData: GameData): void {
   const currentDay = getDaysSinceEpoch(gameData.gameTime);
+  const financials = getFinancials(gameData);
 
   // Avoid duplicate snapshots for the same day
   const existing = gameData.dailyLedgerSnapshots;
@@ -37,14 +30,18 @@ export function recordDailySnapshot(gameData: GameData): void {
     existing[existing.length - 1].gameDay === currentDay
   ) {
     // Update the existing snapshot for today
-    existing[existing.length - 1].lifetimeCreditsEarned =
-      gameData.lifetimeCreditsEarned;
+    const snapshot = existing[existing.length - 1];
+    snapshot.lifetimeCreditsEarned = gameData.lifetimeCreditsEarned;
+    snapshot.lifetimeExpenseFuel = financials.expenseFuel;
+    snapshot.lifetimeExpenseCrewSalaries = financials.expenseCrewSalaries;
     return;
   }
 
   existing.push({
     gameDay: currentDay,
     lifetimeCreditsEarned: gameData.lifetimeCreditsEarned,
+    lifetimeExpenseFuel: financials.expenseFuel,
+    lifetimeExpenseCrewSalaries: financials.expenseCrewSalaries,
   });
 
   // Keep only the most recent entries
@@ -56,18 +53,27 @@ export function recordDailySnapshot(gameData: GameData): void {
 // ─── Ledger calculations ────────────────────────────────────────────
 
 export interface DailyLedgerData {
+  /** Credits earned today (since last day boundary). */
+  todayIncome: number;
+  /** Credits spent today (fuel + crew, since last day boundary). */
+  todayExpenses: number;
+  /** Net credits today (income - expenses). */
+  todayNet: number;
+
   /** Average income per game day over the trailing window (0 if no data). */
   incomePerDay: number;
   /** Number of days of data the income average is based on. */
   incomeDays: number;
-  /** Projected crew salary expenses per game day (deterministic). */
+  /** Average crew salary expenses per game day (0 if no data). */
   crewCostPerDay: number;
-  /** Projected fuel expenses per game day (estimated from active routes). */
+  /** Average fuel expenses per game day (0 if no data). */
   fuelCostPerDay: number;
-  /** Total projected expenses per game day. */
+  /** Total average expenses per game day. */
   totalExpensePerDay: number;
   /** Net = income - expenses. Positive means growing, negative means shrinking. */
   netPerDay: number;
+  /** Number of days of expense data the averages are based on. */
+  expenseDays: number;
   /**
    * Days of runway remaining if net is negative (credits / |netPerDay|).
    * null if net >= 0 (sustainable) or expenses are zero.
@@ -79,10 +85,12 @@ export interface DailyLedgerData {
  * Compute the daily ledger summary for the entire fleet.
  */
 export function calculateDailyLedger(gameData: GameData): DailyLedgerData {
+  const todayActuals = calculateTodayActuals(gameData);
   const incomeResult = calculateTrailingIncome(gameData);
-  const crewCostPerDay = calculateFleetCrewCostPerDay(gameData);
-  const fuelCostPerDay = calculateFleetFuelCostPerDay(gameData);
-  const totalExpensePerDay = crewCostPerDay + fuelCostPerDay;
+  const expenseResult = calculateTrailingExpenses(gameData);
+
+  const totalExpensePerDay =
+    expenseResult.crewCostPerDay + expenseResult.fuelCostPerDay;
   const netPerDay = incomeResult.incomePerDay - totalExpensePerDay;
 
   let runwayDays: number | null = null;
@@ -91,13 +99,61 @@ export function calculateDailyLedger(gameData: GameData): DailyLedgerData {
   }
 
   return {
+    todayIncome: todayActuals.todayIncome,
+    todayExpenses: todayActuals.todayExpenses,
+    todayNet: todayActuals.todayNet,
     incomePerDay: incomeResult.incomePerDay,
     incomeDays: incomeResult.days,
-    crewCostPerDay,
-    fuelCostPerDay,
+    crewCostPerDay: expenseResult.crewCostPerDay,
+    fuelCostPerDay: expenseResult.fuelCostPerDay,
     totalExpensePerDay,
     netPerDay,
+    expenseDays: expenseResult.days,
     runwayDays,
+  };
+}
+
+// ─── Today's actuals ────────────────────────────────────────────
+
+/**
+ * Calculate actual income/expenses since the last day boundary.
+ * Compares current lifetime totals against the most recent snapshot.
+ */
+function calculateTodayActuals(gameData: GameData): {
+  todayIncome: number;
+  todayExpenses: number;
+  todayNet: number;
+} {
+  const snapshots = gameData.dailyLedgerSnapshots;
+  if (snapshots.length === 0) {
+    return { todayIncome: 0, todayExpenses: 0, todayNet: 0 };
+  }
+
+  const lastSnapshot = snapshots[snapshots.length - 1];
+  const financials = getFinancials(gameData);
+
+  const todayIncome =
+    gameData.lifetimeCreditsEarned - lastSnapshot.lifetimeCreditsEarned;
+
+  // Calculate today's expenses (fuel + crew)
+  const todayFuel =
+    (lastSnapshot.lifetimeExpenseFuel ?? 0) > 0
+      ? financials.expenseFuel - (lastSnapshot.lifetimeExpenseFuel ?? 0)
+      : 0;
+
+  const todayCrew =
+    (lastSnapshot.lifetimeExpenseCrewSalaries ?? 0) > 0
+      ? financials.expenseCrewSalaries -
+        (lastSnapshot.lifetimeExpenseCrewSalaries ?? 0)
+      : 0;
+
+  const todayExpenses = todayFuel + todayCrew;
+  const todayNet = todayIncome - todayExpenses;
+
+  return {
+    todayIncome: Math.max(0, todayIncome),
+    todayExpenses: Math.max(0, todayExpenses),
+    todayNet,
   };
 }
 
@@ -128,108 +184,65 @@ function calculateTrailingIncome(gameData: GameData): {
   };
 }
 
-// ─── Expense projection ─────────────────────────────────────────────
-
-function calculateFleetCrewCostPerDay(gameData: GameData): number {
-  let totalPerTick = 0;
-  for (const ship of gameData.ships) {
-    totalPerTick += calculateShipSalaryPerTick(ship);
-  }
-  return totalPerTick * TICKS_PER_DAY;
-}
+// ─── Expense averaging ──────────────────────────────────────────────
 
 /**
- * Estimate fleet-wide daily fuel cost from active routes.
- * For each ship with a route/contract, calculates fuel consumed per round trip
- * and divides by estimated trip time to get a daily rate.
+ * Calculate trailing average expenses from actual spending snapshots.
+ * Uses the same delta/daySpan pattern as income averaging.
+ * Falls back to deterministic crew salary projection when no expense data exists.
  */
-function calculateFleetFuelCostPerDay(gameData: GameData): number {
-  let totalFuelCostPerDay = 0;
+function calculateTrailingExpenses(gameData: GameData): {
+  crewCostPerDay: number;
+  fuelCostPerDay: number;
+  days: number;
+} {
+  const snapshots = gameData.dailyLedgerSnapshots;
 
-  for (const ship of gameData.ships) {
-    totalFuelCostPerDay += estimateShipFuelCostPerDay(ship, gameData);
-  }
-
-  return totalFuelCostPerDay;
-}
-
-function estimateShipFuelCostPerDay(ship: Ship, gameData: GameData): number {
-  // Determine route origin/destination from active route or contract
-  const route = getShipRouteInfo(ship, gameData);
-  if (!route) return 0;
-
-  const { originLoc, destLoc } = route;
-  const distanceKm = getDistanceBetween(originLoc, destLoc);
-  if (distanceKm <= 0) return 0;
-
-  // Fuel cost per one-way leg (in kg)
-  const fuelPerLegKg = calculateOneLegFuelKg(
-    ship,
-    distanceKm,
-    ship.flightProfileBurnFraction
+  // Filter for snapshots that have expense data
+  const expenseSnapshots = snapshots.filter(
+    (s) =>
+      s.lifetimeExpenseFuel !== undefined &&
+      s.lifetimeExpenseCrewSalaries !== undefined
   );
-  const fuelPerRoundTripKg = fuelPerLegKg * 2;
 
-  // Use origin station fuel price as representative cost
-  const pricePerKg = getFuelPricePerKg(originLoc, ship);
-  const fuelCostPerRoundTrip = fuelPerRoundTripKg * pricePerKg;
-
-  // Estimate round trip time in ticks
-  const tripTimeSecs = estimateTripTime(
-    ship,
-    distanceKm,
-    ship.flightProfileBurnFraction
-  );
-  const roundTripTicks = (tripTimeSecs * 2) / GAME_SECONDS_PER_TICK;
-
-  if (roundTripTicks <= 0) return 0;
-
-  const tripsPerDay = TICKS_PER_DAY / roundTripTicks;
-  return fuelCostPerRoundTrip * tripsPerDay;
-}
-
-/**
- * Extract current route info from a ship's active assignment.
- * Returns null if the ship has no active route.
- */
-function getShipRouteInfo(
-  ship: Ship,
-  gameData: GameData
-): {
-  originLoc: import('./models').WorldLocation;
-  destLoc: import('./models').WorldLocation;
-} | null {
-  const locations = gameData.world.locations;
-
-  // Trade route assignment
-  if (ship.routeAssignment) {
-    const originLoc = locations.find(
-      (l) => l.id === ship.routeAssignment!.originId
-    );
-    const destLoc = locations.find(
-      (l) => l.id === ship.routeAssignment!.destinationId
-    );
-    if (originLoc && destLoc) return { originLoc, destLoc };
+  if (expenseSnapshots.length < 2) {
+    // Fallback: deterministic crew salary projection, zero for fuel
+    let crewPerTick = 0;
+    for (const ship of gameData.ships) {
+      crewPerTick += calculateShipSalaryPerTick(ship);
+    }
+    return {
+      crewCostPerDay: crewPerTick * TICKS_PER_DAY,
+      fuelCostPerDay: 0,
+      days: 0,
+    };
   }
 
-  // Mining route
-  if (ship.miningRoute) {
-    const originLoc = locations.find(
-      (l) => l.id === ship.miningRoute!.mineLocationId
-    );
-    const destLoc = locations.find(
-      (l) => l.id === ship.miningRoute!.sellLocationId
-    );
-    if (originLoc && destLoc) return { originLoc, destLoc };
+  const oldest = expenseSnapshots[0];
+  const newest = expenseSnapshots[expenseSnapshots.length - 1];
+  const daySpan = newest.gameDay - oldest.gameDay;
+
+  if (daySpan <= 0) {
+    // Fallback: deterministic crew salary projection, zero for fuel
+    let crewPerTick = 0;
+    for (const ship of gameData.ships) {
+      crewPerTick += calculateShipSalaryPerTick(ship);
+    }
+    return {
+      crewCostPerDay: crewPerTick * TICKS_PER_DAY,
+      fuelCostPerDay: 0,
+      days: 0,
+    };
   }
 
-  // Active contract (non-paused)
-  if (ship.activeContract && !ship.activeContract.paused) {
-    const quest = ship.activeContract.quest;
-    const originLoc = locations.find((l) => l.id === quest.origin);
-    const destLoc = locations.find((l) => l.id === quest.destination);
-    if (originLoc && destLoc) return { originLoc, destLoc };
-  }
+  const fuelSpentInWindow =
+    newest.lifetimeExpenseFuel! - oldest.lifetimeExpenseFuel!;
+  const crewSpentInWindow =
+    newest.lifetimeExpenseCrewSalaries! - oldest.lifetimeExpenseCrewSalaries!;
 
-  return null;
+  return {
+    crewCostPerDay: Math.max(0, crewSpentInWindow / daySpan),
+    fuelCostPerDay: Math.max(0, fuelSpentInWindow / daySpan),
+    days: daySpan,
+  };
 }
