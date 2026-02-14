@@ -22,6 +22,9 @@ body {
 }
 
 .game-container {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 40px);
   background: #0d0d18;
   border-radius: 8px;
   padding: 24px;
@@ -31,6 +34,7 @@ body {
 }
 
 .game-header {
+  flex-shrink: 0;
   margin-bottom: 20px;
 }
 
@@ -43,6 +47,7 @@ body {
 
 /* Getting Started banner — dismissable new-player prompt */
 .getting-started-banner {
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   gap: 12px;
@@ -132,12 +137,17 @@ body {
 .game-content-grid {
   display: grid;
   grid-template-columns: 240px 1fr 240px;
+  grid-template-rows: 100%;
   gap: 20px;
+  flex: 1;
+  min-height: 0;
 }
 
 .main-content {
+  flex: 1;
+  height: 100%;
+  min-height: 0;
   min-width: 0;
-  max-height: calc(100vh - 100px);
   overflow-y: auto;
   overflow-x: hidden;
 }
@@ -424,7 +434,14 @@ button:active:not(:disabled) {
 
 /* Wizard */
 .wizard {
-  padding: 10px 0;
+  padding: 20px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  max-height: 100%;
+}
+
+.wizard h2 {
+  margin-bottom: 16px;
 }
 
 .step-indicator {
@@ -468,6 +485,7 @@ button:active:not(:disabled) {
   display: flex;
   justify-content: space-between;
   margin-top: 16px;
+  padding-bottom: 20px;
 }
 
 /* Ship tier sections (wizard step 3) */
@@ -562,7 +580,7 @@ button:active:not(:disabled) {
 .tab-bar {
   display: flex;
   gap: 4px;
-  margin-bottom: 24px;
+  margin-bottom: 16px;
   border-bottom: 2px solid #333;
   padding-bottom: 0;
 }
@@ -1318,17 +1336,56 @@ button:active:not(:disabled) {
 }
 
 .nav-map svg {
-  transform-origin: 0 0;
   /* Ensure crisp SVG rendering without blur */
   shape-rendering: geometricPrecision;
   image-rendering: -webkit-optimize-contrast;
   image-rendering: crisp-edges;
 }
 
-.nav-map-reset-zoom {
+.nav-map-zoom-btn {
   position: absolute;
   top: 8px;
   right: 8px;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  font-size: 18px;
+  font-weight: bold;
+  line-height: 1;
+  background: rgba(15, 52, 96, 0.85);
+  color: #4a9eff;
+  border: 1px solid #4a9eff;
+  border-radius: 4px;
+  cursor: pointer;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.nav-map-zoom-btn:hover:not(:disabled) {
+  background: rgba(74, 158, 255, 0.2);
+}
+
+.nav-map-zoom-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.nav-map-zoom-btn:first-of-type {
+  /* Zoom in button (+) */
+  right: 8px;
+}
+
+.nav-map-zoom-btn:nth-of-type(2) {
+  /* Zoom out button (−) */
+  right: 44px;
+}
+
+.nav-map-reset-zoom {
+  position: absolute;
+  top: 8px;
+  right: 80px;
   padding: 4px 10px;
   font-size: 11px;
   background: rgba(15, 52, 96, 0.85);
@@ -2035,10 +2092,15 @@ button:disabled:hover {
   border-radius: 8px;
   padding: 16px;
   border: 2px solid transparent;
-  transition: border-color 0.2s;
+  transition: border-color 0.2s ease;
+  cursor: pointer;
 }
 
 .quest-card:not(.disabled):hover {
+  border-color: rgba(212, 133, 10, 0.5);
+}
+
+.quest-card.quest-card-expanded {
   border-color: #d4850a;
 }
 
@@ -2109,18 +2171,9 @@ button:disabled:hover {
   display: flex;
   align-items: center;
   gap: 8px;
-  cursor: pointer;
   padding-bottom: 8px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   margin-bottom: 8px;
-  transition: background-color 0.2s;
-}
-
-.quest-card-header:hover {
-  background-color: rgba(255, 255, 255, 0.03);
-  border-radius: 4px;
-  padding: 4px;
-  margin: -4px -4px 8px;
 }
 
 .quest-type-badge {
@@ -2838,9 +2891,9 @@ button:disabled:hover {
 }
 
 .fleet-row--compact {
-  padding: 0.35rem 0.5rem;
-  align-items: center;
-  min-height: 28px;
+  padding: 6px 8px;
+  align-items: flex-start;
+  min-height: auto;
 }
 
 .fleet-row.active {
@@ -2866,7 +2919,7 @@ button:disabled:hover {
 }
 
 .fleet-row--compact .fleet-row-indicator {
-  margin-top: 0;
+  margin-top: 6px;
   width: 6px;
   height: 6px;
 }
@@ -2880,8 +2933,8 @@ button:disabled:hover {
 }
 
 .fleet-row--compact .fleet-row-content {
-  flex-direction: row;
-  align-items: center;
+  flex-direction: column;
+  gap: 3px;
 }
 
 .fleet-row-top {
@@ -2893,8 +2946,8 @@ button:disabled:hover {
 
 .fleet-row--compact .fleet-row-top {
   flex-wrap: nowrap;
-  flex: 1;
   min-width: 0;
+  justify-content: space-between;
 }
 
 .fleet-row-tier {
@@ -2913,6 +2966,8 @@ button:disabled:hover {
 
 .fleet-row--compact .fleet-row-name {
   font-size: 0.8rem;
+  flex: 1;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -2926,9 +2981,14 @@ button:disabled:hover {
   white-space: nowrap;
 }
 
-.fleet-row--compact .fleet-row-activity {
-  margin-left: auto;
+.fleet-row--compact .fleet-row-top .fleet-row-activity {
+  display: none;
+}
+
+.fleet-row--compact .fleet-row-compact-2 .fleet-row-activity {
   flex-shrink: 0;
+  font-size: 0.65rem;
+  padding: 1px 5px;
 }
 
 .fleet-row-command {
@@ -3010,6 +3070,58 @@ button:disabled:hover {
 
 .fleet-row-flight-pct {
   font-size: 0.8rem;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* Compact mode: Row 2 (activity + location) */
+.fleet-row-compact-2 {
+  display: none; /* Hidden by default, shown in compact mode */
+  align-items: center;
+  gap: 6px;
+  font-size: 0.7rem;
+  color: #888;
+  flex-wrap: nowrap;
+  min-width: 0;
+}
+
+.fleet-row--compact .fleet-row-compact-2 {
+  display: flex;
+}
+
+/* In full mode, hide compact rows */
+.fleet-row:not(.fleet-row--compact) .fleet-row-compact-2,
+.fleet-row:not(.fleet-row--compact) .fleet-row-compact-3 {
+  display: none !important;
+}
+
+/* Compact mode: Row 3 (progress bar + ETA) */
+.fleet-row-compact-3 {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.65rem;
+  color: #777;
+}
+
+.fleet-row-progress-bar {
+  flex: 1;
+  height: 5px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.fleet-row-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #4a9eff 0%, #4ecdc4 50%, #ffd700 100%);
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+.fleet-row-eta {
+  font-size: 0.65rem;
+  color: #888;
   white-space: nowrap;
   flex-shrink: 0;
 }
@@ -4052,14 +4164,6 @@ button:disabled:hover {
     grid-template-columns: 1fr;
   }
 
-  /* Prevent any child from exceeding viewport */
-  .main-content {
-    min-width: 0;
-    max-height: none;
-    overflow-x: hidden;
-    overflow-y: visible;
-  }
-
   /* Fleet row: location on its own line, stats wrap below */
   .fleet-row-location {
     flex-basis: 100%;
@@ -4322,6 +4426,11 @@ button:disabled:hover {
   .button-row {
     flex-direction: column;
     gap: 8px;
+  }
+
+  /* Wizard: ensure scrollable on mobile */
+  .wizard {
+    padding: 16px;
   }
 
   /* Catch-up report tighter */

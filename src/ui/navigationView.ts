@@ -647,8 +647,8 @@ function updateMarkerVisual(
 ): void {
   const { virtualOrigin, ship, gd } = ctx;
   if (isCurrent || isFlightDest) {
-    refs.dot.setAttribute('stroke', '#d4850a');
-    refs.dot.setAttribute('stroke-width', '2');
+    refs.dot.setAttribute('stroke', '#dc2626');
+    refs.dot.setAttribute('stroke-width', '1');
     refs.label.setAttribute('fill', '#fff');
   } else if (!reachable) {
     refs.dot.setAttribute('stroke', '#333');
@@ -724,6 +724,13 @@ function hideMarker(refs: MarkerRefs): void {
   refs.hitArea.style.display = 'none';
   refs.leaderLine.style.display = 'none';
   if (refs.clusterIndicator) refs.clusterIndicator.style.display = 'none';
+
+  // Reset stale attributes to prevent visual artifacts if element becomes visible
+  refs.dot.setAttribute('stroke', '#0f3460');
+  refs.dot.setAttribute('stroke-width', '1');
+  refs.dot.removeAttribute('opacity');
+  refs.label.setAttribute('fill', '#ccc');
+  refs.label.removeAttribute('opacity');
 }
 
 /** Show a marker's SVG elements */
@@ -1080,7 +1087,7 @@ export function createNavigationView(
 
   // Flight line + ship dot (created once, updated each tick)
   const flightLine = document.createElementNS(SVG_NS, 'line');
-  flightLine.setAttribute('stroke', '#d4850a');
+  flightLine.setAttribute('stroke', '#dc2626');
   flightLine.setAttribute('stroke-width', '1');
   flightLine.setAttribute('stroke-dasharray', '4,2');
   flightLine.setAttribute('stroke-opacity', '0.6');
@@ -1088,8 +1095,8 @@ export function createNavigationView(
   flightLayer.appendChild(flightLine);
 
   const shipDot = document.createElementNS(SVG_NS, 'circle');
-  shipDot.setAttribute('r', '3');
-  shipDot.setAttribute('fill', '#d4850a');
+  shipDot.setAttribute('r', '2');
+  shipDot.setAttribute('fill', '#dc2626');
   shipDot.setAttribute('stroke', '#fff');
   shipDot.setAttribute('stroke-width', '0.5');
   shipDot.style.display = 'none';
@@ -1100,7 +1107,7 @@ export function createNavigationView(
   // Current-location pulsing ring (visual prominence)
   const currentRing = document.createElementNS(SVG_NS, 'circle');
   currentRing.setAttribute('fill', 'none');
-  currentRing.setAttribute('stroke', '#d4850a');
+  currentRing.setAttribute('stroke', '#dc2626');
   currentRing.setAttribute('stroke-width', '1');
   currentRing.setAttribute('stroke-opacity', '0');
   currentRing.style.display = 'none';
@@ -1383,17 +1390,28 @@ export function createNavigationView(
 
     // Hover feedback on desktop
     hitArea.addEventListener('mouseenter', () => {
-      dot.setAttribute('stroke', '#4a9eff');
-      dot.setAttribute('stroke-width', '2');
+      const ship = getActiveShip(latestGameData);
+      const currentLocId =
+        ship.location.dockedAt || ship.location.orbitingAt || null;
+      const isInFlight = ship.location.status === 'in_flight';
+      const flightDestId = isInFlight
+        ? (ship.activeFlightPlan?.destination ?? null)
+        : null;
+      const isCurrent = location.id === currentLocId;
+      const isDest = location.id === flightDestId;
+
+      // Only override stroke if this is NOT current/destination (preserve red stroke)
+      if (!isCurrent && !isDest) {
+        dot.setAttribute('stroke', '#4a9eff');
+        dot.setAttribute('stroke-width', '1');
+      }
       const svgPos = cachedSvgPositions.get(location.id) ?? { x: 0, y: 0 };
       showTooltip(location.id, svgPos);
     });
     hitArea.addEventListener('mouseleave', () => {
-      // Restore stroke based on selection/current/reachable state
-      // The next tick update will correct it; for now just reset to default
+      // Don't reset stroke - let the update tick handle it
+      // This prevents flickering between hover blue and destination red
       if (selectedLocationId !== location.id) {
-        dot.setAttribute('stroke', '#0f3460');
-        dot.setAttribute('stroke-width', '1');
         hideTooltip();
       }
       // When selectedLocationId === location.id, keep tooltip visible
@@ -1800,7 +1818,8 @@ export function createNavigationView(
     // Cache positions for applySelection and hover
     cachedSvgPositions = svgPositions;
 
-    // Update pulsing rings
+    // Update pulsing rings — consolidate to avoid overlapping rings at same position
+    // Priority: currentRing (pulsing orange) > selectionRing (blue) > destRing (blue)
     if (currentLocationId && !clusterMemberIds.has(currentLocationId)) {
       const pos = svgPositions.get(currentLocationId);
       if (pos) {
@@ -1814,7 +1833,13 @@ export function createNavigationView(
       currentRing.style.display = 'none';
     }
 
-    if (flightDestinationId && !clusterMemberIds.has(flightDestinationId)) {
+    // Destination ring — skip if current location already has a ring
+    if (
+      flightDestinationId &&
+      !clusterMemberIds.has(flightDestinationId) &&
+      flightDestinationId !== currentLocationId &&
+      flightDestinationId !== selectedLocationId
+    ) {
       const pos = svgPositions.get(flightDestinationId);
       if (pos) {
         destRing.setAttribute('cx', String(pos.x));
@@ -1827,8 +1852,12 @@ export function createNavigationView(
       destRing.style.display = 'none';
     }
 
-    // Selection ring
-    if (selectedLocationId && !clusterMemberIds.has(selectedLocationId)) {
+    // Selection ring — skip if current or destination ring already shown
+    if (
+      selectedLocationId &&
+      !clusterMemberIds.has(selectedLocationId) &&
+      selectedLocationId !== currentLocationId
+    ) {
       const pos = svgPositions.get(selectedLocationId);
       if (pos) {
         selectionRing.setAttribute('cx', String(pos.x));
@@ -1925,6 +1954,8 @@ export function createNavigationView(
       'fill',
       getLocationTypeTemplate(parentLoc.type).color ?? '#4fc3f7'
     );
+    focusParentDot.setAttribute('stroke', '#fff');
+    focusParentDot.setAttribute('stroke-width', '1');
     focusParentLabel.style.display = '';
     focusParentLabel.textContent = parentLoc.name;
 
@@ -1987,7 +2018,8 @@ export function createNavigationView(
     // Cache positions
     cachedSvgPositions = svgPositions;
 
-    // Pulsing rings
+    // Pulsing rings — consolidate to avoid overlapping rings at same position
+    // Priority: currentRing (pulsing orange) > selectionRing (blue) > destRing (blue)
     if (currentLocationId) {
       const pos = svgPositions.get(currentLocationId);
       if (pos) {
@@ -2001,7 +2033,12 @@ export function createNavigationView(
       currentRing.style.display = 'none';
     }
 
-    if (flightDestinationId) {
+    // Destination ring — skip if current location already has a ring
+    if (
+      flightDestinationId &&
+      flightDestinationId !== currentLocationId &&
+      flightDestinationId !== selectedLocationId
+    ) {
       const pos = svgPositions.get(flightDestinationId);
       if (pos) {
         destRing.setAttribute('cx', String(pos.x));
@@ -2014,8 +2051,8 @@ export function createNavigationView(
       destRing.style.display = 'none';
     }
 
-    // Selection ring
-    if (selectedLocationId) {
+    // Selection ring — skip if current or destination ring already shown
+    if (selectedLocationId && selectedLocationId !== currentLocationId) {
       const pos = svgPositions.get(selectedLocationId);
       if (pos) {
         selectionRing.setAttribute('cx', String(pos.x));
@@ -2083,6 +2120,13 @@ export function createNavigationView(
       );
 
       updateLegendItem(location, legendRefs, ctx);
+    }
+
+    // Defensive: ensure all cluster indicators are hidden in focus mode
+    for (const [, refs] of markerMap) {
+      if (refs.clusterIndicator) {
+        refs.clusterIndicator.style.display = 'none';
+      }
     }
 
     // Flight visualization (focus projection)
