@@ -359,6 +359,7 @@ function mountPlayingLayout(
   bannerReadBtn.textContent = 'Read Guide';
   bannerReadBtn.addEventListener('click', () => {
     callbacks.onTabChange('guide');
+    mounted?.tabbedView.navigateGamepediaTo('getting-started');
     callbacks.onDismissGettingStarted();
   });
   gettingStartedBanner.appendChild(bannerReadBtn);

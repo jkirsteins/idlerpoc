@@ -783,5 +783,13 @@ export function createTabbedView(
       currentSelectedCrewId = state.selectedCrewId;
       update(state.gameData);
     },
+    navigateGamepediaTo(articleId: string) {
+      const component = tabComponents.get('guide') as
+        | (Component & { navigateTo?: (id: string) => void })
+        | undefined;
+      if (component?.navigateTo) {
+        component.navigateTo(articleId);
+      }
+    },
   };
 }
