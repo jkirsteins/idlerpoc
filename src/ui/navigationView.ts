@@ -7,14 +7,11 @@ import {
   getDistanceBetween,
 } from '../worldGen';
 import { formatDistance } from '../formatting';
-import { getGravityDegradationLevel } from '../gravitySystem';
 import {
   getShipPositionKm,
   estimateRouteRisk,
   getThreatLevel,
-  getThreatNarrative,
 } from '../encounterSystem';
-import { renderThreatBadge } from './threatBadge';
 import { getShipClass } from '../shipClasses';
 import { initializeFlight } from '../flightPhysics';
 import { calculateTripFuelKg } from '../questGen';
@@ -26,11 +23,7 @@ import {
   updateFlightProfileControl,
 } from './flightProfileControl';
 import { setupMapZoomPan, type MapZoomPanControls } from './mapZoomPan';
-import {
-  computeLaunchWindow,
-  getLocationPosition,
-  type AlignmentQuality,
-} from '../orbitalMechanics';
+import { getLocationPosition } from '../orbitalMechanics';
 
 const NAV_SERVICE_LABELS: Record<string, { icon: string; label: string }> = {
   refuel: { icon: '\u26FD', label: 'Fuel' },
@@ -194,20 +187,6 @@ function projectToSvgLocal(
   return { x: r * Math.cos(angle), y: r * Math.sin(angle) };
 }
 
-/** Get alignment badge color */
-function alignmentColor(alignment: AlignmentQuality): string {
-  switch (alignment) {
-    case 'excellent':
-      return '#4caf50';
-    case 'good':
-      return '#8bc34a';
-    case 'moderate':
-      return '#ffc107';
-    case 'poor':
-      return '#f44336';
-  }
-}
-
 /** Per-location refs for the legend item (compact card — no accordion) */
 interface LegendItemRefs {
   item: HTMLElement;
@@ -294,7 +273,6 @@ interface UpdateCtx {
   isInFlight: boolean;
   flightDestinationId: string | null;
   currentLocationId: string | null;
-  degradedCrew: { zeroGExposure: number }[];
   estimateRefs: {
     el: HTMLElement;
     origin: WorldLocation;
@@ -624,11 +602,6 @@ interface SelectionOverlayRefs {
   headerName: HTMLElement;
   closeBtn: HTMLElement;
   infoRow: HTMLElement;
-  alignmentLine: HTMLElement;
-  riskLine: HTMLElement;
-  gravAssistLine: HTMLElement;
-  gravityWarning: HTMLElement;
-  overlayTravelInfo: HTMLElement;
   overlayActionButton: HTMLButtonElement;
 }
 
@@ -641,17 +614,28 @@ function createSelectionOverlay(onClose: () => void): SelectionOverlayRefs {
   content.className = 'nav-selection-overlay-content';
   content.style.display = 'none';
 
+  // Single row: name | distance | button | X
   const headerRow = document.createElement('div');
-  headerRow.style.cssText =
-    'display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;';
+  headerRow.style.cssText = 'display: flex; align-items: center; gap: 8px;';
 
   const headerName = document.createElement('strong');
-  headerName.style.cssText = 'color: #d4850a; font-size: 0.95em;';
+  headerName.style.cssText =
+    'color: #d4850a; font-size: 0.95em; white-space: nowrap;';
   headerRow.appendChild(headerName);
+
+  const infoRow = document.createElement('span');
+  infoRow.style.cssText = 'font-size: 0.8em; color: #aaa; white-space: nowrap;';
+  headerRow.appendChild(infoRow);
+
+  const overlayActionButton = document.createElement('button');
+  overlayActionButton.className =
+    'nav-travel-button nav-travel-button--compact';
+  overlayActionButton.style.cssText = 'margin-left: auto; white-space: nowrap;';
+  headerRow.appendChild(overlayActionButton);
 
   const closeBtn = document.createElement('button');
   closeBtn.style.cssText =
-    'background: none; border: none; color: #888; cursor: pointer; font-size: 14px; padding: 0 2px; line-height: 1;';
+    'background: none; border: none; color: #888; cursor: pointer; font-size: 14px; padding: 0 2px; line-height: 1; flex-shrink: 0;';
   closeBtn.textContent = '\u2715';
   closeBtn.addEventListener('click', (e) => {
     e.stopPropagation();
@@ -660,40 +644,6 @@ function createSelectionOverlay(onClose: () => void): SelectionOverlayRefs {
   headerRow.appendChild(closeBtn);
   content.appendChild(headerRow);
 
-  const infoRow = document.createElement('div');
-  infoRow.style.cssText =
-    'font-size: 0.8em; color: #aaa; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;';
-  content.appendChild(infoRow);
-
-  const alignmentLine = document.createElement('div');
-  alignmentLine.style.cssText =
-    'font-size: 0.8em; margin-top: 4px; display: none;';
-  content.appendChild(alignmentLine);
-
-  const gravAssistLine = document.createElement('div');
-  gravAssistLine.style.cssText =
-    'font-size: 0.8em; margin-top: 2px; color: #ffc107; display: none;';
-  content.appendChild(gravAssistLine);
-
-  const riskLine = document.createElement('div');
-  riskLine.style.cssText = 'margin-top: 4px; display: none;';
-  content.appendChild(riskLine);
-
-  const gravityWarning = document.createElement('div');
-  gravityWarning.style.cssText =
-    'font-size: 0.8em; color: #fbbf24; margin-top: 2px; display: none;';
-  content.appendChild(gravityWarning);
-
-  const overlayTravelInfo = document.createElement('div');
-  overlayTravelInfo.style.cssText =
-    'font-size: 0.8em; color: #4ade80; margin-top: 4px; white-space: nowrap; display: none;';
-  content.appendChild(overlayTravelInfo);
-
-  const overlayActionButton = document.createElement('button');
-  overlayActionButton.className = 'nav-travel-button';
-  overlayActionButton.style.cssText = 'margin-top: 6px;';
-  content.appendChild(overlayActionButton);
-
   wrapper.appendChild(content);
   return {
     wrapper,
@@ -701,11 +651,6 @@ function createSelectionOverlay(onClose: () => void): SelectionOverlayRefs {
     headerName,
     closeBtn,
     infoRow,
-    alignmentLine,
-    riskLine,
-    gravAssistLine,
-    gravityWarning,
-    overlayTravelInfo,
     overlayActionButton,
   };
 }
@@ -733,167 +678,29 @@ function updateSelectionOverlay(
 
   const {
     ship,
-    gd,
     virtualOrigin,
     canStartTrips,
     isInFlight,
     flightDestinationId,
     currentLocationId,
-    degradedCrew,
   } = ctx;
   const reachable = isLocationReachable(ship, location, virtualOrigin);
   const isCurrent = location.id === currentLocationId;
   const isFlightDest = location.id === flightDestinationId;
-  const isOtherDestination = !isCurrent && !isFlightDest && reachable;
 
   // Header name
   if (overlay.headerName.textContent !== location.name) {
     overlay.headerName.textContent = location.name;
   }
 
-  // Info row: distance + services
+  // Info row: distance only
   const distanceFromCurrent = getDistanceBetween(virtualOrigin, location);
   const distText =
     distanceFromCurrent < 0.5
       ? 'Current Location'
-      : `Distance: ${formatDistance(distanceFromCurrent)}`;
-  const svcText = location.services
-    .map((s) => NAV_SERVICE_LABELS[s]?.label)
-    .filter(Boolean)
-    .join(' \u00B7 ');
-  const infoText = svcText ? `${distText} | ${svcText}` : distText;
-  if (overlay.infoRow.textContent !== infoText) {
-    overlay.infoRow.textContent = infoText;
-  }
-
-  // Alignment
-  if (isOtherDestination && virtualOrigin.orbital && location.orbital) {
-    const window = computeLaunchWindow(
-      virtualOrigin,
-      location,
-      gd.gameTime,
-      gd.world
-    );
-    if (window) {
-      const distRange = window.maxDistanceKm - window.minDistanceKm;
-      const rangeRatio = distRange / Math.max(window.minDistanceKm, 1);
-      if (rangeRatio > 0.1) {
-        const color = alignmentColor(window.alignment);
-        const label =
-          window.alignment.charAt(0).toUpperCase() + window.alignment.slice(1);
-        let alignText = `Alignment: <span style="color:${color};font-weight:600">${label}</span>`;
-        if (window.alignment !== 'excellent' && window.nextOptimalInDays > 1) {
-          const nextOptDays = Math.round(window.nextOptimalInDays);
-          alignText += ` | Next optimal: ${formatDualTime(nextOptDays * 86400)}`;
-        }
-        if (overlay.alignmentLine.innerHTML !== alignText) {
-          overlay.alignmentLine.innerHTML = alignText;
-        }
-        overlay.alignmentLine.style.display = '';
-      } else {
-        overlay.alignmentLine.style.display = 'none';
-      }
-    } else {
-      overlay.alignmentLine.style.display = 'none';
-    }
-  } else {
-    overlay.alignmentLine.style.display = 'none';
-  }
-
-  // Travel info + gravity assists
-  if (isOtherDestination) {
-    const shipClass = getShipClass(ship.classId);
-    if (shipClass) {
-      try {
-        const flight = initializeFlight(
-          ship,
-          virtualOrigin,
-          location,
-          false,
-          ship.flightProfileBurnFraction,
-          { gameTime: gd.gameTime, world: gd.world }
-        );
-        const travelTime = formatDualTime(flight.totalTime);
-        const distanceKm = getDistanceBetween(virtualOrigin, location);
-        const fuelCostKg = calculateTripFuelKg(
-          ship,
-          distanceKm,
-          ship.flightProfileBurnFraction
-        );
-        const travelText = `\u23F1 ${travelTime} | \u26FD ~${formatFuelMass(fuelCostKg)}`;
-        if (overlay.overlayTravelInfo.textContent !== travelText) {
-          overlay.overlayTravelInfo.textContent = travelText;
-        }
-        overlay.overlayTravelInfo.style.display = '';
-        ctx.estimateRefs.push({
-          el: overlay.overlayTravelInfo,
-          origin: virtualOrigin,
-          destination: location,
-        });
-
-        const assists = flight.gravityAssists;
-        if (assists && assists.length > 0) {
-          const bodyNames = assists
-            .map((a) => {
-              const pct = (a.approachProgress * 100).toFixed(0);
-              return `${a.bodyName} (at ${pct}%)`;
-            })
-            .join(', ');
-          const assistText = `Gravity assist: ${bodyNames}`;
-          if (overlay.gravAssistLine.textContent !== assistText) {
-            overlay.gravAssistLine.textContent = assistText;
-          }
-          overlay.gravAssistLine.style.display = '';
-        } else {
-          overlay.gravAssistLine.style.display = 'none';
-        }
-      } catch {
-        overlay.overlayTravelInfo.style.display = 'none';
-        overlay.gravAssistLine.style.display = 'none';
-      }
-    } else {
-      overlay.overlayTravelInfo.style.display = 'none';
-      overlay.gravAssistLine.style.display = 'none';
-    }
-  } else {
-    overlay.overlayTravelInfo.style.display = 'none';
-    overlay.gravAssistLine.style.display = 'none';
-  }
-
-  // Risk/threat
-  if (isOtherDestination) {
-    const routeRisk = estimateRouteRisk(
-      virtualOrigin,
-      location,
-      ship,
-      gd.world
-    );
-    const threatLevel = getThreatLevel(routeRisk);
-    const narrative = getThreatNarrative(threatLevel);
-    const currentThreatAttr =
-      overlay.riskLine.getAttribute('data-threat-cache');
-    const newThreatKey = `${threatLevel}:${narrative}`;
-    if (currentThreatAttr !== newThreatKey) {
-      while (overlay.riskLine.firstChild) {
-        overlay.riskLine.removeChild(overlay.riskLine.firstChild);
-      }
-      overlay.riskLine.appendChild(renderThreatBadge(threatLevel, narrative));
-      overlay.riskLine.setAttribute('data-threat-cache', newThreatKey);
-    }
-    overlay.riskLine.style.display = '';
-  } else {
-    overlay.riskLine.style.display = 'none';
-  }
-
-  // Gravity warning
-  if (degradedCrew.length > 0 && isOtherDestination) {
-    const warnText = `\u26A0\uFE0F ${degradedCrew.length} crew member${degradedCrew.length > 1 ? 's' : ''} with zero-g atrophy`;
-    if (overlay.gravityWarning.textContent !== warnText) {
-      overlay.gravityWarning.textContent = warnText;
-    }
-    overlay.gravityWarning.style.display = '';
-  } else {
-    overlay.gravityWarning.style.display = 'none';
+      : formatDistance(distanceFromCurrent);
+  if (overlay.infoRow.textContent !== distText) {
+    overlay.infoRow.textContent = distText;
   }
 
   // Action button — always visible, greyed out when not actionable
@@ -1427,14 +1234,6 @@ export function createNavigationView(
       );
     }
 
-    // Scroll selected legend item into view
-    if (selectedLocationId) {
-      const refs = legendMap.get(selectedLocationId);
-      if (refs) {
-        refs.item.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-      }
-    }
-
     // Immediately update overlay (don't wait for next tick)
     if (latestCtx) {
       updateSelectionOverlay(selectionOverlay, selectedLocationId, latestCtx);
@@ -1705,11 +1504,6 @@ export function createNavigationView(
       profileSlot.style.display = 'none';
     }
 
-    // Gravity-degraded crew (computed once)
-    const degradedCrew = ship.crew.filter(
-      (c) => getGravityDegradationLevel(c.zeroGExposure) !== 'none'
-    );
-
     const ctx: UpdateCtx = {
       gd: gameData,
       ship,
@@ -1718,7 +1512,6 @@ export function createNavigationView(
       isInFlight,
       flightDestinationId,
       currentLocationId,
-      degradedCrew,
       estimateRefs,
       onStartTrip: callbacks.onStartTrip,
     };
