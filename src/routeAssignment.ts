@@ -183,7 +183,8 @@ export function checkAutoRefuel(
         gameData.gameTime,
         'refueled',
         `Auto-refueled ${ship.name} at ${location.name}: ${formatFuelMass(fuelNeededKg)} (${formatCredits(fuelCost)})`,
-        ship.name
+        ship.name,
+        { credits: fuelCost }
       );
 
       return { refueled: true };

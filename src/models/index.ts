@@ -461,12 +461,22 @@ export type LogEntryType =
   | 'fuel_depleted'
   | 'power_change';
 
+/** Structured metadata for log entry aggregation during trim. */
+export interface LogEntryMeta {
+  credits?: number;
+  oreType?: string;
+  oreQty?: number;
+  /** Number of original events this summary represents. */
+  count?: number;
+}
+
 export interface LogEntry {
   gameTime: number;
   realTime: number; // milliseconds since epoch (Date.now())
   type: LogEntryType;
   message: string;
   shipName?: string;
+  meta?: LogEntryMeta;
 }
 
 export interface EncounterStats {

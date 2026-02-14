@@ -342,9 +342,7 @@ function applyMedbayHealing(ship: Ship): boolean {
     const eqDef = getEquipmentDefinition(eq.definitionId);
     if (eqDef?.healthRegenPerTick && eqDef.healthRegenPerTick > 0) {
       // Degradation reduces effectiveness
-      const effectiveness = eqDef.hasDegradation
-        ? 1 - eq.degradation / 100
-        : 1;
+      const effectiveness = eqDef.hasDegradation ? 1 - eq.degradation / 100 : 1;
       totalHealthRegen += eqDef.healthRegenPerTick * effectiveness;
     }
   }
@@ -892,7 +890,8 @@ function applyShipTick(gameData: GameData, ship: Ship): boolean {
                 gameData.gameTime,
                 'ore_mined',
                 `${ship.name} extracted ${qty} ${oreId.replace(/_/g, ' ')}`,
-                ship.name
+                ship.name,
+                { oreQty: qty, oreType: oreId.replace(/_/g, ' ') }
               );
             }
           }

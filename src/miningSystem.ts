@@ -553,7 +553,8 @@ export function sellOre(
     gameData.gameTime,
     'ore_sold',
     `${ship.name} sold ${quantity} ${ore.icon} ${ore.name} for ${formatCredits(boostedCredits)} at ${location.name}`,
-    ship.name
+    ship.name,
+    { credits: boostedCredits }
   );
 
   return boostedCredits;
