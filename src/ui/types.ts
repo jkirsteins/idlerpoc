@@ -12,6 +12,7 @@ export type PlayingTab =
   | 'work'
   | 'nav'
   | 'fleet'
+  | 'finances'
   | 'log'
   | 'guide'
   | 'settings';

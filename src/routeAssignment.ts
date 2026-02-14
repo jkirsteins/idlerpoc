@@ -1,4 +1,5 @@
 import type { GameData, Ship, Quest } from './models';
+import { getFinancials } from './models';
 import {
   canAcceptQuest,
   calculateTradeRoutePayment,
@@ -177,6 +178,7 @@ export function checkAutoRefuel(
 
       // Track refuel cost in ship metrics
       ship.metrics.fuelCostsPaid += fuelCost;
+      getFinancials(gameData).expenseFuel += fuelCost;
 
       addLog(
         gameData.log,

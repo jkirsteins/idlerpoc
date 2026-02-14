@@ -1,4 +1,5 @@
 import type { GameData, WorldLocation } from './models';
+import { createDefaultFinancials } from './models';
 import { generateWorld } from './worldGen';
 import { generateJobSlotsForShip } from './jobSlots';
 import { generateId } from './utils';
@@ -1137,6 +1138,7 @@ export function importGame(json: string): GameData | null {
   backfillGameDataFields(migrated);
   backfillFlightOriginBodyId(migrated);
   backfillEquipmentPowered(migrated);
+  backfillFinancials(migrated);
 
   // Reset timestamp so the game doesn't try to catch up for offline time
   migrated.lastTickTimestamp = Date.now();
@@ -1313,6 +1315,26 @@ function backfillEquipmentPowered(gameData: GameData): void {
         eq.powerMode = 'auto';
       }
     }
+  }
+}
+
+/**
+ * Additive backfill for lifetime financials tracking.
+ * Bootstraps from ship metrics to provide reasonable initial values for existing saves.
+ * No version bump needed — purely additive optional field with safe defaults.
+ */
+function backfillFinancials(gameData: GameData): void {
+  if (!gameData.financials) {
+    const financials = createDefaultFinancials();
+
+    // Bootstrap from ship metrics (approximate — can't distinguish income sources in old saves)
+    for (const ship of gameData.ships) {
+      financials.expenseFuel += ship.metrics.fuelCostsPaid;
+      financials.expenseCrewSalaries += ship.metrics.crewCostsPaid;
+      financials.incomeContracts += ship.metrics.creditsEarned; // Approximation: includes mining income
+    }
+
+    gameData.financials = financials;
   }
 }
 

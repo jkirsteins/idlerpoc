@@ -612,6 +612,27 @@ export interface DailyLedgerSnapshot {
   lifetimeCreditsEarned: number;
 }
 
+/**
+ * Lifetime financial tracking by category.
+ * Tracks all income and expense flows for comprehensive financial reporting.
+ */
+export interface LifetimeFinancials {
+  // Income categories
+  incomeContracts: number;
+  incomeOreSales: number;
+  incomeBounties: number;
+  incomeEquipmentSales: number;
+  // Expense categories
+  expenseCrewSalaries: number;
+  expenseFuel: number;
+  expenseProvisions: number;
+  expenseCrewHiring: number;
+  expenseEquipment: number;
+  expenseShipEquipment: number;
+  expenseShipPurchases: number;
+  expenseCombatLosses: number;
+}
+
 export interface GameData {
   saveVersion: number; // migration version — see docs/save-migration.md
   ships: Ship[];
@@ -639,6 +660,7 @@ export interface GameData {
     onLowFuel: boolean; // Pause when fuel drops below 10%
   };
   gettingStartedDismissed?: boolean; // Whether the new-player banner has been dismissed
+  financials?: LifetimeFinancials; // Lifetime income and expense tracking by category
 }
 
 /**
@@ -669,4 +691,35 @@ export function getShipCommander(ship: Ship): CrewMember | undefined {
       undefined
     )
   );
+}
+
+/**
+ * Create a fresh LifetimeFinancials record with all categories zeroed.
+ */
+export function createDefaultFinancials(): LifetimeFinancials {
+  return {
+    incomeContracts: 0,
+    incomeOreSales: 0,
+    incomeBounties: 0,
+    incomeEquipmentSales: 0,
+    expenseCrewSalaries: 0,
+    expenseFuel: 0,
+    expenseProvisions: 0,
+    expenseCrewHiring: 0,
+    expenseEquipment: 0,
+    expenseShipEquipment: 0,
+    expenseShipPurchases: 0,
+    expenseCombatLosses: 0,
+  };
+}
+
+/**
+ * Get the financials record from game data, creating a default one if it doesn't exist.
+ * Safe to use for both new and legacy saves.
+ */
+export function getFinancials(gameData: GameData): LifetimeFinancials {
+  if (!gameData.financials) {
+    gameData.financials = createDefaultFinancials();
+  }
+  return gameData.financials;
 }

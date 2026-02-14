@@ -11,6 +11,7 @@ import type {
   CrewEquipmentInstance,
   EquipmentSlotDef,
 } from './models';
+import { createDefaultFinancials } from './models';
 import { getShipClass } from './shipClasses';
 import { CURRENT_SAVE_VERSION } from './storage';
 import { generateCrewName } from './names';
@@ -385,5 +386,6 @@ export function createNewGame(
       onCriticalAlert: false,
       onLowFuel: false,
     },
+    financials: createDefaultFinancials(),
   };
 }

@@ -5,7 +5,7 @@ import type {
   Quest,
   WorldLocation,
 } from './models';
-import { getShipCommander } from './models';
+import { getShipCommander, getFinancials } from './models';
 import { startShipFlight } from './flightPhysics';
 import { addLog } from './logSystem';
 import { formatFuelMass } from './ui/fuelFormatting';
@@ -73,6 +73,7 @@ function tryAutoRefuelForLeg(
     ship.fuelKg = ship.maxFuelKg;
     gameData.credits -= fullCost;
     ship.metrics.fuelCostsPaid += fullCost;
+    getFinancials(gameData).expenseFuel += fullCost;
 
     addLog(
       gameData.log,
@@ -185,6 +186,7 @@ function addCredits(gameData: GameData, amount: number, ship?: Ship): number {
   const boosted = Math.round(amount * auraMultiplier * commercePoolMultiplier);
   gameData.credits += boosted;
   gameData.lifetimeCreditsEarned += boosted;
+  getFinancials(gameData).incomeContracts += boosted;
   return boosted;
 }
 
