@@ -51,6 +51,13 @@ export interface WorkTabCallbacks {
 // ─── Quest Card Refs ──────────────────────────────────────────
 interface QuestCardRefs {
   card: HTMLDivElement;
+  // NEW: collapsible header (always visible)
+  header: HTMLDivElement;
+  typeBadge: HTMLSpanElement;
+  headerDestination: HTMLSpanElement;
+  headerProfit: HTMLSpanElement;
+  expandIcon: HTMLSpanElement;
+  // EXISTING: now inside collapsible section
   title: HTMLDivElement;
   description: HTMLDivElement;
   details: HTMLDivElement;
@@ -122,6 +129,10 @@ interface NoContractRefs {
   heading: HTMLHeadingElement;
   shipContext: HTMLDivElement;
   shipContextName: HTMLSpanElement;
+  // NEW: filter bar
+  filterBar: HTMLDivElement;
+  filterButtons: Record<'all' | 'trade' | 'mining' | 'misc', HTMLButtonElement>;
+  // EXISTING
   tradeSection: HTMLDivElement;
   tradeHeading: HTMLHeadingElement;
   tradeDesc: HTMLParagraphElement;
@@ -190,6 +201,11 @@ export function createWorkTab(
   const tradeQuestCards = new Map<string, QuestCardRefs>();
   const regularQuestCards = new Map<string, QuestCardRefs>();
 
+  // NEW: Collapsible state and filter state
+  const questExpandedState = new Map<string, boolean>();
+  let currentJobFilter: 'all' | 'trade' | 'mining' | 'misc' = 'all';
+  let lastLocationId = '';
+
   // Mining status panel — self-contained component (created lazily)
   let miningPanel: ReturnType<typeof createMiningPanel> | null = null;
 
@@ -223,6 +239,32 @@ export function createWorkTab(
     shipContextName.style.fontWeight = 'bold';
     shipContext.appendChild(shipContextName);
     cont.appendChild(shipContext);
+
+    // Filter bar for job types
+    const filterBar = document.createElement('div');
+    filterBar.className = 'job-filter-bar';
+    filterBar.style.display = 'flex';
+    filterBar.style.gap = '0.5rem';
+    filterBar.style.marginBottom = '1rem';
+    filterBar.style.flexWrap = 'wrap';
+
+    const filterButtons: Record<'all' | 'trade' | 'mining' | 'misc', HTMLButtonElement> = {} as Record<'all' | 'trade' | 'mining' | 'misc', HTMLButtonElement>;
+    const filters = ['all', 'trade', 'mining', 'misc'] as const;
+
+    for (const filter of filters) {
+      const btn = document.createElement('button');
+      btn.className = 'filter-btn';
+      btn.textContent = filter.charAt(0).toUpperCase() + filter.slice(1);
+      btn.addEventListener('click', () => {
+        currentJobFilter = filter;
+        syncJobFilterButtons();
+        applyJobFilter(gameData);
+      });
+      filterButtons[filter] = btn;
+      filterBar.appendChild(btn);
+    }
+
+    cont.appendChild(filterBar);
 
     // Mining status slot (positioned before work listings)
     const miningSlot = document.createElement('div');
@@ -346,6 +388,8 @@ export function createWorkTab(
       heading,
       shipContext,
       shipContextName,
+      filterBar,
+      filterButtons,
       tradeSection,
       tradeHeading,
       tradeDesc,
@@ -629,16 +673,60 @@ export function createWorkTab(
     const card = document.createElement('div');
     card.className = 'quest-card';
 
+    // Collapsible header (always visible)
+    const header = document.createElement('div');
+    header.className = 'quest-card-header';
+    header.style.cssText = `
+      display: flex; align-items: center; gap: 8px;
+      cursor: pointer; padding-bottom: 8px;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+      margin-bottom: 8px;
+    `;
+
+    const typeBadge = document.createElement('span');
+    typeBadge.className = 'quest-type-badge';
+    typeBadge.style.cssText = `
+      padding: 2px 8px; border-radius: 4px; font-size: 0.75rem;
+      font-weight: bold; text-transform: uppercase;
+    `;
+    header.appendChild(typeBadge);
+
+    const headerDestination = document.createElement('span');
+    headerDestination.style.cssText = 'flex: 1; font-weight: bold;';
+    header.appendChild(headerDestination);
+
+    const headerProfit = document.createElement('span');
+    headerProfit.style.cssText = 'font-size: 0.9rem; font-weight: bold;';
+    header.appendChild(headerProfit);
+
+    const expandIcon = document.createElement('span');
+    expandIcon.textContent = '▶'; // Collapsed by default
+    expandIcon.style.cssText = 'font-size: 0.8rem; transition: transform 0.2s;';
+    header.appendChild(expandIcon);
+
+    // Click toggles expansion
+    header.addEventListener('click', () => {
+      const expanded = questExpandedState.get(quest.id) || false;
+      questExpandedState.set(quest.id, !expanded);
+      syncCardExpansion(refs, quest.id);
+    });
+
+    card.appendChild(header);
+
+    // Collapsible content (hidden by default)
     const title = document.createElement('div');
     title.className = 'quest-title';
+    title.style.display = 'none'; // Start collapsed
     card.appendChild(title);
 
     const description = document.createElement('div');
     description.className = 'quest-description';
+    description.style.display = 'none'; // Start collapsed
     card.appendChild(description);
 
     const details = document.createElement('div');
     details.className = 'quest-details';
+    details.style.display = 'none'; // Start collapsed
 
     const destInfo = document.createElement('div');
     details.appendChild(destInfo);
@@ -703,10 +791,10 @@ export function createWorkTab(
     payment.className = 'quest-payment';
     card.appendChild(payment);
 
-    // Button container
+    // Button container (hidden when collapsed)
     const buttonContainer = document.createElement('div');
     buttonContainer.className = 'quest-buttons';
-    buttonContainer.style.display = 'flex';
+    buttonContainer.style.display = 'none'; // Start collapsed (will be flex when expanded)
     buttonContainer.style.gap = '8px';
 
     const acceptBtn = document.createElement('button');
@@ -758,6 +846,11 @@ export function createWorkTab(
     // Initial population
     const refs: QuestCardRefs = {
       card,
+      header,
+      typeBadge,
+      headerDestination,
+      headerProfit,
+      expandIcon,
       title,
       description,
       details,
@@ -819,6 +912,20 @@ export function createWorkTab(
     } else {
       refs.card.classList.remove('disabled');
     }
+
+    // Update collapsible header
+    const category = categorizeQuest(quest, gd);
+    const badgeConfig = {
+      trade: { text: 'Trade', bg: '#4a90e2', color: '#fff' },
+      mining: { text: 'Mining', bg: '#b87333', color: '#fff' },
+      misc: { text: quest.type.replace('_', ' '), bg: '#666', color: '#fff' }
+    };
+    const config = badgeConfig[category];
+    refs.typeBadge.textContent = config.text;
+    refs.typeBadge.style.backgroundColor = config.bg;
+    refs.typeBadge.style.color = config.color;
+
+    refs.headerDestination.textContent = destination ? destination.name : 'Unknown';
 
     refs.title.textContent = quest.title;
     refs.description.textContent = resolved.description;
@@ -922,6 +1029,10 @@ export function createWorkTab(
     refs.profitInfo.style.color = profit >= 0 ? '#4caf50' : '#e94560';
     refs.profitInfo.textContent = `Est. Profit: ${profit >= 0 ? '+' : ''}${formatCredits(perHour(profit))}/hr`;
 
+    // Update header profit
+    refs.headerProfit.style.color = profit >= 0 ? '#4caf50' : '#e94560';
+    refs.headerProfit.textContent = `${profit >= 0 ? '+' : ''}${formatCredits(perHour(profit))}/hr`;
+
     // Route risk
     if (origin && destination) {
       const routeRisk = estimateRouteRisk(origin, destination, ship, gd.world);
@@ -960,6 +1071,9 @@ export function createWorkTab(
         refs.reasonDiv.style.display = 'none';
       }
     }
+
+    // Apply collapsed/expanded state
+    syncCardExpansion(refs, quest.id);
   }
 
   // ── Update: No Contract Phase ───────────────────────────────
@@ -974,6 +1088,7 @@ export function createWorkTab(
       // Nothing to show — hide content but keep phase visible for structure
       noContractRefs.heading.textContent = 'Available Work';
       noContractRefs.shipContext.style.display = 'none';
+      noContractRefs.filterBar.style.display = 'none';
       noContractRefs.tradeSection.style.display = 'none';
       noContractRefs.contractSection.style.display = 'none';
       noContractRefs.miningSlot.style.display = 'none';
@@ -989,6 +1104,7 @@ export function createWorkTab(
     const locationData = gd.world.locations.find((l) => l.id === location);
     if (!locationData) {
       noContractRefs.shipContext.style.display = 'none';
+      noContractRefs.filterBar.style.display = 'none';
       noContractRefs.tradeSection.style.display = 'none';
       noContractRefs.contractSection.style.display = 'none';
       noContractRefs.miningSlot.style.display = 'none';
@@ -1061,6 +1177,16 @@ export function createWorkTab(
     // Ship context
     noContractRefs.shipContext.style.display = '';
     noContractRefs.shipContextName.textContent = ship.name;
+
+    // Check for location change and reset filter if needed
+    if (lastLocationId !== locationData.id) {
+      currentJobFilter = 'all';
+      lastLocationId = locationData.id;
+    }
+
+    // Show and sync filter bar
+    noContractRefs.filterBar.style.display = 'flex';
+    syncJobFilterButtons();
 
     // Get quests
     const availableQuests = gd.availableQuests[location] || [];
@@ -1138,6 +1264,9 @@ export function createWorkTab(
         }
       }
     }
+
+    // Apply job filter after reconciliation
+    applyJobFilter(gd);
   }
 
   /** Reconcile a Map of quest card refs with the current quest list. */
@@ -1169,6 +1298,8 @@ export function createWorkTab(
       if (!currentIds.has(id)) {
         refs.card.remove();
         cardMap.delete(id);
+        // Clean up expansion state for removed quest
+        questExpandedState.delete(id);
       }
     }
 
@@ -1179,6 +1310,94 @@ export function createWorkTab(
         parentEl.appendChild(refs.card);
       }
     }
+  }
+
+  // ── Helper: Categorize Quest ───────────────────────────────────
+  function categorizeQuest(quest: Quest, gd: GameData): 'trade' | 'mining' | 'misc' {
+    // Trade routes
+    if (quest.type === 'trade_route') return 'trade';
+
+    // Mining: check cargo type and locations
+    const miningKeywords = ['ore', 'metal', 'mineral', 'raw ore', 'rare metal', 'unrefined'];
+    const cargoIsMining = quest.cargoTypeName?.toLowerCase().split(' ').some(word =>
+      miningKeywords.some(kw => kw.includes(word) || word.includes(kw))
+    );
+
+    if (cargoIsMining) return 'mining';
+
+    const origin = gd.world.locations.find(l => l.id === quest.origin);
+    const dest = gd.world.locations.find(l => l.id === quest.destination);
+
+    const originIsMine = origin?.type === 'asteroid_belt' || origin?.services.includes('mine');
+    const destIsMine = dest?.type === 'asteroid_belt' || dest?.services.includes('mine');
+
+    if (originIsMine || destIsMine) return 'mining';
+
+    // Default: misc (delivery, passenger, freight, rescue)
+    return 'misc';
+  }
+
+  // ── Helper: Sync Job Filter Buttons ────────────────────────────
+  function syncJobFilterButtons(): void {
+    const filters = ['all', 'trade', 'mining', 'misc'] as const;
+    for (const f of filters) {
+      const btn = noContractRefs.filterButtons[f];
+      btn.className = f === currentJobFilter ? 'filter-btn active' : 'filter-btn';
+    }
+  }
+
+  // ── Helper: Apply Job Filter ───────────────────────────────────
+  function applyJobFilter(gd: GameData): void {
+    const ship = getActiveShip(gd);
+    if (ship.location.status !== 'docked') return;
+
+    const locationId = ship.location.dockedAt || '';
+    const locationQuests = gd.availableQuests[locationId] || [];
+
+    // Filter trade route cards
+    for (const [questId, refs] of tradeQuestCards) {
+      const quest = locationQuests.find(q => q.id === questId);
+      if (!quest) continue;
+
+      const category = categorizeQuest(quest, gd);
+      const visible = currentJobFilter === 'all' || currentJobFilter === category;
+      refs.card.style.display = visible ? '' : 'none';
+    }
+
+    // Filter regular quest cards
+    for (const [questId, refs] of regularQuestCards) {
+      const quest = locationQuests.find(q => q.id === questId);
+      if (!quest) continue;
+
+      const category = categorizeQuest(quest, gd);
+      const visible = currentJobFilter === 'all' || currentJobFilter === category;
+      refs.card.style.display = visible ? '' : 'none';
+    }
+  }
+
+  // ── Helper: Sync Card Expansion ────────────────────────────────
+  function syncCardExpansion(refs: QuestCardRefs, questId: string): void {
+    const expanded = questExpandedState.get(questId) || false;
+
+    // Toggle icon rotation and text
+    refs.expandIcon.style.transform = expanded ? 'rotate(90deg)' : '';
+    refs.expandIcon.textContent = expanded ? '▼' : '▶';
+
+    // Show/hide details section
+    const displayValue = expanded ? '' : 'none';
+    refs.title.style.display = displayValue;
+    refs.description.style.display = displayValue;
+    refs.details.style.display = expanded ? 'flex' : 'none';
+
+    // buttonContainer: if collapsed, hide. If expanded, respect the canAccept logic
+    // from updateQuestCardRefs which sets this to 'flex' or 'none' based on canAccept
+    if (!expanded) {
+      refs.buttonContainer.style.display = 'none';
+    }
+
+    // Warnings and reason: only show if expanded and has content
+    refs.warningsDiv.style.display = expanded && refs.warningsDiv.textContent ? '' : 'none';
+    refs.reasonDiv.style.display = expanded && refs.reasonDiv.textContent ? '' : 'none';
   }
 
   // ── Update: Active Contract Phase ───────────────────────────
