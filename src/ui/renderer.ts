@@ -129,6 +129,7 @@ interface MountedPlayingLayout {
   drawerOverlay: HTMLElement;
   mobileDrawer: HTMLElement;
   drawerSidebar: Component;
+  tabBar: HTMLElement;
   contentGrid: HTMLElement;
   leftSidebar: Component;
   mainContent: HTMLElement;
@@ -453,6 +454,7 @@ function mountPlayingLayout(
   const rightSidebar = createRightSidebar(state.gameData);
   contentGrid.appendChild(rightSidebar.el);
 
+  wrapper.appendChild(tabbedView.tabBar);
   wrapper.appendChild(contentGrid);
 
   return {
@@ -462,6 +464,7 @@ function mountPlayingLayout(
     drawerOverlay,
     mobileDrawer,
     drawerSidebar,
+    tabBar: tabbedView.tabBar,
     contentGrid,
     leftSidebar,
     mainContent,
@@ -526,6 +529,7 @@ function makePlaceholderMounted(
   const dummy = document.createElement('div');
   const dummyComp: Component = { el: dummy, update() {} };
   const dummyTabbed = Object.assign(dummyComp, {
+    tabBar: dummy,
     updateView(_s: TabbedViewState) {},
     navigateGamepediaTo(_articleId: string) {},
   });
@@ -536,6 +540,7 @@ function makePlaceholderMounted(
     drawerOverlay: dummy,
     mobileDrawer: dummy,
     drawerSidebar: dummyComp,
+    tabBar: dummy,
     contentGrid: dummy,
     leftSidebar: dummyComp,
     mainContent: dummy,

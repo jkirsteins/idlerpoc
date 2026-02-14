@@ -1,4 +1,4 @@
-import type { GameData, Quest, Ship } from '../models';
+import type { GameData, Quest, ThreatLevel } from '../models';
 import { getActiveShip } from '../models';
 import {
   formatDualTime,
@@ -12,7 +12,6 @@ import {
   getThreatLevel,
   getThreatNarrative,
 } from '../encounterSystem';
-import { renderThreatBadge } from './threatBadge';
 import type { Component } from './component';
 import { formatFuelMass, calculateFuelPercentage } from './fuelFormatting';
 import { getFuelPricePerKg } from './refuelDialog';
@@ -56,6 +55,61 @@ export interface WorkTabCallbacks {
   onSelectMiningOre: (oreId: string | null) => void;
 }
 
+// ─── Quest Card Snapshot (for shallow-compare skip) ──────────
+interface QuestSnapshot {
+  canAccept: boolean;
+  reason: string;
+  warnings: string;
+  category: 'trade' | 'mining' | 'misc';
+  destinationName: string;
+  title: string;
+  description: string;
+  distanceText: string;
+  cargoText: string;
+  totalCargoText: string;
+  tripsText: string;
+  fuelText: string;
+  timeText: string;
+  crewCostText: string;
+  fuelCostText: string;
+  profitText: string;
+  profitColor: string;
+  paymentText: string;
+  threatLevel: string;
+  threatNarrative: string;
+  captainBonusText: string;
+  captainBonusColor: string;
+  captainHintText: string;
+}
+
+function questSnapshotsEqual(a: QuestSnapshot, b: QuestSnapshot): boolean {
+  return (
+    a.canAccept === b.canAccept &&
+    a.reason === b.reason &&
+    a.warnings === b.warnings &&
+    a.category === b.category &&
+    a.destinationName === b.destinationName &&
+    a.title === b.title &&
+    a.description === b.description &&
+    a.distanceText === b.distanceText &&
+    a.cargoText === b.cargoText &&
+    a.totalCargoText === b.totalCargoText &&
+    a.tripsText === b.tripsText &&
+    a.fuelText === b.fuelText &&
+    a.timeText === b.timeText &&
+    a.crewCostText === b.crewCostText &&
+    a.fuelCostText === b.fuelCostText &&
+    a.profitText === b.profitText &&
+    a.profitColor === b.profitColor &&
+    a.paymentText === b.paymentText &&
+    a.threatLevel === b.threatLevel &&
+    a.threatNarrative === b.threatNarrative &&
+    a.captainBonusText === b.captainBonusText &&
+    a.captainBonusColor === b.captainBonusColor &&
+    a.captainHintText === b.captainHintText
+  );
+}
+
 // ─── Quest Card Refs ──────────────────────────────────────────
 interface QuestCardRefs {
   card: HTMLDivElement;
@@ -83,11 +137,18 @@ interface QuestCardRefs {
   profitInfo: HTMLDivElement;
   riskLine: HTMLDivElement;
   riskBadgeSlot: HTMLDivElement;
+  // Stable risk badge child elements (updated in-place, never recreated)
+  riskBadge: HTMLDivElement;
+  riskBadgeLabel: HTMLSpanElement;
+  riskBadgeNarrative: HTMLSpanElement;
+  lastThreatLevel: string;
+  lastNarrative: string;
   payment: HTMLDivElement;
   buttonContainer: HTMLDivElement;
   acceptBtn: HTMLButtonElement;
   warningsDiv: HTMLDivElement;
   reasonDiv: HTMLDivElement;
+  lastSnapshot: QuestSnapshot | null;
 }
 
 // ─── Active Contract Refs ─────────────────────────────────────
@@ -197,6 +258,9 @@ function syncCardExpansion(
 ): void {
   const expanded = questExpandedState.get(questId) || false;
 
+  // Toggle expanded class for CSS styling
+  refs.card.classList.toggle('quest-card-expanded', expanded);
+
   refs.expandIcon.style.transform = expanded ? 'rotate(90deg)' : '';
   refs.expandIcon.textContent = expanded ? '▼' : '▶';
 
@@ -205,9 +269,8 @@ function syncCardExpansion(
   setDisplay(refs.description, displayValue);
   setDisplay(refs.details, expanded ? 'flex' : 'none');
 
-  if (!expanded) {
-    refs.buttonContainer.style.display = 'none';
-  }
+  // Show/hide button container based on expansion state
+  refs.buttonContainer.style.display = expanded ? 'flex' : 'none';
 
   refs.warningsDiv.style.display =
     expanded && refs.warningsDiv.textContent ? '' : 'none';
@@ -271,7 +334,7 @@ function createQuestCardRefs(
   header.className = 'quest-card-header';
   header.style.cssText = `
     display: flex; align-items: center; gap: 8px;
-    cursor: pointer; padding-bottom: 8px;
+    padding-bottom: 8px;
     border-bottom: 1px solid rgba(255,255,255,0.1);
     margin-bottom: 8px;
   `;
@@ -366,6 +429,20 @@ function createQuestCardRefs(
   const riskBadgeSlot = document.createElement('div');
   riskBadgeSlot.style.display = 'inline-block';
   riskLine.appendChild(riskBadgeSlot);
+
+  // Create stable risk badge elements once (updated in-place, never recreated)
+  const riskBadge = document.createElement('div');
+  riskBadge.className = 'threat-badge threat-clear';
+
+  const riskBadgeLabel = document.createElement('span');
+  riskBadgeLabel.className = 'threat-label';
+  riskBadge.appendChild(riskBadgeLabel);
+
+  const riskBadgeNarrative = document.createElement('span');
+  riskBadgeNarrative.className = 'threat-narrative';
+  riskBadge.appendChild(riskBadgeNarrative);
+
+  riskBadgeSlot.appendChild(riskBadge);
   details.appendChild(riskLine);
 
   card.appendChild(details);
@@ -382,7 +459,10 @@ function createQuestCardRefs(
   const acceptBtn = document.createElement('button');
   acceptBtn.className = 'accept-quest-button';
   acceptBtn.textContent = 'Accept';
-  acceptBtn.addEventListener('click', () => callbacks.onAcceptQuest(quest.id));
+  acceptBtn.addEventListener('click', (e) => {
+    e.stopPropagation(); // Prevent card collapse when clicking accept
+    callbacks.onAcceptQuest(quest.id);
+  });
   buttonContainer.appendChild(acceptBtn);
 
   card.appendChild(buttonContainer);
@@ -435,14 +515,21 @@ function createQuestCardRefs(
     profitInfo,
     riskLine,
     riskBadgeSlot,
+    riskBadge,
+    riskBadgeLabel,
+    riskBadgeNarrative,
+    lastThreatLevel: '',
+    lastNarrative: '',
     payment,
     buttonContainer,
     acceptBtn,
     warningsDiv,
     reasonDiv,
+    lastSnapshot: null,
   };
 
-  header.addEventListener('click', () => {
+  // Make entire card clickable for expansion
+  card.addEventListener('click', () => {
     const expanded = questExpandedState.get(quest.id) || false;
     questExpandedState.set(quest.id, !expanded);
     syncCardExpansion(refs, quest.id, questExpandedState);
@@ -504,6 +591,9 @@ export function createWorkTab(
   const questExpandedState = new Map<string, boolean>();
   let currentJobFilter: 'all' | 'trade' | 'mining' | 'misc' = 'all';
   let lastLocationId = '';
+  // Track last quest order to skip unnecessary reordering
+  let lastTradeQuestOrder: string[] = [];
+  let lastRegularQuestOrder: string[] = [];
 
   // Mining status panel — self-contained component (created lazily)
   let miningPanel: ReturnType<typeof createMiningPanel> | null = null;
@@ -932,9 +1022,137 @@ export function createWorkTab(
       gd.world
     );
 
-    // Show soft warnings
-    if (warnings && warnings.length > 0) {
-      refs.warningsDiv.textContent = warnings.join(' ');
+    const category = categorizeQuest(quest, gd);
+
+    // Compute all derived display values up front
+    const profileFuelKg = resolved.estimatedFuelPerTrip;
+    const profileTimeSecs = resolved.estimatedTripTicks * GAME_SECONDS_PER_TICK;
+    const profileTimeTicks = resolved.estimatedTripTicks;
+
+    const perHour = (value: number): number =>
+      profileTimeSecs > 0
+        ? Math.round((value / profileTimeSecs) * GAME_SECONDS_PER_HOUR)
+        : 0;
+
+    const crewSalaryPerTick = calculateShipSalaryPerTick(ship);
+    const tripCrewCost = Math.round(crewSalaryPerTick * profileTimeTicks);
+
+    const currentLocation = gd.world.locations.find(
+      (l) => l.id === (ship.location.dockedAt || ship.location.orbitingAt)
+    );
+    const fuelPricePerKg = currentLocation
+      ? getFuelPricePerKg(currentLocation, ship)
+      : 2.0;
+    const tripFuelCost = Math.round(profileFuelKg * fuelPricePerKg);
+
+    const tripPayment =
+      resolved.paymentPerTrip > 0
+        ? resolved.paymentPerTrip
+        : quest.tripsRequired > 1
+          ? Math.round(resolved.paymentOnCompletion / quest.tripsRequired)
+          : resolved.paymentOnCompletion;
+
+    const totalCost = tripCrewCost + tripFuelCost;
+    const profit = tripPayment - totalCost;
+    const profitColor = profit >= 0 ? '#4caf50' : '#ff6b6b';
+    const profitSign = profit >= 0 ? '+' : '';
+
+    // Threat level
+    let threatLevel = '';
+    let threatNarrative = '';
+    if (origin && destination) {
+      const routeRisk = estimateRouteRisk(origin, destination, ship, gd.world);
+      const tl = getThreatLevel(routeRisk);
+      threatLevel = tl;
+      threatNarrative = getThreatNarrative(tl);
+    }
+
+    // Captain bonus
+    const hasCaptain = ship.crew.some((c) => c.isCaptain);
+    const bonusPercent = Math.round(getCommandCommerceBonus(ship) * 100);
+    let captainBonusText = '';
+    let captainBonusColor = '';
+    let captainHintText = '';
+    if (hasCaptain && bonusPercent > 0) {
+      captainBonusText = `Captain bonus: +${bonusPercent}%`;
+      captainBonusColor = '#fbbf24';
+    } else if (!hasCaptain) {
+      captainBonusText =
+        bonusPercent > 0 ? `Acting cpt: +${bonusPercent}%` : 'No command bonus';
+      captainBonusColor = '#6b7280';
+      const hypothetical = getHypotheticalCaptainBonus(ship, gd);
+      if (hypothetical > 0) {
+        captainHintText = `(Captain: +${Math.round(hypothetical * 100)}%)`;
+      }
+    }
+
+    // Payment text
+    let paymentText: string;
+    if (resolved.paymentPerTrip > 0) {
+      paymentText = `Payment: ${formatCredits(perHour(resolved.paymentPerTrip))}/hr (${formatCredits(resolved.paymentPerTrip)}/trip)`;
+    } else if (quest.tripsRequired > 1) {
+      paymentText = `Payment: ${formatCredits(resolved.paymentOnCompletion)} on completion (${formatCredits(perHour(tripPayment))}/hr)`;
+    } else {
+      paymentText = `Payment: ${formatCredits(resolved.paymentOnCompletion)} on completion (${formatCredits(perHour(resolved.paymentOnCompletion))}/hr)`;
+    }
+
+    // Build snapshot and compare
+    const snapshot: QuestSnapshot = {
+      canAccept,
+      reason: reason || '',
+      warnings: warnings ? warnings.join(' ') : '',
+      category,
+      destinationName: destination ? destination.name : 'Unknown',
+      title: quest.title,
+      description: resolved.description,
+      distanceText:
+        origin && destination
+          ? `Distance: ${formatDistance(Math.abs(origin.distanceFromEarth - destination.distanceFromEarth))}`
+          : '',
+      cargoText:
+        resolved.cargoRequired > 0
+          ? `Cargo: ${formatMass(resolved.cargoRequired)}`
+          : '',
+      totalCargoText:
+        quest.totalCargoRequired > 0
+          ? `Total cargo: ${formatMass(quest.totalCargoRequired)}`
+          : '',
+      tripsText:
+        quest.tripsRequired > 0
+          ? `Trips: ${quest.tripsRequired}`
+          : quest.tripsRequired === -1
+            ? 'Trips: Unlimited'
+            : '',
+      fuelText: `Fuel: ~${formatFuelMass(profileFuelKg)} per trip`,
+      timeText: `Time: ~${formatDualTime(profileTimeSecs)} per trip`,
+      crewCostText:
+        tripCrewCost > 0
+          ? `Crew Salaries: ~${formatCredits(perHour(tripCrewCost))}/hr`
+          : '',
+      fuelCostText: `Fuel Cost: ~${formatCredits(perHour(tripFuelCost))}/hr`,
+      profitText: `Est. Profit: ${profitSign}${formatCredits(perHour(profit))}/hr`,
+      profitColor,
+      paymentText,
+      threatLevel,
+      threatNarrative,
+      captainBonusText,
+      captainBonusColor,
+      captainHintText,
+    };
+
+    // Early exit if nothing changed — skip all DOM work
+    if (refs.lastSnapshot && questSnapshotsEqual(refs.lastSnapshot, snapshot)) {
+      // Still sync expansion state (user may have clicked header)
+      syncCardExpansion(refs, quest.id, questExpandedState);
+      return;
+    }
+    refs.lastSnapshot = snapshot;
+
+    // ── Apply snapshot to DOM ──
+
+    // Warnings
+    if (snapshot.warnings) {
+      refs.warningsDiv.textContent = snapshot.warnings;
       setDisplay(refs.warningsDiv, '');
     } else {
       setDisplay(refs.warningsDiv, 'none');
@@ -947,8 +1165,7 @@ export function createWorkTab(
       refs.card.classList.remove('disabled');
     }
 
-    // Update collapsible header
-    const category = categorizeQuest(quest, gd);
+    // Type badge
     const badgeConfig = {
       trade: { text: 'Trade', bg: '#4a90e2', color: '#fff' },
       mining: { text: 'Mining', bg: '#b87333', color: '#fff' },
@@ -959,138 +1176,106 @@ export function createWorkTab(
     refs.typeBadge.style.backgroundColor = config.bg;
     refs.typeBadge.style.color = config.color;
 
-    refs.headerDestination.textContent = destination
-      ? destination.name
-      : 'Unknown';
-
-    refs.title.textContent = quest.title;
-    refs.description.textContent = resolved.description;
+    refs.headerDestination.textContent = snapshot.destinationName;
+    refs.title.textContent = snapshot.title;
+    refs.description.textContent = snapshot.description;
 
     // Destination
     if (destination) {
-      refs.destInfo.textContent = `Destination: ${destination.name}`;
+      refs.destInfo.textContent = `Destination: ${snapshot.destinationName}`;
       setDisplay(refs.destInfo, '');
     } else {
       setDisplay(refs.destInfo, 'none');
     }
 
     // Distance
-    if (origin && destination) {
-      const distance = Math.abs(
-        origin.distanceFromEarth - destination.distanceFromEarth
-      );
-      refs.distanceInfo.textContent = `Distance: ${formatDistance(distance)}`;
+    if (snapshot.distanceText) {
+      refs.distanceInfo.textContent = snapshot.distanceText;
       setDisplay(refs.distanceInfo, '');
     } else {
       setDisplay(refs.distanceInfo, 'none');
     }
 
     // Cargo
-    if (resolved.cargoRequired > 0) {
-      refs.cargoInfo.textContent = `Cargo: ${formatMass(resolved.cargoRequired)}`;
+    if (snapshot.cargoText) {
+      refs.cargoInfo.textContent = snapshot.cargoText;
       setDisplay(refs.cargoInfo, '');
     } else {
       setDisplay(refs.cargoInfo, 'none');
     }
 
     // Total cargo
-    if (quest.totalCargoRequired > 0) {
-      refs.totalCargoInfo.textContent = `Total cargo: ${formatMass(quest.totalCargoRequired)}`;
+    if (snapshot.totalCargoText) {
+      refs.totalCargoInfo.textContent = snapshot.totalCargoText;
       setDisplay(refs.totalCargoInfo, '');
     } else {
       setDisplay(refs.totalCargoInfo, 'none');
     }
 
     // Trips
-    if (quest.tripsRequired > 0) {
-      refs.tripsInfo.textContent = `Trips: ${quest.tripsRequired}`;
-      setDisplay(refs.tripsInfo, '');
-    } else if (quest.tripsRequired === -1) {
-      refs.tripsInfo.textContent = 'Trips: Unlimited';
+    if (snapshot.tripsText) {
+      refs.tripsInfo.textContent = snapshot.tripsText;
       setDisplay(refs.tripsInfo, '');
     } else {
       setDisplay(refs.tripsInfo, 'none');
     }
 
-    // Fuel and time from resolved per-ship values
-    const profileFuelKg = resolved.estimatedFuelPerTrip;
-    const profileTimeSecs = resolved.estimatedTripTicks * GAME_SECONDS_PER_TICK;
-    const profileTimeTicks = resolved.estimatedTripTicks;
+    // Fuel and time
+    refs.fuelInfo.textContent = snapshot.fuelText;
+    refs.timeInfo.textContent = snapshot.timeText;
 
-    refs.fuelInfo.textContent = `Fuel: ~${formatFuelMass(profileFuelKg)} per trip`;
-    refs.timeInfo.textContent = `Time: ~${formatDualTime(profileTimeSecs)} per trip`;
-
-    // Helper: convert a per-trip value to a per-game-hour rate
-    const perHour = (value: number): number =>
-      profileTimeSecs > 0
-        ? Math.round((value / profileTimeSecs) * GAME_SECONDS_PER_HOUR)
-        : 0;
-
-    // Costs
-    const crewSalaryPerTick = calculateShipSalaryPerTick(ship);
-    const tripCrewCost = Math.round(crewSalaryPerTick * profileTimeTicks);
-
-    const currentLocation = gd.world.locations.find(
-      (l) => l.id === (ship.location.dockedAt || ship.location.orbitingAt)
-    );
-    const fuelPricePerKg = currentLocation
-      ? getFuelPricePerKg(currentLocation, ship)
-      : 2.0;
-    const tripFuelCost = Math.round(profileFuelKg * fuelPricePerKg);
-
-    if (tripCrewCost > 0) {
-      refs.crewCostInfo.textContent = `Crew Salaries: ~${formatCredits(perHour(tripCrewCost))}/hr`;
+    // Crew cost
+    if (snapshot.crewCostText) {
+      refs.crewCostInfo.textContent = snapshot.crewCostText;
       setDisplay(refs.crewCostInfo, '');
     } else {
       setDisplay(refs.crewCostInfo, 'none');
     }
 
-    refs.fuelCostInfo.textContent = `Fuel Cost: ~${formatCredits(perHour(tripFuelCost))}/hr`;
+    refs.fuelCostInfo.textContent = snapshot.fuelCostText;
 
-    // For lump-sum multi-trip contracts, divide by trips for per-trip comparison
-    const tripPayment =
-      resolved.paymentPerTrip > 0
-        ? resolved.paymentPerTrip
-        : quest.tripsRequired > 1
-          ? Math.round(resolved.paymentOnCompletion / quest.tripsRequired)
-          : resolved.paymentOnCompletion;
-
-    // Captain command bonus attribution
-    updateCaptainBonusDisplay(refs, ship, gd);
+    // Captain bonus (inline instead of calling updateCaptainBonusDisplay)
+    if (snapshot.captainBonusText) {
+      refs.captainBonusInfo.textContent = snapshot.captainBonusText;
+      refs.captainBonusInfo.style.color = snapshot.captainBonusColor;
+      setDisplay(refs.captainBonusInfo, '');
+    } else {
+      setDisplay(refs.captainBonusInfo, 'none');
+    }
+    if (snapshot.captainHintText) {
+      refs.captainHintInfo.textContent = snapshot.captainHintText;
+      setDisplay(refs.captainHintInfo, '');
+    } else {
+      setDisplay(refs.captainHintInfo, 'none');
+    }
 
     // Profit
-    const totalCost = tripCrewCost + tripFuelCost;
-    const profit = tripPayment - totalCost;
+    refs.profitInfo.style.color = snapshot.profitColor;
+    refs.profitInfo.textContent = snapshot.profitText;
 
-    refs.profitInfo.style.color = profit >= 0 ? '#4caf50' : '#ff6b6b';
-    refs.profitInfo.textContent = `Est. Profit: ${profit >= 0 ? '+' : ''}${formatCredits(perHour(profit))}/hr`;
+    // Header profit
+    refs.headerProfit.style.color = snapshot.profitColor;
+    refs.headerProfit.textContent = `${profitSign}${formatCredits(perHour(profit))}/hr`;
 
-    // Update header profit
-    refs.headerProfit.style.color = profit >= 0 ? '#4caf50' : '#ff6b6b';
-    refs.headerProfit.textContent = `${profit >= 0 ? '+' : ''}${formatCredits(perHour(profit))}/hr`;
-
-    // Route risk
-    if (origin && destination) {
-      const routeRisk = estimateRouteRisk(origin, destination, ship, gd.world);
-      const threatLevel = getThreatLevel(routeRisk);
-      const narrative = getThreatNarrative(threatLevel);
-
-      // Replace badge in slot (leaf helper — transient)
-      refs.riskBadgeSlot.textContent = '';
-      refs.riskBadgeSlot.appendChild(renderThreatBadge(threatLevel, narrative));
+    // Route risk — update stable badge in-place instead of recreating
+    if (snapshot.threatLevel) {
+      const tl = snapshot.threatLevel as ThreatLevel;
+      if (refs.lastThreatLevel !== snapshot.threatLevel) {
+        refs.riskBadge.className = `threat-badge threat-${tl}`;
+        refs.riskBadgeLabel.textContent = tl.toUpperCase();
+        refs.lastThreatLevel = snapshot.threatLevel;
+      }
+      if (refs.lastNarrative !== snapshot.threatNarrative) {
+        refs.riskBadgeNarrative.textContent = snapshot.threatNarrative;
+        refs.lastNarrative = snapshot.threatNarrative;
+      }
       setDisplay(refs.riskLine, 'flex');
     } else {
       setDisplay(refs.riskLine, 'none');
     }
 
-    // Payment — show per-hour rate for comparability across different trip distances
-    if (resolved.paymentPerTrip > 0) {
-      refs.payment.textContent = `Payment: ${formatCredits(perHour(resolved.paymentPerTrip))}/hr (${formatCredits(resolved.paymentPerTrip)}/trip)`;
-    } else if (quest.tripsRequired > 1) {
-      refs.payment.textContent = `Payment: ${formatCredits(resolved.paymentOnCompletion)} on completion (${formatCredits(perHour(tripPayment))}/hr)`;
-    } else {
-      refs.payment.textContent = `Payment: ${formatCredits(resolved.paymentOnCompletion)} on completion (${formatCredits(perHour(resolved.paymentOnCompletion))}/hr)`;
-    }
+    // Payment
+    refs.payment.textContent = snapshot.paymentText;
 
     // Buttons vs reason
     if (canAccept) {
@@ -1098,8 +1283,8 @@ export function createWorkTab(
       setDisplay(refs.reasonDiv, 'none');
     } else {
       setDisplay(refs.buttonContainer, 'none');
-      if (reason) {
-        refs.reasonDiv.textContent = reason;
+      if (snapshot.reason) {
+        refs.reasonDiv.textContent = snapshot.reason;
         setDisplay(refs.reasonDiv, '');
       } else {
         setDisplay(refs.reasonDiv, 'none');
@@ -1213,10 +1398,12 @@ export function createWorkTab(
     setDisplay(noContractRefs.shipContext, '');
     noContractRefs.shipContextName.textContent = ship.name;
 
-    // Check for location change and reset filter if needed
+    // Check for location change and reset filter + order tracking if needed
     if (lastLocationId !== locationData.id) {
       currentJobFilter = 'all';
       lastLocationId = locationData.id;
+      lastTradeQuestOrder = [];
+      lastRegularQuestOrder = [];
     }
 
     // Show and sync filter bar
@@ -1244,11 +1431,12 @@ export function createWorkTab(
       });
 
       // Reconcile trade quest cards
-      reconcileQuestCards(
+      lastTradeQuestOrder = reconcileQuestCards(
         tradeQuestCards,
         noContractRefs.tradeCardsContainer,
         sortedTrade,
-        gd
+        gd,
+        lastTradeQuestOrder
       );
     } else {
       setDisplay(noContractRefs.tradeSection, 'none');
@@ -1287,11 +1475,12 @@ export function createWorkTab(
           return a.id.localeCompare(b.id);
         });
 
-        reconcileQuestCards(
+        lastRegularQuestOrder = reconcileQuestCards(
           regularQuestCards,
           noContractRefs.contractCardsContainer,
           sortedQuests,
-          gd
+          gd,
+          lastRegularQuestOrder
         );
       } else {
         // No regular quests but trade routes exist — clean up
@@ -1341,17 +1530,22 @@ export function createWorkTab(
     }
   }
 
-  /** Reconcile a Map of quest card refs with the current quest list. */
+  /** Reconcile a Map of quest card refs with the current quest list.
+   *  Only reorders DOM children when the quest ID order actually changes. */
   function reconcileQuestCards(
     cardMap: Map<string, QuestCardRefs>,
     parentEl: HTMLElement,
     quests: Quest[],
-    gd: GameData
-  ): void {
+    gd: GameData,
+    lastOrder: string[]
+  ): string[] {
     const currentIds = new Set<string>();
+    const newOrder: string[] = [];
+    let addedOrRemoved = false;
 
     for (const quest of quests) {
       currentIds.add(quest.id);
+      newOrder.push(quest.id);
 
       let refs = cardMap.get(quest.id);
       if (!refs) {
@@ -1365,6 +1559,7 @@ export function createWorkTab(
         );
         cardMap.set(quest.id, refs);
         parentEl.appendChild(refs.card);
+        addedOrRemoved = true;
       } else {
         // Existing quest — update in place
         updateQuestCardRefs(refs, quest, gd);
@@ -1376,18 +1571,27 @@ export function createWorkTab(
       if (!currentIds.has(id)) {
         refs.card.remove();
         cardMap.delete(id);
-        // Clean up expansion state for removed quest
         questExpandedState.delete(id);
+        addedOrRemoved = true;
       }
     }
 
-    // Ensure correct order
-    for (const quest of quests) {
-      const refs = cardMap.get(quest.id);
-      if (refs) {
-        parentEl.appendChild(refs.card);
+    // Only reorder DOM children when order actually changed
+    const orderChanged =
+      addedOrRemoved ||
+      newOrder.length !== lastOrder.length ||
+      newOrder.some((id, i) => id !== lastOrder[i]);
+
+    if (orderChanged) {
+      for (const quest of quests) {
+        const refs = cardMap.get(quest.id);
+        if (refs) {
+          parentEl.appendChild(refs.card);
+        }
       }
     }
+
+    return newOrder;
   }
 
   // ── Update: Active Contract Phase ───────────────────────────
@@ -1547,38 +1751,4 @@ export function createWorkTab(
   // Initial render
   update(gameData);
   return { el: container, update };
-}
-
-function updateCaptainBonusDisplay(
-  refs: QuestCardRefs,
-  ship: Ship,
-  gd: GameData
-): void {
-  const hasCaptain = ship.crew.some((c) => c.isCaptain);
-  const bonusPercent = Math.round(getCommandCommerceBonus(ship) * 100);
-
-  if (hasCaptain && bonusPercent > 0) {
-    refs.captainBonusInfo.textContent = `Captain bonus: +${bonusPercent}%`;
-    refs.captainBonusInfo.style.color = '#fbbf24';
-    setDisplay(refs.captainBonusInfo, '');
-    setDisplay(refs.captainHintInfo, 'none');
-  } else if (!hasCaptain) {
-    if (bonusPercent > 0) {
-      refs.captainBonusInfo.textContent = `Acting cpt: +${bonusPercent}%`;
-    } else {
-      refs.captainBonusInfo.textContent = 'No command bonus';
-    }
-    refs.captainBonusInfo.style.color = '#6b7280';
-    setDisplay(refs.captainBonusInfo, '');
-    const hypothetical = getHypotheticalCaptainBonus(ship, gd);
-    if (hypothetical > 0) {
-      refs.captainHintInfo.textContent = `(Captain: +${Math.round(hypothetical * 100)}%)`;
-      setDisplay(refs.captainHintInfo, '');
-    } else {
-      setDisplay(refs.captainHintInfo, 'none');
-    }
-  } else {
-    setDisplay(refs.captainBonusInfo, 'none');
-    setDisplay(refs.captainHintInfo, 'none');
-  }
 }
