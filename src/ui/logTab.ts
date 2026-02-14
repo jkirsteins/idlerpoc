@@ -64,6 +64,9 @@ export function createLogTab(gameData: GameData): Component {
   shipFilterLabel.textContent = '|  Ship:';
   shipFilterLabel.style.marginLeft = '0.5rem';
   shipFilterLabel.style.color = '#888';
+  shipFilterLabel.style.display = 'flex';
+  shipFilterLabel.style.alignItems = 'center';
+  shipFilterLabel.style.fontSize = '0.85rem';
   filterBar.appendChild(shipFilterLabel);
 
   // Ship filter dropdown and buttons
