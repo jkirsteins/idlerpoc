@@ -1,4 +1,4 @@
-import type { GameData, WorldLocation, Quest, Ship } from '../models';
+import type { GameData, WorldLocation, Ship } from '../models';
 import { getActiveShip } from '../models';
 import { getLocationTypeTemplate } from '../spaceLocations';
 import {
@@ -6,7 +6,7 @@ import {
   getUnreachableReason,
   getDistanceBetween,
 } from '../worldGen';
-import { formatDistance, formatCredits } from '../formatting';
+import { formatDistance } from '../formatting';
 import { getGravityDegradationLevel } from '../gravitySystem';
 import {
   getShipPositionKm,
@@ -39,56 +39,6 @@ const NAV_SERVICE_LABELS: Record<string, { icon: string; label: string }> = {
   hire: { icon: '\uD83D\uDC64', label: 'Hire' },
   mine: { icon: '\u26CF\uFE0F', label: 'Mine' },
 };
-
-const QUEST_TYPE_ICONS: Record<string, string> = {
-  delivery: '\uD83D\uDCE6',
-  passenger: '\uD83D\uDC65',
-  freight: '\uD83D\uDE9A',
-  trade_route: '\uD83D\uDD04',
-  rescue: '\uD83C\uDD98',
-};
-
-interface NavContractInfo {
-  quest: Quest;
-  relationship: 'from here' | 'to here';
-  isActive: boolean;
-}
-
-function getContractsForLocation(
-  locationId: string,
-  gameData: GameData,
-  ship: Ship
-): NavContractInfo[] {
-  const result: NavContractInfo[] = [];
-
-  // Active contract
-  if (ship.activeContract) {
-    const q = ship.activeContract.quest;
-    if (q.origin === locationId) {
-      result.push({ quest: q, relationship: 'from here', isActive: true });
-    } else if (q.destination === locationId) {
-      result.push({ quest: q, relationship: 'to here', isActive: true });
-    }
-  }
-
-  // Available contracts originating from this location
-  const fromHere = gameData.availableQuests[locationId] || [];
-  for (const q of fromHere) {
-    result.push({ quest: q, relationship: 'from here', isActive: false });
-  }
-
-  // Available contracts destined for this location (from other origins)
-  for (const [originId, quests] of Object.entries(gameData.availableQuests)) {
-    if (originId === locationId) continue;
-    for (const q of quests) {
-      if (q.destination === locationId) {
-        result.push({ quest: q, relationship: 'to here', isActive: false });
-      }
-    }
-  }
-
-  return result;
-}
 
 export interface NavigationViewCallbacks {
   onToggleNavigation: () => void;
@@ -674,18 +624,12 @@ interface SelectionOverlayRefs {
   headerName: HTMLElement;
   closeBtn: HTMLElement;
   infoRow: HTMLElement;
-  description: HTMLElement;
-  contractsContainer: HTMLElement;
   alignmentLine: HTMLElement;
   riskLine: HTMLElement;
   gravAssistLine: HTMLElement;
   gravityWarning: HTMLElement;
   overlayTravelInfo: HTMLElement;
-  overlayTravelButton: HTMLButtonElement;
-  overlayUnreachable: HTMLElement;
-  overlayCurrentBadge: HTMLElement;
-  overlayDestBadge: HTMLElement;
-  overlayStatusText: HTMLElement;
+  overlayActionButton: HTMLButtonElement;
 }
 
 /** Create the selection overlay DOM — appended to orrery map area */
@@ -740,47 +684,15 @@ function createSelectionOverlay(onClose: () => void): SelectionOverlayRefs {
     'font-size: 0.8em; color: #fbbf24; margin-top: 2px; display: none;';
   content.appendChild(gravityWarning);
 
-  const description = document.createElement('div');
-  description.style.cssText =
-    'font-size: 0.8em; color: #888; margin-top: 4px; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;';
-  content.appendChild(description);
-
-  const contractsContainer = document.createElement('div');
-  contractsContainer.style.cssText =
-    'border-top: 1px solid rgba(255,255,255,0.06); padding-top: 4px; margin-top: 6px; display: none;';
-  content.appendChild(contractsContainer);
-
   const overlayTravelInfo = document.createElement('div');
   overlayTravelInfo.style.cssText =
     'font-size: 0.8em; color: #4ade80; margin-top: 4px; white-space: nowrap; display: none;';
   content.appendChild(overlayTravelInfo);
 
-  const overlayCurrentBadge = document.createElement('div');
-  overlayCurrentBadge.className = 'nav-current-label';
-  overlayCurrentBadge.style.cssText = 'margin-top: 6px; display: none;';
-  overlayCurrentBadge.textContent = 'Current Location';
-  content.appendChild(overlayCurrentBadge);
-
-  const overlayDestBadge = document.createElement('div');
-  overlayDestBadge.className = 'nav-current-label';
-  overlayDestBadge.style.cssText = 'margin-top: 6px; display: none;';
-  overlayDestBadge.textContent = 'Destination';
-  content.appendChild(overlayDestBadge);
-
-  const overlayStatusText = document.createElement('div');
-  overlayStatusText.className = 'nav-travel-disabled-reason';
-  overlayStatusText.style.cssText = 'margin-top: 4px; display: none;';
-  content.appendChild(overlayStatusText);
-
-  const overlayTravelButton = document.createElement('button');
-  overlayTravelButton.className = 'nav-travel-button';
-  overlayTravelButton.style.cssText = 'margin-top: 6px; display: none;';
-  content.appendChild(overlayTravelButton);
-
-  const overlayUnreachable = document.createElement('div');
-  overlayUnreachable.className = 'nav-travel-disabled-reason';
-  overlayUnreachable.style.cssText = 'margin-top: 4px; display: none;';
-  content.appendChild(overlayUnreachable);
+  const overlayActionButton = document.createElement('button');
+  overlayActionButton.className = 'nav-travel-button';
+  overlayActionButton.style.cssText = 'margin-top: 6px;';
+  content.appendChild(overlayActionButton);
 
   wrapper.appendChild(content);
   return {
@@ -789,18 +701,12 @@ function createSelectionOverlay(onClose: () => void): SelectionOverlayRefs {
     headerName,
     closeBtn,
     infoRow,
-    description,
-    contractsContainer,
     alignmentLine,
     riskLine,
     gravAssistLine,
     gravityWarning,
     overlayTravelInfo,
-    overlayTravelButton,
-    overlayUnreachable,
-    overlayCurrentBadge,
-    overlayDestBadge,
-    overlayStatusText,
+    overlayActionButton,
   };
 }
 
@@ -858,11 +764,6 @@ function updateSelectionOverlay(
   const infoText = svcText ? `${distText} | ${svcText}` : distText;
   if (overlay.infoRow.textContent !== infoText) {
     overlay.infoRow.textContent = infoText;
-  }
-
-  // Description
-  if (overlay.description.textContent !== location.description) {
-    overlay.description.textContent = location.description;
   }
 
   // Alignment
@@ -995,83 +896,18 @@ function updateSelectionOverlay(
     overlay.gravityWarning.style.display = 'none';
   }
 
-  // Contracts
-  const contracts = getContractsForLocation(location.id, gd, ship);
-  if (contracts.length > 0) {
-    overlay.contractsContainer.style.display = '';
-    const contractKey = contracts
-      .map((c) => `${c.quest.id}:${c.isActive}:${c.relationship}`)
-      .join('|');
-    const prevKey = overlay.contractsContainer.getAttribute(
-      'data-contracts-cache'
-    );
-    if (contractKey !== prevKey) {
-      while (overlay.contractsContainer.firstChild) {
-        overlay.contractsContainer.removeChild(
-          overlay.contractsContainer.firstChild
-        );
-      }
-      const cHeader = document.createElement('div');
-      cHeader.style.cssText =
-        'font-size: 0.8em; color: #4a9eff; margin-bottom: 4px; font-weight: 600;';
-      cHeader.textContent = 'Contracts:';
-      overlay.contractsContainer.appendChild(cHeader);
-      for (const info of contracts) {
-        const line = document.createElement('div');
-        line.style.cssText =
-          'font-size: 0.8em; color: #ccc; padding: 2px 0; display: flex; align-items: center; gap: 4px;';
-        const icon = QUEST_TYPE_ICONS[info.quest.type] || '\u2753';
-        const iconSpan = document.createElement('span');
-        iconSpan.textContent = icon;
-        line.appendChild(iconSpan);
-        const titleSpan = document.createElement('span');
-        titleSpan.style.cssText =
-          'flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;';
-        titleSpan.textContent = info.quest.title;
-        line.appendChild(titleSpan);
-        const paySpan = document.createElement('span');
-        paySpan.style.cssText =
-          'color: #4ade80; white-space: nowrap; font-size: 0.85em;';
-        const totalPay =
-          info.quest.paymentPerTrip > 0
-            ? info.quest.paymentPerTrip
-            : info.quest.paymentOnCompletion;
-        paySpan.textContent = formatCredits(totalPay);
-        line.appendChild(paySpan);
-        if (info.isActive) {
-          const badge = document.createElement('span');
-          badge.style.cssText =
-            'font-size: 0.7em; padding: 1px 4px; border-radius: 3px; background: #4a9eff; color: #fff; font-weight: 700;';
-          badge.textContent = 'ACTIVE';
-          line.appendChild(badge);
-        } else {
-          const relSpan = document.createElement('span');
-          relSpan.style.cssText = 'font-size: 0.7em; color: #888;';
-          relSpan.textContent = info.relationship;
-          line.appendChild(relSpan);
-        }
-        overlay.contractsContainer.appendChild(line);
-      }
-      overlay.contractsContainer.setAttribute(
-        'data-contracts-cache',
-        contractKey
-      );
-    }
-  } else {
-    overlay.contractsContainer.style.display = 'none';
-  }
-
-  // Overlay action area
-  overlay.overlayCurrentBadge.style.display = 'none';
-  overlay.overlayDestBadge.style.display = 'none';
-  overlay.overlayStatusText.style.display = 'none';
-  overlay.overlayTravelButton.style.display = 'none';
-  overlay.overlayUnreachable.style.display = 'none';
-
+  // Action button — always visible, greyed out when not actionable
+  const btn = overlay.overlayActionButton;
   if (isCurrent) {
-    overlay.overlayCurrentBadge.style.display = '';
+    btn.textContent = 'Current location';
+    btn.disabled = true;
+    btn.title = '';
+    btn.onclick = null;
   } else if (isFlightDest) {
-    overlay.overlayDestBadge.style.display = '';
+    btn.textContent = 'En route';
+    btn.disabled = true;
+    btn.title = '';
+    btn.onclick = null;
   } else if (!canStartTrips) {
     let reason: string;
     if (ship.activeContract) {
@@ -1081,30 +917,27 @@ function updateSelectionOverlay(
     } else {
       reason = 'Unavailable';
     }
-    if (overlay.overlayStatusText.textContent !== reason) {
-      overlay.overlayStatusText.textContent = reason;
-    }
-    overlay.overlayStatusText.style.display = '';
+    btn.textContent = reason;
+    btn.disabled = true;
+    btn.title = '';
+    btn.onclick = null;
   } else if (reachable && ctx.onStartTrip) {
-    const btnText = isInFlight
-      ? `Redirect to ${location.name}`
-      : `Travel to ${location.name}`;
-    if (overlay.overlayTravelButton.textContent !== btnText) {
-      overlay.overlayTravelButton.textContent = btnText;
-    }
-    overlay.overlayTravelButton.onclick = (e) => {
+    btn.textContent = isInFlight ? 'Redirect here' : 'Fly';
+    btn.disabled = false;
+    btn.title = '';
+    const startTrip = ctx.onStartTrip;
+    const locId = location.id;
+    btn.onclick = (e) => {
       e.stopPropagation();
-      if (ctx.onStartTrip) ctx.onStartTrip(location.id);
+      startTrip(locId);
     };
-    overlay.overlayTravelButton.style.display = '';
   } else {
-    const reason = getUnreachableReason(ship, location, virtualOrigin);
-    if (reason) {
-      if (overlay.overlayUnreachable.textContent !== reason) {
-        overlay.overlayUnreachable.textContent = reason;
-      }
-      overlay.overlayUnreachable.style.display = '';
-    }
+    const reason =
+      getUnreachableReason(ship, location, virtualOrigin) || 'Unreachable';
+    btn.textContent = reason;
+    btn.disabled = true;
+    btn.title = '';
+    btn.onclick = null;
   }
 }
 
@@ -1118,8 +951,9 @@ export function createNavigationView(
   // Persistent flight profile slider — created once
   const profileControl = createFlightProfileControl(gameData);
 
-  // Track latest gameData for handlers that close over it
+  // Track latest gameData and UpdateCtx for handlers that close over them
   let latestGameData = gameData;
+  let latestCtx: UpdateCtx | null = null;
 
   // Selection state — links map dots to legend cards
   let selectedLocationId: string | null = null;
@@ -1548,6 +1382,18 @@ export function createNavigationView(
     const legendItem = createLegendItemDom(
       location,
       () => {
+        // If this is a cluster child and we're in overview, switch to focus mode
+        if (
+          orreryMode.type === 'overview' &&
+          clusterMemberIds.has(location.id)
+        ) {
+          const parentId = location.orbital?.parentId;
+          if (parentId && clusterParentIds.has(parentId)) {
+            selectedLocationId = location.id;
+            switchToFocus(parentId);
+            return;
+          }
+        }
         selectedLocationId = location.id;
         applySelection();
       },
@@ -1589,9 +1435,10 @@ export function createNavigationView(
       }
     }
 
-    // Overlay is updated by updateSelectionOverlay() on each tick
-    // but also do an immediate update if we have context
-    if (!selectedLocationId) {
+    // Immediately update overlay (don't wait for next tick)
+    if (latestCtx) {
+      updateSelectionOverlay(selectionOverlay, selectedLocationId, latestCtx);
+    } else if (!selectedLocationId) {
       selectionOverlay.content.style.display = 'none';
     }
   }
@@ -1876,6 +1723,9 @@ export function createNavigationView(
       onStartTrip: callbacks.onStartTrip,
     };
 
+    // Store ctx for immediate overlay updates in applySelection()
+    latestCtx = ctx;
+
     if (orreryMode.type === 'overview') {
       updateOverview(ctx);
     } else {
@@ -2004,9 +1854,10 @@ export function createNavigationView(
       const isChild = clusterMemberIds.has(location.id);
 
       if (isChild) {
-        // Hide cluster children in overview
+        // Hide cluster children markers in overview, but keep legend visible
         hideMarker(refs);
-        legendRefs.item.style.display = 'none';
+        legendRefs.item.style.display = '';
+        updateLegendItem(location, legendRefs, ctx);
         continue;
       }
 
