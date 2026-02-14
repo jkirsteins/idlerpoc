@@ -27,6 +27,7 @@ import {
   getProvisionsSurvivalDays,
 } from '../provisionsSystem';
 import { isHelmManned } from '../jobSlots';
+import { createFleetPanel } from './fleetPanel';
 
 interface SidebarCallbacks {
   onBuyFuel?: () => void;
@@ -36,6 +37,7 @@ interface SidebarCallbacks {
   onTogglePause?: () => void;
   onSetSpeed?: (speed: 1 | 2 | 5) => void;
   onTabChange?: (tab: PlayingTab) => void;
+  onSelectShip?: (shipId: string) => void;
 }
 
 export function createLeftSidebar(
@@ -44,6 +46,17 @@ export function createLeftSidebar(
 ): Component {
   const sidebar = document.createElement('div');
   sidebar.className = 'left-sidebar';
+
+  // ── FLEET PANEL SECTION (compact mode) ──
+  let fleetPanelComponent: Component | null = null;
+  if (callbacks.onSelectShip && gameData.ships.length > 0) {
+    fleetPanelComponent = createFleetPanel(
+      gameData,
+      { onSelectShip: callbacks.onSelectShip },
+      'compact'
+    );
+    sidebar.appendChild(fleetPanelComponent.el);
+  }
 
   // ── TIME CONTROLS SECTION ──
   const timeControlsSection = document.createElement('div');
@@ -202,6 +215,11 @@ export function createLeftSidebar(
   // ── UPDATE FUNCTION ──
   function update(gameData: GameData): void {
     const ship = getActiveShip(gameData);
+
+    // Update fleet panel if present
+    if (fleetPanelComponent) {
+      fleetPanelComponent.update(gameData);
+    }
 
     // Time display
     timeDisplay.textContent = formatGameDate(gameData.gameTime);
