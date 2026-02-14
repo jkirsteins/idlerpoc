@@ -33,7 +33,8 @@
       "Bash(./node_modules/.bin/vite build:*)",
       "Bash(git push:*)",
       "Bash(git fetch:*)",
-      "Bash(gh api:*)"
+      "Bash(gh api:*)",
+      "Bash(pdftotext:*)"
     ]
   }
 }
