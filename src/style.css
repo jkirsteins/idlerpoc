@@ -1760,18 +1760,21 @@ button:disabled:hover {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 4px;
 }
 
 .crew-detail-header {
-  text-align: center;
-  padding-bottom: 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding-bottom: 4px;
   border-bottom: 1px solid #0f3460;
 }
 
 .crew-detail-header h2 {
-  margin: 0 0 4px 0;
-  font-size: 24px;
+  margin: 0;
+  font-size: 16px;
+  white-space: nowrap;
 }
 
 .crew-detail-role {
@@ -3191,19 +3194,6 @@ button:disabled:hover {
   50% {
     opacity: 0.5;
   }
-}
-
-/* Stats Display */
-.stat-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0.5rem 0;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.stat-row:last-child {
-  border-bottom: none;
 }
 
 .stat-label {
