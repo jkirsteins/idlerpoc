@@ -21,7 +21,7 @@
  */
 
 import type { Ship, GameData, OreId, WorldLocation } from './models';
-import { getShipCommander } from './models';
+import { getShipCommander, getFinancials } from './models';
 import {
   getCommandMiningBonus,
   getFleetAuraIncomeMultiplier,
@@ -532,6 +532,7 @@ export function sellOre(
   gameData.credits += boostedCredits;
   gameData.lifetimeCreditsEarned += boostedCredits;
   ship.metrics.creditsEarned += boostedCredits;
+  getFinancials(gameData).incomeOreSales += boostedCredits;
 
   // Award commerce mastery XP to ship commander (captain or acting CO)
   const captain = getShipCommander(ship);

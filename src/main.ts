@@ -17,7 +17,7 @@ import {
   snapshotContracts,
   snapshotRoutes,
 } from './catchUpReportBuilder';
-import { getActiveShip } from './models';
+import { getActiveShip, getFinancials } from './models';
 import { createNewGame, createAdditionalShip } from './gameFactory';
 import { saveGame, loadGame, clearGame, importGame } from './storage';
 import { render, type GameState, type RendererCallbacks } from './ui/renderer';
@@ -740,6 +740,7 @@ const callbacks: RendererCallbacks = {
 
           // Track fuel costs in metrics
           ship.metrics.fuelCostsPaid += totalCost;
+          getFinancials(state.gameData).expenseFuel += totalCost;
 
           // Log the purchase
           addLog(
@@ -876,6 +877,7 @@ const callbacks: RendererCallbacks = {
     if (state.gameData.credits < crew.hireCost) return;
 
     state.gameData.credits -= crew.hireCost;
+    getFinancials(state.gameData).expenseCrewHiring += crew.hireCost;
 
     // Set service record timestamps and origin
     crew.hiredAt = state.gameData.gameTime;
@@ -912,6 +914,7 @@ const callbacks: RendererCallbacks = {
     if (state.gameData.credits < equipDef.value) return;
 
     state.gameData.credits -= equipDef.value;
+    getFinancials(state.gameData).expenseEquipment += equipDef.value;
 
     ship.cargo.push({
       id: Math.random().toString(36).substring(2, 11),
@@ -958,6 +961,7 @@ const callbacks: RendererCallbacks = {
     const sellPrice = Math.floor(equipDef.value * 0.5);
 
     state.gameData.credits += sellPrice;
+    getFinancials(state.gameData).incomeEquipmentSales += sellPrice;
 
     addLog(
       state.gameData.log,
@@ -1017,6 +1021,7 @@ const callbacks: RendererCallbacks = {
     }
 
     state.gameData.credits -= netCost;
+    getFinancials(state.gameData).expenseShipEquipment += netCost;
 
     // Install new equipment
     const newEquip = {
@@ -1079,6 +1084,7 @@ const callbacks: RendererCallbacks = {
     if (!canAffordResources(state.gameData.ships, shipClass)) return;
 
     state.gameData.credits -= shipClass.price;
+    getFinancials(state.gameData).expenseShipPurchases += shipClass.price;
     deductResourceCost(state.gameData, shipClass);
 
     const stationId = activeShip.location.dockedAt!;

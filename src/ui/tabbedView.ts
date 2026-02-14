@@ -7,6 +7,7 @@ import { createShipTab } from './shipTab';
 import { createCrewTab } from './crewTab';
 import { createWorkTab } from './workTab';
 import { createFleetTab } from './fleetTab';
+import { createFinancesTab } from './financesTab';
 import { createLogTab } from './logTab';
 import { createSettingsTab } from './settingsTab';
 import { createGamepediaTab } from './gamepediaTab';
@@ -106,6 +107,7 @@ export function createTabbedView(
     { label: 'Work', tab: 'work' },
     { label: 'Nav', tab: 'nav' },
     { label: 'Fleet', tab: 'fleet' },
+    { label: 'Finances', tab: 'finances' },
     { label: 'Log', tab: 'log' },
     { label: 'Guide', tab: 'guide' },
     { label: 'Settings', tab: 'settings' },
@@ -213,6 +215,8 @@ export function createTabbedView(
             callbacks.onTabChange('nav');
           },
         });
+      case 'finances':
+        return createFinancesTab(gameData);
       case 'log':
         return createLogTab(gameData);
       case 'guide':

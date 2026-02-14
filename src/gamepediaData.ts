@@ -249,6 +249,97 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
   },
 
   {
+    id: 'finances-tab',
+    title: 'Finances Tab',
+    category: 'Core Systems',
+    summary:
+      'Comprehensive financial dashboard showing net worth, daily cash flow, and lifetime income/expense breakdown by category.',
+    sections: [
+      {
+        paragraphs: [
+          "The Finances tab provides a complete view of your financial situation — a ship accountant's terminal showing all assets, all cash flows, net gain/loss per day, and lifetime earnings broken down by category.",
+          'This tab is available from the main navigation bar. It tracks every credit earned and spent, categorized by source (contracts, mining, bounties, equipment sales) and type (fuel, salaries, provisions, purchases, combat losses).',
+        ],
+      },
+      {
+        heading: 'Summary Banner',
+        paragraphs: [
+          '**Net Worth**: Total value of all your assets — cash, ships, equipment, fuel, provisions, and ore cargo. Assets are valued at base market rates (not location-specific) to provide a stable benchmark.',
+          "**Daily Net**: Your daily income minus daily expenses. Green means you're making money; red means you're losing money. The [[credits-economy|Daily Ledger]] uses the same calculation.",
+          '**Runway**: How many days your current cash will last at your current burn rate. Only shown if your daily net is negative. If the runway is low (under 30 days), you need to take action soon — accept profitable [[contracts|contracts]], cut [[crew-salaries|crew]], or optimize routes.',
+        ],
+      },
+      {
+        heading: 'Assets Breakdown',
+        paragraphs: [
+          'Shows the current value of everything you own:',
+          '**Cash**: Your current [[credits-economy|credit]] balance.',
+          '**Ships**: Total purchase price of all [[ship-classes|ships]] in your fleet.',
+          '**Ship Equipment**: Value of installed [[ship-equipment|ship equipment]] like mining lasers and point defense.',
+          '**Crew Equipment**: Value of [[crew-equipment|crew equipment]] in cargo holds and equipped on crew members.',
+          '**Fuel**: Value of fuel aboard all ships, calculated at base fuel price (2 cr/kg).',
+          '**Provisions**: Value of [[provisions|provisions]] aboard all ships (0.5 cr/kg).',
+          '**Ore Cargo**: Value of unrefined [[ore-types|ore]] waiting to be sold.',
+        ],
+      },
+      {
+        heading: 'Daily Cash Flow',
+        paragraphs: [
+          'Estimates your daily income and expenses to show whether your fleet is profitable:',
+          '**Income (7-day avg)**: Average credits earned per game day over the past 7 days, from [[contracts|contracts]], [[mining-system|ore sales]], [[encounters|combat bounties]], and equipment sales. The average smooths out the lumpy nature of contract payments.',
+          "**Crew Salaries**: Fixed daily cost based on your fleet's [[crew-salaries|crew composition]]. This is deterministic — it will not change unless you hire or lose crew.",
+          '**Fuel (projected)**: Estimated fuel costs per day based on active [[contracts|trade routes]], [[mining-system|mining routes]], and contracts. This is an approximation — actual fuel costs vary by route efficiency and combat encounters.',
+          "**Net Per Day**: Income minus expenses. Positive is good; negative means you're burning through savings.",
+        ],
+      },
+      {
+        heading: 'Lifetime Finances',
+        paragraphs: [
+          'Tracks all income and expenses since the start of your game, categorized for accountability:',
+        ],
+      },
+      {
+        heading: 'Income Categories',
+        paragraphs: [
+          '**Contracts**: All payments from [[contracts|contracts and trade routes]].',
+          '**Ore Sales**: Revenue from selling [[ore-types|mined ore]] at stations.',
+          '**Bounties**: Credits earned from [[encounters|combat]] victories.',
+          '**Equipment Sales**: Revenue from selling [[crew-equipment|crew equipment]].',
+        ],
+      },
+      {
+        heading: 'Expense Categories',
+        paragraphs: [
+          '**Crew Salaries**: All [[crew-salaries|daily salary]] payments to crew members.',
+          '**Fuel**: All fuel purchases (manual refuels and automatic route refuels).',
+          '**Provisions**: All [[provisions|provisions]] resupply purchases.',
+          '**Crew Hiring**: Upfront hiring costs for [[crew-hiring|new crew members]].',
+          '**Crew Equipment**: Purchases of [[crew-equipment|personal equipment]] for crew.',
+          '**Ship Equipment**: Purchases of [[ship-equipment|ship equipment]] like mining lasers and engines.',
+          '**Ship Purchases**: Costs of buying new [[ship-classes|ships]].',
+          '**Combat Losses**: Credits lost to pirate ransoms and boarding actions during [[encounters|combat encounters]].',
+        ],
+      },
+      {
+        heading: 'Lifetime Net',
+        paragraphs: [
+          'Total income minus total expenses. This is your actual lifetime profit — how much your operation has earned since the start. A positive lifetime net means your business is profitable overall, even if your current daily net is negative (maybe you just bought a new ship).',
+        ],
+      },
+    ],
+    relatedArticles: [
+      'credits-economy',
+      'contracts',
+      'crew-salaries',
+      'mining-system',
+      'ship-classes',
+      'crew-hiring',
+      'provisions',
+      'encounters',
+    ],
+  },
+
+  {
     id: 'station-services',
     title: 'Station Services',
     category: 'Core Systems',

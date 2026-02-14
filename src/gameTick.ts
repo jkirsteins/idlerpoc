@@ -5,6 +5,7 @@ import type {
   Toast,
   JobSlotType,
 } from './models';
+import { getFinancials } from './models';
 import { getEngineDefinition } from './engines';
 import {
   advanceFlight,
@@ -290,6 +291,7 @@ export function deductFleetSalaries(
 
   if (gameData.credits >= totalSalary) {
     gameData.credits -= totalSalary;
+    getFinancials(gameData).expenseCrewSalaries += totalSalary;
 
     // Track per-ship crew costs and log salary payments
     for (const ship of gameData.ships) {

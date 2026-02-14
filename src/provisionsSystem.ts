@@ -1,4 +1,5 @@
 import type { Ship, GameData } from './models';
+import { getFinancials } from './models';
 import { TICKS_PER_DAY } from './timeSystem';
 import { addLog } from './logSystem';
 import { formatMass, formatCredits } from './formatting';
@@ -192,6 +193,7 @@ export function autoResupplyProvisions(
   if (gameData.credits >= totalCost) {
     ship.provisionsKg = maxProvisions;
     gameData.credits -= totalCost;
+    getFinancials(gameData).expenseProvisions += totalCost;
     if (totalCost > 0) {
       addLog(
         gameData.log,
@@ -214,6 +216,7 @@ export function autoResupplyProvisions(
     const cost = Math.round(affordableKg * pricePerKg);
     ship.provisionsKg += affordableKg;
     gameData.credits -= cost;
+    getFinancials(gameData).expenseProvisions += cost;
     addLog(
       gameData.log,
       gameData.gameTime,

@@ -1,4 +1,5 @@
 import type { GameData, Ship, MiningRoute } from './models';
+import { getFinancials } from './models';
 import { startShipFlight, estimateFlightDurationTicks } from './flightPhysics';
 import { sellAllOre } from './miningSystem';
 import { getRemainingOreCapacity, getOreCargoWeight } from './miningSystem';
@@ -554,6 +555,7 @@ function autoRefuelForMiningRoute(
     ship.fuelKg = ship.maxFuelKg;
     gameData.credits -= fuelCost;
     ship.metrics.fuelCostsPaid += fuelCost;
+    getFinancials(gameData).expenseFuel += fuelCost;
 
     addLog(
       gameData.log,

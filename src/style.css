@@ -10,7 +10,8 @@ body {
   color: #eee;
   margin: 0;
   padding: 20px;
-  min-height: 100vh;
+  height: 100vh;
+  overflow: hidden;
 }
 
 #app {
@@ -565,6 +566,7 @@ button:active:not(:disabled) {
   margin-bottom: -2px;
   cursor: pointer;
   font-size: 14px;
+  white-space: nowrap;
   transition:
     color 0.2s,
     border-color 0.2s;

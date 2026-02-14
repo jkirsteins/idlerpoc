@@ -5,6 +5,7 @@ import type {
   EncounterOutcome,
   LogEntryType,
 } from './models';
+import { getFinancials } from './models';
 import { getShipClass } from './shipClasses';
 import { getCrewEquipmentDefinition } from './crewEquipment';
 import { getShipPositionKm } from './encounterSystem';
@@ -369,6 +370,7 @@ export function applyEncounterOutcome(
       gameData.encounterStats.negotiated++;
       if (result.creditsLost && result.creditsLost > 0) {
         gameData.credits = Math.max(0, gameData.credits - result.creditsLost);
+        getFinancials(gameData).expenseCombatLosses += result.creditsLost;
       }
       break;
 
@@ -390,6 +392,7 @@ export function applyEncounterOutcome(
       if (result.creditsGained && result.creditsGained > 0) {
         gameData.credits += result.creditsGained;
         gameData.lifetimeCreditsEarned += result.creditsGained;
+        getFinancials(gameData).incomeBounties += result.creditsGained;
       }
       break;
 
@@ -438,6 +441,7 @@ export function applyEncounterOutcome(
       // Credits stolen
       if (result.creditsLost && result.creditsLost > 0) {
         gameData.credits = Math.max(0, gameData.credits - result.creditsLost);
+        getFinancials(gameData).expenseCombatLosses += result.creditsLost;
       }
       // Equipment degradation on ALL ship equipment
       if (result.equipmentDegraded) {
