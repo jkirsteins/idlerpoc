@@ -36,7 +36,9 @@ UI must work for all three. Active players need dense, scannable data. Check-in 
 
 ## 2. Color System
 
-All colors below are extracted from the existing `src/style.css`. Never introduce new hex values without adding them here. Semantic meaning is fixed — green always means good/safe, red always means danger/loss.
+All colors are defined as CSS custom properties in the `:root` block of `src/style.css`. The table below documents the semantic tokens and their current hex values. **Never hardcode hex values** — always reference the CSS variable (e.g., `var(--brand-red)` in CSS, `'var(--brand-red)'` in inline styles). This enables consistent theming and future color palette updates.
+
+Semantic meaning is fixed — green always means good/safe, red always means danger/loss.
 
 ### Backgrounds
 
@@ -98,11 +100,60 @@ Used consistently across all status bars (fuel, oxygen, provisions, radiation, h
 | Micro            | 10px  | 600        | `#888`    | Mobile header labels                               |
 | Sidebar category | 12px  | normal     | inherited | Uppercase, `letter-spacing: 0.5px`, `opacity: 0.7` |
 
-System font stack: `-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif`.
+### Font Stack
+
+The game uses **IBM Plex Mono** for display elements (headings, ship names, credits, numeric values) and **IBM Plex Sans** for body text. This creates a distinctive spaceship command console aesthetic while maintaining readability.
+
+- **Display font** (`--font-display`): `'IBM Plex Mono', 'Courier New', monospace` — Used for h1-h3, ship names, credits values, data displays, tab buttons. The monospace face evokes terminal interfaces and flight instruments.
+- **Body font** (`--font-body`): `'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif` — Used for general text content. Clean and readable with more character than system defaults.
+- **Monospace font** (`--font-mono`): `'IBM Plex Mono', 'Courier New', monospace` — Used for numeric displays (timestamps, log entries) and code-like data. Uses `font-variant-numeric: tabular-nums` for aligned columns.
+
+**Implementation:** Font families are loaded via Google Fonts (see `index.html`) and defined as CSS custom properties in `:root` (see `src/style.css`).
 
 ---
 
-## 4. Spacing & Sizing
+## 4. Visual Atmosphere & Depth
+
+The game uses layered visual effects to create a spaceship command console aesthetic and establish clear information hierarchy through surface depth.
+
+### Starfield Background
+
+The body background features a **CSS-generated starfield** that creates atmospheric immersion without impacting performance:
+
+- **Multi-layer star field**: Small white dots at varied opacity (0.4–0.7) positioned across the viewport using `radial-gradient` patterns
+- **Subtle twinkle animation**: Stars gently pulse opacity over 8–12 second cycles via `@keyframes starfield-twinkle`
+- **Nebula glow**: Subtle radial gradient beneath the stars creates a faint deep-space luminosity
+- **Performance**: Pure CSS implementation with minimal reflow — no canvas, no JavaScript animation
+
+The starfield is visible at desktop screen sizes where the game container background has slight transparency. On mobile, the solid container background takes precedence for readability.
+
+### Panel Depth & Surface Quality
+
+UI elements use shadows, glows, and highlights to establish visual hierarchy and tactile quality:
+
+| Element type      | Depth treatment                                                                            | Purpose                                            |
+| ----------------- | ------------------------------------------------------------------------------------------ | -------------------------------------------------- |
+| **Panels**        | `--shadow-panel`: Multi-layer shadow (0 2px 8px + 0 1px 3px)                               | Lift panels off the page background                |
+| **Cards**         | `--shadow-card`: Subtle shadow (0 1px 4px + 0 1px 2px) + top highlight (`--highlight-top`) | Recessed instrument panel feel                     |
+| **Stat tracks**   | `--shadow-inset-track`: Inset shadow creates recessed groove                               | Status bars feel like physical gauges              |
+| **Active/focus**  | `--glow-{color}`: Soft colored glow (0 0 8px) replaces hard borders                        | HUD-style selection indicator                      |
+| **Floating UI**   | `--shadow-floating`: Large shadow (0 8px 32px + 0 4px 12px)                                | Modals, toasts, tooltips clearly float above page  |
+| **Top highlight** | `border-top: var(--highlight-top)` (1px solid rgba(255,255,255,0.05))                      | Subtle light-from-above effect adds dimensionality |
+
+**Implementation:** Shadow and glow values are defined as CSS custom properties in `:root` (see `src/style.css`). Apply via `box-shadow` or border properties.
+
+### Icon System
+
+The game uses **inline SVG icons** instead of emoji for consistent cross-platform rendering:
+
+- **Monochrome SVG templates** in `src/ui/icons.ts` for ~15 common icons (fuel, shield, combat, navigation, etc.)
+- **Sized at 16px/20px** for inline use in buttons, toasts, and labels
+- **Use `currentColor`** for stroke/fill so icons inherit text color from their container
+- **Replaced emoji** in toast notifications, tab indicators, and quick-action buttons for visual consistency
+
+---
+
+## 5. Spacing & Sizing
 
 ### Standard Gaps
 
@@ -209,6 +260,24 @@ The canonical "return from absence" pattern:
 - **Always visible**: Per the discoverability principle. Show bars even when the system is inactive (at zero, neutral, or N/A state).
 - **Three-color semantic**: Green (good) → Yellow (warning) → Red (danger). Thresholds are system-specific but the color language is universal.
 - **Two modes**: Full (header label + value text + wide bar) for main content. Compact (thin bar, minimal label) for sidebars and dense panels.
+
+### Visual Reward Animations
+
+Progression milestones trigger brief celebration effects that provide dopamine feedback without interrupting gameplay:
+
+| Event type           | Effect                                                                      | Duration | Implementation                                                                       |
+| -------------------- | --------------------------------------------------------------------------- | -------- | ------------------------------------------------------------------------------------ |
+| **Level-up toast**   | Golden shimmer sweep across the toast notification                          | 400ms    | `@keyframes shimmer-sweep` applied to `::before` pseudo-element on `.toast-level_up` |
+| **Credit milestone** | Credits display briefly pulses with golden glow when crossing round numbers | 300ms    | `.credits-milestone-flash` class applied when crossing 10K, 100K, 1M, etc.           |
+| **Ship unlock**      | Ship wizard card enters with scale-up + glow reveal effect                  | 300ms    | `@keyframes card-reveal` on ship selection cards                                     |
+| **Mastery unlock**   | Skill/mastery badge glows briefly when a new tier is reached                | 300ms    | Glow effect applied to mastery tier badges                                           |
+
+**Design principles:**
+
+- **Subtle, not disruptive**: Effects are 200–400ms in duration and never block interaction
+- **Delight, don't distract**: Animations are triggered by player achievement, never by system events
+- **Performance-conscious**: All effects are CSS-only (transforms, opacity, box-shadow) — no JavaScript animation loops
+- **Respect idle mode**: Effects still occur during idle play so check-in players see their progress celebrated
 
 ---
 
