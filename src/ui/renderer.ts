@@ -211,7 +211,12 @@ export function render(
   const titleHeader = document.createElement('div');
   titleHeader.className = 'game-header';
   const title = document.createElement('h1');
-  title.textContent = 'Starship Commander';
+  const logoImg = document.createElement('img');
+  logoImg.src = '/logo.png';
+  logoImg.alt = 'The Long Haul: 2247';
+  logoImg.style.maxHeight = '80px';
+  logoImg.style.width = 'auto';
+  title.appendChild(logoImg);
   titleHeader.appendChild(title);
   wrapper.appendChild(titleHeader);
 
@@ -353,7 +358,7 @@ function mountPlayingLayout(
   const bannerText = document.createElement('span');
   bannerText.className = 'getting-started-banner-text';
   bannerText.textContent =
-    'New to Starship Commander? Read the Getting Started guide to learn the basics.';
+    'New to The Long Haul: 2247? Read the Getting Started guide to learn the basics.';
   gettingStartedBanner.appendChild(bannerText);
 
   const bannerReadBtn = document.createElement('button');
@@ -719,7 +724,7 @@ function createMobileHeaderBar(
     // Fuel status text (color is not the sole indicator per UX guidelines)
     if (fuelPct < 15) {
       fuelStatusSpan.textContent = ' CRITICAL';
-      fuelStatusSpan.style.color = '#e94560';
+      fuelStatusSpan.style.color = '#ff6b6b';
       fuelStatusSpan.style.display = '';
     } else if (fuelPct < 25) {
       fuelStatusSpan.textContent = ' LOW';

@@ -86,7 +86,7 @@ export function createTabbedView(
   shipNameEl.className = 'ship-name-compact';
   shipNameEl.style.fontSize = '18px';
   shipNameEl.style.fontWeight = 'bold';
-  shipNameEl.style.color = '#e94560';
+  shipNameEl.style.color = '#d4850a';
   shipIdentityLine.appendChild(shipNameEl);
 
   const shipClassEl = document.createElement('div');
@@ -647,7 +647,7 @@ export function createTabbedView(
           threatLabel.style.display = '';
           const colors: Record<string, string> = {
             caution: '#ffc107',
-            danger: '#e94560',
+            danger: '#ff6b6b',
             critical: '#ff6b6b',
           };
           threatLabel.style.color = colors[threatLevelValue] || '#aaa';
