@@ -38,6 +38,48 @@ When creating new tab views or adding content to existing tabs:
 - **Test at all three breakpoints** (desktop >1200px, tablet ≤1200px, mobile ≤900px) to verify no content overflows its container.
 - **Never set a fixed pixel height** on scrollable containers — always use viewport-relative units (`calc(100vh - ...)`) so the layout adapts to screen size.
 
+## Preventing Vertical Layout Shifts
+
+**Components must not expand vertically in unpredictable ways when values update.** Vertical instability causes jarring scroll jumps, especially during auto-update loops in an idle game. Design layouts that are naturally stable rather than trying to contain instability with magic numbers.
+
+When designing metric displays, status sections, or info panels:
+
+- **Prefer horizontal single-row layouts** (status bar style) over multi-row grids. A single flex row with `flex-wrap: wrap` is more stable than `auto-fit` grids that change column counts.
+- **Use `white-space: nowrap` extensively.** Every text element that could wrap (labels, values, units) should be `nowrap` to prevent unexpected line breaks.
+- **Avoid multi-line secondary text.** Breakdowns like "Crew: X | Fuel: Y | Repairs: Z" can wrap when values grow. Move detailed breakdowns to tooltips or separate expandable sections.
+- **Never use `minHeight` as a band-aid.** Reserving vertical space with magic numbers is fragile — it breaks when values exceed the reserved space or wastes space when values are small. Fix the root cause (wrapping text, variable column counts) instead.
+- **Trim data, don't reserve space for it.** Show fewer metrics in the primary display. Use abbreviated formats (`1.2M` instead of `1,234,567`). Hide secondary data in tooltips. A compact, stable layout is better than a comprehensive, jumpy one.
+- **Avoid `auto-fit` grids for metric displays.** When screen width changes or values grow, `auto-fit` can change column count (4 columns → 3 columns → 2 columns), causing the grid to gain rows and expand vertically. Use fixed column counts or horizontal flex layouts instead.
+- **Test with extreme values.** Check how the layout behaves when values are 0, in the millions, or negative. Ensure no value causes wrapping or column reflow.
+
+Example of a **stable** metric display:
+```typescript
+// Single-row flex layout, each metric is one nowrap line
+section.style.display = 'flex';
+section.style.gap = '1.5rem';
+section.style.flexWrap = 'wrap'; // Wraps entire metrics, not individual words
+section.style.alignItems = 'center';
+
+metric.innerHTML = `
+  <span style="white-space: nowrap;">Label:</span>
+  <span style="white-space: nowrap; font-weight: bold;">${value}</span>
+`;
+```
+
+Example of an **unstable** metric display (avoid):
+```typescript
+// Multi-row grid with auto-fit, multi-line text, minHeight band-aid
+grid.style.display = 'grid';
+grid.style.gridTemplateColumns = 'repeat(auto-fit, minmax(180px, 1fr))'; // ❌ Column count changes
+grid.style.minHeight = '140px'; // ❌ Magic number band-aid
+
+metric.innerHTML = `
+  <div>Label</div>
+  <div>${value}</div>
+  <div>Breakdown: ${a} | ${b} | ${c}</div> <!-- ❌ Can wrap -->
+`;
+```
+
 # UI Discoverability
 
 **Always show UI indicators, never conditionally hide them.** Every game system that has a UI indicator (status bars, gauges, panels) must be rendered at all times, even when the system is inactive or the current ship/equipment doesn't engage with it. Hidden controls hide the existence of features from players. Showing an indicator in a "neutral" or "N/A" state encourages players to explore how to interact with systems they haven't encountered yet. Use disabled/dimmed/zero states instead of removing elements from the DOM.
