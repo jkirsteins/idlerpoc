@@ -593,13 +593,13 @@ export function updateMasterySection(
 
     refs.barFill.style.width = `${Math.min(fillPct, 100)}%`;
     if (fillPct >= 95) {
-      refs.barFill.style.backgroundColor = '#fbbf24';
+      refs.barFill.style.backgroundColor = 'var(--yellow-bright)';
     } else if (fillPct >= 50) {
-      refs.barFill.style.backgroundColor = '#4ade80';
+      refs.barFill.style.backgroundColor = 'var(--green-bright)';
     } else if (fillPct >= 25) {
-      refs.barFill.style.backgroundColor = '#60a5fa';
+      refs.barFill.style.backgroundColor = 'var(--blue-sky)';
     } else {
-      refs.barFill.style.backgroundColor = '#6b7280';
+      refs.barFill.style.backgroundColor = 'var(--gray-medium)';
     }
 
     // Checkpoint markers - recreate since count can change

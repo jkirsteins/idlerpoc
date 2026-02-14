@@ -389,7 +389,7 @@ function createQuestCardRefs(
   const assignBtn = document.createElement('button');
   assignBtn.className = 'assign-route-button';
   assignBtn.textContent = 'Assign Route';
-  assignBtn.style.backgroundColor = '#4a90e2';
+  assignBtn.style.backgroundColor = 'var(--blue-light)';
   assignBtn.addEventListener('click', () => callbacks.onAssignRoute(quest.id));
   buttonContainer.appendChild(assignBtn);
 

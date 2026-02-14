@@ -376,14 +376,14 @@ export function createMiningPanel(callbacks: MiningPanelCallbacks): {
     if (!hasEquipment) {
       r.crewNudge.style.display = '';
       r.crewNudge.style.color = 'var(--brand-red)';
-      r.crewNudge.style.borderColor = '#e94560';
+      r.crewNudge.style.borderColor = 'var(--brand-red)';
       r.crewNudge.style.background = 'rgba(233,69,96,0.1)';
       r.crewNudge.textContent =
         'No mining equipment installed. Purchase at a station store.';
     } else if (miners.length === 0) {
       r.crewNudge.style.display = '';
       r.crewNudge.style.color = 'var(--warning-orange)';
-      r.crewNudge.style.borderColor = '#b87333';
+      r.crewNudge.style.borderColor = 'var(--brown-copper)';
       r.crewNudge.style.background = 'rgba(255,165,0,0.1)';
       r.crewNudge.textContent =
         '\u26A0\uFE0F No crew assigned \u2014 mining at base rate. Assign skilled crew to mine faster and unlock rare ores.';

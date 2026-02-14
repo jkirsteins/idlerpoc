@@ -258,7 +258,7 @@ function renderFleetMap(
     dot.style.width = '8px';
     dot.style.height = '8px';
     dot.style.borderRadius = '50%';
-    dot.style.background = '#666';
+    dot.style.background = 'var(--text-disabled)';
     dot.style.border = '1px solid #888';
     marker.appendChild(dot);
 
@@ -737,7 +737,7 @@ function renderEnhancedShipCard(
   card.style.cursor = 'pointer';
 
   if (ship.id === gameData.activeShipId) {
-    card.style.borderColor = '#4a9eff';
+    card.style.borderColor = 'var(--accent-blue)';
     card.style.boxShadow = '0 0 10px rgba(74, 158, 255, 0.3)';
   }
 

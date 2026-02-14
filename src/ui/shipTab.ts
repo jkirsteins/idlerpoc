@@ -2209,7 +2209,7 @@ function renderEquipmentSection(gameData: GameData): HTMLElement {
           const check = canSetPowerModeOn(ship, gameData, equipment.id);
           if (!check.allowed) {
             // Brief visual feedback — flash the button red
-            btn.style.background = '#8b0000';
+            btn.style.background = 'var(--destroy-red)';
             btn.title = check.reason ?? 'Insufficient power';
             setTimeout(() => {
               btn.style.background = 'rgba(0,0,0,0.3)';

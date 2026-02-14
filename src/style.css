@@ -43,11 +43,16 @@
   --orange-bright: #ff8800;
   --orange-medium: #fb923c;
   --green-light: #81c784;
+  --green-bright: #4ade80;
   --blue-light: #4a90e2;
+  --blue-medium: #357abd;
+  --blue-sky: #60a5fa;
   --purple-light: #a29bfe;
   --gray-medium: #6b7280;
   --gray-light: #a0a0b0;
   --brown-dark: #665522;
+  --brown-copper: #b87333;
+  --bg-dark-navy: #0f1729;
 
   /* Typography */
   --font-display: 'IBM Plex Mono', 'Courier New', monospace;

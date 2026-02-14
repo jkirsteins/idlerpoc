@@ -204,7 +204,7 @@ export function createRefuelDialog(
       font-size: 0.9rem;
     `;
     btn.addEventListener('mouseenter', () => {
-      btn.style.background = '#4a90e2';
+      btn.style.background = 'var(--blue-light)';
       btn.style.color = 'var(--text-white)';
     });
     btn.addEventListener('mouseleave', () => {
@@ -320,7 +320,7 @@ export function createRefuelDialog(
     font-size: 1rem;
   `;
   cancelBtn.addEventListener('mouseenter', () => {
-    cancelBtn.style.background = '#0f1729';
+    cancelBtn.style.background = 'var(--bg-dark-navy)';
   });
   cancelBtn.addEventListener('mouseleave', () => {
     cancelBtn.style.background = 'var(--bg-container)';
@@ -345,11 +345,11 @@ export function createRefuelDialog(
   `;
   confirmBtn.addEventListener('mouseenter', () => {
     if (!confirmBtn.disabled) {
-      confirmBtn.style.background = '#357abd';
+      confirmBtn.style.background = 'var(--blue-medium)';
     }
   });
   confirmBtn.addEventListener('mouseleave', () => {
-    confirmBtn.style.background = '#4a90e2';
+    confirmBtn.style.background = 'var(--blue-light)';
   });
   confirmBtn.addEventListener('click', () => {
     const fuelKg = Math.max(

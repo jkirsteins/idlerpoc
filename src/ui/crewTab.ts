@@ -1291,23 +1291,23 @@ export function createCrewTab(
     exposureBarFill.style.width = `${fillPercent}%`;
 
     if (exposureLevel === 'none') {
-      exposureBarFill.style.backgroundColor = '#4ade80';
+      exposureBarFill.style.backgroundColor = 'var(--green-bright)';
       exposureStatusText.textContent = 'Normal';
       exposureStatusText.style.color = 'var(--positive-green)';
     } else if (exposureLevel === 'minor') {
-      exposureBarFill.style.backgroundColor = '#fbbf24';
+      exposureBarFill.style.backgroundColor = 'var(--yellow-bright)';
       exposureStatusText.textContent = 'Minor';
       exposureStatusText.style.color = 'var(--yellow-bright)';
     } else if (exposureLevel === 'moderate') {
-      exposureBarFill.style.backgroundColor = '#fb923c';
+      exposureBarFill.style.backgroundColor = 'var(--orange-medium)';
       exposureStatusText.textContent = 'Moderate';
       exposureStatusText.style.color = 'var(--orange-medium)';
     } else if (exposureLevel === 'severe') {
-      exposureBarFill.style.backgroundColor = '#f87171';
+      exposureBarFill.style.backgroundColor = 'var(--red-light)';
       exposureStatusText.textContent = 'Severe';
       exposureStatusText.style.color = 'var(--red-light)';
     } else {
-      exposureBarFill.style.backgroundColor = '#dc2626';
+      exposureBarFill.style.backgroundColor = 'var(--red-critical)';
       exposureStatusText.textContent = 'Critical';
       exposureStatusText.style.color = 'var(--red-critical)';
     }
