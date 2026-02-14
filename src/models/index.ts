@@ -7,7 +7,6 @@ export type RoomType =
   | 'medbay'
   | 'cargo_hold'
   | 'armory'
-  | 'quarters'
   | 'point_defense_station'
   | 'mining_bay';
 
@@ -292,21 +291,19 @@ export interface Room {
 
 /**
  * Job slot types - each represents a specific crew position.
- * Room-sourced: helm, comms, drive_ops, containment, patient, arms_maint, fire_control, rest
+ * Room-sourced: helm, comms, containment, patient, arms_maint, fire_control
  * Equipment-sourced: scanner (nav_scanner), targeting (point_defense)
- * Ship-wide: repair
+ * Ship-wide: repair, mining_ops
  */
 export type JobSlotType =
   | 'helm'
   | 'scanner'
   | 'comms'
-  | 'drive_ops'
   | 'containment'
   | 'patient'
   | 'arms_maint'
   | 'fire_control'
   | 'targeting'
-  | 'rest'
   | 'repair'
   | 'mining_ops';
 

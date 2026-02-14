@@ -230,12 +230,6 @@ function calculateCrewSkillBonus(ship: Ship): number {
     bonus += pointsAbove50 * 0.002;
   }
 
-  // Drive ops crew: piloting bonus
-  for (const crew of getCrewForJobType(ship, 'drive_ops')) {
-    const pointsAbove50 = Math.max(0, crew.skills.piloting - 50);
-    bonus += pointsAbove50 * 0.001;
-  }
-
   // Helm crew: piloting bonus
   for (const crew of getCrewForJobType(ship, 'helm')) {
     const pointsAbove50 = Math.max(0, crew.skills.piloting - 50);
@@ -927,17 +921,6 @@ export function canAcceptQuest(
       canAccept: false,
       reason: `Insufficient fuel for trip (need ${formatFuelMass(resolved.estimatedFuelPerTrip)}, have ${formatFuelMass(ship.fuelKg)})`,
     };
-  }
-
-  // For passenger quests, check crew capacity
-  if (quest.type === 'passenger') {
-    const quartersRoom = ship.rooms.find((r) => r.type === 'quarters');
-    if (!quartersRoom) {
-      return {
-        canAccept: false,
-        reason: 'No passenger quarters available',
-      };
-    }
   }
 
   // ── Soft warnings (don't block acceptance) ──────────────────────

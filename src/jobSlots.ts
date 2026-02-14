@@ -65,20 +65,6 @@ export const JOB_SLOT_DEFINITIONS: JobSlotDefinition[] = [
     sourceRoomType: 'bridge',
   },
 
-  // === Engine Room jobs ===
-  {
-    type: 'drive_ops',
-    name: 'Drive Ops',
-    description: 'Engine monitoring and thrust optimization.',
-    icon: '⚙️',
-    skill: 'piloting',
-    required: false,
-    trainRate: 0.00004,
-    bonusDescription: 'Engine warmup speed, fuel efficiency',
-    source: 'room',
-    sourceRoomType: 'engine_room',
-  },
-
   // === Reactor Room jobs ===
   {
     type: 'containment',
@@ -133,20 +119,6 @@ export const JOB_SLOT_DEFINITIONS: JobSlotDefinition[] = [
     bonusDescription: 'PD accuracy, debris destruction rate',
     source: 'room',
     sourceRoomType: 'point_defense_station',
-  },
-
-  // === Quarters jobs ===
-  {
-    type: 'rest',
-    name: 'Rest',
-    description: 'Off-duty rest and recovery.',
-    icon: '🛏️',
-    skill: null,
-    required: false,
-    trainRate: 0,
-    bonusDescription: 'Rest and recovery for assigned crew',
-    source: 'room',
-    sourceRoomType: 'quarters',
   },
 
   // === Equipment-sourced jobs ===
@@ -217,12 +189,10 @@ const ROOM_JOB_COUNTS: Partial<
     { type: 'helm', count: 1 },
     { type: 'comms', count: 1 },
   ],
-  engine_room: [{ type: 'drive_ops', count: 3 }],
   reactor_room: [{ type: 'containment', count: 2 }],
   medbay: [{ type: 'patient', count: 2 }],
   armory: [{ type: 'arms_maint', count: 2 }],
   point_defense_station: [{ type: 'fire_control', count: 1 }],
-  quarters: [{ type: 'rest', count: 2 }],
   mining_bay: [{ type: 'mining_ops', count: 2 }],
   // cargo_hold has no jobs (automated)
 };
