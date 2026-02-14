@@ -1502,12 +1502,11 @@ export function createNavigationView(
       const fp = ship.activeFlightPlan;
       let originSvg: { x: number; y: number };
       let destSvg: { x: number; y: number };
-      let shipSvg: { x: number; y: number };
 
-      if (fp.originPos && fp.interceptPos && fp.shipPos) {
+      // Project trajectory endpoints to SVG coordinates with log scaling
+      if (fp.originPos && fp.interceptPos) {
         originSvg = projectToSvg(fp.originPos.x, fp.originPos.y);
         destSvg = projectToSvg(fp.interceptPos.x, fp.interceptPos.y);
-        shipSvg = projectToSvg(fp.shipPos.x, fp.shipPos.y);
       } else {
         const originLoc = gd.world.locations.find((l) => l.id === fp.origin);
         const destLoc = gd.world.locations.find((l) => l.id === fp.destination);
@@ -1515,13 +1514,19 @@ export function createNavigationView(
           ? projectToSvg(originLoc.x, originLoc.y)
           : { x: 0, y: 0 };
         destSvg = destLoc ? projectToSvg(destLoc.x, destLoc.y) : { x: 0, y: 0 };
-        const progress =
-          fp.totalDistance > 0 ? fp.distanceCovered / fp.totalDistance : 0;
-        shipSvg = {
-          x: originSvg.x + (destSvg.x - originSvg.x) * progress,
-          y: originSvg.y + (destSvg.y - originSvg.y) * progress,
-        };
       }
+
+      // CRITICAL: Interpolate ship position in SVG space, not in linear km space!
+      // With logarithmic radial scaling, projecting a linearly-interpolated km
+      // position causes massive distortion (5% real progress can appear as 50%
+      // visual progress). Always interpolate in the post-projection SVG space
+      // so visual progress matches flight progress.
+      const progress =
+        fp.totalDistance > 0 ? fp.distanceCovered / fp.totalDistance : 0;
+      const shipSvg = {
+        x: originSvg.x + (destSvg.x - originSvg.x) * progress,
+        y: originSvg.y + (destSvg.y - originSvg.y) * progress,
+      };
 
       flightRefs.line.setAttribute('x1', String(originSvg.x));
       flightRefs.line.setAttribute('y1', String(originSvg.y));
@@ -1640,48 +1645,19 @@ export function createNavigationView(
     flightRefs.line.setAttribute('y2', String(destSvg.y));
     flightRefs.line.style.display = '';
 
-    // Ship dot position
-    if (fp.shipPos) {
-      const shipLocal = projectToSvgLocal(
-        parentPos,
-        fp.shipPos,
-        logMin,
-        logMax
-      );
-      const shipDist = Math.sqrt(
-        (fp.shipPos.x - parentPos.x) ** 2 + (fp.shipPos.y - parentPos.y) ** 2
-      );
-      const maxRadius =
-        Math.max(
-          ...childIds.map((id) => {
-            const loc = gd.world.locations.find((l) => l.id === id);
-            return loc?.orbital?.orbitalRadiusKm ?? 0;
-          })
-        ) * 2;
-      if (shipDist < maxRadius) {
-        flightRefs.shipDot.setAttribute('cx', String(shipLocal.x));
-        flightRefs.shipDot.setAttribute('cy', String(shipLocal.y));
-      } else {
-        // Ship is outside cluster bounds — show at edge
-        const angle = Math.atan2(
-          fp.shipPos.y - parentPos.y,
-          fp.shipPos.x - parentPos.x
-        );
-        flightRefs.shipDot.setAttribute('cx', String(185 * Math.cos(angle)));
-        flightRefs.shipDot.setAttribute('cy', String(185 * Math.sin(angle)));
-      }
-    } else {
-      const progress =
-        fp.totalDistance > 0 ? fp.distanceCovered / fp.totalDistance : 0;
-      flightRefs.shipDot.setAttribute(
-        'cx',
-        String(originSvg.x + (destSvg.x - originSvg.x) * progress)
-      );
-      flightRefs.shipDot.setAttribute(
-        'cy',
-        String(originSvg.y + (destSvg.y - originSvg.y) * progress)
-      );
-    }
+    // Ship dot position: interpolate in SVG space (post-projection) to match
+    // visual progress with flight progress. Projecting a linear km position
+    // causes logarithmic distortion.
+    const progress =
+      fp.totalDistance > 0 ? fp.distanceCovered / fp.totalDistance : 0;
+    flightRefs.shipDot.setAttribute(
+      'cx',
+      String(originSvg.x + (destSvg.x - originSvg.x) * progress)
+    );
+    flightRefs.shipDot.setAttribute(
+      'cy',
+      String(originSvg.y + (destSvg.y - originSvg.y) * progress)
+    );
     flightRefs.shipDot.style.display = '';
 
     // Hide assist markers in focus mode for simplicity
