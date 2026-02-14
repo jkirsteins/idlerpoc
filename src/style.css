@@ -2877,9 +2877,9 @@ button:disabled:hover {
 }
 
 .fleet-row--compact {
-  padding: 0.35rem 0.5rem;
-  align-items: center;
-  min-height: 28px;
+  padding: 6px 8px;
+  align-items: flex-start;
+  min-height: auto;
 }
 
 .fleet-row.active {
@@ -2905,7 +2905,7 @@ button:disabled:hover {
 }
 
 .fleet-row--compact .fleet-row-indicator {
-  margin-top: 0;
+  margin-top: 6px;
   width: 6px;
   height: 6px;
 }
@@ -2919,8 +2919,8 @@ button:disabled:hover {
 }
 
 .fleet-row--compact .fleet-row-content {
-  flex-direction: row;
-  align-items: center;
+  flex-direction: column;
+  gap: 3px;
 }
 
 .fleet-row-top {
@@ -2932,8 +2932,8 @@ button:disabled:hover {
 
 .fleet-row--compact .fleet-row-top {
   flex-wrap: nowrap;
-  flex: 1;
   min-width: 0;
+  justify-content: space-between;
 }
 
 .fleet-row-tier {
@@ -2952,6 +2952,8 @@ button:disabled:hover {
 
 .fleet-row--compact .fleet-row-name {
   font-size: 0.8rem;
+  flex: 1;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -2965,9 +2967,14 @@ button:disabled:hover {
   white-space: nowrap;
 }
 
-.fleet-row--compact .fleet-row-activity {
-  margin-left: auto;
+.fleet-row--compact .fleet-row-top .fleet-row-activity {
+  display: none;
+}
+
+.fleet-row--compact .fleet-row-compact-2 .fleet-row-activity {
   flex-shrink: 0;
+  font-size: 0.65rem;
+  padding: 1px 5px;
 }
 
 .fleet-row-command {
@@ -3049,6 +3056,58 @@ button:disabled:hover {
 
 .fleet-row-flight-pct {
   font-size: 0.8rem;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* Compact mode: Row 2 (activity + location) */
+.fleet-row-compact-2 {
+  display: none; /* Hidden by default, shown in compact mode */
+  align-items: center;
+  gap: 6px;
+  font-size: 0.7rem;
+  color: #888;
+  flex-wrap: nowrap;
+  min-width: 0;
+}
+
+.fleet-row--compact .fleet-row-compact-2 {
+  display: flex;
+}
+
+/* In full mode, hide compact rows */
+.fleet-row:not(.fleet-row--compact) .fleet-row-compact-2,
+.fleet-row:not(.fleet-row--compact) .fleet-row-compact-3 {
+  display: none !important;
+}
+
+/* Compact mode: Row 3 (progress bar + ETA) */
+.fleet-row-compact-3 {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.65rem;
+  color: #777;
+}
+
+.fleet-row-progress-bar {
+  flex: 1;
+  height: 5px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.fleet-row-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #4a9eff 0%, #4ecdc4 50%, #ffd700 100%);
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+.fleet-row-eta {
+  font-size: 0.65rem;
+  color: #888;
   white-space: nowrap;
   flex-shrink: 0;
 }
