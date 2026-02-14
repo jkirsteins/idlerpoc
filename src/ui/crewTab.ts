@@ -594,11 +594,12 @@ export function createCrewTab(
   detailPanel.style.display = 'none';
   layout.appendChild(detailPanel);
 
-  // ── Header section ──
+  // ── Header section (Row 1) ──
   const headerSection = document.createElement('div');
   headerSection.className = 'crew-detail-header';
 
   const detailName = document.createElement('h2');
+  detailName.style.whiteSpace = 'nowrap';
   const captainBadge = document.createElement('span');
   captainBadge.className = 'captain-badge';
   captainBadge.textContent = 'CPT';
@@ -612,58 +613,257 @@ export function createCrewTab(
 
   const detailRole = document.createElement('div');
   detailRole.className = 'crew-detail-role';
+  detailRole.style.whiteSpace = 'nowrap';
+  detailRole.style.flexShrink = '0';
   headerSection.appendChild(detailRole);
 
   detailPanel.appendChild(headerSection);
 
-  // ── Service record section ──
+  // ── Service record section (Row 2) ──
   const serviceSection = document.createElement('div');
   serviceSection.className = 'crew-service-record';
-  serviceSection.style.padding = '0.75rem';
-  serviceSection.style.marginBottom = '1rem';
-  serviceSection.style.background = 'rgba(255,255,255,0.03)';
-  serviceSection.style.border = '1px solid rgba(255,255,255,0.08)';
-  serviceSection.style.borderRadius = '4px';
-  serviceSection.style.fontSize = '0.9rem';
-  serviceSection.style.lineHeight = '1.6';
+  serviceSection.style.display = 'flex';
+  serviceSection.style.gap = '0.75rem';
+  serviceSection.style.flexWrap = 'wrap';
+  serviceSection.style.fontSize = '0.85rem';
   serviceSection.style.color = '#aaa';
 
-  const serviceAssignment = document.createElement('div');
+  const serviceAssignment = document.createElement('span');
+  serviceAssignment.style.whiteSpace = 'nowrap';
   serviceAssignment.style.color = '#ccc';
   serviceSection.appendChild(serviceAssignment);
 
-  const serviceShipTenure = document.createElement('div');
+  const serviceSeparator1 = document.createElement('span');
+  serviceSeparator1.textContent = '·';
+  serviceSeparator1.style.color = '#666';
+  serviceSection.appendChild(serviceSeparator1);
+
+  const serviceShipTenure = document.createElement('span');
+  serviceShipTenure.style.whiteSpace = 'nowrap';
   serviceSection.appendChild(serviceShipTenure);
 
-  const serviceCompanyTenure = document.createElement('div');
+  const serviceSeparator2 = document.createElement('span');
+  serviceSeparator2.textContent = '·';
+  serviceSeparator2.style.color = '#666';
+  serviceSeparator2.style.display = 'none';
+  serviceSection.appendChild(serviceSeparator2);
+
+  const serviceCompanyTenure = document.createElement('span');
+  serviceCompanyTenure.style.whiteSpace = 'nowrap';
+  serviceCompanyTenure.style.display = 'none';
   serviceSection.appendChild(serviceCompanyTenure);
 
-  const serviceOrigin = document.createElement('div');
+  const serviceSeparator3 = document.createElement('span');
+  serviceSeparator3.textContent = '·';
+  serviceSeparator3.style.color = '#666';
+  serviceSection.appendChild(serviceSeparator3);
+
+  const serviceOrigin = document.createElement('span');
+  serviceOrigin.style.whiteSpace = 'nowrap';
   serviceOrigin.style.color = '#888';
   serviceSection.appendChild(serviceOrigin);
 
   detailPanel.appendChild(serviceSection);
 
-  // ── Transfer crew section ──
+  // Transfer section created later after training div
+
+  // ── Stats section (Row 3) ──
+  const statsSection = document.createElement('div');
+  statsSection.style.display = 'flex';
+  statsSection.style.flexWrap = 'wrap';
+  statsSection.style.gap = '0.75rem';
+  statsSection.style.fontSize = '0.85rem';
+  statsSection.style.alignItems = 'center';
+
+  const statsTitle = document.createElement('h3');
+  statsTitle.textContent = 'Stats';
+  statsTitle.style.display = 'none';
+
+  // Health stat
+  const healthRow = document.createElement('div');
+  healthRow.style.display = 'inline-flex';
+  healthRow.style.gap = '0.25rem';
+  healthRow.style.whiteSpace = 'nowrap';
+  const healthLabel = document.createElement('span');
+  healthLabel.textContent = 'HP:';
+  healthLabel.style.color = '#888';
+  const healthValue = document.createElement('span');
+  healthValue.style.color = '#eee';
+  healthRow.appendChild(healthLabel);
+  healthRow.appendChild(healthValue);
+  statsSection.appendChild(healthRow);
+
+  // Attack stat
+  const attackRow = document.createElement('div');
+  attackRow.style.display = 'inline-flex';
+  attackRow.style.gap = '0.25rem';
+  attackRow.style.whiteSpace = 'nowrap';
+  const attackLabel = document.createElement('span');
+  attackLabel.textContent = 'ATK:';
+  attackLabel.style.color = '#888';
+  const attackValue = document.createElement('span');
+  attackValue.style.color = '#eee';
+  attackRow.appendChild(attackLabel);
+  attackRow.appendChild(attackValue);
+  statsSection.appendChild(attackRow);
+
+  // Salary stat
+  const salaryRow = document.createElement('div');
+  salaryRow.style.display = 'none';
+  salaryRow.style.gap = '0.25rem';
+  salaryRow.style.whiteSpace = 'nowrap';
+  const salaryLabel = document.createElement('span');
+  salaryLabel.textContent = 'Salary:';
+  salaryLabel.style.color = '#888';
+  const salaryValue = document.createElement('span');
+  salaryValue.style.color = '#eee';
+  salaryRow.appendChild(salaryLabel);
+  salaryRow.appendChild(salaryValue);
+  statsSection.appendChild(salaryRow);
+
+  // Unpaid warning (inline)
+  const unpaidWarning = document.createElement('span');
+  unpaidWarning.className = 'unpaid-warning';
+  unpaidWarning.style.color = '#ff4444';
+  unpaidWarning.style.fontWeight = 'bold';
+  unpaidWarning.style.whiteSpace = 'nowrap';
+  unpaidWarning.style.display = 'none';
+  statsSection.appendChild(unpaidWarning);
+
+  detailPanel.appendChild(statsSection);
+
+  // ── Zero-G Exposure section (Row 4 left) ──
+  const exposureSection = document.createElement('div');
+  exposureSection.className = 'exposure-section';
+  exposureSection.style.display = 'flex';
+  exposureSection.style.gap = '0.5rem';
+  exposureSection.style.alignItems = 'center';
+  exposureSection.style.fontSize = '0.85rem';
+
+  const exposureTitle = document.createElement('span');
+  exposureTitle.style.whiteSpace = 'nowrap';
+  exposureTitle.style.color = '#aaa';
+  exposureSection.appendChild(exposureTitle);
+
+  // Exposure progress bar container (compact)
+  const exposureBarContainer = document.createElement('div');
+  exposureBarContainer.style.position = 'relative';
+  exposureBarContainer.style.width = '80px';
+  exposureBarContainer.style.height = '8px';
+  exposureBarContainer.style.backgroundColor = 'rgba(0,0,0,0.3)';
+  exposureBarContainer.style.borderRadius = '4px';
+  exposureBarContainer.style.overflow = 'visible';
+
+  const exposureBarFill = document.createElement('div');
+  exposureBarFill.style.width = '0%';
+  exposureBarFill.style.height = '100%';
+  exposureBarFill.style.transition = 'width 0.3s ease';
+  exposureBarFill.style.borderRadius = '4px';
+  exposureBarContainer.appendChild(exposureBarFill);
+
+  // Threshold markers (thin lines only, no labels)
+  const thresholds = [
+    { days: 14, label: '14d' },
+    { days: 60, label: '60d' },
+    { days: 180, label: '180d' },
+    { days: 365, label: '365d' },
+  ];
+  const maxDays = 365;
+
+  for (const threshold of thresholds) {
+    const marker = document.createElement('div');
+    marker.style.position = 'absolute';
+    marker.style.left = `${(threshold.days / maxDays) * 100}%`;
+    marker.style.top = '0';
+    marker.style.bottom = '0';
+    marker.style.width = '1px';
+    marker.style.backgroundColor = 'rgba(255,255,255,0.3)';
+    exposureBarContainer.appendChild(marker);
+  }
+
+  exposureSection.appendChild(exposureBarContainer);
+
+  // Status text (single word colored)
+  const exposureStatusText = document.createElement('span');
+  exposureStatusText.style.whiteSpace = 'nowrap';
+  exposureStatusText.style.fontSize = '0.85rem';
+  exposureSection.appendChild(exposureStatusText);
+
+  // Hidden elements (data stored but not shown)
+  const exposureNextText = document.createElement('div');
+  exposureNextText.style.display = 'none';
+
+  const recoveryDiv = document.createElement('div');
+  recoveryDiv.style.display = 'none';
+
+  const recoveryTitle = document.createElement('div');
+  recoveryDiv.appendChild(recoveryTitle);
+
+  const recoveryNextLine = document.createElement('div');
+  recoveryDiv.appendChild(recoveryNextLine);
+
+  const recoveryFullLine = document.createElement('div');
+  recoveryDiv.appendChild(recoveryFullLine);
+
+  // ── Radiation Exposure section (Row 4 right) ──
+  const radiationSection = document.createElement('div');
+  radiationSection.className = 'radiation-exposure-section';
+  radiationSection.style.display = 'inline-flex';
+  radiationSection.style.gap = '0.5rem';
+  radiationSection.style.alignItems = 'center';
+  radiationSection.style.fontSize = '0.85rem';
+
+  const radTitle = document.createElement('span');
+  radTitle.style.whiteSpace = 'nowrap';
+  radTitle.style.color = '#aaa';
+  radiationSection.appendChild(radTitle);
+
+  const radContent = document.createElement('div');
+  radContent.style.display = 'none';
+  radiationSection.appendChild(radContent);
+
+  // ── Combine exposure and radiation into one visual row (Row 4) ──
+  const exposureRow = document.createElement('div');
+  exposureRow.style.display = 'flex';
+  exposureRow.style.gap = '1.5rem';
+  exposureRow.style.alignItems = 'center';
+  exposureRow.style.flexWrap = 'wrap';
+  exposureRow.appendChild(exposureSection);
+  exposureRow.appendChild(radiationSection);
+
+  detailPanel.appendChild(statsSection);
+  detailPanel.appendChild(exposureRow);
+
+  // ── Training indicator (Row 5) ──
+  const trainingDiv = document.createElement('div');
+  trainingDiv.className = 'training-indicator';
+  trainingDiv.style.borderLeft = '3px solid rgba(74, 222, 128, 0.3)';
+  trainingDiv.style.padding = '2px 6px';
+  trainingDiv.style.margin = '0';
+  trainingDiv.style.background = 'none';
+  trainingDiv.style.fontSize = '0.85rem';
+  trainingDiv.style.color = '#4ade80';
+  trainingDiv.style.display = 'none';
+  detailPanel.appendChild(trainingDiv);
+
+  // ── Transfer crew section (Row 6) ──
   const transferSection = document.createElement('div');
   transferSection.className = 'transfer-crew-section';
-  transferSection.style.padding = '0.75rem';
-  transferSection.style.background = 'rgba(74, 158, 255, 0.1)';
-  transferSection.style.border = '1px solid #4a9eff';
-  transferSection.style.borderRadius = '4px';
-  transferSection.style.marginBottom = '1rem';
+  transferSection.style.display = 'flex';
+  transferSection.style.gap = '0.5rem';
+  transferSection.style.alignItems = 'center';
+  transferSection.style.fontSize = '0.85rem';
 
-  const transferTitle = document.createElement('div');
-  transferTitle.textContent = 'Transfer Crew';
-  transferTitle.style.fontWeight = 'bold';
-  transferTitle.style.marginBottom = '0.5rem';
-  transferTitle.style.color = '#4a9eff';
+  const transferTitle = document.createElement('span');
+  transferTitle.textContent = 'Transfer:';
+  transferTitle.style.color = '#aaa';
+  transferTitle.style.whiteSpace = 'nowrap';
   transferSection.appendChild(transferTitle);
 
-  const transferNoShipsMsg = document.createElement('div');
-  transferNoShipsMsg.style.color = '#aaa';
-  transferNoShipsMsg.style.fontSize = '0.85rem';
-  transferNoShipsMsg.textContent = 'No other ships docked at this station.';
+  const transferNoShipsMsg = document.createElement('span');
+  transferNoShipsMsg.style.color = '#888';
+  transferNoShipsMsg.style.whiteSpace = 'nowrap';
+  transferNoShipsMsg.textContent = 'Dock to transfer';
   transferNoShipsMsg.style.display = 'none';
   transferSection.appendChild(transferNoShipsMsg);
 
@@ -672,18 +872,13 @@ export function createCrewTab(
   transferControls.style.gap = '0.5rem';
   transferControls.style.alignItems = 'center';
 
-  const transferLabel = document.createElement('span');
-  transferLabel.textContent = 'Transfer to:';
-  transferLabel.style.fontSize = '0.9rem';
-  transferControls.appendChild(transferLabel);
-
   const transferSelect = document.createElement('select');
-  transferSelect.style.flex = '1';
-  transferSelect.style.padding = '0.5rem';
+  transferSelect.style.padding = '2px 4px';
   transferSelect.style.background = 'rgba(0, 0, 0, 0.5)';
   transferSelect.style.border = '1px solid #666';
   transferSelect.style.borderRadius = '4px';
   transferSelect.style.color = '#fff';
+  transferSelect.style.fontSize = '0.85rem';
 
   const placeholderOption = document.createElement('option');
   placeholderOption.value = '';
@@ -694,7 +889,8 @@ export function createCrewTab(
 
   const transferBtn = document.createElement('button');
   transferBtn.textContent = 'Transfer';
-  transferBtn.style.padding = '0.5rem 1rem';
+  transferBtn.style.padding = '2px 8px';
+  transferBtn.style.fontSize = '0.85rem';
   transferBtn.disabled = true;
 
   transferSelect.addEventListener('change', () => {
@@ -713,198 +909,6 @@ export function createCrewTab(
   transferSection.appendChild(transferControls);
 
   detailPanel.appendChild(transferSection);
-
-  // ── Stats section ──
-  const statsSection = document.createElement('div');
-  statsSection.className = 'crew-detail-section';
-
-  const statsTitle = document.createElement('h3');
-  statsTitle.textContent = 'Stats';
-  statsSection.appendChild(statsTitle);
-
-  const statsDiv = document.createElement('div');
-  statsDiv.className = 'crew-stats';
-
-  // Health row
-  const healthRow = document.createElement('div');
-  healthRow.className = 'stat-row';
-  const healthLabel = document.createElement('span');
-  healthLabel.textContent = 'Health:';
-  const healthValue = document.createElement('span');
-  healthRow.appendChild(healthLabel);
-  healthRow.appendChild(healthValue);
-  statsDiv.appendChild(healthRow);
-
-  // Attack row
-  const attackRow = document.createElement('div');
-  attackRow.className = 'stat-row';
-  const attackLabel = document.createElement('span');
-  attackLabel.textContent = 'Attack:';
-  const attackValue = document.createElement('span');
-  attackRow.appendChild(attackLabel);
-  attackRow.appendChild(attackValue);
-  statsDiv.appendChild(attackRow);
-
-  // Salary row
-  const salaryRow = document.createElement('div');
-  salaryRow.className = 'stat-row';
-  salaryRow.style.display = 'none';
-  const salaryLabel = document.createElement('span');
-  salaryLabel.textContent = 'Salary:';
-  const salaryValue = document.createElement('span');
-  salaryRow.appendChild(salaryLabel);
-  salaryRow.appendChild(salaryValue);
-  statsDiv.appendChild(salaryRow);
-
-  // Unpaid warning
-  const unpaidWarning = document.createElement('div');
-  unpaidWarning.className = 'unpaid-warning';
-  unpaidWarning.style.color = '#ff4444';
-  unpaidWarning.style.marginTop = '0.5rem';
-  unpaidWarning.style.fontWeight = 'bold';
-  unpaidWarning.style.display = 'none';
-  statsDiv.appendChild(unpaidWarning);
-
-  statsSection.appendChild(statsDiv);
-
-  // ── Zero-G Exposure section ──
-  const exposureSection = document.createElement('div');
-  exposureSection.className = 'exposure-section';
-  exposureSection.style.marginTop = '1rem';
-  exposureSection.style.padding = '0.5rem';
-  exposureSection.style.border = '1px solid rgba(255,255,255,0.1)';
-  exposureSection.style.borderRadius = '4px';
-
-  const exposureTitle = document.createElement('div');
-  exposureTitle.style.fontWeight = 'bold';
-  exposureTitle.style.marginBottom = '0.5rem';
-  exposureSection.appendChild(exposureTitle);
-
-  // Exposure progress bar container
-  const exposureBarContainer = document.createElement('div');
-  exposureBarContainer.style.position = 'relative';
-  exposureBarContainer.style.width = '100%';
-  exposureBarContainer.style.height = '20px';
-  exposureBarContainer.style.backgroundColor = 'rgba(0,0,0,0.3)';
-  exposureBarContainer.style.borderRadius = '4px';
-  exposureBarContainer.style.overflow = 'hidden';
-  exposureBarContainer.style.marginBottom = '0.5rem';
-
-  const exposureBarFill = document.createElement('div');
-  exposureBarFill.style.width = '0%';
-  exposureBarFill.style.height = '100%';
-  exposureBarFill.style.transition = 'width 0.3s ease';
-  exposureBarContainer.appendChild(exposureBarFill);
-
-  // Threshold markers (static - always the same thresholds)
-  const thresholds = [
-    { days: 14, label: '14d' },
-    { days: 60, label: '60d' },
-    { days: 180, label: '180d' },
-    { days: 365, label: '365d' },
-  ];
-  const maxDays = 365;
-
-  for (const threshold of thresholds) {
-    const marker = document.createElement('div');
-    marker.style.position = 'absolute';
-    marker.style.left = `${(threshold.days / maxDays) * 100}%`;
-    marker.style.top = '0';
-    marker.style.bottom = '0';
-    marker.style.width = '2px';
-    marker.style.backgroundColor = 'rgba(255,255,255,0.3)';
-    exposureBarContainer.appendChild(marker);
-
-    const label = document.createElement('div');
-    label.style.position = 'absolute';
-    label.style.left = `${(threshold.days / maxDays) * 100}%`;
-    label.style.bottom = '-18px';
-    label.style.transform = 'translateX(-50%)';
-    label.style.fontSize = '0.7em';
-    label.style.color = 'rgba(255,255,255,0.5)';
-    label.textContent = threshold.label;
-    exposureBarContainer.appendChild(label);
-  }
-
-  exposureSection.appendChild(exposureBarContainer);
-
-  // Status text
-  const exposureStatusText = document.createElement('div');
-  exposureStatusText.style.fontSize = '0.9em';
-  exposureStatusText.style.marginTop = '1rem';
-  exposureSection.appendChild(exposureStatusText);
-
-  // Next threshold text
-  const exposureNextText = document.createElement('div');
-  exposureNextText.style.fontSize = '0.85em';
-  exposureNextText.style.marginTop = '0.25rem';
-  exposureNextText.style.opacity = '0.7';
-  exposureNextText.style.display = 'none';
-  exposureSection.appendChild(exposureNextText);
-
-  // Recovery div
-  const recoveryDiv = document.createElement('div');
-  recoveryDiv.style.marginTop = '0.5rem';
-  recoveryDiv.style.padding = '0.5rem 0.75rem';
-  recoveryDiv.style.background = 'rgba(74, 222, 128, 0.1)';
-  recoveryDiv.style.border = '1px solid rgba(74, 222, 128, 0.3)';
-  recoveryDiv.style.borderRadius = '4px';
-  recoveryDiv.style.fontSize = '0.85em';
-  recoveryDiv.style.display = 'none';
-
-  const recoveryTitle = document.createElement('div');
-  recoveryTitle.style.color = '#4ade80';
-  recoveryTitle.style.fontWeight = 'bold';
-  recoveryTitle.style.marginBottom = '0.25rem';
-  recoveryTitle.textContent = 'Recovering — Docked';
-  recoveryDiv.appendChild(recoveryTitle);
-
-  const recoveryNextLine = document.createElement('div');
-  recoveryNextLine.style.color = '#ccc';
-  recoveryNextLine.style.display = 'none';
-  recoveryDiv.appendChild(recoveryNextLine);
-
-  const recoveryFullLine = document.createElement('div');
-  recoveryFullLine.style.color = '#aaa';
-  recoveryFullLine.style.marginTop = '0.15rem';
-  recoveryDiv.appendChild(recoveryFullLine);
-
-  exposureSection.appendChild(recoveryDiv);
-
-  statsSection.appendChild(exposureSection);
-
-  // ── Radiation Exposure section ──
-  const radiationSection = document.createElement('div');
-  radiationSection.className = 'radiation-exposure-section';
-  radiationSection.style.marginTop = '1rem';
-  radiationSection.style.padding = '0.5rem';
-  radiationSection.style.border = '1px solid rgba(255,255,255,0.1)';
-  radiationSection.style.borderRadius = '4px';
-
-  const radTitle = document.createElement('div');
-  radTitle.style.fontWeight = 'bold';
-  radTitle.style.marginBottom = '0.5rem';
-  radiationSection.appendChild(radTitle);
-
-  const radContent = document.createElement('div');
-  radiationSection.appendChild(radContent);
-
-  statsSection.appendChild(radiationSection);
-
-  detailPanel.appendChild(statsSection);
-
-  // ── Training indicator ──
-  const trainingDiv = document.createElement('div');
-  trainingDiv.className = 'training-indicator';
-  trainingDiv.style.padding = '0.5rem 0.75rem';
-  trainingDiv.style.marginBottom = '0.5rem';
-  trainingDiv.style.background = 'rgba(74, 222, 128, 0.1)';
-  trainingDiv.style.border = '1px solid rgba(74, 222, 128, 0.3)';
-  trainingDiv.style.borderRadius = '4px';
-  trainingDiv.style.fontSize = '0.9rem';
-  trainingDiv.style.color = '#4ade80';
-  trainingDiv.style.display = 'none';
-  detailPanel.appendChild(trainingDiv);
 
   // ── Skills & Mastery section ──
   const skillsSection = document.createElement('div');
@@ -1163,67 +1167,72 @@ export function createCrewTab(
         : roleName.toUpperCase();
     }
 
-    // ── Service record ──
+    // ── Service record (Row 2) ──
     const jobSlotForService = getCrewJobSlot(ship, crew.id);
     if (jobSlotForService) {
       const jobDef = getJobSlotDefinition(jobSlotForService.type);
       const jobName = jobDef?.name ?? jobSlotForService.type;
-      serviceAssignment.textContent = `Assigned to ${jobName} aboard ${ship.name}`;
+      serviceAssignment.textContent = `${jobName} on ${ship.name}`;
     } else if (ship.location.status === 'docked') {
-      serviceAssignment.textContent = `Stationed aboard ${ship.name}`;
+      serviceAssignment.textContent = `Stationed on ${ship.name}`;
     } else {
       serviceAssignment.textContent = `Aboard ${ship.name}`;
     }
 
     const shipTenure = gameData.gameTime - crew.boardedShipAt;
-    serviceShipTenure.textContent =
+    const shipTenureDay = Math.floor(
+      (gameData.gameTime - crew.boardedShipAt) / TICKS_PER_DAY
+    );
+    serviceShipTenure.textContent = `Aboard Day ${shipTenureDay}`;
+    serviceShipTenure.title =
       shipTenure > 0
         ? `Aboard since ${formatGameDate(crew.boardedShipAt)} — ${formatDualTime(shipTenure)}`
         : `Aboard since ${formatGameDate(crew.boardedShipAt)}`;
 
     if (crew.hiredAt !== crew.boardedShipAt) {
       const companyTenure = gameData.gameTime - crew.hiredAt;
-      serviceCompanyTenure.textContent =
+      const companyTenureText =
         companyTenure > 0
           ? `With the company since ${formatGameDate(crew.hiredAt)} — ${formatDualTime(companyTenure)}`
           : `With the company since ${formatGameDate(crew.hiredAt)}`;
-      serviceCompanyTenure.style.display = '';
+      serviceShipTenure.title += `\n${companyTenureText}`;
+      serviceSeparator2.style.display = 'none';
+      serviceCompanyTenure.style.display = 'none';
     } else {
+      serviceSeparator2.style.display = 'none';
       serviceCompanyTenure.style.display = 'none';
     }
 
     if (crew.isCaptain) {
       serviceOrigin.textContent = 'Company founder';
-      serviceOrigin.style.fontStyle = 'italic';
-      serviceOrigin.style.display = '';
+      serviceSeparator3.style.display = '';
     } else if (crew.hiredLocation) {
       const location = gameData.world.locations.find(
         (l) => l.id === crew.hiredLocation
       );
-      serviceOrigin.textContent = location
-        ? `Recruited at ${location.name}`
-        : '';
-      serviceOrigin.style.fontStyle = '';
-      serviceOrigin.style.display = location ? '' : 'none';
+      if (location) {
+        serviceOrigin.textContent = `Recruited at ${location.name}`;
+        serviceSeparator3.style.display = '';
+      } else {
+        serviceOrigin.textContent = '';
+        serviceSeparator3.style.display = 'none';
+      }
     } else {
-      serviceOrigin.style.display = 'none';
+      serviceOrigin.textContent = '';
+      serviceSeparator3.style.display = 'none';
     }
 
-    // ── Transfer section (always visible, shows context messages) ──
-    transferSection.style.display = '';
-
+    // ── Transfer section (Row 6) ──
     if (gameData.ships.length <= 1) {
-      transferNoShipsMsg.textContent =
-        'Acquire additional ships to transfer crew between them.';
+      transferNoShipsMsg.textContent = 'Acquire more ships';
       transferNoShipsMsg.style.display = '';
       transferControls.style.display = 'none';
-      transferSection.style.opacity = '0.4';
+      transferSection.style.opacity = '0.6';
     } else if (ship.location.status !== 'docked') {
-      transferNoShipsMsg.textContent =
-        'Dock at a station to transfer crew between ships.';
+      transferNoShipsMsg.textContent = 'Dock to transfer';
       transferNoShipsMsg.style.display = '';
       transferControls.style.display = 'none';
-      transferSection.style.opacity = '0.4';
+      transferSection.style.opacity = '0.6';
     } else {
       transferSection.style.opacity = '';
       const dockedLocationId = ship.location.dockedAt;
@@ -1235,8 +1244,7 @@ export function createCrewTab(
       );
 
       if (otherDockedShips.length === 0) {
-        transferNoShipsMsg.textContent =
-          'No other ships docked at this station.';
+        transferNoShipsMsg.textContent = 'No other ships here';
         transferNoShipsMsg.style.display = '';
         transferControls.style.display = 'none';
       } else {
@@ -1248,90 +1256,97 @@ export function createCrewTab(
       }
     }
 
-    // ── Stats ──
+    // ── Stats (Row 3) ──
     healthValue.textContent = `${crew.health}/100`;
     attackValue.textContent = `${calculateAttackScore(crew)}`;
 
     const crewSalaryPerTick = getCrewSalaryPerTick(crew);
     if (crewSalaryPerTick > 0) {
-      salaryRow.style.display = '';
+      salaryRow.style.display = 'inline-flex';
       salaryValue.textContent = `${(crewSalaryPerTick * TICKS_PER_DAY).toFixed(0)} cr/day`;
     } else if (crew.isCaptain) {
-      salaryRow.style.display = '';
+      salaryRow.style.display = 'inline-flex';
       salaryValue.textContent = 'None (Captain)';
     } else {
       salaryRow.style.display = 'none';
     }
 
     if (crew.unpaidTicks > 0 && !crew.isCaptain) {
-      unpaidWarning.style.display = '';
+      unpaidWarning.style.display = 'inline';
       const unpaidDays = Math.ceil(crew.unpaidTicks / TICKS_PER_DAY);
-      unpaidWarning.textContent = `⚠️ ${unpaidDays} unpaid day${unpaidDays > 1 ? 's' : ''} - will depart at next port!`;
+      unpaidWarning.textContent = `!${unpaidDays}d unpaid`;
+      unpaidWarning.title = `${unpaidDays} unpaid day${unpaidDays > 1 ? 's' : ''} - will depart at next port!`;
     } else {
       unpaidWarning.style.display = 'none';
     }
 
-    // ── Zero-G Exposure ──
+    // ── Zero-G Exposure (Row 4 left) ──
     const exposureDays = formatExposureDays(crew.zeroGExposure);
     const exposureLevel = getGravityDegradationLevel(crew.zeroGExposure);
     const nextThreshold = getNextThreshold(crew.zeroGExposure);
 
-    exposureTitle.textContent = `Zero-G Exposure: ${exposureDays} days`;
+    exposureTitle.textContent = `Zero-G: ${exposureDays}d`;
 
     const fillPercent = Math.min(100, (exposureDays / maxDays) * 100);
     exposureBarFill.style.width = `${fillPercent}%`;
 
     if (exposureLevel === 'none') {
       exposureBarFill.style.backgroundColor = '#4ade80';
+      exposureStatusText.textContent = 'Normal';
+      exposureStatusText.style.color = '#4ade80';
     } else if (exposureLevel === 'minor') {
       exposureBarFill.style.backgroundColor = '#fbbf24';
+      exposureStatusText.textContent = 'Minor';
+      exposureStatusText.style.color = '#fbbf24';
     } else if (exposureLevel === 'moderate') {
       exposureBarFill.style.backgroundColor = '#fb923c';
+      exposureStatusText.textContent = 'Moderate';
+      exposureStatusText.style.color = '#fb923c';
     } else if (exposureLevel === 'severe') {
       exposureBarFill.style.backgroundColor = '#f87171';
+      exposureStatusText.textContent = 'Severe';
+      exposureStatusText.style.color = '#f87171';
     } else {
       exposureBarFill.style.backgroundColor = '#dc2626';
+      exposureStatusText.textContent = 'Critical';
+      exposureStatusText.style.color = '#dc2626';
     }
 
-    // Status text
+    // Build comprehensive tooltip
+    const tooltipParts: string[] = [];
+
     if (exposureLevel === 'none') {
-      exposureStatusText.innerHTML = '';
-      exposureStatusText.textContent = 'Status: Normal — No effects';
-      exposureStatusText.style.color = '#4ade80';
+      tooltipParts.push('Status: Normal — No effects');
     } else {
       const levelName = getDegradationLevelName(exposureLevel);
       const description = getDegradationDescription(exposureLevel);
-      exposureStatusText.innerHTML = `Status: <span style="color: ${exposureLevel === 'minor' ? '#fbbf24' : exposureLevel === 'moderate' ? '#fb923c' : '#f87171'}">${levelName}</span> — ${description}`;
+      tooltipParts.push(`Status: ${levelName} — ${description}`);
     }
 
-    // Next threshold
     if (nextThreshold && ship.location.status !== 'docked') {
-      exposureNextText.style.display = '';
       const nextDays = formatExposureDays(nextThreshold.threshold);
       const levelName = getDegradationLevelName(nextThreshold.level);
       const description = getDegradationDescription(nextThreshold.level);
-      exposureNextText.textContent = `Next: ${levelName} at ${nextDays} days — ${description}`;
-    } else {
-      exposureNextText.style.display = 'none';
+      tooltipParts.push(
+        `Next: ${levelName} at ${nextDays} days — ${description}`
+      );
     }
 
-    // Recovery
     if (ship.location.status === 'docked' && crew.zeroGExposure > 0) {
-      recoveryDiv.style.display = '';
       const recovery = estimateRecoveryTime(crew.zeroGExposure);
-
+      tooltipParts.push('Recovering — Docked');
       if (exposureLevel !== 'none') {
-        recoveryNextLine.style.display = '';
         const nextLevelName = getDegradationLevelName(recovery.targetLevel);
-        recoveryNextLine.textContent = `${nextLevelName}: ${formatDualTime(recovery.gameSecondsToNextLevel)}`;
-      } else {
-        recoveryNextLine.style.display = 'none';
+        tooltipParts.push(
+          `${nextLevelName}: ${formatDualTime(recovery.gameSecondsToNextLevel)}`
+        );
       }
-
-      recoveryFullLine.textContent = `Full recovery: ${formatDualTime(recovery.gameSecondsToFullRecovery)}`;
-    } else {
-      recoveryDiv.style.display = 'none';
+      tooltipParts.push(
+        `Full recovery: ${formatDualTime(recovery.gameSecondsToFullRecovery)}`
+      );
     }
+
+    exposureSection.title = tooltipParts.join('\n');
 
     // ── Radiation section ──
     updateRadiationSection(crew, ship);
@@ -1422,22 +1437,14 @@ export function createCrewTab(
     const engineDef = getEngineDefinition(ship.engine.definitionId);
     const engineRadiation = engineDef.radiationOutput || 0;
 
-    // Clear the content area and rebuild (this is a contained sub-section,
-    // not an interactive element, so clearing is acceptable here)
-    while (radContent.firstChild) {
-      radContent.removeChild(radContent.firstChild);
-    }
+    const tooltipParts: string[] = [];
 
     if (engineRadiation === 0) {
-      radTitle.textContent = 'Radiation Exposure: N/A';
+      radTitle.textContent = 'Rad: N/A';
       radTitle.style.color = '#555';
-
-      const inactiveNote = document.createElement('div');
-      inactiveNote.style.fontSize = '0.9em';
-      inactiveNote.style.color = '#555';
-      inactiveNote.textContent =
-        'Chemical engines produce no radiation. Higher-class drives require shielding.';
-      radContent.appendChild(inactiveNote);
+      tooltipParts.push(
+        'Chemical engines produce no radiation. Higher-class drives require shielding.'
+      );
     } else {
       let totalShielding = 0;
       for (const eq of ship.equipment) {
@@ -1461,60 +1468,44 @@ export function createCrewTab(
             : damagePerTick;
         const damagePerDay = effectiveDamage * TICKS_PER_DAY;
 
-        radTitle.textContent = 'Radiation Exposure: Active';
+        radTitle.textContent = `Rad: -${damagePerDay.toFixed(1)} HP/d`;
         radTitle.style.color = '#f87171';
 
-        const radDetails = document.createElement('div');
-        radDetails.style.fontSize = '0.9em';
-        radDetails.style.lineHeight = '1.6';
-
-        const netLine = document.createElement('div');
-        netLine.innerHTML = `<span style="color: #888;">Net Radiation:</span> <span style="color: ${netRadiation > 30 ? '#f87171' : netRadiation > 15 ? '#fbbf24' : '#fb923c'}">${netRadiation.toFixed(0)} rad</span> <span style="color: #666;">(${engineRadiation} engine - ${totalShielding.toFixed(0)} shield)</span>`;
-        radDetails.appendChild(netLine);
-
-        const damageLine = document.createElement('div');
-        damageLine.innerHTML = `<span style="color: #888;">Health Loss:</span> <span style="color: #f87171;">-${damagePerDay.toFixed(1)} HP/day</span>`;
+        tooltipParts.push(
+          `Net Radiation: ${netRadiation.toFixed(0)} rad (${engineRadiation} engine - ${totalShielding.toFixed(0)} shield)`
+        );
         if (isPatient && medbay?.state === 'operational') {
-          damageLine.innerHTML +=
-            ' <span style="color: #4ade80; font-size: 0.85em;">(50% reduced — medbay)</span>';
+          tooltipParts.push('Health Loss: 50% reduced — medbay');
         }
-        radDetails.appendChild(damageLine);
 
         // Containment spike warning
         const confinementEq = ship.equipment.find(
           (eq) => eq.definitionId === 'mag_confinement'
         );
         if (confinementEq && confinementEq.degradation > 30) {
-          const spikeLine = document.createElement('div');
-          spikeLine.style.color = '#ff6b6b';
-          spikeLine.style.fontWeight = 'bold';
-          spikeLine.style.marginTop = '0.25rem';
           const integrity = (100 - confinementEq.degradation).toFixed(0);
-          spikeLine.textContent = `Containment breach (${integrity}% integrity) — radiation spikes active!`;
-          radDetails.appendChild(spikeLine);
+          tooltipParts.push(
+            `Containment breach (${integrity}% integrity) — radiation spikes active!`
+          );
         }
-
-        radContent.appendChild(radDetails);
       } else if (ship.engine.state === 'online' && netRadiation === 0) {
-        radTitle.textContent = 'Radiation Exposure: Shielded';
+        radTitle.textContent = 'Rad: Shielded';
         radTitle.style.color = '#4ade80';
 
-        const shieldedNote = document.createElement('div');
-        shieldedNote.style.fontSize = '0.9em';
-        shieldedNote.style.color = '#888';
-        shieldedNote.textContent = `Engine output ${engineRadiation} rad fully absorbed by shielding (${totalShielding.toFixed(0)} capacity).`;
-        radContent.appendChild(shieldedNote);
+        tooltipParts.push(
+          `Engine output ${engineRadiation} rad fully absorbed by shielding (${totalShielding.toFixed(0)} capacity).`
+        );
       } else {
-        radTitle.textContent = 'Radiation Exposure: Engine Off';
+        radTitle.textContent = 'Rad: Off';
         radTitle.style.color = '#888';
 
-        const offNote = document.createElement('div');
-        offNote.style.fontSize = '0.9em';
-        offNote.style.color = '#666';
-        offNote.textContent = `Engine emits ${engineRadiation} rad when online. Shielding capacity: ${totalShielding.toFixed(0)}.`;
-        radContent.appendChild(offNote);
+        tooltipParts.push(
+          `Engine emits ${engineRadiation} rad when online. Shielding capacity: ${totalShielding.toFixed(0)}.`
+        );
       }
     }
+
+    radiationSection.title = tooltipParts.join('\n');
   }
 
   function updateSkillsSection(gameData: GameData, crew: CrewMember): void {
