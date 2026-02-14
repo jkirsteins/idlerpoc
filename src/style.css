@@ -1318,7 +1318,6 @@ button:active:not(:disabled) {
 }
 
 .nav-map svg {
-  transform-origin: 0 0;
   /* Ensure crisp SVG rendering without blur */
   shape-rendering: geometricPrecision;
   image-rendering: -webkit-optimize-contrast;
