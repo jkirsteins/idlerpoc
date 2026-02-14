@@ -272,39 +272,60 @@ export function createSettingsTab(
   });
   debugBtnRow.appendChild(downloadBtn);
 
-  const uploadBtn = document.createElement('button');
-  uploadBtn.textContent = 'Upload State';
-  uploadBtn.addEventListener('click', () => {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = '.json,application/json';
-    input.addEventListener('change', () => {
-      const file = input.files?.[0];
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = () => {
-        const text = reader.result as string;
-        if (
-          confirm(
-            'Are you sure you want to replace your current game state? ' +
-              'Your existing progress will be overwritten.'
-          )
-        ) {
-          callbacks.onImportState?.(text);
-        }
-      };
-      reader.readAsText(file);
-    });
-    input.click();
-  });
-  debugBtnRow.appendChild(uploadBtn);
-
-  debugSection.appendChild(debugBtnRow);
-
+  // Status element for import errors (created before input to avoid temporal dead zone)
   const importStatus = document.createElement('p');
   importStatus.style.marginTop = '0.5rem';
   importStatus.style.fontSize = '12px';
   importStatus.style.display = 'none';
+
+  // Persistent file input (prevents GC, ensures Safari/iOS compatibility)
+  const fileInput = document.createElement('input');
+  fileInput.type = 'file';
+  fileInput.accept = '.json,application/json';
+  fileInput.style.display = 'none';
+
+  // One-time change listener registration
+  fileInput.addEventListener('change', () => {
+    const file = fileInput.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const text = reader.result as string;
+      if (
+        confirm(
+          'Are you sure you want to replace your current game state? ' +
+            'Your existing progress will be overwritten.'
+        )
+      ) {
+        callbacks.onImportState?.(text);
+      }
+    };
+
+    reader.onerror = () => {
+      importStatus.textContent = 'Error reading file. Please try again.';
+      importStatus.style.color = '#ef4444';
+      importStatus.style.display = 'block';
+    };
+
+    reader.readAsText(file);
+
+    // Reset value to allow re-selecting the same file
+    fileInput.value = '';
+  });
+
+  debugBtnRow.appendChild(fileInput);
+
+  const uploadBtn = document.createElement('button');
+  uploadBtn.textContent = 'Upload State';
+  uploadBtn.addEventListener('click', () => {
+    // Clear any previous error
+    importStatus.style.display = 'none';
+    fileInput.click();
+  });
+  debugBtnRow.appendChild(uploadBtn);
+
+  debugSection.appendChild(debugBtnRow);
   debugSection.appendChild(importStatus);
 
   container.appendChild(debugSection);
