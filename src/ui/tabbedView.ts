@@ -46,7 +46,10 @@ export function createTabbedView(
   showNavigation: boolean,
   callbacks: TabbedViewCallbacks,
   selectedCrewId?: string
-): Component & { updateView(state: TabbedViewState): void } {
+): Component & {
+  updateView(state: TabbedViewState): void;
+  navigateGamepediaTo(articleId: string): void;
+} {
   // Reset module-level state on (re-)mount to prevent stale data across game resets
   previousCredits = null;
   creditDeltaTimeout = null;

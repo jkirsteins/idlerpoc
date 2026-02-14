@@ -523,6 +523,7 @@ function makePlaceholderMounted(
   const dummyComp: Component = { el: dummy, update() {} };
   const dummyTabbed = Object.assign(dummyComp, {
     updateView(_s: TabbedViewState) {},
+    navigateGamepediaTo(_articleId: string) {},
   });
   return {
     container,
