@@ -374,12 +374,21 @@ export function createMiningPanel(callbacks: MiningPanelCallbacks): {
 
     // ── Crew nudge ──
     if (!hasEquipment) {
+      const hasMiningBay = ship.rooms.some((r) => r.type === 'mining_bay');
       r.crewNudge.style.display = '';
-      r.crewNudge.style.color = '#e94560';
-      r.crewNudge.style.borderColor = '#e94560';
-      r.crewNudge.style.background = 'rgba(233,69,96,0.1)';
-      r.crewNudge.textContent =
-        'No mining equipment installed. Purchase at a station store.';
+      if (hasMiningBay) {
+        r.crewNudge.style.color = '#e94560';
+        r.crewNudge.style.borderColor = '#e94560';
+        r.crewNudge.style.background = 'rgba(233,69,96,0.1)';
+        r.crewNudge.textContent =
+          'No mining equipment installed. Purchase at a station store.';
+      } else {
+        r.crewNudge.style.color = '#888';
+        r.crewNudge.style.borderColor = '#555';
+        r.crewNudge.style.background = 'rgba(136,136,136,0.1)';
+        r.crewNudge.textContent =
+          'This ship has no mining bay. Upgrade to a Class II vessel to begin mining operations.';
+      }
     } else if (miners.length === 0) {
       r.crewNudge.style.display = '';
       r.crewNudge.style.color = '#ffa500';

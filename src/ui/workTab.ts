@@ -151,6 +151,8 @@ interface NoContractRefs {
   miningRouteSetupHeading: HTMLHeadingElement;
   miningRouteSetupContainer: HTMLDivElement;
   miningRouteSetupNoMines: HTMLParagraphElement;
+  miningRouteSetupLockedMsg: HTMLDivElement;
+  miningFilterEmptyMsg: HTMLDivElement;
 }
 
 // ── Helper Functions (extracted to reduce function length) ──────
@@ -582,6 +584,12 @@ export function createWorkTab(
 
     cont.appendChild(filterBar);
 
+    // Empty state message for mining filter
+    const miningFilterEmptyMsg = document.createElement('div');
+    miningFilterEmptyMsg.style.cssText =
+      'font-size: 0.85rem; color: #888; padding: 0.75rem; background: rgba(255, 165, 0, 0.06); border: 1px solid #444; border-radius: 4px; margin-bottom: 0.75rem; display: none;';
+    cont.appendChild(miningFilterEmptyMsg);
+
     // Mining status slot (positioned before work listings)
     const miningSlot = document.createElement('div');
     cont.appendChild(miningSlot);
@@ -686,6 +694,11 @@ export function createWorkTab(
       'Start an automated mining route. Your ship will fly to the mine, fill cargo, sell ore, and repeat.';
     miningRouteSetupSection.appendChild(miningRouteSetupDesc);
 
+    const miningRouteSetupLockedMsg = document.createElement('div');
+    miningRouteSetupLockedMsg.style.cssText =
+      'font-size: 0.85rem; color: #ffa500; padding: 0.5rem 0.6rem; background: rgba(255, 165, 0, 0.08); border-left: 3px solid #ffa500; border-radius: 2px; margin-bottom: 0.5rem; display: none;';
+    miningRouteSetupSection.appendChild(miningRouteSetupLockedMsg);
+
     const miningRouteSetupNoMines = document.createElement('p');
     miningRouteSetupNoMines.style.cssText = 'font-size: 0.85rem; color: #666;';
     miningRouteSetupNoMines.textContent = 'No reachable mining locations.';
@@ -724,6 +737,8 @@ export function createWorkTab(
       miningRouteSetupHeading,
       miningRouteSetupContainer,
       miningRouteSetupNoMines,
+      miningRouteSetupLockedMsg,
+      miningFilterEmptyMsg,
     };
   }
 
@@ -1267,6 +1282,7 @@ export function createWorkTab(
           section: noContractRefs.miningRouteSetupSection,
           container: noContractRefs.miningRouteSetupContainer,
           noMinesMsg: noContractRefs.miningRouteSetupNoMines,
+          lockedMsg: noContractRefs.miningRouteSetupLockedMsg,
         },
         mineCardMap,
         callbacks.onStartMiningRoute,
@@ -1374,6 +1390,41 @@ export function createWorkTab(
 
     // Apply job filter after reconciliation
     applyJobFilter(gd, currentJobFilter, tradeQuestCards, regularQuestCards);
+
+    // H5: Mining filter empty state message
+    if (currentJobFilter === 'mining') {
+      // Check if any mining content is visible (quest cards + mining route setup + mining panel)
+      const hasVisibleMiningQuests = (() => {
+        for (const [, refs] of tradeQuestCards) {
+          if (refs.card.style.display !== 'none') return true;
+        }
+        for (const [, refs] of regularQuestCards) {
+          if (refs.card.style.display !== 'none') return true;
+        }
+        return false;
+      })();
+      const hasMiningContent =
+        hasVisibleMiningQuests ||
+        isAtMine ||
+        hasActiveMiningRoute ||
+        noContractRefs.miningRouteSetupSection.style.display !== 'none';
+
+      if (!hasMiningContent) {
+        const hasMiningBay = ship.rooms.some((r) => r.type === 'mining_bay');
+        if (!hasMiningBay) {
+          noContractRefs.miningFilterEmptyMsg.textContent =
+            'Mining operations require a Class II ship with a mining bay.';
+        } else {
+          noContractRefs.miningFilterEmptyMsg.textContent =
+            'No mining contracts at this location. Try a mine location or set up a mining route.';
+        }
+        noContractRefs.miningFilterEmptyMsg.style.display = '';
+      } else {
+        noContractRefs.miningFilterEmptyMsg.style.display = 'none';
+      }
+    } else {
+      noContractRefs.miningFilterEmptyMsg.style.display = 'none';
+    }
   }
 
   /** Reconcile a Map of quest card refs with the current quest list. */
