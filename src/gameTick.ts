@@ -100,13 +100,17 @@ function getInactiveTrainingJobTypes(
 }
 
 /**
- * Update a flight's 2D positions (originPos, interceptPos, shipPos) using
- * current-time body positions. Called every tick so that shipPos is always
- * in current-time coordinates — no stale arrival-time snapshots.
+ * Update a flight's ship position along its planned trajectory.
  *
- * For body-origin flights (originBodyId set): recompute origin position.
- * For redirect flights (originBodyId unset): origin is a fixed point in space.
- * Destination is always recomputed from the real body.
+ * The trajectory (originPos → interceptPos) is frozen at flight initialization
+ * and represents the straight-line path the ship follows in heliocentric space.
+ * This function interpolates the ship's current position along that fixed path
+ * based on flight progress.
+ *
+ * We do NOT update originPos/interceptPos every tick — that would cause the
+ * trajectory to constantly shift as bodies move, making the ship appear to
+ * follow the wrong path. The ship commits to a ballistic trajectory at launch
+ * and follows it to completion.
  */
 function updateFlightPosition(
   fp: import('./models').FlightState,
@@ -114,39 +118,13 @@ function updateFlightPosition(
 ): void {
   if (fp.totalDistance <= 0) return;
 
-  const destLoc = gameData.world.locations.find((l) => l.id === fp.destination);
-  if (!destLoc) return;
-
-  const destPosNow = getLocationPosition(
-    destLoc,
-    gameData.gameTime,
-    gameData.world
-  );
-
-  let originPosNow: import('./models').Vec2 | undefined;
-  if (fp.originBodyId) {
-    const originLoc = gameData.world.locations.find(
-      (l) => l.id === fp.originBodyId
-    );
-    if (originLoc) {
-      originPosNow = getLocationPosition(
-        originLoc,
-        gameData.gameTime,
-        gameData.world
-      );
-    }
-  }
-  // Redirect flights: originPos is a fixed point in space — keep as-is
-  if (!originPosNow) {
-    originPosNow = fp.originPos;
-  }
-  if (!originPosNow) return;
+  // Use the planned trajectory endpoints stored at flight initialization
+  if (!fp.originPos || !fp.interceptPos) return;
 
   const progress = Math.min(1, fp.distanceCovered / fp.totalDistance);
 
-  fp.originPos = originPosNow;
-  fp.interceptPos = destPosNow;
-  fp.shipPos = lerpVec2(originPosNow, destPosNow, progress);
+  // Interpolate ship position along the fixed trajectory
+  fp.shipPos = lerpVec2(fp.originPos, fp.interceptPos, progress);
 }
 
 /**
