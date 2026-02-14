@@ -101,8 +101,20 @@ describe('Mining System', () => {
         location: { status: 'orbiting', orbitingAt: 'graveyard_drift' },
         // Override equipment to exclude mining equipment
         equipment: [
-          { id: 'eq-ls', definitionId: 'life_support', degradation: 0 },
-          { id: 'eq-af', definitionId: 'air_filters', degradation: 0 },
+          {
+            id: 'eq-ls',
+            definitionId: 'life_support',
+            degradation: 0,
+            powered: true,
+            powerMode: 'auto' as const,
+          },
+          {
+            id: 'eq-af',
+            definitionId: 'air_filters',
+            degradation: 0,
+            powered: true,
+            powerMode: 'auto' as const,
+          },
         ],
       });
       assignCrewToJob(ship, miner.id, 'mining_ops');
@@ -262,7 +274,13 @@ describe('Mining System', () => {
       const ship = createTestShip({
         location: { status: 'orbiting', orbitingAt: 'graveyard_drift' },
         equipment: [
-          { id: 'eq-ls', definitionId: 'life_support', degradation: 0 },
+          {
+            id: 'eq-ls',
+            definitionId: 'life_support',
+            degradation: 0,
+            powered: true,
+            powerMode: 'auto' as const,
+          },
         ],
       });
       const location = createMineLocation();

@@ -72,6 +72,7 @@ import { countPilotingMasteryItems } from './contractExec';
 import { getAllEquipmentDefinitions } from './equipment';
 import { getBestCrewPool } from './crewRoles';
 import { computePowerStatus } from './powerSystem';
+import { applyPowerManagement } from './powerManagement';
 
 /**
  * Determine which job slot types should NOT train passively given the
@@ -469,6 +470,9 @@ function applyShipTick(gameData: GameData, ship: Ship): boolean {
   // Cache helm crew for warmup + fuel bonus lookups
   const helmCrew = getCrewForJobType(ship, 'helm');
 
+  // Power management: decide which equipment is powered this tick
+  applyPowerManagement(ship, gameData);
+
   // Engine warmup progress (independent of ship location)
   // Piloting pool 25% checkpoint: +5% warmup speed
   if (ship.engine.state === 'warming_up') {
@@ -629,6 +633,7 @@ function applyShipTick(gameData: GameData, ship: Ship): boolean {
           const heatDegradationMultiplier = 1 + excessHeat / 100;
 
           for (const eq of ship.equipment) {
+            if (!eq.powered) continue; // unpowered equipment doesn't generate heat
             const eqDef = getEquipmentDefinition(eq.definitionId);
             if (eqDef?.hasDegradation && eq.degradation < 100) {
               const baseDegradation = 0.005;

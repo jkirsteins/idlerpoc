@@ -71,6 +71,8 @@ export function createTestEquipment(
     id: uid(),
     definitionId: 'life_support',
     degradation: 0,
+    powered: true,
+    powerMode: 'auto',
     ...overrides,
   };
 }

@@ -1088,6 +1088,8 @@ const callbacks: RendererCallbacks = {
       id: Math.random().toString(36).substring(2, 11),
       definitionId: equipmentId,
       degradation: 0,
+      powered: true,
+      powerMode: 'auto' as const,
     };
     ship.equipment.push(newEquip);
 

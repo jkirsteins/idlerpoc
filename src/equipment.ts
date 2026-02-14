@@ -331,6 +331,7 @@ export function getBestShipMiningEquipment(
   ship: import('./models').Ship
 ): EquipmentDefinition | undefined {
   const miningGear = ship.equipment
+    .filter((eq) => eq.powered)
     .map((eq) => getEquipmentDefinition(eq.definitionId))
     .filter(
       (def): def is EquipmentDefinition =>
@@ -369,6 +370,7 @@ export function getEffectiveRadiationShielding(
 ): number {
   let total = 0;
   for (const eq of ship.equipment) {
+    if (!eq.powered) continue;
     const eqDef = getEquipmentDefinition(eq.definitionId);
     if (eqDef?.radiationShielding) {
       const effectiveness =
@@ -388,6 +390,7 @@ export function getEffectiveHeatDissipation(
 ): number {
   let total = 0;
   for (const eq of ship.equipment) {
+    if (!eq.powered) continue;
     const eqDef = getEquipmentDefinition(eq.definitionId);
     if (eqDef?.heatDissipation) {
       const effectiveness =
@@ -408,6 +411,7 @@ export function getEffectiveProvisionsRecycling(
 ): number {
   let total = 0;
   for (const eq of ship.equipment) {
+    if (!eq.powered) continue;
     const eqDef = getEquipmentDefinition(eq.definitionId);
     if (eqDef?.provisionsRecyclingPerCrewPerDay) {
       const effectiveness =

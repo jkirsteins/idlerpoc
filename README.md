@@ -168,6 +168,7 @@ npm run dev
   - Catch-up report modal summarizing encounters that occurred while away
   - Encounter cooldown prevents rapid consecutive encounters per ship
 - **Event Log**: Rolling log of the most recent 200 events (departures, arrivals, payments, contract completions, encounters); older entries pruned automatically
+- **Power Management**: Automated priority-based power allocation managed by the helm pilot. Equipment has three power modes (Off/Auto/On) — in Auto mode, the ship AI powers equipment contextually (shields during flight, mining gear at mines, life support always). When power is constrained, lower-priority equipment is shed first. Pilot skill provides up to +10% effective power budget
 - **Resource Tracking**: Monitor credits, fuel, oxygen, crew count, and power consumption
 - **Daily Ledger**: Fleet-wide financial overview with 7-day rolling income average, projected crew/fuel expenses per day, net income rate, and runway indicator. Appears in header bar, left sidebar, and Fleet Performance Dashboard
 - **Equipment Trading**: Buy and sell crew equipment at stations with trade services (50% sell value)
@@ -178,7 +179,7 @@ npm run dev
 - **Save Data Migration**: Versioned save format with automatic migration pipeline — existing saves upgrade gracefully when the data shape changes (see `docs/save-migration.md`)
 - **Game Data Catalogs**:
   - 9 engine types (chemical, nuclear fission, fusion, advanced fusion) with thrust and delta-v specifications
-  - 18 ship equipment types with category labels (life support, shielding, thermal, defense, navigation, structural, gravity systems)
+  - 20 ship equipment types with category labels (life support, shielding, thermal, defense, navigation, structural, gravity systems) and automated power management
   - 9 room types (bridge, engine room, reactor room, point defense station, etc.)
   - 3 factions (Terran Alliance, Free Traders Guild, Kreth Collective)
   - 15 crew equipment items (weapons, tools, accessories, armor, gravity countermeasures, 6 mining equipment tiers)

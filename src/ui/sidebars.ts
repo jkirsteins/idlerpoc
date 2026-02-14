@@ -314,11 +314,15 @@ export function createLeftSidebar(
       }
     }
 
-    // Equipment
+    // Equipment (only powered equipment draws power)
     for (const equipment of ship.equipment) {
       const equipDef = getEquipmentDefinition(equipment.definitionId);
       if (equipDef && equipDef.powerDraw > 0) {
-        drawItems.push({ name: equipDef.name, draw: equipDef.powerDraw });
+        if (equipment.powered) {
+          drawItems.push({ name: equipDef.name, draw: equipDef.powerDraw });
+        } else {
+          drawItems.push({ name: `${equipDef.name} (off)`, draw: 0 });
+        }
       }
     }
 

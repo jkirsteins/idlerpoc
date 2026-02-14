@@ -109,10 +109,14 @@ export interface EquipmentSlotDef {
 
 export type ShipFeatureId = 'rotating_habitat';
 
+export type EquipmentPowerMode = 'off' | 'on' | 'auto';
+
 export interface EquipmentInstance {
   id: string;
   definitionId: EquipmentId;
   degradation: number; // 0 = new, 100 = worn out
+  powered: boolean; // actual powered state, set each tick by power management
+  powerMode: EquipmentPowerMode; // user preference: off/on/auto (default: auto)
 }
 
 export type ShipStatus = 'docked' | 'in_flight' | 'orbiting';
@@ -454,7 +458,8 @@ export type LogEntryType =
   | 'crew_death'
   | 'stranded'
   | 'rescue'
-  | 'fuel_depleted';
+  | 'fuel_depleted'
+  | 'power_change';
 
 export interface LogEntry {
   gameTime: number;
@@ -578,6 +583,7 @@ export interface CatchUpShipSummary {
   contractInfo?: CatchUpContractInfo;
   gravityAssists?: CatchUpGravityAssistStats;
   crewHighlights?: LogEntry[];
+  powerChanges?: number;
 }
 
 export interface CatchUpReport {
