@@ -17,6 +17,8 @@ export interface FleetPanelCallbacks {
   onSelectShip: (shipId: string) => void;
 }
 
+export type FleetPanelMode = 'full' | 'compact';
+
 /** Refs kept per ship row so we can patch in-place. */
 interface ShipRowRefs {
   row: HTMLDivElement;
@@ -111,12 +113,14 @@ function getShipActivity(ship: Ship, gd: GameData): ShipActivity {
 
 export function createFleetPanel(
   gameData: GameData,
-  callbacks: FleetPanelCallbacks
+  callbacks: FleetPanelCallbacks,
+  mode: FleetPanelMode = 'full'
 ): Component {
   const panel = document.createElement('div');
-  panel.className = 'fleet-panel';
+  panel.className =
+    mode === 'compact' ? 'fleet-panel fleet-panel--compact' : 'fleet-panel';
 
-  // Title — created once, never changes
+  // Title — created once, never changes (hidden in compact mode via CSS)
   const title = document.createElement('div');
   title.className = 'fleet-panel-title';
   title.textContent = 'Fleet';
@@ -145,6 +149,11 @@ export function createFleetPanel(
     });
     row.addEventListener('click', () => callbacks.onSelectShip(ship.id));
 
+    // In compact mode, add tooltip showing full ship details
+    if (mode === 'compact') {
+      row.title = 'Click to select ship';
+    }
+
     // Active indicator dot
     const indicator = document.createElement('div');
     indicator.className = 'fleet-row-indicator';
@@ -167,6 +176,7 @@ export function createFleetPanel(
     topLine.appendChild(nameSpan);
 
     const commandBadge = document.createElement('span');
+    commandBadge.className = 'fleet-row-command';
     commandBadge.style.cssText =
       'font-size: 0.75em; margin-left: 4px; font-weight: bold;';
     topLine.appendChild(commandBadge);
@@ -256,7 +266,10 @@ export function createFleetPanel(
     const isActive = ship.id === gd.activeShipId;
 
     // Row class & style
-    refs.row.className = isActive ? 'fleet-row active' : 'fleet-row';
+    const compactClass = mode === 'compact' ? ' fleet-row--compact' : '';
+    refs.row.className = isActive
+      ? `fleet-row active${compactClass}`
+      : `fleet-row${compactClass}`;
 
     // Indicator dot
     refs.indicator.style.background = isActive ? '#4a9eff' : 'transparent';
@@ -386,6 +399,47 @@ export function createFleetPanel(
         refs.rangeSpan.textContent = rangeText;
       }
       refs.rangeSpan.title = `Max range: ${maxRangeKm.toLocaleString()} km`;
+    }
+
+    // Compact mode: build comprehensive tooltip and hide bottom row via CSS
+    if (mode === 'compact') {
+      // Build tooltip with key stats
+      const tooltipParts: string[] = [];
+
+      // Location/flight status
+      if (ship.location.status === 'docked') {
+        const dockedAt = ship.location.dockedAt;
+        const location = gd.world.locations.find((l) => l.id === dockedAt);
+        tooltipParts.push(`📍 Docked at ${location?.name || dockedAt}`);
+      } else if (ship.location.status === 'orbiting') {
+        const orbitingAt = ship.location.orbitingAt;
+        const location = gd.world.locations.find((l) => l.id === orbitingAt);
+        tooltipParts.push(`📍 Orbiting ${location?.name || orbitingAt}`);
+      } else if (ship.activeFlightPlan) {
+        const destId = ship.activeFlightPlan.destination;
+        const destination = gd.world.locations.find((l) => l.id === destId);
+        const progressPercent =
+          (ship.activeFlightPlan.distanceCovered /
+            ship.activeFlightPlan.totalDistance) *
+          100;
+        tooltipParts.push(
+          `🚀 In Flight to ${destination?.name || destId} (${progressPercent.toFixed(0)}%)`
+        );
+      } else {
+        tooltipParts.push('🚀 In Flight');
+      }
+
+      // Stats
+      tooltipParts.push(`⛽ ${refs.fuelSpan.textContent}`);
+      tooltipParts.push(`👥 ${refs.crewSpan.textContent}`);
+      tooltipParts.push(`🔧 ${refs.equipSpan.textContent}`);
+      if (shipClass) {
+        const engineDef = getEngineDefinition(ship.engine.definitionId);
+        const maxRangeKm = computeMaxRange(shipClass, engineDef);
+        tooltipParts.push(`📏 Range: ${formatLargeNumber(maxRangeKm)}km`);
+      }
+
+      refs.row.title = tooltipParts.join('\n');
     }
   }
 

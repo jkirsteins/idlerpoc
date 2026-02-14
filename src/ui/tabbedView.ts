@@ -13,9 +13,7 @@ import { createLogTab } from './logTab';
 import { createSettingsTab } from './settingsTab';
 import { createGamepediaTab } from './gamepediaTab';
 import { createStationTab } from './stationTab';
-import { createFleetPanel } from './fleetPanel';
 import { createNavigationView } from './navigationView';
-import { formatGameDate, GAME_SECONDS_PER_DAY } from '../timeSystem';
 import { formatCredits } from '../formatting';
 import { calculateDailyLedger } from '../dailyLedger';
 import {
@@ -74,51 +72,35 @@ export function createTabbedView(
   headerEl.className = 'ship-header';
   headerArea.appendChild(headerEl);
 
-  // Date display with day progress bar
-  const dateHeader = document.createElement('div');
-  dateHeader.className = 'date-header-global';
+  // Ship identity line (name + class + captain in single compact row)
+  const shipIdentityLine = document.createElement('div');
+  shipIdentityLine.className = 'ship-identity-line';
+  shipIdentityLine.style.display = 'flex';
+  shipIdentityLine.style.alignItems = 'center';
+  shipIdentityLine.style.gap = '12px';
+  shipIdentityLine.style.flexWrap = 'wrap';
+  shipIdentityLine.style.marginBottom = '0.75rem';
 
-  const dateText = document.createElement('span');
-  dateHeader.appendChild(dateText);
+  const shipNameEl = document.createElement('div');
+  shipNameEl.className = 'ship-name-compact';
+  shipNameEl.style.fontSize = '18px';
+  shipNameEl.style.fontWeight = 'bold';
+  shipNameEl.style.color = '#e94560';
+  shipIdentityLine.appendChild(shipNameEl);
 
-  const dayProgressBar = document.createElement('div');
-  dayProgressBar.className = 'day-progress-bar';
-  dayProgressBar.style.width = '100%';
-  dayProgressBar.style.height = '4px';
-  dayProgressBar.style.background = 'rgba(255, 255, 255, 0.1)';
-  dayProgressBar.style.borderRadius = '2px';
-  dayProgressBar.style.marginTop = '4px';
-  dayProgressBar.style.overflow = 'hidden';
-
-  const dayProgressFill = document.createElement('div');
-  dayProgressFill.className = 'day-progress-fill';
-  dayProgressFill.style.height = '100%';
-  dayProgressFill.style.background = '#4a9eff';
-  dayProgressFill.style.borderRadius = '2px';
-  dayProgressBar.appendChild(dayProgressFill);
-
-  dateHeader.appendChild(dayProgressBar);
-  headerEl.appendChild(dateHeader);
-
-  // Fleet panel slot (visible only when >1 ships)
-  const fleetPanelSlot = document.createElement('div');
-  headerEl.appendChild(fleetPanelSlot);
-  let fleetPanelComponent: Component | null = null;
-
-  // Ship name
-  const shipNameEl = document.createElement('h2');
-  shipNameEl.className = 'ship-name';
-  headerEl.appendChild(shipNameEl);
-
-  // Ship class label
   const shipClassEl = document.createElement('div');
-  shipClassEl.className = 'ship-class-label';
-  headerEl.appendChild(shipClassEl);
+  shipClassEl.className = 'ship-class-compact';
+  shipClassEl.style.fontSize = '13px';
+  shipClassEl.style.color = '#888';
+  shipIdentityLine.appendChild(shipClassEl);
 
-  // Captain label
   const captainEl = document.createElement('div');
-  captainEl.className = 'captain-label';
-  headerEl.appendChild(captainEl);
+  captainEl.className = 'captain-compact';
+  captainEl.style.fontSize = '13px';
+  captainEl.style.color = '#aaa';
+  shipIdentityLine.appendChild(captainEl);
+
+  headerEl.appendChild(shipIdentityLine);
 
   // ── Mount-once global status bar ───────────────────────────────────
   const statusBar = document.createElement('div');
@@ -365,6 +347,18 @@ export function createTabbedView(
     button.addEventListener('click', () => callbacks.onTabChange(def.tab));
     tabBarEl.appendChild(button);
     tabButtonRefs.push({ button, badge, tab: def.tab });
+
+    // Insert visual separator after Nav tab (between ship-dependent and global tabs)
+    if (def.tab === 'nav') {
+      const separator = document.createElement('div');
+      separator.className = 'tab-separator';
+      separator.style.width = '1px';
+      separator.style.height = '20px';
+      separator.style.background = '#444';
+      separator.style.alignSelf = 'center';
+      separator.style.margin = '0 4px';
+      tabBarEl.appendChild(separator);
+    }
   }
 
   tabBarArea.appendChild(tabBarEl);
@@ -474,53 +468,30 @@ export function createTabbedView(
   function updateHeader(gameData: GameData) {
     const ship = getActiveShip(gameData);
 
-    // Date display
-    const dateStr = formatGameDate(gameData.gameTime);
-    if (dateText.textContent !== dateStr) {
-      dateText.textContent = dateStr;
-    }
-
-    // Day progress bar
-    const dayProgress =
-      ((gameData.gameTime % GAME_SECONDS_PER_DAY) / GAME_SECONDS_PER_DAY) * 100;
-    dayProgressFill.style.width = `${dayProgress}%`;
-
-    // Fleet panel (always visible per UI discoverability rule)
-    if (!fleetPanelComponent) {
-      fleetPanelComponent = createFleetPanel(gameData, {
-        onSelectShip: callbacks.onSelectShip,
-      });
-      fleetPanelSlot.appendChild(fleetPanelComponent.el);
-    } else {
-      fleetPanelComponent.update(gameData);
-    }
-
-    // Ship name
+    // Ship identity line (name + class + captain)
     if (shipNameEl.textContent !== ship.name) {
       shipNameEl.textContent = ship.name;
     }
 
-    // Ship class
     const shipClass = getShipClass(ship.classId);
-    const classText = `Class: ${shipClass?.name ?? ship.classId}`;
+    const classText = shipClass?.name ?? ship.classId;
     if (shipClassEl.textContent !== classText) {
       shipClassEl.textContent = classText;
     }
 
-    // Captain
     const captain = ship.crew.find((c) => c.isCaptain);
     if (captain) {
-      const captainText = `Captain ${captain.name}`;
+      const captainText = `⚓ ${captain.name}`;
       if (captainEl.textContent !== captainText) {
         captainEl.textContent = captainText;
       }
       captainEl.style.opacity = '';
     } else {
-      const noCaptainText = 'No Captain';
+      const noCaptainText = '⚓ No Captain';
       if (captainEl.textContent !== noCaptainText) {
         captainEl.textContent = noCaptainText;
       }
-      captainEl.style.opacity = '0.4';
+      captainEl.style.opacity = '0.5';
     }
 
     // ── Global status bar update ───────────────────────────────────

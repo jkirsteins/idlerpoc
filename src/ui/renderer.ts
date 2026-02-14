@@ -287,6 +287,7 @@ function mountPlayingLayout(
     onTogglePause: callbacks.onTogglePause,
     onSetSpeed: callbacks.onSetSpeed,
     onTabChange: callbacks.onTabChange,
+    onSelectShip: callbacks.onSelectShip,
   };
 
   // Mobile header bar (mount-once component)
@@ -336,6 +337,10 @@ function mountPlayingLayout(
     onTabChange: (tab: PlayingTab) => {
       mobileDrawerOpen = false;
       callbacks.onTabChange(tab);
+    },
+    onSelectShip: (shipId: string) => {
+      mobileDrawerOpen = false;
+      callbacks.onSelectShip(shipId);
     },
   });
   mobileDrawer.appendChild(drawerSidebar.el);
