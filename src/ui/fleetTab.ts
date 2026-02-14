@@ -458,10 +458,29 @@ function renderFleetPerformanceDashboard(gameData: GameData): HTMLElement {
   section.style.border = '1px solid #444';
   section.style.borderRadius = '4px';
 
+  const titleRow = document.createElement('div');
+  titleRow.style.display = 'flex';
+  titleRow.style.alignItems = 'center';
+  titleRow.style.gap = '0.5rem';
+  titleRow.style.marginBottom = '0.75rem';
+
   const title = document.createElement('h3');
   title.textContent = 'Fleet Performance Dashboard';
-  title.style.marginBottom = '0.75rem';
-  section.appendChild(title);
+  title.style.margin = '0';
+  titleRow.appendChild(title);
+
+  const fleetBadge = document.createElement('span');
+  fleetBadge.textContent = 'FLEET-WIDE';
+  fleetBadge.style.fontSize = '0.65rem';
+  fleetBadge.style.fontWeight = 'bold';
+  fleetBadge.style.padding = '2px 6px';
+  fleetBadge.style.borderRadius = '3px';
+  fleetBadge.style.background = 'rgba(74, 158, 255, 0.2)';
+  fleetBadge.style.border = '1px solid rgba(74, 158, 255, 0.4)';
+  fleetBadge.style.color = '#4a9eff';
+  titleRow.appendChild(fleetBadge);
+
+  section.appendChild(titleRow);
 
   // Calculate fleet-wide metrics
   let totalEarned = 0;
@@ -546,7 +565,7 @@ function renderFleetPerformanceDashboard(gameData: GameData): HTMLElement {
     const performersRow = document.createElement('div');
     performersRow.innerHTML = `
       <div style="padding: 0.75rem; background: rgba(0, 0, 0, 0.4); border-radius: 4px;">
-        <div style="font-size: 0.85rem; color: #888; margin-bottom: 0.5rem;">📊 TOP PERFORMERS</div>
+        <div style="font-size: 0.85rem; color: #888; margin-bottom: 0.5rem;">📊 TOP PERFORMERS <span style="color: #666; font-size: 0.7rem;">(per-ship profitability)</span></div>
         ${shipPerformances
           .slice(0, 3)
           .map((sp, idx) => {
@@ -853,6 +872,10 @@ function renderEnhancedShipCard(
   perfDiv.style.fontSize = '0.85rem';
 
   const profitColor = performance.netProfit >= 0 ? '#4ade80' : '#ff4444';
+  const profitMargin =
+    ship.metrics.creditsEarned > 0
+      ? (performance.netProfit / ship.metrics.creditsEarned) * 100
+      : 0;
   perfDiv.innerHTML = `
     <div style="font-weight: bold; margin-bottom: 0.5rem; color: #aaa;">📊 PERFORMANCE</div>
     <div style="margin-bottom: 0.25rem;">
@@ -862,7 +885,7 @@ function renderEnhancedShipCard(
       <span style="color: #888;">Operating Costs:</span> <span style="color: #ffa500;">${formatCredits(ship.metrics.crewCostsPaid + ship.metrics.fuelCostsPaid + ship.metrics.repairCostsPaid)}</span>
     </div>
     <div style="margin-bottom: 0.25rem;">
-      <span style="color: #888;">Net Profit:</span> <span style="color: ${profitColor}; font-weight: bold;">${performance.netProfit >= 0 ? '+' : ''}${formatCredits(performance.netProfit)}</span>
+      <span style="color: #888;">Net Profit:</span> <span style="color: ${profitColor}; font-weight: bold;">${performance.netProfit >= 0 ? '+' : ''}${formatCredits(performance.netProfit)}</span> <span style="color: #666;">(${performance.netProfit >= 0 ? '+' : ''}${profitMargin.toFixed(1)}%)</span>
     </div>
     <div style="margin-bottom: 0.25rem;">
       <span style="color: #888;">Efficiency:</span> ${performance.creditsPerDay.toFixed(0)} cr/day | ${performance.uptime.toFixed(0)}% uptime
