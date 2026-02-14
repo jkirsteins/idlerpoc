@@ -1079,7 +1079,7 @@ export function createWorkTab(
         const bOk = canAcceptQuest(ship, b, gd.world).canAccept;
         if (aOk && !bOk) return -1;
         if (!aOk && bOk) return 1;
-        return 0;
+        return a.id.localeCompare(b.id);
       });
 
       // Reconcile trade quest cards
@@ -1121,7 +1121,7 @@ export function createWorkTab(
           const bAcceptable = canAcceptQuest(ship, b, gd.world).canAccept;
           if (aAcceptable && !bAcceptable) return -1;
           if (!aAcceptable && bAcceptable) return 1;
-          return 0;
+          return a.id.localeCompare(b.id);
         });
 
         reconcileQuestCards(
