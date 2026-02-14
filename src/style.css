@@ -562,7 +562,7 @@ button:active:not(:disabled) {
 .tab-bar {
   display: flex;
   gap: 4px;
-  margin-bottom: 24px;
+  margin-bottom: 16px;
   border-bottom: 2px solid #333;
   padding-bottom: 0;
 }
@@ -2074,10 +2074,15 @@ button:disabled:hover {
   border-radius: 8px;
   padding: 16px;
   border: 2px solid transparent;
-  transition: border-color 0.2s;
+  transition: border-color 0.2s ease;
+  cursor: pointer;
 }
 
 .quest-card:not(.disabled):hover {
+  border-color: rgba(212, 133, 10, 0.5);
+}
+
+.quest-card.quest-card-expanded {
   border-color: #d4850a;
 }
 
@@ -2148,18 +2153,9 @@ button:disabled:hover {
   display: flex;
   align-items: center;
   gap: 8px;
-  cursor: pointer;
   padding-bottom: 8px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   margin-bottom: 8px;
-  transition: background-color 0.2s;
-}
-
-.quest-card-header:hover {
-  background-color: rgba(255, 255, 255, 0.03);
-  border-radius: 4px;
-  padding: 4px;
-  margin: -4px -4px 8px;
 }
 
 .quest-type-badge {

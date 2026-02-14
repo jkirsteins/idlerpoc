@@ -46,6 +46,7 @@ export function createTabbedView(
   callbacks: TabbedViewCallbacks,
   selectedCrewId?: string
 ): Component & {
+  tabBar: HTMLElement;
   updateView(state: TabbedViewState): void;
   navigateGamepediaTo(articleId: string): void;
 } {
@@ -57,11 +58,10 @@ export function createTabbedView(
   const container = document.createElement('div');
   container.className = 'tabbed-view';
 
-  // Stable sub-areas so header/tabbar/content don't destroy each other
+  // Stable sub-areas so header/content don't destroy each other
   const headerArea = document.createElement('div');
-  const tabBarArea = document.createElement('div');
   const tabContentArea = document.createElement('div');
-  container.append(headerArea, tabBarArea, tabContentArea);
+  container.append(headerArea, tabContentArea);
 
   let currentTab = activeTab;
   let currentShowNav = showNavigation;
@@ -354,8 +354,6 @@ export function createTabbedView(
       tabBarEl.appendChild(separator);
     }
   }
-
-  tabBarArea.appendChild(tabBarEl);
 
   function updateTabBar(gameData: GameData) {
     const unreadCount = Math.max(0, gameData.log.length - lastViewedLogCount);
@@ -753,6 +751,7 @@ export function createTabbedView(
 
   return {
     el: container,
+    tabBar: tabBarEl,
     update(gameData: GameData) {
       update(gameData);
     },
