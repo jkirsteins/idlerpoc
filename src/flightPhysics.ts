@@ -649,8 +649,8 @@ export function redirectShipFlight(
     id: ship.activeFlightPlan?.origin ?? '',
   } as WorldLocation;
 
-  // shipPos is always in current-time coordinates (updated every tick by
-  // updateFlightPosition in gameTick.ts), so we can use it directly.
+  // shipPos is updated every tick by updateFlightPosition in gameTick.ts,
+  // using future-time intercept coordinates to show the actual trajectory.
   const currentShipPos = ship.activeFlightPlan?.shipPos;
 
   ship.activeFlightPlan = initializeFlight(
@@ -838,8 +838,9 @@ export function advanceFlight(flight: FlightState): boolean {
   }
 
   // 2D ship position (shipPos) is updated externally by updateFlightPosition()
-  // in gameTick.ts, which always uses current-time body positions. This keeps
-  // advanceFlight as pure physics (distance, velocity, phase).
+  // in gameTick.ts, which uses future-time body positions at estimated arrival
+  // to show the actual intercept trajectory. This keeps advanceFlight as pure
+  // physics (distance, velocity, phase).
 
   return false;
 }
