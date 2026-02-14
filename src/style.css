@@ -6,29 +6,29 @@
   /* Backgrounds */
   --bg-page: #1a1a2e;
   --bg-container: #16213e;
-  --bg-panel: var(--bg-panel);
+  --bg-panel: #0f3460;
   --bg-input: rgba(0, 0, 0, 0.3);
 
   /* Brand & Semantic */
-  --brand-red: var(--brand-red);
-  --brand-red-hover: var(--brand-red-hover);
-  --accent-blue: var(--accent-blue);
-  --accent-blue-hover: var(--accent-blue-hover);
-  --positive-teal: var(--positive-teal);
-  --positive-green: var(--positive-green);
-  --warning-yellow: var(--warning-yellow);
-  --warning-orange: var(--warning-orange);
-  --danger-red: var(--danger-red);
-  --critical-red: var(--critical-red);
-  --destroy-red: var(--destroy-red);
-  --gold: var(--gold);
-  --purple: var(--purple);
+  --brand-red: #e94560;
+  --brand-red-hover: #d63050;
+  --accent-blue: #4a9eff;
+  --accent-blue-hover: #6db3ff;
+  --positive-teal: #4ecdc4;
+  --positive-green: #4caf50;
+  --warning-yellow: #ffc107;
+  --warning-orange: #ffa500;
+  --danger-red: #ff6b6b;
+  --critical-red: #cc0000;
+  --destroy-red: #8b0000;
+  --gold: #ffd700;
+  --purple: #ce93d8;
 
   /* Text */
-  --text-primary: var(--text-primary);
-  --text-secondary: var(--text-secondary);
-  --text-muted: var(--text-muted);
-  --text-disabled: var(--text-disabled);
+  --text-primary: #eee;
+  --text-secondary: #aaa;
+  --text-muted: #888;
+  --text-disabled: #666;
 
   /* Typography */
   --font-display: 'IBM Plex Mono', 'Courier New', monospace;
@@ -51,7 +51,7 @@
   --radius-lg: 8px;
 
   /* Borders */
-  --border-subtle: var(--border-subtle);
+  --border-subtle: 1px solid #444;
   --border-accent: 1px solid var(--accent-blue);
   --border-danger: 1px solid var(--danger-red);
 

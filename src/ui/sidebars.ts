@@ -27,6 +27,7 @@ import {
   getProvisionsSurvivalDays,
 } from '../provisionsSystem';
 import { isHelmManned } from '../jobSlots';
+import { iconPlay, iconPause, iconNavigation } from './icons';
 
 interface SidebarCallbacks {
   onBuyFuel?: () => void;
@@ -55,7 +56,7 @@ export function createLeftSidebar(
 
   const timeDisplay = document.createElement('div');
   timeDisplay.style.fontSize = '13px';
-  timeDisplay.style.color = '#4a9eff';
+  timeDisplay.style.color = 'var(--accent-blue)';
   timeDisplay.style.marginBottom = '8px';
   timeDisplay.style.fontWeight = 'bold';
   timeControlsSection.appendChild(timeDisplay);
@@ -65,9 +66,11 @@ export function createLeftSidebar(
   playPauseBtn.style.width = '100%';
   playPauseBtn.style.marginBottom = '8px';
   // Stable child elements for the play/pause button content
-  const playPauseIcon = document.createTextNode('');
+  const playPauseIconSlot = document.createElement('span');
+  playPauseIconSlot.style.display = 'inline-flex';
+  playPauseIconSlot.style.alignItems = 'center';
   const playPauseLabel = document.createElement('span');
-  playPauseBtn.appendChild(playPauseIcon);
+  playPauseBtn.appendChild(playPauseIconSlot);
   playPauseBtn.appendChild(document.createTextNode(' '));
   playPauseBtn.appendChild(playPauseLabel);
   playPauseBtn.addEventListener('click', () => {
@@ -88,10 +91,14 @@ export function createLeftSidebar(
   const creditsValue = document.createElement('div');
   creditsValue.style.fontSize = '24px';
   creditsValue.style.fontWeight = 'bold';
-  creditsValue.style.color = '#4a9eff';
+  creditsValue.style.color = 'var(--accent-blue)';
   creditsSection.appendChild(creditsValue);
 
   sidebar.appendChild(creditsSection);
+
+  // Credit milestone tracking
+  const creditMilestones = [10_000, 100_000, 1_000_000, 10_000_000];
+  let prevCredits = gameData.credits;
 
   // ── LOCATION SECTION ──
   const locationSection = document.createElement('div');
@@ -103,7 +110,7 @@ export function createLeftSidebar(
 
   const locationValue = document.createElement('div');
   locationValue.style.fontSize = '14px';
-  locationValue.style.color = '#eee';
+  locationValue.style.color = 'var(--text-primary)';
   locationSection.appendChild(locationValue);
 
   sidebar.appendChild(locationSection);
@@ -157,8 +164,11 @@ export function createLeftSidebar(
 
   // Navigation button
   const navBtn = document.createElement('button');
-  navBtn.textContent = '\u{1F5FA}\uFE0F Navigate';
   navBtn.className = 'small-button';
+  const navIcon = iconNavigation(16);
+  navIcon.style.marginRight = '4px';
+  navBtn.appendChild(navIcon);
+  navBtn.appendChild(document.createTextNode('Navigate'));
   navBtn.style.width = '100%';
   navBtn.style.marginBottom = '8px';
   navBtn.addEventListener('click', () => {
@@ -207,17 +217,36 @@ export function createLeftSidebar(
     // Time display
     timeDisplay.textContent = formatGameDate(gameData.gameTime);
 
-    // Play/Pause button
+    // Play/Pause button (swap SVG icon)
     if (gameData.isPaused) {
-      playPauseIcon.textContent = '\u25B6';
+      if (playPauseIconSlot.firstChild)
+        playPauseIconSlot.removeChild(playPauseIconSlot.firstChild);
+      playPauseIconSlot.appendChild(iconPlay(16));
       playPauseLabel.textContent = 'Resume';
     } else {
-      playPauseIcon.textContent = '\u23F8';
+      if (playPauseIconSlot.firstChild)
+        playPauseIconSlot.removeChild(playPauseIconSlot.firstChild);
+      playPauseIconSlot.appendChild(iconPause(16));
       playPauseLabel.textContent = 'Pause';
     }
 
     // Credits
     creditsValue.textContent = Math.round(gameData.credits).toLocaleString();
+
+    // Check if a credit milestone was crossed
+    const currentCredits = gameData.credits;
+    for (const milestone of creditMilestones) {
+      if (prevCredits < milestone && currentCredits >= milestone) {
+        creditsValue.classList.add('credits-milestone-flash');
+        creditsValue.addEventListener(
+          'animationend',
+          () => creditsValue.classList.remove('credits-milestone-flash'),
+          { once: true }
+        );
+        break;
+      }
+    }
+    prevCredits = currentCredits;
 
     // Location
     if (ship.location.status === 'in_flight' && ship.activeFlightPlan) {
@@ -428,7 +457,7 @@ export function createRightSidebar(gameData: GameData): Component {
   const dateSection = document.createElement('div');
   dateSection.className = 'sidebar-section';
   dateSection.style.fontSize = '13px';
-  dateSection.style.color = '#4a9eff';
+  dateSection.style.color = 'var(--accent-blue)';
   dateSection.style.fontWeight = 'bold';
   dateSection.style.textAlign = 'center';
   dateSection.style.padding = '8px 0';
@@ -441,13 +470,13 @@ export function createRightSidebar(gameData: GameData): Component {
   const shipNameEl = document.createElement('div');
   shipNameEl.style.fontSize = '16px';
   shipNameEl.style.fontWeight = 'bold';
-  shipNameEl.style.color = '#e94560';
+  shipNameEl.style.color = 'var(--brand-red)';
   shipNameEl.style.marginBottom = '4px';
   shipInfoSection.appendChild(shipNameEl);
 
   const shipClassInfo = document.createElement('div');
   shipClassInfo.style.fontSize = '11px';
-  shipClassInfo.style.color = '#888';
+  shipClassInfo.style.color = 'var(--text-muted)';
   shipInfoSection.appendChild(shipClassInfo);
 
   sidebar.appendChild(shipInfoSection);
@@ -462,7 +491,7 @@ export function createRightSidebar(gameData: GameData): Component {
 
   const captainNameEl = document.createElement('div');
   captainNameEl.style.fontSize = '13px';
-  captainNameEl.style.color = '#eee';
+  captainNameEl.style.color = 'var(--text-primary)';
   captainSection.appendChild(captainNameEl);
 
   sidebar.appendChild(captainSection);
@@ -482,7 +511,7 @@ export function createRightSidebar(gameData: GameData): Component {
   // Ship crew line
   const shipCrewLine = document.createElement('div');
   const shipCrewLabelSpan = document.createElement('span');
-  shipCrewLabelSpan.style.color = '#888';
+  shipCrewLabelSpan.style.color = 'var(--text-muted)';
   shipCrewLabelSpan.textContent = 'This Ship: ';
   const shipCrewCount = document.createElement('span');
   shipCrewLine.appendChild(shipCrewLabelSpan);
@@ -507,10 +536,10 @@ export function createRightSidebar(gameData: GameData): Component {
   // Income line
   const incomeLine = document.createElement('div');
   const incomeLabelSpan = document.createElement('span');
-  incomeLabelSpan.style.color = '#888';
+  incomeLabelSpan.style.color = 'var(--text-muted)';
   incomeLabelSpan.textContent = 'Income: ';
   const incomeValue = document.createElement('span');
-  incomeValue.style.color = '#4ade80';
+  incomeValue.style.color = 'var(--positive-green)';
   incomeLine.appendChild(incomeLabelSpan);
   incomeLine.appendChild(incomeValue);
   ledgerInfo.appendChild(incomeLine);
@@ -518,10 +547,10 @@ export function createRightSidebar(gameData: GameData): Component {
   // Crew cost line
   const ledgerCrewLine = document.createElement('div');
   const ledgerCrewLabelSpan = document.createElement('span');
-  ledgerCrewLabelSpan.style.color = '#888';
+  ledgerCrewLabelSpan.style.color = 'var(--text-muted)';
   ledgerCrewLabelSpan.textContent = 'Crew: ';
   const ledgerCrewValue = document.createElement('span');
-  ledgerCrewValue.style.color = '#ffa500';
+  ledgerCrewValue.style.color = 'var(--warning-orange)';
   ledgerCrewLine.appendChild(ledgerCrewLabelSpan);
   ledgerCrewLine.appendChild(ledgerCrewValue);
   ledgerInfo.appendChild(ledgerCrewLine);
@@ -529,10 +558,10 @@ export function createRightSidebar(gameData: GameData): Component {
   // Fuel cost line
   const ledgerFuelLine = document.createElement('div');
   const ledgerFuelLabelSpan = document.createElement('span');
-  ledgerFuelLabelSpan.style.color = '#888';
+  ledgerFuelLabelSpan.style.color = 'var(--text-muted)';
   ledgerFuelLabelSpan.textContent = 'Fuel: ';
   const ledgerFuelValue = document.createElement('span');
-  ledgerFuelValue.style.color = '#ffa500';
+  ledgerFuelValue.style.color = 'var(--warning-orange)';
   ledgerFuelLine.appendChild(ledgerFuelLabelSpan);
   ledgerFuelLine.appendChild(ledgerFuelValue);
   ledgerInfo.appendChild(ledgerFuelLine);
@@ -546,7 +575,7 @@ export function createRightSidebar(gameData: GameData): Component {
   // Net line
   const netLine = document.createElement('div');
   const netLabelSpan = document.createElement('span');
-  netLabelSpan.style.color = '#888';
+  netLabelSpan.style.color = 'var(--text-muted)';
   netLabelSpan.textContent = 'Net: ';
   const netValue = document.createElement('span');
   netValue.style.fontWeight = 'bold';
@@ -557,7 +586,7 @@ export function createRightSidebar(gameData: GameData): Component {
   // Runway line
   const runwayLine = document.createElement('div');
   const runwayLabelSpan = document.createElement('span');
-  runwayLabelSpan.style.color = '#888';
+  runwayLabelSpan.style.color = 'var(--text-muted)';
   runwayLabelSpan.textContent = 'Runway: ';
   const runwayValue = document.createElement('span');
   runwayLine.appendChild(runwayLabelSpan);
@@ -640,7 +669,7 @@ export function createRightSidebar(gameData: GameData): Component {
 
   const questRewardLine = document.createElement('div');
   const questRewardLabelSpan = document.createElement('span');
-  questRewardLabelSpan.style.color = '#888';
+  questRewardLabelSpan.style.color = 'var(--text-muted)';
   questRewardLabelSpan.textContent = 'Reward: ';
   const questRewardValue = document.createElement('span');
   questRewardLine.appendChild(questRewardLabelSpan);
@@ -683,10 +712,10 @@ export function createRightSidebar(gameData: GameData): Component {
 
     if (ledger.incomeDays > 0) {
       incomeValue.textContent = `+${formatCredits(Math.round(ledger.incomePerDay))}/day`;
-      incomeValue.style.color = '#4caf50';
+      incomeValue.style.color = 'var(--positive-green)';
     } else {
       incomeValue.textContent = 'collecting data\u2026';
-      incomeValue.style.color = '#666';
+      incomeValue.style.color = 'var(--text-disabled)';
     }
 
     ledgerCrewValue.textContent = `-${formatCredits(Math.round(ledger.crewCostPerDay))}/day`;
@@ -699,13 +728,13 @@ export function createRightSidebar(gameData: GameData): Component {
 
     if (ledger.incomeDays === 0) {
       runwayValue.textContent = 'collecting data\u2026';
-      runwayValue.style.color = '#666';
+      runwayValue.style.color = 'var(--text-disabled)';
     } else if (ledger.runwayDays !== null) {
       runwayValue.textContent = `${ledger.runwayDays.toFixed(1)} days`;
       runwayValue.style.color = ledger.runwayDays < 3 ? '#ff4444' : '#ffa500';
     } else {
       runwayValue.textContent = 'Stable';
-      runwayValue.style.color = '#4ade80';
+      runwayValue.style.color = 'var(--positive-green)';
     }
 
     // Dim the whole ledger section if no economic activity at all
