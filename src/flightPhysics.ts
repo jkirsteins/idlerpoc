@@ -510,6 +510,12 @@ export function initializeFlight(
   } else {
     // Legacy: use static distance
     distanceKm = getDistanceBetween(origin, destination);
+
+    // Warn: flight won't have 2D trajectory data
+    console.warn(
+      `Flight ${origin.id} → ${destination.id} initialized without orbital data. ` +
+        `Trajectory visualization will fall back to current positions.`
+    );
   }
 
   let distanceMeters = distanceKm * 1000;

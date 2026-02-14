@@ -1505,15 +1505,35 @@ export function createNavigationView(
 
       // Project trajectory endpoints to SVG coordinates with log scaling
       if (fp.originPos && fp.interceptPos) {
+        // Use stored frozen positions (set at departure time)
         originSvg = projectToSvg(fp.originPos.x, fp.originPos.y);
         destSvg = projectToSvg(fp.interceptPos.x, fp.interceptPos.y);
       } else {
+        // Fallback: calculate frozen positions on-the-fly
+        // This handles legacy saves or edge cases where originPos/interceptPos weren't set
         const originLoc = gd.world.locations.find((l) => l.id === fp.origin);
         const destLoc = gd.world.locations.find((l) => l.id === fp.destination);
-        originSvg = originLoc
-          ? projectToSvg(originLoc.x, originLoc.y)
-          : { x: 0, y: 0 };
-        destSvg = destLoc ? projectToSvg(destLoc.x, destLoc.y) : { x: 0, y: 0 };
+
+        if (!originLoc || !destLoc) {
+          // Can't render without locations - hide trajectory
+          hideFlightViz();
+          return;
+        }
+
+        // Calculate frozen positions: origin at departure time, destination at estimated arrival
+        // This prevents rotation as orbiting bodies move
+        const departureTime = gd.gameTime - fp.elapsedTime;
+        const arrivalTime = gd.gameTime + (fp.totalTime - fp.elapsedTime);
+
+        const originPos = getLocationPosition(
+          originLoc,
+          departureTime,
+          gd.world
+        );
+        const destPos = getLocationPosition(destLoc, arrivalTime, gd.world);
+
+        originSvg = projectToSvg(originPos.x, originPos.y);
+        destSvg = projectToSvg(destPos.x, destPos.y);
       }
 
       // CRITICAL: Interpolate ship position in SVG space, not in linear km space!
