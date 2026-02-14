@@ -39,10 +39,13 @@ export function setupMapZoomPan(
   container: HTMLElement
 ): MapZoomPanControls {
   // ViewBox state (in SVG coordinate space)
-  let viewBoxX = INITIAL_VB_X;
-  let viewBoxY = INITIAL_VB_Y;
-  let viewBoxWidth = INITIAL_VB_WIDTH;
-  let viewBoxHeight = INITIAL_VB_HEIGHT;
+  // Start at zoom level 4 centered on origin
+  const START_ZOOM = 4;
+  const startSize = INITIAL_VB_WIDTH / START_ZOOM; // 100
+  let viewBoxX = -startSize / 2;
+  let viewBoxY = -startSize / 2;
+  let viewBoxWidth = startSize;
+  let viewBoxHeight = startSize;
 
   /** Get current zoom level (1x = default, 10x = max zoomed in) */
   function getCurrentZoom(): number {

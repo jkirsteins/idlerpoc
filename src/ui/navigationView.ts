@@ -183,6 +183,35 @@ interface FlightLineRefs {
  * Logarithmic scaling so Earth-orbit (~150M km) and Jupiter (~778M km)
  * are both visible, while inner Earth-system bodies cluster near Earth.
  */
+/**
+ * Build an SVG path string for an elliptical orbit.
+ * Samples 72 points along the orbit and projects each through the provided
+ * radius-to-SVG mapping function, so the path matches the log-scale
+ * projection used for dot positions.
+ */
+function buildOrbitPath(
+  semiMajorAxis: number,
+  eccentricity: number,
+  radiusToSvg: (km: number) => number
+): string {
+  const N = 72; // every 5°
+  const parts: string[] = [];
+  for (let i = 0; i <= N; i++) {
+    const theta = (2 * Math.PI * i) / N;
+    const r =
+      eccentricity === 0
+        ? semiMajorAxis
+        : (semiMajorAxis * (1 - eccentricity * eccentricity)) /
+          (1 + eccentricity * Math.cos(theta));
+    const svgR = radiusToSvg(r);
+    const x = svgR * Math.cos(theta);
+    const y = svgR * Math.sin(theta);
+    parts.push(`${i === 0 ? 'M' : 'L'}${x.toFixed(2)},${y.toFixed(2)}`);
+  }
+  parts.push('Z');
+  return parts.join(' ');
+}
+
 function orbitalRadiusToSvg(radiusKm: number): number {
   if (radiusKm <= 0) return 0;
   const logMin = Math.log10(100_000_000); // ~0.67 AU
@@ -1000,20 +1029,20 @@ export function createNavigationView(
   ringLayer.setAttribute('class', 'orrery-rings');
   svg.appendChild(ringLayer);
 
-  // Orbit rings — one per unique Sun-orbiting radius (overview mode)
-  const overviewOrbitRings: SVGCircleElement[] = [];
-  const sunOrbitRadii = new Set<number>();
+  // Orbit rings — one per unique Sun-orbiting (radius, eccentricity) pair
+  const overviewOrbitRings: SVGPathElement[] = [];
+  const sunOrbits = new Map<string, { a: number; e: number }>();
   for (const loc of gameData.world.locations) {
     if (loc.orbital && !loc.orbital.parentId) {
-      sunOrbitRadii.add(loc.orbital.orbitalRadiusKm);
+      const a = loc.orbital.orbitalRadiusKm;
+      const e = loc.orbital.eccentricity ?? 0;
+      const key = `${a}:${e}`;
+      if (!sunOrbits.has(key)) sunOrbits.set(key, { a, e });
     }
   }
-  for (const radiusKm of sunOrbitRadii) {
-    const r = orbitalRadiusToSvg(radiusKm);
-    const ring = document.createElementNS(SVG_NS, 'circle');
-    ring.setAttribute('cx', '0');
-    ring.setAttribute('cy', '0');
-    ring.setAttribute('r', String(r));
+  for (const { a, e } of sunOrbits.values()) {
+    const ring = document.createElementNS(SVG_NS, 'path');
+    ring.setAttribute('d', buildOrbitPath(a, e, orbitalRadiusToSvg));
     ring.setAttribute('fill', 'none');
     ring.setAttribute('stroke', 'rgba(15, 52, 96, 0.5)');
     ring.setAttribute('stroke-width', '0.5');
@@ -1024,12 +1053,10 @@ export function createNavigationView(
 
   // Focus-mode local orbit ring pool (max 8, hidden by default)
   const MAX_LOCAL_RINGS = 8;
-  const localRings: SVGCircleElement[] = [];
+  const localRings: SVGPathElement[] = [];
   for (let i = 0; i < MAX_LOCAL_RINGS; i++) {
-    const ring = document.createElementNS(SVG_NS, 'circle');
-    ring.setAttribute('cx', '0');
-    ring.setAttribute('cy', '0');
-    ring.setAttribute('r', '0');
+    const ring = document.createElementNS(SVG_NS, 'path');
+    ring.setAttribute('d', '');
     ring.setAttribute('fill', 'none');
     ring.setAttribute('stroke', 'rgba(74, 158, 255, 0.3)');
     ring.setAttribute('stroke-width', '0.5');
@@ -1104,7 +1131,7 @@ export function createNavigationView(
 
   const flightRefs: FlightLineRefs = { line: flightLine, shipDot };
 
-  // Current-location pulsing ring (visual prominence)
+  // Current-location pulsing ring — animation 'from'/'to' set dynamically from dot size
   const currentRing = document.createElementNS(SVG_NS, 'circle');
   currentRing.setAttribute('fill', 'none');
   currentRing.setAttribute('stroke', '#dc2626');
@@ -1126,23 +1153,21 @@ export function createNavigationView(
   currentRing.appendChild(currentRingOpacAnim);
   flightLayer.appendChild(currentRing);
 
-  // Destination glow ring (steady)
+  // Destination glow ring (steady) — radius set dynamically from dot size
   const destRing = document.createElementNS(SVG_NS, 'circle');
   destRing.setAttribute('fill', 'none');
   destRing.setAttribute('stroke', '#4a9eff');
   destRing.setAttribute('stroke-width', '1.5');
   destRing.setAttribute('stroke-opacity', '0.6');
-  destRing.setAttribute('r', '10');
   destRing.style.display = 'none';
   flightLayer.appendChild(destRing);
 
-  // Selection highlight ring
+  // Selection highlight ring — radius set dynamically from dot size
   const selectionRing = document.createElementNS(SVG_NS, 'circle');
   selectionRing.setAttribute('fill', 'none');
   selectionRing.setAttribute('stroke', '#4a9eff');
   selectionRing.setAttribute('stroke-width', '2');
   selectionRing.setAttribute('stroke-opacity', '0.8');
-  selectionRing.setAttribute('r', '12');
   selectionRing.style.display = 'none';
   flightLayer.appendChild(selectionRing);
 
@@ -1449,6 +1474,7 @@ export function createNavigationView(
       if (pos) {
         selectionRing.setAttribute('cx', String(pos.x));
         selectionRing.setAttribute('cy', String(pos.y));
+        selectionRing.setAttribute('r', String(pos.dotR + 5));
         selectionRing.style.display = '';
         showTooltip(selectedLocationId, pos);
       }
@@ -1825,6 +1851,8 @@ export function createNavigationView(
       if (pos) {
         currentRing.setAttribute('cx', String(pos.x));
         currentRing.setAttribute('cy', String(pos.y));
+        currentRingAnim.setAttribute('from', String(pos.dotR + 2));
+        currentRingAnim.setAttribute('to', String(pos.dotR + 12));
         currentRing.style.display = '';
       } else {
         currentRing.style.display = 'none';
@@ -1844,6 +1872,7 @@ export function createNavigationView(
       if (pos) {
         destRing.setAttribute('cx', String(pos.x));
         destRing.setAttribute('cy', String(pos.y));
+        destRing.setAttribute('r', String(pos.dotR + 4));
         destRing.style.display = '';
       } else {
         destRing.style.display = 'none';
@@ -1862,6 +1891,7 @@ export function createNavigationView(
       if (pos) {
         selectionRing.setAttribute('cx', String(pos.x));
         selectionRing.setAttribute('cy', String(pos.y));
+        selectionRing.setAttribute('r', String(pos.dotR + 5));
         selectionRing.style.display = '';
       } else {
         selectionRing.style.display = 'none';
@@ -1969,12 +1999,23 @@ export function createNavigationView(
     const logMin = Math.log10(Math.min(...radii));
     const logMax = Math.log10(Math.max(...radii));
 
-    // Configure local orbit rings
-    const uniqueRadii = [...new Set(radii)].sort((a, b) => a - b);
+    // Configure local orbit rings — unique (radius, eccentricity) pairs
+    const localOrbitMap = new Map<string, { a: number; e: number }>();
+    for (const c of children) {
+      const a = c.orbital!.orbitalRadiusKm;
+      const e = c.orbital!.eccentricity ?? 0;
+      const key = `${a}:${e}`;
+      if (!localOrbitMap.has(key)) localOrbitMap.set(key, { a, e });
+    }
+    const localOrbits = [...localOrbitMap.values()].sort((a, b) => a.a - b.a);
+    const localLogMin = logMin;
+    const localLogMax = logMax;
     for (let i = 0; i < MAX_LOCAL_RINGS; i++) {
-      if (i < uniqueRadii.length) {
-        const r = localOrbitalRadiusToSvg(uniqueRadii[i], logMin, logMax);
-        localRings[i].setAttribute('r', String(r));
+      if (i < localOrbits.length) {
+        const { a, e } = localOrbits[i];
+        const toSvg = (r: number) =>
+          localOrbitalRadiusToSvg(r, localLogMin, localLogMax);
+        localRings[i].setAttribute('d', buildOrbitPath(a, e, toSvg));
         localRings[i].style.display = '';
       } else {
         localRings[i].style.display = 'none';
@@ -2025,6 +2066,8 @@ export function createNavigationView(
       if (pos) {
         currentRing.setAttribute('cx', String(pos.x));
         currentRing.setAttribute('cy', String(pos.y));
+        currentRingAnim.setAttribute('from', String(pos.dotR + 2));
+        currentRingAnim.setAttribute('to', String(pos.dotR + 12));
         currentRing.style.display = '';
       } else {
         currentRing.style.display = 'none';
@@ -2043,6 +2086,7 @@ export function createNavigationView(
       if (pos) {
         destRing.setAttribute('cx', String(pos.x));
         destRing.setAttribute('cy', String(pos.y));
+        destRing.setAttribute('r', String(pos.dotR + 4));
         destRing.style.display = '';
       } else {
         destRing.style.display = 'none';
@@ -2057,6 +2101,7 @@ export function createNavigationView(
       if (pos) {
         selectionRing.setAttribute('cx', String(pos.x));
         selectionRing.setAttribute('cy', String(pos.y));
+        selectionRing.setAttribute('r', String(pos.dotR + 5));
         selectionRing.style.display = '';
       } else {
         selectionRing.style.display = 'none';

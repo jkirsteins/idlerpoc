@@ -245,7 +245,7 @@ export function generateWorld(): World {
         { oreId: 'silicate' },
         { oreId: 'copper_ore' },
       ],
-      orbital: orbit('earth', 384_400, 27.3, rng()),
+      orbital: orbit('earth', 384_400, 27.3, rng(), 0.0549),
     },
     {
       // Lunar surface — Tycho crater
@@ -254,7 +254,7 @@ export function generateWorld(): World {
       type: 'moon',
       factionId: 'terran_alliance',
       description:
-        'Lunar surface settlement at Tycho crater. Ilmenite deposits yield titanium, KREEP basalt provides rare earths, and polar craters hold water ice. Trace helium-3 in the regolith.',
+        "Settlement on the Moon's Tycho crater. Ilmenite deposits yield titanium, KREEP basalt provides rare earths, and polar craters hold water ice. Trace helium-3 in the regolith.",
       distanceFromEarth: 384_400,
       x: 0,
       y: 0,
@@ -267,7 +267,7 @@ export function generateWorld(): World {
         { oreId: 'water_ice' },
         { oreId: 'helium3', yieldMultiplier: 0.1 },
       ],
-      orbital: orbit('earth', 384_400, 27.3, rng()),
+      orbital: orbit('earth', 384_400, 27.3, rng(), 0.0549),
     },
     {
       // Sun-Earth L2 Lagrange point — slightly outside Earth's orbit
