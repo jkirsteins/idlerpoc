@@ -18,7 +18,7 @@ const BACKUP_KEY = 'spaceship_game_data_backup';
  *
  * See docs/save-migration.md for the full migration architecture.
  */
-export const CURRENT_SAVE_VERSION = 13;
+export const CURRENT_SAVE_VERSION = 14;
 
 /** Whether the last save attempt failed (used for UI warnings). */
 let _lastSaveFailed = false;
@@ -850,6 +850,27 @@ const migrations: Record<number, MigrationFn> = {
     }
 
     data.saveVersion = 13;
+    return data;
+  },
+
+  /**
+   * v13 → v14: Add realTime field to log entries.
+   * Existing log entries don't have a real-time timestamp, so we use the
+   * migration time as a placeholder. This groups old entries together but
+   * doesn't corrupt the data; future entries will have accurate timestamps.
+   */
+  13: (data: RawSave): RawSave => {
+    const migrationTime = Date.now();
+    const log = data.log as Array<Record<string, unknown>> | undefined;
+    if (log) {
+      for (const entry of log) {
+        if (entry.realTime === undefined) {
+          entry.realTime = migrationTime;
+        }
+      }
+    }
+
+    data.saveVersion = 14;
     return data;
   },
 };

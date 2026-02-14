@@ -19,10 +19,12 @@ export function createLogEntry(
   gameTime: number,
   type: LogEntry['type'],
   message: string,
-  shipName?: string
+  shipName?: string,
+  realTime: number = Date.now()
 ): LogEntry {
   const entry: LogEntry = {
     gameTime,
+    realTime,
     type,
     message,
   };
@@ -37,9 +39,10 @@ export function addLog(
   gameTime: number,
   type: LogEntry['type'],
   message: string,
-  shipName?: string
+  shipName?: string,
+  realTime: number = Date.now()
 ): void {
-  log.push(createLogEntry(gameTime, type, message, shipName));
+  log.push(createLogEntry(gameTime, type, message, shipName, realTime));
 
   // Trim oldest entries to stay within budget.
   // We keep a small buffer above MAX_LOG_ENTRIES before trimming to

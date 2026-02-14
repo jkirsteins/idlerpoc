@@ -1,5 +1,5 @@
 import type { GameData, LogEntry, LogEntryType } from '../models';
-import { formatGameDateTime } from '../timeSystem';
+import { formatLogTimestamp } from '../formatting';
 import { MAX_LOG_ENTRIES } from '../logSystem';
 import type { Component } from './component';
 
@@ -223,7 +223,7 @@ function renderLogEntry(entry: LogEntry): HTMLElement {
 
   const timestamp = document.createElement('span');
   timestamp.className = 'log-timestamp';
-  timestamp.textContent = formatGameDateTime(entry.gameTime);
+  timestamp.textContent = formatLogTimestamp(entry.realTime, entry.gameTime);
   entryDiv.appendChild(timestamp);
 
   if (entry.shipName) {
