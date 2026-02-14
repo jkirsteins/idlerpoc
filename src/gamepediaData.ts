@@ -66,7 +66,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
         paragraphs: [
           'You have two main options for income early on:',
           '[[contracts|Contracts]] are one-time delivery, passenger, or freight jobs with deadlines. They pay well but expire if not completed in time. Look for short-distance contracts between Earth and nearby stations — these complete in a few real-world minutes.',
-          '[[contracts|Trade routes]] are permanent, repeating cargo runs between two stations. They pay less per trip but run automatically forever once assigned. Set one up and your ship will haul cargo back and forth while you are away.',
+          '[[contracts|Trade routes]] are permanent, repeating cargo runs between two stations. They pay less per trip but run automatically forever once accepted. Accept one and your ship will haul cargo back and forth while you are away.',
           '[[mining-system|Mining]] is a third income source, but requires a Class II ship with mining equipment — it becomes available later as you progress.',
         ],
         table: {
@@ -96,9 +96,9 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
       {
         heading: 'Your First Flight',
         paragraphs: [
-          'Accept a contract or assign a trade route from the Work tab. Your ship will automatically undock, warm up its [[engines|engines]], and fly to the destination. You can watch the progress on the Ship tab or leave the game running — it is fully idle-friendly.',
+          'Accept a contract from the Work tab. Your ship will automatically undock, warm up its [[engines|engines]], and fly to the destination. You can watch the progress on the Ship tab or leave the game running — it is fully idle-friendly.',
           'Flight duration depends on distance and your engine. Short runs (like Earth to a nearby station) take about 1-2 game days (~5-8 real minutes). The [[time-system|time controls]] let you speed up to 2x or 5x if you are watching.',
-          'On arrival the contract completes (or the trade route unloads, refuels, and flies back). Your [[credits-economy|credits]] increase and you can check the Log tab for details.',
+          'On arrival the contract completes (or continues for unlimited trade routes). Your [[credits-economy|credits]] increase and you can check the Log tab for details.',
         ],
       },
       {

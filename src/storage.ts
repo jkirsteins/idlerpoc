@@ -412,17 +412,7 @@ const migrations: Record<number, MigrationFn> = {
           }
         }
 
-        // 2d. Cancel trade routes referencing removed locations
-        const route = ship.routeAssignment as Record<string, unknown> | null;
-        if (route) {
-          const rOrigin = route.originId as string;
-          const rDest = route.destinationId as string;
-          if (REMOVED_LOCATIONS.has(rOrigin) || REMOVED_LOCATIONS.has(rDest)) {
-            ship.routeAssignment = null;
-          }
-        }
-
-        // 2e. Cancel mining routes referencing removed locations
+        // 2d. Cancel mining routes referencing removed locations
         const mRoute = ship.miningRoute as Record<string, unknown> | null;
         if (mRoute) {
           const mineLoc = mRoute.mineLocationId as string;

@@ -201,17 +201,6 @@ function getShipRouteInfo(
 } | null {
   const locations = gameData.world.locations;
 
-  // Trade route assignment
-  if (ship.routeAssignment) {
-    const originLoc = locations.find(
-      (l) => l.id === ship.routeAssignment!.originId
-    );
-    const destLoc = locations.find(
-      (l) => l.id === ship.routeAssignment!.destinationId
-    );
-    if (originLoc && destLoc) return { originLoc, destLoc };
-  }
-
   // Mining route
   if (ship.miningRoute) {
     const originLoc = locations.find(

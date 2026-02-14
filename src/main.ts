@@ -36,12 +36,10 @@ import {
   resumeContract,
   abandonContract,
   dockShipAtLocation,
-  initContractExec,
   regenerateQuestsIfNewDay,
 } from './contractExec';
 import { initProvisionsEvents } from './provisionsSystem';
 import { getSkillRank } from './skillRanks';
-import { assignShipToRoute, unassignShipFromRoute } from './routeAssignment';
 import { addLog } from './logSystem';
 import { getCrewEquipmentDefinition } from './crewEquipment';
 import { getShipClass } from './shipClasses';
@@ -457,11 +455,6 @@ const callbacks: RendererCallbacks = {
 
     dockShipAtLocation(state.gameData, ship, dockLocation);
 
-    // Clear route assignment if manually docking
-    if (ship.routeAssignment) {
-      unassignShipFromRoute(state.gameData, ship);
-    }
-
     saveGame(state.gameData);
     renderApp();
   },
@@ -664,41 +657,6 @@ const callbacks: RendererCallbacks = {
     const ship = getActiveShip(state.gameData);
 
     abandonContract(state.gameData, ship);
-    saveGame(state.gameData);
-    renderApp();
-  },
-
-  onAssignRoute: (questId) => {
-    if (state.phase !== 'playing') return;
-    const ship = getActiveShip(state.gameData);
-
-    const currentLocation = ship.location.dockedAt;
-    if (!currentLocation) return;
-
-    const locationQuests =
-      state.gameData.availableQuests[currentLocation] || [];
-    const quest = locationQuests.find((q) => q.id === questId);
-    if (!quest) return;
-
-    const result = assignShipToRoute(state.gameData, ship, questId);
-    if (result.success) {
-      // Remove quest from available quests (it's now being automated)
-      const questIndex = locationQuests.indexOf(quest);
-      if (questIndex !== -1) {
-        locationQuests.splice(questIndex, 1);
-      }
-      saveGame(state.gameData);
-      renderApp();
-    } else {
-      console.error('Failed to assign route:', result.error);
-    }
-  },
-
-  onUnassignRoute: () => {
-    if (state.phase !== 'playing') return;
-    const ship = getActiveShip(state.gameData);
-
-    unassignShipFromRoute(state.gameData, ship);
     saveGame(state.gameData);
     renderApp();
   },
@@ -1307,7 +1265,6 @@ const callbacks: RendererCallbacks = {
 function init(): void {
   // Register cross-module callbacks
   initCombatSystem();
-  initContractExec();
   initProvisionsEvents();
 
   try {

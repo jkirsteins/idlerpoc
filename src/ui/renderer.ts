@@ -73,8 +73,6 @@ export interface RendererCallbacks {
   onEquipItem: (crewId: string, itemId: string) => void;
   onUnequipItem: (crewId: string, itemId: string) => void;
   onAcceptQuest: (questId: string) => void;
-  onAssignRoute: (questId: string) => void;
-  onUnassignRoute: () => void;
   onTogglePause?: () => void;
   onSetSpeed?: (speed: 1 | 2 | 5) => void;
   onAutoPauseSettingChange?: (
@@ -409,8 +407,6 @@ function mountPlayingLayout(
       onEquipItem: callbacks.onEquipItem,
       onUnequipItem: callbacks.onUnequipItem,
       onAcceptQuest: callbacks.onAcceptQuest,
-      onAssignRoute: callbacks.onAssignRoute,
-      onUnassignRoute: callbacks.onUnassignRoute,
       onDockAtNearestPort: callbacks.onDockAtNearestPort,
       onCancelPause: callbacks.onCancelPause,
       onRequestAbandon: callbacks.onRequestAbandon,

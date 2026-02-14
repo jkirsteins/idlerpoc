@@ -35,8 +35,6 @@ import {
 
 export interface WorkTabCallbacks {
   onAcceptQuest: (questId: string) => void;
-  onAssignRoute: (questId: string) => void;
-  onUnassignRoute: () => void;
   onDockAtNearestPort: () => void;
   onCancelPause: () => void;
   onRequestAbandon: () => void;
@@ -78,23 +76,13 @@ interface QuestCardRefs {
   payment: HTMLDivElement;
   buttonContainer: HTMLDivElement;
   acceptBtn: HTMLButtonElement;
-  assignBtn: HTMLButtonElement;
   warningsDiv: HTMLDivElement;
   reasonDiv: HTMLDivElement;
-}
-
-// ─── Route Assignment Info Refs ───────────────────────────────
-interface RouteAssignmentRefs {
-  container: HTMLDivElement;
-  header: HTMLDivElement;
-  routeInfo: HTMLDivElement;
-  unassignBtn: HTMLButtonElement;
 }
 
 // ─── Active Contract Refs ─────────────────────────────────────
 interface ActiveContractRefs {
   container: HTMLDivElement;
-  routeAssignment: RouteAssignmentRefs;
   summaryTitle: HTMLHeadingElement;
   progress: HTMLDivElement;
   leg: HTMLDivElement;
@@ -111,7 +99,6 @@ interface ActiveContractRefs {
 // ─── Paused Contract Refs ─────────────────────────────────────
 interface PausedContractRefs {
   container: HTMLDivElement;
-  routeAssignment: RouteAssignmentRefs;
   summaryTitle: HTMLHeadingElement;
   pausedBadge: HTMLSpanElement;
   pauseHint: HTMLDivElement;
@@ -386,13 +373,6 @@ function createQuestCardRefs(
   acceptBtn.addEventListener('click', () => callbacks.onAcceptQuest(quest.id));
   buttonContainer.appendChild(acceptBtn);
 
-  const assignBtn = document.createElement('button');
-  assignBtn.className = 'assign-route-button';
-  assignBtn.textContent = 'Assign Route';
-  assignBtn.style.backgroundColor = '#4a90e2';
-  assignBtn.addEventListener('click', () => callbacks.onAssignRoute(quest.id));
-  buttonContainer.appendChild(assignBtn);
-
   card.appendChild(buttonContainer);
 
   const detailsToggle = document.createElement('button');
@@ -446,7 +426,6 @@ function createQuestCardRefs(
     payment,
     buttonContainer,
     acceptBtn,
-    assignBtn,
     warningsDiv,
     reasonDiv,
   };
@@ -727,80 +706,10 @@ export function createWorkTab(
     };
   }
 
-  // ── Factory: Route Assignment Info ──────────────────────────
-  function createRouteAssignmentRefs(): RouteAssignmentRefs {
-    const cont = document.createElement('div');
-    cont.className = 'route-assignment-info';
-    cont.style.padding = '12px';
-    cont.style.marginBottom = '12px';
-    cont.style.border = '2px solid #4a90e2';
-    cont.style.borderRadius = '4px';
-    cont.style.backgroundColor = 'rgba(74, 144, 226, 0.1)';
-    cont.style.display = 'none';
-
-    const header = document.createElement('div');
-    header.style.fontSize = '14px';
-    header.style.fontWeight = 'bold';
-    header.style.color = '#4a90e2';
-    header.style.marginBottom = '8px';
-    header.textContent = '\u{1F504} Automated Route Assignment';
-    cont.appendChild(header);
-
-    const routeInfo = document.createElement('div');
-    routeInfo.style.fontSize = '12px';
-    routeInfo.style.marginBottom = '8px';
-    cont.appendChild(routeInfo);
-
-    const actions = document.createElement('div');
-    actions.style.marginTop = '8px';
-
-    const unassignBtn = document.createElement('button');
-    unassignBtn.className = 'abandon-button';
-    unassignBtn.textContent = 'End Route Assignment';
-    unassignBtn.addEventListener('click', () => callbacks.onUnassignRoute());
-    actions.appendChild(unassignBtn);
-    cont.appendChild(actions);
-
-    return { container: cont, header, routeInfo, unassignBtn };
-  }
-
-  function updateRouteAssignmentRefs(
-    refs: RouteAssignmentRefs,
-    gd: GameData
-  ): void {
-    const ship = getActiveShip(gd);
-    const assignment = ship.routeAssignment;
-
-    if (!assignment) {
-      refs.container.style.display = 'none';
-      return;
-    }
-
-    refs.container.style.display = '';
-
-    const originLoc = gd.world.locations.find(
-      (l) => l.id === assignment.originId
-    );
-    const destLoc = gd.world.locations.find(
-      (l) => l.id === assignment.destinationId
-    );
-
-    const infoHtml = `
-    <div><strong>Route:</strong> ${originLoc?.name || 'Unknown'} \u2194 ${destLoc?.name || 'Unknown'}</div>
-    <div><strong>Trips Completed:</strong> ${assignment.totalTripsCompleted}</div>
-    <div><strong>Credits Earned:</strong> ${formatCredits(assignment.creditsEarned)}</div>
-    <div><strong>Auto-Refuel:</strong> ${assignment.autoRefuel ? `Enabled (< ${assignment.autoRefuelThreshold}%)` : 'Disabled'}</div>
-  `;
-    refs.routeInfo.innerHTML = infoHtml;
-  }
-
   // ── Factory: Active Contract Content ────────────────────────
   function createActiveContractContent(): ActiveContractRefs {
     const cont = document.createElement('div');
     cont.className = 'active-contract';
-
-    const routeAssignment = createRouteAssignmentRefs();
-    cont.appendChild(routeAssignment.container);
 
     // Contract summary
     const summary = document.createElement('div');
@@ -864,7 +773,6 @@ export function createWorkTab(
 
     return {
       container: cont,
-      routeAssignment,
       summaryTitle,
       progress,
       leg,
@@ -883,9 +791,6 @@ export function createWorkTab(
   function createPausedContractContent(): PausedContractRefs {
     const cont = document.createElement('div');
     cont.className = 'paused-contract';
-
-    const routeAssignment = createRouteAssignmentRefs();
-    cont.appendChild(routeAssignment.container);
 
     // Contract summary
     const summary = document.createElement('div');
@@ -958,7 +863,6 @@ export function createWorkTab(
 
     return {
       container: cont,
-      routeAssignment,
       summaryTitle,
       pausedBadge,
       pauseHint,
@@ -1167,8 +1071,6 @@ export function createWorkTab(
     if (canAccept) {
       refs.buttonContainer.style.display = 'flex';
       refs.reasonDiv.style.display = 'none';
-      // Show assign button only for trade routes
-      refs.assignBtn.style.display = quest.type === 'trade_route' ? '' : 'none';
     } else {
       refs.buttonContainer.style.display = 'none';
       if (reason) {
@@ -1433,9 +1335,6 @@ export function createWorkTab(
 
     if (!activeContract) return;
 
-    // Route assignment
-    updateRouteAssignmentRefs(refs.routeAssignment, gd);
-
     const quest = activeContract.quest;
 
     // Contract summary
@@ -1495,9 +1394,6 @@ export function createWorkTab(
 
     if (!activeContract) return;
 
-    // Route assignment
-    updateRouteAssignmentRefs(refs.routeAssignment, gd);
-
     const quest = activeContract.quest;
     const flight = ship.activeFlightPlan;
     const stillInFlight = ship.location.status === 'in_flight' && !!flight;
@@ -1521,12 +1417,7 @@ export function createWorkTab(
     updatePausedAbandonButton();
 
     // Abandon hint
-    const hasRouteAssignment = !!ship.routeAssignment;
-    let hintText = `Abandon ends contract permanently. You keep ${formatCredits(activeContract.creditsEarned)} from completed trips.`;
-    if (hasRouteAssignment) {
-      hintText += ' Your automated route assignment will also end.';
-    }
-    refs.abandonHint.textContent = hintText;
+    refs.abandonHint.textContent = `Abandon ends contract permanently. You keep ${formatCredits(activeContract.creditsEarned)} from completed trips.`;
   }
 
   // ── Main update function ────────────────────────────────────

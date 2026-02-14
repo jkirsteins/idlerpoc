@@ -45,12 +45,9 @@ export function assignMiningRoute(
   sellLocationId: string,
   mineLocationId?: string
 ): { success: boolean; error?: string } {
-  // Must not have an active contract or freight route
+  // Must not have an active contract
   if (ship.activeContract) {
     return { success: false, error: 'Ship has an active contract' };
-  }
-  if (ship.routeAssignment) {
-    return { success: false, error: 'Ship is assigned to a freight route' };
   }
 
   // Validate sell location exists and has trade service

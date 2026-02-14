@@ -352,7 +352,6 @@ export interface Ship {
   oreCargo: OreCargoItem[]; // mined ore in cargo hold
   miningAccumulator: Record<string, number>; // fractional ore per OreId
   activeContract: ActiveContract | null;
-  routeAssignment: RouteAssignment | null; // Automated route for trade routes
   miningRoute: MiningRoute | null; // Automated mine → sell → return loop
   lastEncounterTime?: number; // gameTime of last encounter (for cooldown)
   metrics: ShipMetrics; // Performance tracking for fleet management
@@ -399,18 +398,6 @@ export interface ActiveContract {
   paused: boolean; // docked mid-contract
   abandonRequested?: boolean; // deferred abandon — applied on next arrival
   acceptedOnDay?: number; // game day when contract was accepted (for deadline enforcement)
-}
-
-export interface RouteAssignment {
-  questId: string; // Trade route quest being automated
-  originId: string; // Route origin location
-  destinationId: string; // Route destination location
-  autoRefuel: boolean; // Auto-purchase fuel at stations
-  autoRefuelThreshold: number; // Trigger refuel when fuel < threshold% (default 30%)
-  totalTripsCompleted: number; // Lifetime counter for this route
-  creditsEarned: number; // Lifetime earnings for this route
-  assignedAt: number; // gameTime when route was assigned
-  lastTripCompletedAt: number; // gameTime of last trip completion
 }
 
 export interface MiningRoute {
