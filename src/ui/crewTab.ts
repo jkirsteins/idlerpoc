@@ -41,6 +41,8 @@ import {
   updateMasterySection,
 } from './crewMasterySection';
 import type { MasterySectionRefs } from './crewMasterySection';
+import { attachDynamicTooltip } from './components/tooltip';
+import type { TooltipHandle } from './components/tooltip';
 
 // ─── Pure helpers (no DOM) ─────────────────────────────────────────
 
@@ -834,6 +836,16 @@ export function createCrewTab(
   detailPanel.appendChild(statsSection);
   detailPanel.appendChild(exposureRow);
 
+  // ── Dynamic tooltips for exposure and radiation sections ──
+  const zeroGTooltipHandle: TooltipHandle = attachDynamicTooltip(
+    exposureSection,
+    ''
+  );
+  const radiationTooltipHandle: TooltipHandle = attachDynamicTooltip(
+    radiationSection,
+    ''
+  );
+
   // ── Training indicator (Row 5) ──
   const trainingDiv = document.createElement('div');
   trainingDiv.className = 'training-indicator';
@@ -1312,41 +1324,47 @@ export function createCrewTab(
       exposureStatusText.style.color = '#dc2626';
     }
 
-    // Build comprehensive tooltip
-    const tooltipParts: string[] = [];
+    // Build comprehensive HTML tooltip
+    const zeroGParts: string[] = [];
 
     if (exposureLevel === 'none') {
-      tooltipParts.push('Status: Normal — No effects');
+      zeroGParts.push(
+        `<div><span class="custom-tooltip-label">Status:</span> <span class="custom-tooltip-value" style="color: #4ade80;">Normal — No effects</span></div>`
+      );
     } else {
       const levelName = getDegradationLevelName(exposureLevel);
       const description = getDegradationDescription(exposureLevel);
-      tooltipParts.push(`Status: ${levelName} — ${description}`);
+      zeroGParts.push(
+        `<div><span class="custom-tooltip-label">Status:</span> <span class="custom-tooltip-value">${levelName} — ${description}</span></div>`
+      );
     }
 
     if (nextThreshold && ship.location.status !== 'docked') {
       const nextDays = formatExposureDays(nextThreshold.threshold);
       const levelName = getDegradationLevelName(nextThreshold.level);
       const description = getDegradationDescription(nextThreshold.level);
-      tooltipParts.push(
-        `Next: ${levelName} at ${nextDays} days — ${description}`
+      zeroGParts.push(
+        `<div><span class="custom-tooltip-label">Next:</span> <span class="custom-tooltip-value">${levelName} at ${nextDays} days — ${description}</span></div>`
       );
     }
 
     if (ship.location.status === 'docked' && crew.zeroGExposure > 0) {
       const recovery = estimateRecoveryTime(crew.zeroGExposure);
-      tooltipParts.push('Recovering — Docked');
+      zeroGParts.push(
+        '<div class="custom-tooltip-section">Recovering — Docked</div>'
+      );
       if (exposureLevel !== 'none') {
         const nextLevelName = getDegradationLevelName(recovery.targetLevel);
-        tooltipParts.push(
-          `${nextLevelName}: ${formatDualTime(recovery.gameSecondsToNextLevel)}`
+        zeroGParts.push(
+          `<div class="custom-tooltip-item">${nextLevelName}: ${formatDualTime(recovery.gameSecondsToNextLevel)}</div>`
         );
       }
-      tooltipParts.push(
-        `Full recovery: ${formatDualTime(recovery.gameSecondsToFullRecovery)}`
+      zeroGParts.push(
+        `<div><span class="custom-tooltip-label">Full recovery:</span> <span class="custom-tooltip-value">${formatDualTime(recovery.gameSecondsToFullRecovery)}</span></div>`
       );
     }
 
-    exposureSection.title = tooltipParts.join('\n');
+    zeroGTooltipHandle.updateContent(zeroGParts.join(''));
 
     // ── Radiation section ──
     updateRadiationSection(crew, ship);
@@ -1437,13 +1455,13 @@ export function createCrewTab(
     const engineDef = getEngineDefinition(ship.engine.definitionId);
     const engineRadiation = engineDef.radiationOutput || 0;
 
-    const tooltipParts: string[] = [];
+    const radParts: string[] = [];
 
     if (engineRadiation === 0) {
       radTitle.textContent = 'Rad: N/A';
       radTitle.style.color = '#555';
-      tooltipParts.push(
-        'Chemical engines produce no radiation. Higher-class drives require shielding.'
+      radParts.push(
+        '<div class="custom-tooltip-item" style="color: #aaa;">Chemical engines produce no radiation. Higher-class drives require shielding.</div>'
       );
     } else {
       let totalShielding = 0;
@@ -1471,11 +1489,22 @@ export function createCrewTab(
         radTitle.textContent = `Rad: -${damagePerDay.toFixed(1)} HP/d`;
         radTitle.style.color = '#f87171';
 
-        tooltipParts.push(
-          `Net Radiation: ${netRadiation.toFixed(0)} rad (${engineRadiation} engine - ${totalShielding.toFixed(0)} shield)`
+        radParts.push(
+          `<div><span class="custom-tooltip-label">Engine Output:</span> <span class="custom-tooltip-value">${engineRadiation} rad</span></div>`
+        );
+        radParts.push(
+          `<div><span class="custom-tooltip-label">Shielding:</span> <span class="custom-tooltip-value">-${totalShielding.toFixed(0)} rad</span></div>`
+        );
+        radParts.push(
+          `<div><span class="custom-tooltip-label">Net Radiation:</span> <span class="custom-tooltip-value" style="color: #ff6b6b;">${netRadiation.toFixed(0)} rad</span></div>`
+        );
+        radParts.push(
+          `<div><span class="custom-tooltip-label">Health Loss:</span> <span class="custom-tooltip-value" style="color: #ff6b6b;">-${damagePerDay.toFixed(1)} HP/day</span></div>`
         );
         if (isPatient && medbay?.state === 'operational') {
-          tooltipParts.push('Health Loss: 50% reduced — medbay');
+          radParts.push(
+            '<div class="custom-tooltip-item" style="color: #4ade80;">50% reduced — medbay patient</div>'
+          );
         }
 
         // Containment spike warning
@@ -1484,28 +1513,34 @@ export function createCrewTab(
         );
         if (confinementEq && confinementEq.degradation > 30) {
           const integrity = (100 - confinementEq.degradation).toFixed(0);
-          tooltipParts.push(
-            `Containment breach (${integrity}% integrity) — radiation spikes active!`
+          radParts.push(
+            `<div class="custom-tooltip-item" style="color: #ff6b6b;">Containment breach (${integrity}% integrity) — radiation spikes active!</div>`
           );
         }
       } else if (ship.engine.state === 'online' && netRadiation === 0) {
         radTitle.textContent = 'Rad: Shielded';
         radTitle.style.color = '#4ade80';
 
-        tooltipParts.push(
-          `Engine output ${engineRadiation} rad fully absorbed by shielding (${totalShielding.toFixed(0)} capacity).`
+        radParts.push(
+          `<div><span class="custom-tooltip-label">Engine Output:</span> <span class="custom-tooltip-value">${engineRadiation} rad</span></div>`
+        );
+        radParts.push(
+          `<div><span class="custom-tooltip-label">Shielding:</span> <span class="custom-tooltip-value" style="color: #4ade80;">-${totalShielding.toFixed(0)} rad (fully absorbed)</span></div>`
         );
       } else {
         radTitle.textContent = 'Rad: Off';
         radTitle.style.color = '#888';
 
-        tooltipParts.push(
-          `Engine emits ${engineRadiation} rad when online. Shielding capacity: ${totalShielding.toFixed(0)}.`
+        radParts.push(
+          `<div><span class="custom-tooltip-label">Engine Output:</span> <span class="custom-tooltip-value">${engineRadiation} rad (when online)</span></div>`
+        );
+        radParts.push(
+          `<div><span class="custom-tooltip-label">Shielding:</span> <span class="custom-tooltip-value">${totalShielding.toFixed(0)} rad capacity</span></div>`
         );
       }
     }
 
-    radiationSection.title = tooltipParts.join('\n');
+    radiationTooltipHandle.updateContent(radParts.join(''));
   }
 
   function updateSkillsSection(gameData: GameData, crew: CrewMember): void {

@@ -160,6 +160,164 @@ export function attachTooltip(
   }
 }
 
+export interface TooltipHandle {
+  updateContent: (html: string) => void;
+}
+
+/**
+ * Attach a tooltip with dynamic content that can be updated each tick.
+ * Returns a handle that allows updating tooltip content without recreating the tooltip element.
+ * Used by mount-once components that need to update tooltip content on each tick.
+ */
+export function attachDynamicTooltip(
+  element: HTMLElement,
+  initialContent: string,
+  options?: { followMouse?: boolean }
+): TooltipHandle {
+  const tooltip = document.createElement('div');
+  tooltip.className = 'custom-tooltip';
+  tooltip.innerHTML = initialContent;
+  document.body.appendChild(tooltip);
+
+  // Mark element as having a tooltip (for CSS touch target sizing)
+  element.setAttribute('data-has-tooltip', '');
+
+  let currentContent = initialContent;
+  const followMouse = options?.followMouse ?? false;
+
+  const positionNearElement = (tip: HTMLElement, elem: HTMLElement) => {
+    const elemRect = elem.getBoundingClientRect();
+    const tipRect = tip.getBoundingClientRect();
+
+    let left = elemRect.left;
+    let top = elemRect.bottom + 8;
+
+    // Prevent tooltip from going off-screen
+    if (left + tipRect.width > window.innerWidth) {
+      left = window.innerWidth - tipRect.width - 16;
+    }
+    if (left < 8) left = 8;
+    if (top + tipRect.height > window.innerHeight) {
+      top = elemRect.top - tipRect.height - 8;
+    }
+
+    tip.style.left = `${left}px`;
+    tip.style.top = `${top}px`;
+  };
+
+  const updateTooltipPosition = (
+    e: MouseEvent,
+    tip: HTMLElement,
+    elem: HTMLElement,
+    follow: boolean
+  ) => {
+    if (follow) {
+      // Position near mouse
+      const offsetX = 15;
+      const offsetY = 15;
+      let left = e.clientX + offsetX;
+      let top = e.clientY + offsetY;
+
+      // Prevent tooltip from going off-screen
+      const rect = tip.getBoundingClientRect();
+      if (left + rect.width > window.innerWidth) {
+        left = e.clientX - rect.width - offsetX;
+      }
+      if (top + rect.height > window.innerHeight) {
+        top = e.clientY - rect.height - offsetY;
+      }
+
+      tip.style.left = `${left}px`;
+      tip.style.top = `${top}px`;
+    } else {
+      positionNearElement(tip, elem);
+    }
+  };
+
+  const showTooltip = (e: MouseEvent) => {
+    tooltip.classList.add('visible');
+    updateTooltipPosition(e, tooltip, element, followMouse);
+    activeTooltip = tooltip;
+    activeTrigger = element;
+  };
+
+  const hideTooltip = () => {
+    tooltip.classList.remove('visible');
+    if (activeTooltip === tooltip) {
+      activeTooltip = null;
+      activeTrigger = null;
+    }
+  };
+
+  // Mouse events (hover — desktop)
+  element.addEventListener('mouseenter', showTooltip);
+  element.addEventListener('mousemove', (e) => {
+    if (tooltip.classList.contains('visible') && followMouse) {
+      updateTooltipPosition(e, tooltip, element, true);
+    }
+  });
+  element.addEventListener('mouseleave', hideTooltip);
+
+  // Touch events (tap to toggle — mobile)
+  element.addEventListener(
+    'touchstart',
+    () => {
+      ensureTouchDismiss();
+
+      if (tooltip.classList.contains('visible')) {
+        // Tap again to dismiss
+        tooltip.classList.remove('visible');
+        if (activeTooltip === tooltip) {
+          activeTooltip = null;
+          activeTrigger = null;
+        }
+        return;
+      }
+
+      // Dismiss any other active tooltip
+      if (activeTooltip && activeTooltip !== tooltip) {
+        activeTooltip.classList.remove('visible');
+      }
+
+      // Show this tooltip
+      tooltip.classList.add('visible');
+      activeTooltip = tooltip;
+      activeTrigger = element;
+
+      // Position anchored to element (not mouse)
+      positionNearElement(tooltip, element);
+    },
+    { passive: true }
+  );
+
+  // Clean up tooltip when element is removed
+  const observer = new MutationObserver((mutations) => {
+    mutations.forEach((mutation) => {
+      mutation.removedNodes.forEach((node) => {
+        if (node === element || node.contains(element)) {
+          tooltip.remove();
+          observer.disconnect();
+        }
+      });
+    });
+  });
+
+  if (element.parentElement) {
+    observer.observe(element.parentElement, { childList: true, subtree: true });
+  }
+
+  // Return handle for updating content
+  return {
+    updateContent: (html: string) => {
+      // Only update DOM if content actually changed
+      if (html !== currentContent) {
+        currentContent = html;
+        tooltip.innerHTML = html;
+      }
+    },
+  };
+}
+
 export function formatPowerTooltip(
   available: number,
   totalCapacity: number,

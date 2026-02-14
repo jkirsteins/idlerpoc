@@ -557,22 +557,37 @@ export function createTabbedView(
       ledger.totalExpensePerDay > 0 || ledger.incomePerDay > 0 ? '' : '0.4';
 
     // Ledger breakdown items (updated even when collapsed, cheap text updates)
-    const incText = `Income: ${formatCredits(Math.round(ledger.incomePerDay))}/day`;
+    const incText =
+      ledger.incomeDays > 0
+        ? `Income: ${formatCredits(Math.round(ledger.incomePerDay))}/day`
+        : 'Income: collecting data\u2026';
     if (ledgerIncomeSpan.textContent !== incText) {
       ledgerIncomeSpan.textContent = incText;
-      ledgerIncomeSpan.style.color = '#4ade80';
+      ledgerIncomeSpan.style.color = ledger.incomeDays > 0 ? '#4ade80' : '#666';
     }
-    const crewCostText = `Crew: -${formatCredits(Math.round(ledger.crewCostPerDay))}/day`;
+
+    const crewCostText =
+      ledger.expenseDays > 0
+        ? `Crew: -${formatCredits(Math.round(ledger.crewCostPerDay))}/day`
+        : 'Crew: collecting data\u2026';
     if (ledgerCrewSpan.textContent !== crewCostText) {
       ledgerCrewSpan.textContent = crewCostText;
       ledgerCrewSpan.style.color =
-        ledger.crewCostPerDay > 0 ? '#ffa500' : '#888';
+        ledger.expenseDays > 0 && ledger.crewCostPerDay > 0
+          ? '#ffa500'
+          : '#666';
     }
-    const fuelCostText = `Fuel: -${formatCredits(Math.round(ledger.fuelCostPerDay))}/day`;
+
+    const fuelCostText =
+      ledger.expenseDays > 0
+        ? `Fuel: -${formatCredits(Math.round(ledger.fuelCostPerDay))}/day`
+        : 'Fuel: collecting data\u2026';
     if (ledgerFuelSpan.textContent !== fuelCostText) {
       ledgerFuelSpan.textContent = fuelCostText;
       ledgerFuelSpan.style.color =
-        ledger.fuelCostPerDay > 0 ? '#ffa500' : '#888';
+        ledger.expenseDays > 0 && ledger.fuelCostPerDay > 0
+          ? '#ffa500'
+          : '#666';
     }
 
     // ── Status text ──────────────────────────────────────────────────

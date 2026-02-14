@@ -534,8 +534,16 @@ function renderFleetPerformanceDashboard(gameData: GameData): HTMLElement {
     ledger.incomeDays > 0
       ? `<span style="color: #666; font-size: 0.8rem;">(${ledger.incomeDays}d avg)</span>`
       : '';
+  const expensesText =
+    ledger.expenseDays > 0
+      ? `-${formatCredits(Math.round(ledger.totalExpensePerDay))}/day`
+      : 'collecting data\u2026';
+  const expensesBreakdown =
+    ledger.expenseDays > 0
+      ? `<span style="color: #666; font-size: 0.8rem;">(crew: ${Math.round(ledger.crewCostPerDay).toLocaleString()}, fuel: ${Math.round(ledger.fuelCostPerDay).toLocaleString()})</span>`
+      : '';
   const runwayText =
-    ledger.incomeDays === 0
+    ledger.incomeDays === 0 || ledger.expenseDays === 0
       ? '<span style="color: #666;">collecting data\u2026</span>'
       : ledger.runwayDays !== null
         ? `<span style="color: ${ledger.runwayDays < 3 ? '#ff4444' : '#ffa500'};">${ledger.runwayDays.toFixed(1)} days</span>`
@@ -552,7 +560,7 @@ function renderFleetPerformanceDashboard(gameData: GameData): HTMLElement {
       </div>
       <div style="border-top: 1px solid #333; padding-top: 0.5rem; display: flex; gap: 2rem; flex-wrap: wrap;">
         <div><span style="color: #aaa;">Income:</span> <span style="color: #4ade80;">${incomeText}</span> ${incomeNote}</div>
-        <div><span style="color: #aaa;">Expenses:</span> <span style="color: #ffa500;">-${formatCredits(Math.round(ledger.totalExpensePerDay))}/day</span> <span style="color: #666; font-size: 0.8rem;">(crew: ${Math.round(ledger.crewCostPerDay).toLocaleString()}, fuel: ${Math.round(ledger.fuelCostPerDay).toLocaleString()})</span></div>
+        <div><span style="color: #aaa;">Expenses:</span> <span style="color: ${ledger.expenseDays > 0 ? '#ffa500' : '#666'};">${expensesText}</span> ${expensesBreakdown}</div>
         <div><span style="color: #aaa;">Net Rate:</span> <span style="color: ${dailyNetColor}; font-weight: bold;">${dailyNetSign}${formatCredits(dailyNet)}/day</span></div>
         <div><span style="color: #aaa;">Runway:</span> ${runwayText}</div>
       </div>
@@ -1065,19 +1073,54 @@ function createShipPurchase(
     mysteryContainer.appendChild(mysteryIcon);
 
     const mysteryTitle = document.createElement('div');
-    mysteryTitle.textContent = 'Unknown Vessel';
+    const tierClassName: Record<string, string> = {
+      I: 'Orbital Maintenance Vessel',
+      II: 'Inner System Vessel',
+      III: 'Interplanetary Vessel',
+    };
+    mysteryTitle.textContent =
+      tierClassName[shipClass.tier] ?? 'Unknown Vessel';
     mysteryTitle.style.fontWeight = 'bold';
     mysteryTitle.style.color = '#888';
     mysteryTitle.style.marginBottom = '0.25rem';
     mysteryContainer.appendChild(mysteryTitle);
 
     const mysterySub = document.createElement('div');
-    mysterySub.textContent =
-      'Earn more lifetime credits to discover this ship class';
+    mysterySub.textContent = `Range: ${shipClass.rangeLabel}`;
     mysterySub.style.fontSize = '0.8rem';
     mysterySub.style.color = '#666';
-    mysterySub.style.marginBottom = '0.75rem';
+    mysterySub.style.marginBottom = '0.5rem';
     mysteryContainer.appendChild(mysterySub);
+
+    // Dimmed facility badges for differentiating rooms this ship has
+    const mysteryFacilities = document.createElement('div');
+    mysteryFacilities.style.display = 'flex';
+    mysteryFacilities.style.flexWrap = 'wrap';
+    mysteryFacilities.style.gap = '4px';
+    mysteryFacilities.style.justifyContent = 'center';
+    mysteryFacilities.style.marginBottom = '0.75rem';
+    for (const roomType of DIFFERENTIATING_ROOMS) {
+      if (!shipClass.rooms.includes(roomType)) continue;
+      const roomDef = getRoomDefinition(roomType);
+      const badge = document.createElement('span');
+      badge.style.display = 'inline-flex';
+      badge.style.alignItems = 'center';
+      badge.style.gap = '2px';
+      badge.style.padding = '2px 6px';
+      badge.style.borderRadius = '3px';
+      badge.style.fontSize = '0.75rem';
+      badge.style.whiteSpace = 'nowrap';
+      badge.style.opacity = '0.6';
+      badge.style.background = 'rgba(255, 255, 255, 0.03)';
+      badge.style.border = '1px solid rgba(255, 255, 255, 0.08)';
+      badge.style.color = '#888';
+      badge.textContent = `${roomDef?.icon ?? '?'} ${roomDef?.name ?? roomType}`;
+      badge.title = roomDef?.description ?? roomType;
+      mysteryFacilities.appendChild(badge);
+    }
+    if (mysteryFacilities.childElementCount > 0) {
+      mysteryContainer.appendChild(mysteryFacilities);
+    }
 
     const mysteryProgressBar = document.createElement('div');
     mysteryProgressBar.style.width = '100%';

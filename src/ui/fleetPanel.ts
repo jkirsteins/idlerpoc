@@ -11,6 +11,7 @@ import {
 } from './fuelFormatting';
 import { getCommandCommerceBonus, getFleetAuraBonus } from '../captainBonus';
 import { formatLargeNumber } from '../formatting';
+import { attachDynamicTooltip, type TooltipHandle } from './components/tooltip';
 
 export interface FleetPanelCallbacks {
   onSelectShip: (shipId: string) => void;
@@ -38,6 +39,7 @@ interface ShipRowRefs {
   equipSpan: HTMLSpanElement;
   rangeSpan: HTMLSpanElement;
   commandBadge: HTMLSpanElement;
+  tooltipHandle?: TooltipHandle;
 }
 
 interface ShipActivity {
@@ -141,9 +143,10 @@ export function createFleetPanel(
     });
     row.addEventListener('click', () => callbacks.onSelectShip(ship.id));
 
-    // In compact mode, add tooltip showing full ship details
+    // In compact mode, attach a dynamic tooltip for full ship details
+    let tooltipHandle: TooltipHandle | undefined;
     if (mode === 'compact') {
-      row.title = 'Click to select ship';
+      tooltipHandle = attachDynamicTooltip(row, 'Click to select ship');
     }
 
     // Active indicator dot
@@ -251,6 +254,7 @@ export function createFleetPanel(
       equipSpan,
       rangeSpan,
       commandBadge,
+      tooltipHandle,
     };
   }
 
@@ -393,20 +397,23 @@ export function createFleetPanel(
       refs.rangeSpan.title = `Max range: ${maxRangeKm.toLocaleString()} km`;
     }
 
-    // Compact mode: build comprehensive tooltip and hide bottom row via CSS
-    if (mode === 'compact') {
-      // Build tooltip with key stats
+    // Compact mode: build comprehensive rich HTML tooltip
+    if (mode === 'compact' && refs.tooltipHandle) {
       const tooltipParts: string[] = [];
 
       // Location/flight status
       if (ship.location.status === 'docked') {
         const dockedAt = ship.location.dockedAt;
         const location = gd.world.locations.find((l) => l.id === dockedAt);
-        tooltipParts.push(`📍 Docked at ${location?.name || dockedAt}`);
+        tooltipParts.push(
+          `<div><strong>Location:</strong> Docked at ${location?.name || dockedAt}</div>`
+        );
       } else if (ship.location.status === 'orbiting') {
         const orbitingAt = ship.location.orbitingAt;
         const location = gd.world.locations.find((l) => l.id === orbitingAt);
-        tooltipParts.push(`📍 Orbiting ${location?.name || orbitingAt}`);
+        tooltipParts.push(
+          `<div><strong>Location:</strong> Orbiting ${location?.name || orbitingAt}</div>`
+        );
       } else if (ship.activeFlightPlan) {
         const destId = ship.activeFlightPlan.destination;
         const destination = gd.world.locations.find((l) => l.id === destId);
@@ -415,23 +422,32 @@ export function createFleetPanel(
             ship.activeFlightPlan.totalDistance) *
           100;
         tooltipParts.push(
-          `🚀 In Flight to ${destination?.name || destId} (${progressPercent.toFixed(0)}%)`
+          `<div><strong>In Flight:</strong> ${destination?.name || destId} (${progressPercent.toFixed(0)}%)</div>`
         );
       } else {
-        tooltipParts.push('🚀 In Flight');
+        tooltipParts.push(`<div><strong>Status:</strong> In Flight</div>`);
       }
 
       // Stats
-      tooltipParts.push(`⛽ ${refs.fuelSpan.textContent}`);
-      tooltipParts.push(`👥 ${refs.crewSpan.textContent}`);
-      tooltipParts.push(`🔧 ${refs.equipSpan.textContent}`);
+      tooltipParts.push(
+        `<div><strong>Fuel:</strong> ${formatFuelMass(ship.fuelKg)} / ${formatFuelMass(ship.maxFuelKg)}</div>`
+      );
+      tooltipParts.push(
+        `<div><strong>Crew:</strong> ${ship.crew.length}/${shipClass?.maxCrew ?? '?'}</div>`
+      );
+      const maxSlots2 = shipClass?.equipmentSlotDefs.length ?? 0;
+      tooltipParts.push(
+        `<div><strong>Equipment:</strong> ${ship.equipment.length}/${maxSlots2}</div>`
+      );
       if (shipClass) {
         const engineDef = getEngineDefinition(ship.engine.definitionId);
         const maxRangeKm = computeMaxRange(shipClass, engineDef);
-        tooltipParts.push(`📏 Range: ${formatLargeNumber(maxRangeKm)}km`);
+        tooltipParts.push(
+          `<div><strong>Range:</strong> ${formatLargeNumber(maxRangeKm)} km</div>`
+        );
       }
 
-      refs.row.title = tooltipParts.join('\n');
+      refs.tooltipHandle.updateContent(tooltipParts.join(''));
     }
   }
 

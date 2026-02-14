@@ -250,11 +250,11 @@ export function createFinancesTab(_gameData: GameData): Component {
         <td style="padding: 0.75rem; padding-right: 0; text-align: right; font-family: monospace; white-space: nowrap;" data-value="dailyIncome"></td>
       </tr>
       <tr style="border-bottom: 1px solid rgba(255,255,255,0.06);">
-        <td style="padding: 0.75rem; padding-left: 0; border-left: 3px solid #ffa500; white-space: nowrap;">Crew Salaries</td>
+        <td style="padding: 0.75rem; padding-left: 0; border-left: 3px solid #ffa500; white-space: nowrap;">Crew Salaries (7d avg)</td>
         <td style="padding: 0.75rem; padding-right: 0; text-align: right; font-family: monospace; white-space: nowrap;" data-value="dailyExpenseSalaries"></td>
       </tr>
       <tr style="border-bottom: 1px solid rgba(255,255,255,0.06);">
-        <td style="padding: 0.75rem; padding-left: 0; border-left: 3px solid #ffa500; white-space: nowrap;">Fuel (projected)</td>
+        <td style="padding: 0.75rem; padding-left: 0; border-left: 3px solid #ffa500; white-space: nowrap;">Fuel (7d avg)</td>
         <td style="padding: 0.75rem; padding-right: 0; text-align: right; font-family: monospace; white-space: nowrap;" data-value="dailyExpenseFuel"></td>
       </tr>
       <tr style="border-top: 2px solid rgba(255,255,255,0.12);">

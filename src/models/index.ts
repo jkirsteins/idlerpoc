@@ -593,10 +593,12 @@ export interface CatchUpReport {
   logHighlights: LogEntry[]; // notable log entries (skill-ups, etc.) from the idle period
 }
 
-/** Snapshot of lifetime earnings at the end of a game day, for rolling income averages. */
+/** Snapshot of lifetime earnings and expenses at the end of a game day, for rolling averages. */
 export interface DailyLedgerSnapshot {
   gameDay: number;
   lifetimeCreditsEarned: number;
+  lifetimeExpenseFuel?: number;
+  lifetimeExpenseCrewSalaries?: number;
 }
 
 /**
