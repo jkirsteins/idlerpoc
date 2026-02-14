@@ -112,10 +112,7 @@ function getInactiveTrainingJobTypes(
  * follow the wrong path. The ship commits to a ballistic trajectory at launch
  * and follows it to completion.
  */
-function updateFlightPosition(
-  fp: import('./models').FlightState,
-  gameData: import('./models').GameData
-): void {
+function updateFlightPosition(fp: import('./models').FlightState): void {
   if (fp.totalDistance <= 0) return;
 
   // Use the planned trajectory endpoints stored at flight initialization
@@ -517,7 +514,7 @@ function applyShipTick(gameData: GameData, ship: Ship): boolean {
       // accurate — no stale arrival-time snapshots.
       // Skip on completion — completeLeg docks the ship and discards positions.
       if (!flightComplete) {
-        updateFlightPosition(ship.activeFlightPlan, gameData);
+        updateFlightPosition(ship.activeFlightPlan);
       }
 
       // === GRAVITY ASSIST CHECK ===

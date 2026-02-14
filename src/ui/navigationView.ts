@@ -1586,9 +1586,7 @@ export function createNavigationView(
     ship: Ship,
     isInFlight: boolean,
     parentId: string,
-    parentPos: { x: number; y: number },
-    logMin: number,
-    logMax: number
+    parentPos: { x: number; y: number }
   ): void {
     if (!isInFlight || !ship.activeFlightPlan) {
       hideFlightViz();
@@ -2088,15 +2086,7 @@ export function createNavigationView(
     }
 
     // Flight visualization (focus projection)
-    updateFlightVizFocus(
-      gd,
-      ship,
-      isInFlight,
-      parentId,
-      parentPos,
-      logMin,
-      logMax
-    );
+    updateFlightVizFocus(gd, ship, isInFlight, parentId, parentPos);
   }
 
   // Initial render
