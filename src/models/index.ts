@@ -458,6 +458,7 @@ export type LogEntryType =
 
 export interface LogEntry {
   gameTime: number;
+  realTime: number; // milliseconds since epoch (Date.now())
   type: LogEntryType;
   message: string;
   shipName?: string;

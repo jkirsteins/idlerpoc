@@ -435,6 +435,7 @@ export function buildCatchUpReport(
 
     aggregatedSkillUps.push({
       gameTime: group.gameTime,
+      realTime: Date.now(),
       type: 'crew_level_up',
       message,
       shipName: group.shipName,

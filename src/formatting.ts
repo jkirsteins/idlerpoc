@@ -53,3 +53,34 @@ export function getRangeLabel(rangeKm: number): string {
 export function formatMass(kg: number): string {
   return `${Math.round(kg).toLocaleString()} kg`;
 }
+
+// ── Log Timestamps ──────────────────────────────────────
+
+/**
+ * Format a log entry timestamp showing real-life time (primary) with in-game time as flavor.
+ * Example: `Feb 14, 2026 3:45 PM (Day 42)`
+ */
+export function formatLogTimestamp(realTime: number, gameTime: number): string {
+  // Format real-time (milliseconds since epoch)
+  const date = new Date(realTime);
+  const month = date.toLocaleString('en-US', { month: 'short' });
+  const day = date.getDate();
+  const year = date.getFullYear();
+  const time = date.toLocaleString('en-US', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true,
+  });
+
+  // Format in-game date from gameTime (game-seconds since epoch 2247-01-01)
+  const epochDate = new Date(2247, 0, 1, 0, 0, 0);
+  const gameMillis = gameTime * 1000;
+  const gameDate = new Date(epochDate.getTime() + gameMillis);
+  const startOfYear = new Date(gameDate.getFullYear(), 0, 1);
+  const dayOfYear =
+    Math.floor(
+      (gameDate.getTime() - startOfYear.getTime()) / (1000 * 60 * 60 * 24)
+    ) + 1;
+
+  return `${month} ${day}, ${year} ${time} (Day ${dayOfYear})`;
+}
