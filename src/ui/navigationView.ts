@@ -647,7 +647,7 @@ function updateMarkerVisual(
 ): void {
   const { virtualOrigin, ship, gd } = ctx;
   if (isCurrent || isFlightDest) {
-    refs.dot.setAttribute('stroke', '#e94560');
+    refs.dot.setAttribute('stroke', '#d4850a');
     refs.dot.setAttribute('stroke-width', '2');
     refs.label.setAttribute('fill', '#fff');
   } else if (!reachable) {
@@ -1080,7 +1080,7 @@ export function createNavigationView(
 
   // Flight line + ship dot (created once, updated each tick)
   const flightLine = document.createElementNS(SVG_NS, 'line');
-  flightLine.setAttribute('stroke', '#e94560');
+  flightLine.setAttribute('stroke', '#d4850a');
   flightLine.setAttribute('stroke-width', '1');
   flightLine.setAttribute('stroke-dasharray', '4,2');
   flightLine.setAttribute('stroke-opacity', '0.6');
@@ -1089,7 +1089,7 @@ export function createNavigationView(
 
   const shipDot = document.createElementNS(SVG_NS, 'circle');
   shipDot.setAttribute('r', '3');
-  shipDot.setAttribute('fill', '#e94560');
+  shipDot.setAttribute('fill', '#d4850a');
   shipDot.setAttribute('stroke', '#fff');
   shipDot.setAttribute('stroke-width', '0.5');
   shipDot.style.display = 'none';
@@ -1100,7 +1100,7 @@ export function createNavigationView(
   // Current-location pulsing ring (visual prominence)
   const currentRing = document.createElementNS(SVG_NS, 'circle');
   currentRing.setAttribute('fill', 'none');
-  currentRing.setAttribute('stroke', '#e94560');
+  currentRing.setAttribute('stroke', '#d4850a');
   currentRing.setAttribute('stroke-width', '1');
   currentRing.setAttribute('stroke-opacity', '0');
   currentRing.style.display = 'none';

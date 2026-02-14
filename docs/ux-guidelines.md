@@ -42,17 +42,17 @@ All colors below are extracted from the existing `src/style.css`. Never introduc
 
 | Token        | Hex               | Usage                                              |
 | ------------ | ----------------- | -------------------------------------------------- |
-| bg-page      | `#1a1a2e`         | Body background, deepest layer                     |
-| bg-container | `#16213e`         | Game container, modals, catch-up report            |
-| bg-panel     | `#0f3460`         | Cards, panels, secondary buttons, small buttons    |
+| bg-page      | `#0a0a12`         | Body background, deepest layer (almost black)      |
+| bg-container | `#0d0d18`         | Game container, modals, catch-up report            |
+| bg-panel     | `#12121e`         | Cards, panels, secondary buttons, small buttons    |
 | bg-input     | `rgba(0,0,0,0.3)` | Input backgrounds, persistent info bar, status bar |
 
 ### Semantic Colors
 
 | Token               | Hex       | Meaning                              | Example usage                                         |
 | ------------------- | --------- | ------------------------------------ | ----------------------------------------------------- |
-| brand-red           | `#e94560` | Brand, headings, primary button      | h1–h3, default `button`, XP bars, active tabs         |
-| brand-red-hover     | `#d63050` | Hover variant                        | Button hover state                                    |
+| brand-orange        | `#d4850a` | Brand, headings, primary button      | h1–h3, default `button`, XP bars, active tabs         |
+| brand-orange-hover  | `#b87008` | Hover variant                        | Button hover state                                    |
 | accent-blue         | `#4a9eff` | Information, navigation, interactive | Dates, links, active tab indicator, time controls     |
 | accent-blue-hover   | `#6db3ff` | Hover variant                        | Link hover, time control hover                        |
 | positive-teal       | `#4ecdc4` | Positive action, confirmation        | Accept buttons, Continue, Dock, contract complete     |
@@ -81,7 +81,7 @@ Used consistently across all status bars (fuel, oxygen, provisions, radiation, h
 
 - **Good:** `#4caf50` (green)
 - **Warning:** `#ffc107` (yellow)
-- **Danger:** `#e94560` (red)
+- **Danger:** `#ff6b6b` (red)
 
 ---
 
@@ -89,7 +89,7 @@ Used consistently across all status bars (fuel, oxygen, provisions, radiation, h
 
 | Role             | Size  | Weight     | Color     | Notes                                              |
 | ---------------- | ----- | ---------- | --------- | -------------------------------------------------- |
-| Section heading  | 16px+ | bold       | `#e94560` | h2, h3 in tab content                              |
+| Section heading  | 16px+ | bold       | `#d4850a` | h2, h3 in tab content                              |
 | Sub-heading      | 14px  | bold       | `#4a9eff` | h4, settings sections                              |
 | Body text        | 14px  | normal     | `#eee`    | General content                                    |
 | Secondary text   | 13px  | normal/500 | `#eee`    | Crew names, stat values                            |
@@ -150,7 +150,7 @@ Design every view with three levels of engagement:
 
 | Level        | Class                             | Background                     | Use when...                                               |
 | ------------ | --------------------------------- | ------------------------------ | --------------------------------------------------------- |
-| Primary      | `button` (default)                | `#e94560` brand red            | Default action, starting things (Start Game, Create)      |
+| Primary      | `button` (default)                | `#d4850a` brand orange         | Default action, starting things (Start Game, Create)      |
 | Positive     | `.action-confirm-btn--primary`    | `#4ecdc4` teal                 | Confirming good outcomes (Accept, Continue, Dock, Resume) |
 | Secondary    | `button.secondary`                | `#0f3460` panel blue           | Alternative/less important actions (Randomize, Cancel)    |
 | Caution      | `.action-confirm-btn--caution`    | `#ffa500` orange               | Moderate-risk actions requiring thought                   |
@@ -159,7 +159,7 @@ Design every view with three levels of engagement:
 | Destructive  | `button.danger`                   | `#8b0000` destroy red          | Permanent deletion (Delete save)                          |
 | Inline       | `button.small-button`             | `#0f3460` panel blue           | Inline row actions (Equip, Sell, Unequip)                 |
 
-**Rule:** Teal is for positive outcomes. Red is for the brand and for danger. Never use brand red (`#e94560`) for destructive actions — that is reserved for headings and the generic primary button.
+**Rule:** Teal is for positive outcomes. Orange is for the brand, red is for danger. Never use brand orange (`#d4850a`) for destructive actions — that is reserved for headings and the generic primary button. Never use danger red (`#ff6b6b`) for brand elements.
 
 ### Control Selection Guide
 
@@ -240,7 +240,7 @@ Per the discoverability principle: always render the element, but dimmed.
 ### Error / Warning States
 
 - **Warnings** (recoverable, informational): Orange text (`#ffa500`). Salary costs, fuel running low.
-- **Critical alerts** (needs attention): Red text (`#ff6b6b` or `#e94560`), potentially pulsing for immediate danger (stranded ship, oxygen critical).
+- **Critical alerts** (needs attention): Red text (`#ff6b6b`), potentially pulsing for immediate danger (stranded ship, oxygen critical).
 - **Narrative language always.** Never expose technical errors, stack traces, or system internals to the player. The log should read like a ship's journal, not a debug console.
 
 ---

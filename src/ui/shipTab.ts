@@ -600,7 +600,7 @@ export function createShipTab(
       refs.cargoCapacity.textContent = `Cargo: ${formatMass(currentCargo)} / ${formatMass(maxCapacity)}`;
       refs.cargoFill.style.width = `${Math.min(100, cargoPercent)}%`;
       refs.cargoFill.style.backgroundColor =
-        cargoPercent >= 90 ? '#e94560' : cargoPercent >= 70 ? '#ffa500' : '';
+        cargoPercent >= 90 ? '#ff6b6b' : cargoPercent >= 70 ? '#ffa500' : '';
     }
 
     // Ore cargo breakdown

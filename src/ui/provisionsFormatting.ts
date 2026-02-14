@@ -18,7 +18,7 @@ export function getProvisionsColorClass(percentage: number): string {
  * Get color hex for provisions level (for inline styles).
  */
 export function getProvisionsColorHex(percentage: number): string {
-  if (percentage <= 10) return '#e94560';
+  if (percentage <= 10) return '#ff6b6b';
   if (percentage <= 30) return '#ffc107';
   return '#4caf50';
 }

@@ -1133,11 +1133,11 @@ export function createWorkTab(
     const totalCost = tripCrewCost + tripFuelCost;
     const profit = tripPayment - totalCost;
 
-    refs.profitInfo.style.color = profit >= 0 ? '#4caf50' : '#e94560';
+    refs.profitInfo.style.color = profit >= 0 ? '#4caf50' : '#ff6b6b';
     refs.profitInfo.textContent = `Est. Profit: ${profit >= 0 ? '+' : ''}${formatCredits(perHour(profit))}/hr`;
 
     // Update header profit
-    refs.headerProfit.style.color = profit >= 0 ? '#4caf50' : '#e94560';
+    refs.headerProfit.style.color = profit >= 0 ? '#4caf50' : '#ff6b6b';
     refs.headerProfit.textContent = `${profit >= 0 ? '+' : ''}${formatCredits(perHour(profit))}/hr`;
 
     // Route risk

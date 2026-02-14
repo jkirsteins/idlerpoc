@@ -183,7 +183,7 @@ export function createFinancesTab(_gameData: GameData): Component {
   const assetsSection = document.createElement('section');
   assetsSection.style.cssText = `margin-bottom: 2rem;`;
   assetsSection.innerHTML = `
-    <h2 style="color: #e94560; margin-bottom: 1rem; font-size: 1.25rem;">Assets</h2>
+    <h2 style="color: #d4850a; margin-bottom: 1rem; font-size: 1.25rem;">Assets</h2>
   `;
 
   const assetsTable = document.createElement('table');
@@ -235,7 +235,7 @@ export function createFinancesTab(_gameData: GameData): Component {
   const dailySection = document.createElement('section');
   dailySection.style.cssText = `margin-bottom: 2rem;`;
   dailySection.innerHTML = `
-    <h2 style="color: #e94560; margin-bottom: 1rem; font-size: 1.25rem;">Daily Cash Flow</h2>
+    <h2 style="color: #d4850a; margin-bottom: 1rem; font-size: 1.25rem;">Daily Cash Flow</h2>
   `;
 
   const dailyTable = document.createElement('table');
@@ -271,7 +271,7 @@ export function createFinancesTab(_gameData: GameData): Component {
   const lifetimeSection = document.createElement('section');
   lifetimeSection.style.cssText = `margin-bottom: 2rem;`;
   lifetimeSection.innerHTML = `
-    <h2 style="color: #e94560; margin-bottom: 1rem; font-size: 1.25rem;">Lifetime Finances</h2>
+    <h2 style="color: #d4850a; margin-bottom: 1rem; font-size: 1.25rem;">Lifetime Finances</h2>
   `;
 
   const lifetimeIncomeHeading = document.createElement('h3');

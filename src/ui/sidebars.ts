@@ -458,7 +458,7 @@ export function createRightSidebar(gameData: GameData): Component {
   const shipNameEl = document.createElement('div');
   shipNameEl.style.fontSize = '16px';
   shipNameEl.style.fontWeight = 'bold';
-  shipNameEl.style.color = '#e94560';
+  shipNameEl.style.color = '#d4850a';
   shipNameEl.style.marginBottom = '4px';
   shipInfoSection.appendChild(shipNameEl);
 

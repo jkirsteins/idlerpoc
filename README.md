@@ -1,4 +1,4 @@
-# Starship Commander
+# The Long Haul: 2247
 
 A browser-based sci-fi spaceship captain game inspired by Firefly and the Gap Cycle. Create your captain, name your ship, and manage your crew across the stars.
 
