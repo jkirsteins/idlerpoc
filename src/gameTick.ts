@@ -54,7 +54,7 @@ import {
   lerpVec2,
 } from './orbitalMechanics';
 import { resolveGravityAssist } from './gravityAssistSystem';
-import { formatMass } from './formatting';
+import { formatMass, formatCredits } from './formatting';
 import {
   awardMasteryXp,
   getEquipmentRepairMasteryBonus,
@@ -291,10 +291,25 @@ export function deductFleetSalaries(
   if (gameData.credits >= totalSalary) {
     gameData.credits -= totalSalary;
 
-    // Track per-ship crew costs
+    // Track per-ship crew costs and log salary payments
     for (const ship of gameData.ships) {
       const shipSalary = shipSalaries.get(ship.id) || 0;
-      ship.metrics.crewCostsPaid += shipSalary * numTicks;
+      if (shipSalary > 0) {
+        const totalPaid = shipSalary * numTicks;
+        ship.metrics.crewCostsPaid += totalPaid;
+
+        // Log salary payment
+        const crewCount = ship.crew.filter(
+          (c) => getCrewSalaryPerTick(c) > 0
+        ).length;
+        addLog(
+          gameData.log,
+          gameData.gameTime,
+          'salary_paid',
+          `Paid salaries to ${crewCount} crew on ${ship.name}: ${formatCredits(totalPaid)}`,
+          ship.name
+        );
+      }
     }
   } else {
     const availableCredits = gameData.credits;
@@ -305,10 +320,25 @@ export function deductFleetSalaries(
     );
     const ticksUnpaid = numTicks - ticksWeCanPay;
 
-    // Track paid portion per ship
+    // Track paid portion per ship and log partial payments
     for (const ship of gameData.ships) {
       const shipSalary = shipSalaries.get(ship.id) || 0;
-      ship.metrics.crewCostsPaid += shipSalary * ticksWeCanPay;
+      if (shipSalary > 0 && ticksWeCanPay > 0) {
+        const totalPaid = shipSalary * ticksWeCanPay;
+        ship.metrics.crewCostsPaid += totalPaid;
+
+        // Log partial salary payment
+        const crewCount = ship.crew.filter(
+          (c) => getCrewSalaryPerTick(c) > 0
+        ).length;
+        addLog(
+          gameData.log,
+          gameData.gameTime,
+          'salary_paid',
+          `Partially paid salaries to ${crewCount} crew on ${ship.name}: ${formatCredits(totalPaid)} (insufficient credits)`,
+          ship.name
+        );
+      }
     }
 
     if (ticksUnpaid > 0) {
