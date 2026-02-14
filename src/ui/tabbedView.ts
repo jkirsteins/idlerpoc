@@ -406,8 +406,6 @@ export function createTabbedView(
       case 'work':
         return createWorkTab(gameData, {
           onAcceptQuest: callbacks.onAcceptQuest,
-          onAssignRoute: callbacks.onAssignRoute,
-          onUnassignRoute: callbacks.onUnassignRoute,
           onDockAtNearestPort: callbacks.onDockAtNearestPort,
           onCancelPause: callbacks.onCancelPause,
           onRequestAbandon: callbacks.onRequestAbandon,

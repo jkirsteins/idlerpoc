@@ -605,7 +605,7 @@ function updateLegendItem(
     legendRefs.destBadge.style.display = '';
   } else if (!canStartTrips) {
     let reason: string;
-    if (ship.activeContract || ship.routeAssignment) {
+    if (ship.activeContract) {
       reason = 'Contract in progress';
     } else if (ship.miningRoute) {
       reason = 'Mining route active';

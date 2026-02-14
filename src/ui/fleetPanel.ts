@@ -3,7 +3,6 @@ import { getShipClass, type ShipClassTier } from '../shipClasses';
 import { getEngineDefinition } from '../engines';
 import { computeMaxRange } from '../flightPhysics';
 import { formatDualTime } from '../timeSystem';
-import { getTradeRouteName } from '../utils';
 import type { Component } from './component';
 import {
   formatFuelMass,
@@ -62,13 +61,6 @@ function getShipActivity(ship: Ship, gd: GameData): ShipActivity {
     } else {
       return { label: 'Mining (returning)', color: '#ffd700' };
     }
-  }
-
-  if (ship.routeAssignment) {
-    return {
-      label: `Trade Route: ${getTradeRouteName(ship, gd)}`,
-      color: '#4a9eff',
-    };
   }
 
   if (ship.activeContract) {

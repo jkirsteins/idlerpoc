@@ -170,7 +170,6 @@ export function createTestShip(overrides: Partial<Ship> = {}): Ship {
     oreCargo: [],
     miningAccumulator: {},
     activeContract: null,
-    routeAssignment: null,
     miningRoute: null,
     activeFlightPlan: createTestFlight(),
     metrics: {

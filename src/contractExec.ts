@@ -14,11 +14,6 @@ import { generateAllLocationQuests, resolveQuestForShip } from './questGen';
 import { getDaysSinceEpoch, TICKS_PER_DAY } from './timeSystem';
 import { generateHireableCrewByLocation } from './gameFactory';
 import { awardEventSkillGains, logSkillUps } from './skillProgression';
-import {
-  checkAutoRefuel,
-  autoRestartRouteTrip,
-  setAcceptQuestFn,
-} from './routeAssignment';
 import { handleMiningRouteArrival } from './miningRoute';
 import { emit } from './gameEvents';
 import { getFuelPricePerKg } from './ui/refuelDialog';
@@ -234,11 +229,6 @@ export function countPilotingMasteryItems(gameData: GameData): number {
 /** Base mastery XP per flight arrival / trip completion. */
 const PILOTING_MASTERY_XP_PER_FLIGHT = 100;
 const COMMERCE_MASTERY_XP_PER_TRIP = 100;
-
-/** Register acceptQuest with routeAssignment to break circular dependency. */
-export function initContractExec(): void {
-  setAcceptQuestFn(acceptQuest);
-}
 
 /**
  * Award piloting route mastery XP to helm crew on flight arrival.
@@ -587,12 +577,6 @@ export function completeLeg(gameData: GameData, ship: Ship): void {
       activeContract.creditsEarned += tripEarned;
       ship.metrics.creditsEarned += tripEarned;
 
-      if (ship.routeAssignment) {
-        ship.routeAssignment.totalTripsCompleted++;
-        ship.routeAssignment.creditsEarned += tripEarned;
-        ship.routeAssignment.lastTripCompletedAt = gameTime;
-      }
-
       addLog(
         gameData.log,
         gameTime,
@@ -718,12 +702,6 @@ export function completeLeg(gameData: GameData, ship: Ship): void {
 
     ship.metrics.creditsEarned += tripEarned;
 
-    if (ship.routeAssignment) {
-      ship.routeAssignment.totalTripsCompleted++;
-      ship.routeAssignment.creditsEarned += tripEarned;
-      ship.routeAssignment.lastTripCompletedAt = gameTime;
-    }
-
     addLog(
       gameData.log,
       gameTime,
@@ -779,21 +757,11 @@ export function completeLeg(gameData: GameData, ship: Ship): void {
 
     dockShipAtLocation(gameData, ship, arrivalLocation.id);
 
-    const hasRouteAssignment = ship.routeAssignment !== null;
-
     ship.activeContract = null;
 
     checkFirstArrival(gameData, ship, arrivalLocation.id);
     removeUnpaidCrew(gameData, ship);
     regenerateQuestsIfNewDay(gameData);
-
-    if (hasRouteAssignment) {
-      checkAutoRefuel(gameData, ship, arrivalLocation.id);
-
-      if (ship.routeAssignment) {
-        autoRestartRouteTrip(gameData, ship);
-      }
-    }
   } else {
     // More trips needed — dock at waypoint (triggers provisions resupply
     // etc. via ship_docked event), then flip to outbound and try to continue

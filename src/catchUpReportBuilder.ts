@@ -10,16 +10,13 @@ import type {
   LogEntry,
   RouteSnapshot,
 } from './models';
-import { getTradeRouteName, getMiningRouteName } from './utils';
+import { getMiningRouteName } from './utils';
 
 /** Snapshot each ship's automated route assignment before catch-up ticks run. */
 export function snapshotRoutes(gameData: GameData): Map<string, RouteSnapshot> {
   const snapshots = new Map<string, RouteSnapshot>();
   for (const ship of gameData.ships) {
-    if (ship.routeAssignment) {
-      const routeName = getTradeRouteName(ship, gameData)!;
-      snapshots.set(ship.id, { type: 'trade', routeName });
-    } else if (ship.miningRoute) {
+    if (ship.miningRoute) {
       const routeName = getMiningRouteName(ship, gameData)!;
       snapshots.set(ship.id, { type: 'mining', routeName });
     }
@@ -245,11 +242,13 @@ export function buildCatchUpReport(
     // Use route snapshot (pre-catch-up state) or current state to identify route ships
     const snapshot = snapshots?.routes?.get(ship.id);
 
-    if (snapshot?.type === 'trade' || ship.routeAssignment) {
+    if (snapshot?.type === 'trade') {
       // Trade route ship — use snapshot route name (survives route cancellation during catch-up)
-      const routeName =
-        snapshot?.routeName ?? getTradeRouteName(ship, gameData)!;
-      activity = { type: 'trade_route', routeName, tripsCompleted: trips };
+      activity = {
+        type: 'trade_route',
+        routeName: snapshot.routeName,
+        tripsCompleted: trips,
+      };
     } else if (snapshot?.type === 'mining' || ship.miningRoute) {
       // Mining route ship — count mining trips from log entries
       const routeName =

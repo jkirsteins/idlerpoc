@@ -46,24 +46,6 @@ export function formatMiningRouteName(
   return `${mineName} \u2192 ${sellName}`;
 }
 
-/** Resolve a ship's trade route to a formatted name, or undefined if no route. */
-export function getTradeRouteName(
-  ship: Ship,
-  gameData: GameData
-): string | undefined {
-  if (!ship.routeAssignment) return undefined;
-  const origin = gameData.world.locations.find(
-    (l) => l.id === ship.routeAssignment!.originId
-  );
-  const dest = gameData.world.locations.find(
-    (l) => l.id === ship.routeAssignment!.destinationId
-  );
-  return formatTradeRouteName(
-    origin?.name ?? ship.routeAssignment.originId,
-    dest?.name ?? ship.routeAssignment.destinationId
-  );
-}
-
 /** Resolve a ship's mining route to a formatted name, or undefined if no route. */
 export function getMiningRouteName(
   ship: Ship,
