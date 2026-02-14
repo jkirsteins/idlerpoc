@@ -11,11 +11,13 @@
  */
 
 const MIN_ZOOM = 1;
-const MAX_ZOOM = 8;
+const MAX_ZOOM = 10; // Leverages 10x viewBox resolution increase for crisp high-zoom rendering
 const DRAG_THRESHOLD = 8; // pixels of movement before a drag is recognized
 
 export interface MapZoomPanControls {
   resetBtn: HTMLButtonElement;
+  zoomInBtn: HTMLButtonElement;
+  zoomOutBtn: HTMLButtonElement;
   /** Animate to center the given SVG coordinate at the given zoom level. */
   zoomTo(svgX: number, svgY: number, zoom: number, animate?: boolean): void;
 }
@@ -60,7 +62,21 @@ export function setupMapZoomPan(
     };
   }
 
-  // Reset zoom button (HTML overlay, not SVG)
+  // Zoom control buttons (HTML overlay, not SVG)
+  const zoomInBtn = document.createElement('button');
+  zoomInBtn.className = 'nav-map-zoom-btn';
+  zoomInBtn.textContent = '+';
+  zoomInBtn.setAttribute('aria-label', 'Zoom in');
+  zoomInBtn.title = 'Zoom in';
+  container.appendChild(zoomInBtn);
+
+  const zoomOutBtn = document.createElement('button');
+  zoomOutBtn.className = 'nav-map-zoom-btn';
+  zoomOutBtn.textContent = '−';
+  zoomOutBtn.setAttribute('aria-label', 'Zoom out');
+  zoomOutBtn.title = 'Zoom out';
+  container.appendChild(zoomOutBtn);
+
   const resetBtn = document.createElement('button');
   resetBtn.className = 'nav-map-reset-zoom';
   resetBtn.textContent = 'Reset';
@@ -83,6 +99,8 @@ export function setupMapZoomPan(
     svg.style.transform = `translate(${panX}px, ${panY}px) scale(${currentZoom})`;
     resetBtn.style.display =
       currentZoom === 1 && panX === 0 && panY === 0 ? 'none' : '';
+    zoomInBtn.disabled = currentZoom >= MAX_ZOOM;
+    zoomOutBtn.disabled = currentZoom <= MIN_ZOOM;
   }
 
   function animateTo(
@@ -105,6 +123,34 @@ export function setupMapZoomPan(
   resetBtn.addEventListener('click', (e) => {
     e.stopPropagation();
     animateTo(1, 0, 0);
+  });
+
+  zoomInBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const rect = container.getBoundingClientRect();
+    const centerX = rect.width / 2;
+    const centerY = rect.height / 2;
+    const oldZoom = currentZoom;
+    currentZoom = Math.min(MAX_ZOOM, currentZoom * 1.3);
+    if (currentZoom === oldZoom) return;
+    // Zoom toward center
+    panX = centerX - (centerX - panX) * (currentZoom / oldZoom);
+    panY = centerY - (centerY - panY) * (currentZoom / oldZoom);
+    applyTransform();
+  });
+
+  zoomOutBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const rect = container.getBoundingClientRect();
+    const centerX = rect.width / 2;
+    const centerY = rect.height / 2;
+    const oldZoom = currentZoom;
+    currentZoom = Math.max(MIN_ZOOM, currentZoom / 1.3);
+    if (currentZoom === oldZoom) return;
+    // Zoom toward center
+    panX = centerX - (centerX - panX) * (currentZoom / oldZoom);
+    panY = centerY - (centerY - panY) * (currentZoom / oldZoom);
+    applyTransform();
   });
 
   /**
@@ -261,30 +307,49 @@ export function setupMapZoomPan(
   svg.addEventListener('pointerup', handlePointerUp);
   svg.addEventListener('pointercancel', handlePointerUp);
 
-  // Mouse wheel zoom (desktop)
+  // Mouse wheel and trackpad gestures
   svg.addEventListener(
     'wheel',
     (e: WheelEvent) => {
       e.preventDefault();
-      const zoomFactor = e.deltaY < 0 ? 1.15 : 1 / 1.15;
-      const oldZoom = currentZoom;
-      currentZoom = Math.max(
-        MIN_ZOOM,
-        Math.min(MAX_ZOOM, currentZoom * zoomFactor)
-      );
-      if (currentZoom === oldZoom) return;
 
-      // Zoom toward cursor: keep the SVG point under the cursor fixed
-      const rect = container.getBoundingClientRect();
-      const cx = e.clientX - rect.left;
-      const cy = e.clientY - rect.top;
-      panX = cx - (cx - panX) * (currentZoom / oldZoom);
-      panY = cy - (cy - panY) * (currentZoom / oldZoom);
+      // Detect gesture type:
+      // 1. Pinch-to-zoom (trackpad pinch sets ctrlKey) → zoom
+      // 2. Mouse wheel (large deltaY, LINE mode, or no deltaX) → zoom
+      // 3. Trackpad two-finger scroll (small smooth deltaY, PIXEL mode) → pan
 
-      applyTransform();
+      const isPinchZoom = e.ctrlKey;
+      const isMouseWheel =
+        e.deltaMode === 1 || // LINE mode (mouse wheel)
+        (Math.abs(e.deltaY) > 40 && e.deltaX === 0); // Large vertical delta, no horizontal
+      const shouldZoom = isPinchZoom || isMouseWheel;
+
+      if (shouldZoom) {
+        const zoomFactor = e.deltaY < 0 ? 1.15 : 1 / 1.15;
+        const oldZoom = currentZoom;
+        currentZoom = Math.max(
+          MIN_ZOOM,
+          Math.min(MAX_ZOOM, currentZoom * zoomFactor)
+        );
+        if (currentZoom === oldZoom) return;
+
+        // Zoom toward cursor: keep the SVG point under the cursor fixed
+        const rect = container.getBoundingClientRect();
+        const cx = e.clientX - rect.left;
+        const cy = e.clientY - rect.top;
+        panX = cx - (cx - panX) * (currentZoom / oldZoom);
+        panY = cy - (cy - panY) * (currentZoom / oldZoom);
+
+        applyTransform();
+      } else {
+        // Two-finger trackpad scroll → pan
+        panX -= e.deltaX;
+        panY -= e.deltaY;
+        applyTransform();
+      }
     },
     { passive: false }
   );
 
-  return { resetBtn, zoomTo };
+  return { resetBtn, zoomInBtn, zoomOutBtn, zoomTo };
 }

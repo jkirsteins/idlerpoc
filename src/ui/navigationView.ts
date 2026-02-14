@@ -106,7 +106,7 @@ interface MarkerRefs {
 
 // SVG namespace
 const SVG_NS = 'http://www.w3.org/2000/svg';
-const ORRERY_SIZE = 400; // viewBox is -200..200
+const ORRERY_SIZE = 4000; // viewBox is -2000..2000 (10x resolution for crisp zoom)
 const ORRERY_HALF = ORRERY_SIZE / 2;
 
 /** Minimum SVG-unit separation between label centers before repulsion kicks in */
