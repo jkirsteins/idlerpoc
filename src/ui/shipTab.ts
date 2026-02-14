@@ -25,11 +25,17 @@ import {
   GAME_SECONDS_PER_TICK,
   TICKS_PER_DAY,
 } from '../timeSystem';
-import { formatLargeNumber, getRangeLabel, formatMass } from '../formatting';
+import {
+  formatLargeNumber,
+  getRangeLabel,
+  formatMass,
+  formatCredits,
+} from '../formatting';
 import {
   getMaxProvisionsKg,
   getProvisionsSurvivalDays,
 } from '../provisionsSystem';
+import { getShipPerformance } from '../fleetAnalytics';
 
 /** Ticks per game hour (used to convert per-tick rates to per-hour for display) */
 const TICKS_PER_HOUR = TICKS_PER_DAY / 24;
@@ -192,6 +198,9 @@ export function createShipTab(
   // ── Ship content container (everything except nav) ──
   const shipContent = document.createElement('div');
 
+  // ── Profitability section slot ──
+  const profitabilitySlot = document.createElement('div');
+
   // ── Stat bar slots (leaf helpers, re-rendered via slot pattern) ──
   const fuelBarSlot = document.createElement('div');
   const provisionsBarSlot = document.createElement('div');
@@ -250,6 +259,7 @@ export function createShipTab(
 
   // Assemble ship content
   shipContent.append(
+    profitabilitySlot,
     fuelBarSlot,
     provisionsBarSlot,
     powerBarSlot,
@@ -930,6 +940,11 @@ export function createShipTab(
       }
     }
 
+    // ── Profitability section (leaf helper via slot) ──
+    if (profitabilitySlot.firstChild)
+      profitabilitySlot.removeChild(profitabilitySlot.firstChild);
+    profitabilitySlot.appendChild(renderProfitabilitySection(gameData));
+
     // ── Stat bars (leaf helpers via slot divs) ──
     if (fuelBarSlot.firstChild) fuelBarSlot.removeChild(fuelBarSlot.firstChild);
     fuelBarSlot.appendChild(renderFuelBar(gameData));
@@ -1073,6 +1088,101 @@ export function createShipTab(
 }
 
 // ── Status bars (fuel, power, radiation, heat, containment) ──────
+
+/**
+ * Render per-ship profitability metrics section
+ */
+function renderProfitabilitySection(gameData: GameData): HTMLElement {
+  const ship = getActiveShip(gameData);
+  const performance = getShipPerformance(ship);
+
+  const section = document.createElement('div');
+  section.className = 'profitability-section';
+  section.style.padding = '0.75rem';
+  section.style.marginBottom = '1rem';
+  section.style.background = 'rgba(0, 0, 0, 0.3)';
+  section.style.border = '1px solid #444';
+  section.style.borderRadius = '4px';
+
+  const title = document.createElement('h3');
+  title.textContent = `📊 Ship Profitability: ${ship.name}`;
+  title.style.fontSize = '0.9rem';
+  title.style.marginBottom = '0.75rem';
+  title.style.color = '#4a9eff';
+  section.appendChild(title);
+
+  const metricsGrid = document.createElement('div');
+  metricsGrid.style.display = 'grid';
+  metricsGrid.style.gridTemplateColumns = 'repeat(auto-fit, minmax(200px, 1fr))';
+  metricsGrid.style.gap = '0.75rem';
+  metricsGrid.style.fontSize = '0.85rem';
+
+  // Lifetime Earned
+  const earnedDiv = document.createElement('div');
+  earnedDiv.innerHTML = `
+    <div style="color: #888; margin-bottom: 0.25rem;">Lifetime Earned</div>
+    <div style="color: #4ade80; font-weight: bold; font-size: 1.1rem;">
+      ${formatCredits(ship.metrics.creditsEarned)}
+    </div>
+  `;
+  metricsGrid.appendChild(earnedDiv);
+
+  // Operating Costs
+  const totalCosts =
+    ship.metrics.crewCostsPaid +
+    ship.metrics.fuelCostsPaid +
+    ship.metrics.repairCostsPaid;
+  const costsDiv = document.createElement('div');
+  costsDiv.innerHTML = `
+    <div style="color: #888; margin-bottom: 0.25rem;">Operating Costs</div>
+    <div style="color: #ffa500; font-weight: bold; font-size: 1.1rem;">
+      ${formatCredits(totalCosts)}
+    </div>
+    <div style="color: #666; font-size: 0.75rem; margin-top: 0.15rem;">
+      Crew: ${formatCredits(ship.metrics.crewCostsPaid)} |
+      Fuel: ${formatCredits(ship.metrics.fuelCostsPaid)} |
+      Repairs: ${formatCredits(ship.metrics.repairCostsPaid)}
+    </div>
+  `;
+  metricsGrid.appendChild(costsDiv);
+
+  // Net Profit
+  const profitColor = performance.netProfit >= 0 ? '#4ade80' : '#ff4444';
+  const profitSign = performance.netProfit >= 0 ? '+' : '';
+  const profitMargin =
+    ship.metrics.creditsEarned > 0
+      ? (performance.netProfit / ship.metrics.creditsEarned) * 100
+      : 0;
+  const profitDiv = document.createElement('div');
+  profitDiv.innerHTML = `
+    <div style="color: #888; margin-bottom: 0.25rem;">Net Profit</div>
+    <div style="color: ${profitColor}; font-weight: bold; font-size: 1.1rem;">
+      ${profitSign}${formatCredits(performance.netProfit)}
+    </div>
+    <div style="color: #666; font-size: 0.75rem; margin-top: 0.15rem;">
+      ${profitSign}${profitMargin.toFixed(1)}% margin
+    </div>
+  `;
+  metricsGrid.appendChild(profitDiv);
+
+  // Efficiency
+  const efficiencyDiv = document.createElement('div');
+  efficiencyDiv.innerHTML = `
+    <div style="color: #888; margin-bottom: 0.25rem;">Efficiency</div>
+    <div style="color: #4a9eff; font-weight: bold; font-size: 1.1rem;">
+      ${formatCredits(Math.round(performance.creditsPerDay))}/day
+    </div>
+    <div style="color: #666; font-size: 0.75rem; margin-top: 0.15rem;">
+      ${performance.uptime.toFixed(0)}% uptime |
+      ${ship.metrics.contractsCompleted} contracts
+    </div>
+  `;
+  metricsGrid.appendChild(efficiencyDiv);
+
+  section.appendChild(metricsGrid);
+
+  return section;
+}
 
 function renderFuelBar(gameData: GameData): HTMLElement {
   const ship = getActiveShip(gameData);
