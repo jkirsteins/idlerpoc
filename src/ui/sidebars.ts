@@ -28,6 +28,11 @@ import {
 } from '../provisionsSystem';
 import { isHelmManned } from '../jobSlots';
 import { createFleetPanel } from './fleetPanel';
+import {
+  getShipPositionKm,
+  calculatePositionDanger,
+  getThreatLevel,
+} from '../encounterSystem';
 
 interface SidebarCallbacks {
   onBuyFuel?: () => void;
@@ -40,10 +45,18 @@ interface SidebarCallbacks {
   onSelectShip?: (shipId: string) => void;
 }
 
+// Track credits for delta display (module-level state per sidebar instance)
+let previousCredits: number | null = null;
+let creditDeltaTimeout: number | null = null;
+
 export function createLeftSidebar(
   gameData: GameData,
   callbacks: SidebarCallbacks
 ): Component {
+  // Reset module-level state on (re-)mount to prevent stale data across game resets
+  previousCredits = null;
+  creditDeltaTimeout = null;
+
   const sidebar = document.createElement('div');
   sidebar.className = 'left-sidebar';
 
@@ -97,12 +110,30 @@ export function createLeftSidebar(
   creditsLabel.textContent = 'Credits';
   creditsSection.appendChild(creditsLabel);
 
+  // Credits value with delta animation wrapper
+  const creditsContainer = document.createElement('div');
+  creditsContainer.style.position = 'relative';
+  creditsContainer.style.display = 'inline-block';
+
   const creditsValue = document.createElement('div');
   creditsValue.style.fontSize = '24px';
   creditsValue.style.fontWeight = 'bold';
   creditsValue.style.color = '#4a9eff';
-  creditsSection.appendChild(creditsValue);
+  creditsContainer.appendChild(creditsValue);
 
+  // Credit delta element (animated)
+  const creditDeltaEl = document.createElement('div');
+  creditDeltaEl.style.position = 'absolute';
+  creditDeltaEl.style.left = '100%';
+  creditDeltaEl.style.top = '0';
+  creditDeltaEl.style.marginLeft = '0.75rem';
+  creditDeltaEl.style.fontSize = '1rem';
+  creditDeltaEl.style.fontWeight = 'bold';
+  creditDeltaEl.style.whiteSpace = 'nowrap';
+  creditDeltaEl.style.display = 'none';
+  creditsContainer.appendChild(creditDeltaEl);
+
+  creditsSection.appendChild(creditsContainer);
   sidebar.appendChild(creditsSection);
 
   // ── LOCATION SECTION ──
@@ -116,7 +147,46 @@ export function createLeftSidebar(
   const locationValue = document.createElement('div');
   locationValue.style.fontSize = '14px';
   locationValue.style.color = '#eee';
+  locationValue.style.marginBottom = '8px';
   locationSection.appendChild(locationValue);
+
+  // Threat badge (only visible during flight)
+  const threatBadge = document.createElement('div');
+  threatBadge.style.display = 'none';
+  threatBadge.style.fontWeight = '700';
+  threatBadge.style.fontSize = '11px';
+  threatBadge.style.padding = '3px 8px';
+  threatBadge.style.borderRadius = '4px';
+  threatBadge.style.marginBottom = '8px';
+  threatBadge.style.width = 'fit-content';
+  locationSection.appendChild(threatBadge);
+
+  // Flight progress container (only visible during flight)
+  const flightProgressContainer = document.createElement('div');
+  flightProgressContainer.style.display = 'none';
+
+  const flightProgressBar = document.createElement('div');
+  flightProgressBar.style.height = '8px';
+  flightProgressBar.style.background = 'rgba(255, 255, 255, 0.1)';
+  flightProgressBar.style.borderRadius = '4px';
+  flightProgressBar.style.overflow = 'hidden';
+  flightProgressBar.style.marginBottom = '4px';
+
+  const flightProgressFill = document.createElement('div');
+  flightProgressFill.style.height = '100%';
+  flightProgressFill.style.background =
+    'linear-gradient(90deg, #4ecdc4 0%, #d4850a 100%)';
+  flightProgressFill.style.borderRadius = '4px';
+  flightProgressFill.style.transition = 'width 0.3s';
+  flightProgressBar.appendChild(flightProgressFill);
+
+  const flightProgressLabel = document.createElement('div');
+  flightProgressLabel.style.fontSize = '11px';
+  flightProgressLabel.style.color = '#aaa';
+
+  flightProgressContainer.appendChild(flightProgressBar);
+  flightProgressContainer.appendChild(flightProgressLabel);
+  locationSection.appendChild(flightProgressContainer);
 
   sidebar.appendChild(locationSection);
 
@@ -233,8 +303,39 @@ export function createLeftSidebar(
       playPauseLabel.textContent = 'Pause';
     }
 
-    // Credits
-    creditsValue.textContent = Math.round(gameData.credits).toLocaleString();
+    // Credits with delta animation
+    const currentCredits = Math.round(gameData.credits);
+    creditsValue.textContent = currentCredits.toLocaleString();
+
+    // Credit delta animation
+    if (previousCredits !== null && previousCredits !== currentCredits) {
+      const delta = currentCredits - previousCredits;
+
+      if (delta > 0) {
+        creditDeltaEl.textContent = `+${delta.toLocaleString()}`;
+        creditDeltaEl.style.color = '#4ade80';
+      } else {
+        creditDeltaEl.textContent = delta.toLocaleString();
+        creditDeltaEl.style.color = '#ef4444';
+      }
+
+      // Reset animation by removing and re-adding
+      creditDeltaEl.style.display = '';
+      creditDeltaEl.style.animation = 'none';
+      // Force reflow to restart animation
+      void creditDeltaEl.offsetHeight;
+      creditDeltaEl.style.animation = 'credit-delta-float 2s ease-out forwards';
+
+      // Clear old timeout and set new one
+      if (creditDeltaTimeout !== null) {
+        clearTimeout(creditDeltaTimeout);
+      }
+      creditDeltaTimeout = window.setTimeout(() => {
+        creditDeltaEl.style.display = 'none';
+        creditDeltaTimeout = null;
+      }, 2000);
+    }
+    previousCredits = currentCredits;
 
     // Location
     if (ship.location.status === 'in_flight' && ship.activeFlightPlan) {
@@ -245,6 +346,42 @@ export function createLeftSidebar(
         (l) => l.id === ship.activeFlightPlan!.destination
       );
       locationValue.textContent = `${origin?.name || '?'} \u2192 ${destination?.name || '?'}`;
+
+      // Show threat badge
+      const currentKm = getShipPositionKm(ship, gameData.world);
+      const positionDanger = calculatePositionDanger(currentKm, gameData.world);
+      const dangerRisk =
+        positionDanger > 3
+          ? 0.35
+          : positionDanger > 1.5
+            ? 0.2
+            : positionDanger > 0.5
+              ? 0.08
+              : 0.02;
+      const threatLevelValue = getThreatLevel(dangerRisk);
+
+      if (threatLevelValue !== 'clear') {
+        const colors: Record<string, string> = {
+          caution: '#ffc107',
+          danger: '#ff6b6b',
+          critical: '#ff6b6b',
+        };
+        threatBadge.style.display = '';
+        threatBadge.style.color = colors[threatLevelValue] || '#aaa';
+        threatBadge.style.background = `${colors[threatLevelValue]}22`;
+        threatBadge.textContent = threatLevelValue.toUpperCase();
+      } else {
+        threatBadge.style.display = 'none';
+      }
+
+      // Show flight progress bar
+      const progressPercent =
+        (ship.activeFlightPlan.distanceCovered /
+          ship.activeFlightPlan.totalDistance) *
+        100;
+      flightProgressFill.style.width = `${progressPercent}%`;
+      flightProgressLabel.textContent = `${progressPercent.toFixed(0)}%`;
+      flightProgressContainer.style.display = '';
     } else if (
       ship.location.status === 'orbiting' &&
       ship.location.orbitingAt
@@ -253,13 +390,19 @@ export function createLeftSidebar(
         (l) => l.id === ship.location.orbitingAt
       );
       locationValue.textContent = `Orbiting ${location?.name || 'Unknown'}`;
+      threatBadge.style.display = 'none';
+      flightProgressContainer.style.display = 'none';
     } else if (ship.location.dockedAt) {
       const location = gameData.world.locations.find(
         (l) => l.id === ship.location.dockedAt
       );
       locationValue.textContent = location?.name || 'Unknown';
+      threatBadge.style.display = 'none';
+      flightProgressContainer.style.display = 'none';
     } else {
       locationValue.textContent = 'In Space';
+      threatBadge.style.display = 'none';
+      flightProgressContainer.style.display = 'none';
     }
 
     // Fuel bar
