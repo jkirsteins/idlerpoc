@@ -20,7 +20,19 @@
       "Bash(npx tsc:*)",
       "Bash(npm test:*)",
       "Bash(awk:*)",
-      "Bash(tree:*)"
+      "Bash(tree:*)",
+      "Bash(git worktree:*)",
+      "Bash(./node_modules/.bin/tsc:*)",
+      "Bash(python3:*)",
+      "Bash(npm install:*)",
+      "Bash(npx --yes tsc:*)",
+      "Bash(npx:*)",
+      "Bash(node_modules/.bin/tsc:*)",
+      "Bash(./node_modules/.bin/eslint:*)",
+      "Bash(git reset:*)",
+      "Bash(./node_modules/.bin/vite build:*)",
+      "Bash(git push:*)",
+      "Bash(git fetch:*)"
     ]
   }
 }

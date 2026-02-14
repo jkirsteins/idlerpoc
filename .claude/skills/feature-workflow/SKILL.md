@@ -4,49 +4,20 @@
 
 name: feature-workflow
 description: >-
-Implements features and fixes for the sellgame project using isolated git worktrees.
+Implements features and fixes for the sellgame project.
 Use when user says "implement", "add feature", "fix bug", "work on", or describes
-a code change to make. Handles worktree setup, implementation, quality gates,
-committing, PR creation, Vercel deploy verification, and optional merge.
+a code change to make. Handles implementation, quality gates, committing, PR creation,
+Vercel deploy verification, and optional merge.
 
 ---
 
 ## Overview
 
-This skill automates the complete feature development lifecycle for the sellgame project. All work happens in an isolated `/tmp` worktree to avoid polluting the main checkout. The workflow ensures production-quality code through automated quality gates before creating a PR.
+This skill automates the complete feature development lifecycle for the sellgame project. The workflow ensures production-quality code through automated quality gates before creating a PR.
 
 ## Workflow
 
-### Phase 1: Worktree Setup
-
-1. Fetch the latest main branch:
-
-   ```bash
-   git fetch origin main
-   ```
-
-2. Generate a short kebab-case slug from the task description (e.g., "add fuel gauge" → "add-fuel-gauge", max 30 chars)
-
-3. Create branch name: `claude/<slug>`
-
-4. Create isolated worktree:
-
-   ```bash
-   git worktree add -b claude/<slug> /tmp/sellgame-<slug> origin/main
-   ```
-
-5. Change to worktree directory:
-
-   ```bash
-   cd /tmp/sellgame-<slug>
-   ```
-
-6. Install dependencies:
-   ```bash
-   npm install
-   ```
-
-### Phase 2: Implementation
+### Phase 1: Implementation
 
 1. Read `CLAUDE.md` and any relevant documentation in `docs/` to understand project conventions
 
@@ -65,7 +36,7 @@ This skill automates the complete feature development lifecycle for the sellgame
    - Use TaskUpdate to track progress
    - Work systematically through each subtask
 
-### Phase 3: Quality Gates (ALL must pass)
+### Phase 2: Quality Gates (ALL must pass)
 
 Run each gate in order. If ANY gate fails, fix the issue and re-run ALL gates from the start:
 
@@ -107,11 +78,11 @@ Run each gate in order. If ANY gate fails, fix the issue and re-run ALL gates fr
    ```
    Must complete successfully with no errors.
 
-**Critical**: Do not proceed to Phase 4 until all five gates pass cleanly. If you encounter pre-existing failures in the codebase, fix them as part of this work.
+**Critical**: Do not proceed to Phase 3 until all five gates pass cleanly. If you encounter pre-existing failures in the codebase, fix them as part of this work.
 
 See `references/quality-gates.md` for common failure patterns and solutions.
 
-### Phase 4: Commit
+### Phase 3: Commit
 
 1. Review changed files:
 
@@ -139,10 +110,10 @@ See `references/quality-gates.md` for common failure patterns and solutions.
 
 4. Push to remote:
    ```bash
-   git push -u origin claude/<slug>
+   git push -u origin HEAD
    ```
 
-### Phase 5: PR Creation
+### Phase 4: PR Creation
 
 1. Create pull request:
 
@@ -159,9 +130,9 @@ See `references/quality-gates.md` for common failure patterns and solutions.
 
 2. Capture and display the PR URL to the user
 
-3. Extract the PR number from the URL for Phase 6
+3. Extract the PR number from the URL for Phase 5
 
-### Phase 6: Vercel Deploy Verification
+### Phase 5: Vercel Deploy Verification
 
 1. Poll for Vercel deployment status by checking PR comments:
 
@@ -183,7 +154,7 @@ See `references/quality-gates.md` for common failure patterns and solutions.
    - Show error output to help user understand what went wrong
    - Suggest manual investigation
 
-### Phase 7: Merge (conditional)
+### Phase 6: Merge (conditional)
 
 1. If user confirms merge:
 
@@ -198,27 +169,14 @@ See `references/quality-gates.md` for common failure patterns and solutions.
    - Inform them the PR is open at <URL> for manual handling
    - They can review the Vercel preview and merge later
 
-3. Clean up worktree:
-
-   ```bash
-   git worktree remove /tmp/sellgame-<slug>
-   ```
-
-   (Note: This is run from outside the worktree directory)
-
-4. Return to original working directory if needed
-
 ## Error Handling
 
-- If worktree creation fails (branch exists): suggest a different slug or remove the existing worktree
-- If npm install fails: show error and check for Node version compatibility
 - If quality gates fail repeatedly: help user understand the root cause
 - If PR creation fails: check GitHub CLI authentication and permissions
 - If Vercel deployment times out: suggest checking Vercel dashboard manually
 
 ## Notes
 
-- All work happens in `/tmp/sellgame-<slug>` - the main repo checkout is never modified
 - The `claude/` branch prefix keeps feature branches organized
 - Squash merge keeps main branch history clean
 - Quality gates ensure production-ready code
