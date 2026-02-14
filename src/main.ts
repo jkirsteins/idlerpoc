@@ -813,7 +813,8 @@ const callbacks: RendererCallbacks = {
             state.gameData.gameTime,
             'refueled',
             `Purchased ${formatFuelMass(fuelKg)} fuel for ${formatCredits(totalCost)}`,
-            ship.name
+            ship.name,
+            { credits: totalCost }
           );
 
           saveGame(state.gameData);

@@ -10,6 +10,7 @@ import { formatCredits, formatMass } from './formatting';
 import {
   getProvisionsSurvivalTicks,
   getProvisionsSurvivalDays,
+  autoResupplyProvisions,
 } from './provisionsSystem';
 import { TICKS_PER_DAY } from './timeSystem';
 
@@ -406,6 +407,12 @@ function handleSellArrival(
     autoRefuelForMiningRoute(gameData, ship, sellLocation);
   }
 
+  // Resupply provisions with post-sale credits.
+  // The ship_docked event fired BEFORE ore was sold (credits may have
+  // been insufficient). This explicit call ensures provisions are
+  // topped up now that revenue is available.
+  autoResupplyProvisions(gameData, ship, sellLocation.id);
+
   // Depart back to mine (orbit on arrival)
   const departed = startShipFlight(
     ship,
@@ -553,7 +560,8 @@ function autoRefuelForMiningRoute(
       gameData.gameTime,
       'refueled',
       `Auto-refueled ${ship.name} at ${location.name}: ${formatFuelMass(fuelNeededKg)} (${formatCredits(fuelCost)})`,
-      ship.name
+      ship.name,
+      { credits: fuelCost }
     );
   } else {
     // Not enough credits — end mining route

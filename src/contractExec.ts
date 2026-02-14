@@ -22,7 +22,10 @@ import {
 import { handleMiningRouteArrival } from './miningRoute';
 import { emit } from './gameEvents';
 import { getFuelPricePerKg } from './ui/refuelDialog';
-import { getProvisionsSurvivalTicks } from './provisionsSystem';
+import {
+  getProvisionsSurvivalTicks,
+  autoResupplyProvisions,
+} from './provisionsSystem';
 import { estimateFlightDurationTicks } from './flightPhysics';
 import { getDistanceBetween } from './utils';
 import {
@@ -76,7 +79,8 @@ function tryAutoRefuelForLeg(
       gameData.gameTime,
       'refueled',
       `Auto-refueled ${ship.name} at ${location.name}: ${formatFuelMass(fuelNeededKg)} (${formatCredits(fullCost)})`,
-      ship.name
+      ship.name,
+      { credits: fullCost }
     );
     return true;
   }
@@ -511,8 +515,9 @@ export function completeLeg(gameData: GameData, ship: Ship): void {
         ship.location.orbitingAt = destination.id;
         delete ship.location.dockedAt;
         delete ship.activeFlightPlan;
-        ship.engine.state = 'off';
-        ship.engine.warmupProgress = 0;
+        // Engine stays online from flight — orbiting ships need power
+        // for life support (O2 generation). Consistent with manual
+        // undocking which starts engine warmup → online.
       }
 
       addLog(
@@ -536,6 +541,11 @@ export function completeLeg(gameData: GameData, ship: Ship): void {
 
       // Mining route auto-continuation (sell ore, refuel, return to mine)
       handleMiningRouteArrival(gameData, ship);
+
+      // Post-arrival: resupply provisions if still docked at a trade station
+      if (ship.location.dockedAt) {
+        autoResupplyProvisions(gameData, ship, ship.location.dockedAt);
+      }
     }
     return;
   }
@@ -586,7 +596,8 @@ export function completeLeg(gameData: GameData, ship: Ship): void {
         gameTime,
         'payment',
         `Trip ${activeContract.tripsCompleted} complete. Earned ${formatCredits(tripEarned)}.`,
-        ship.name
+        ship.name,
+        { credits: tripEarned }
       );
     }
 
@@ -716,7 +727,8 @@ export function completeLeg(gameData: GameData, ship: Ship): void {
       gameTime,
       'payment',
       `Trip ${activeContract.tripsCompleted} complete. Earned ${formatCredits(tripEarned)}.`,
-      ship.name
+      ship.name,
+      { credits: tripEarned }
     );
   } else {
     let message = `Trip ${activeContract.tripsCompleted}/${quest.tripsRequired === -1 ? '\u221e' : quest.tripsRequired} complete`;
@@ -786,6 +798,14 @@ export function completeLeg(gameData: GameData, ship: Ship): void {
     activeContract.leg = 'outbound';
     dockShipAtLocation(gameData, ship, originLoc.id);
     tryDepartNextLeg(gameData, ship, originLoc, destLoc, quest.title);
+  }
+
+  // Post-arrival: resupply provisions if still docked at a trade station.
+  // This is a generic safety net — the ship_docked event already fires
+  // auto-resupply, but credits may not have been available at that point
+  // (e.g. ore sale or contract payment hadn't been processed yet).
+  if (ship.location.dockedAt) {
+    autoResupplyProvisions(gameData, ship, ship.location.dockedAt);
   }
 }
 

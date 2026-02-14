@@ -198,7 +198,8 @@ export function autoResupplyProvisions(
         gameData.gameTime,
         'refueled',
         `Resupplied ${ship.name} provisions at ${location.name}: ${formatMass(needed)} (${formatCredits(totalCost)})`,
-        ship.name
+        ship.name,
+        { credits: totalCost }
       );
     }
     return true;
@@ -218,7 +219,8 @@ export function autoResupplyProvisions(
       gameData.gameTime,
       'refueled',
       `Partially resupplied ${ship.name} provisions at ${location.name}: ${formatMass(affordableKg)} (${formatCredits(cost)}) — insufficient credits for full resupply`,
-      ship.name
+      ship.name,
+      { credits: cost }
     );
     return true;
   }
