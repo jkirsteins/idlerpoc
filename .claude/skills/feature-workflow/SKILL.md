@@ -134,25 +134,50 @@ See `references/quality-gates.md` for common failure patterns and solutions.
 
 ### Phase 5: Vercel Deploy Verification
 
-1. Poll for Vercel deployment status by checking PR comments:
+1. Poll for Vercel deployment status by checking PR comments for the `vercel[bot]` user:
 
    ```bash
-   gh api repos/jkirsteins/idlerpoc/issues/<pr-number>/comments
+   # Check if Vercel bot has commented
+   gh api repos/jkirsteins/idlerpoc/issues/<pr-number>/comments | jq '.[] | select(.user.login == "vercel[bot]")'
    ```
 
-2. Look for a comment from `vercel[bot]` containing a deployment URL (usually `https://sellgame-*.vercel.app`)
+2. Extract deployment status and preview URL from the base64-encoded JSON in the comment:
+
+   ```bash
+   # Get deployment status (should return "DEPLOYED" when ready)
+   gh api repos/jkirsteins/idlerpoc/issues/<pr-number>/comments | \
+     jq -r '.[] | select(.user.login == "vercel[bot]") | .body' | \
+     head -1 | cut -d':' -f3 | base64 -D 2>/dev/null | \
+     jq -r '.projects[0].nextCommitStatus'
+
+   # Get preview URL
+   gh api repos/jkirsteins/idlerpoc/issues/<pr-number>/comments | \
+     jq -r '.[] | select(.user.login == "vercel[bot]") | .body' | \
+     head -1 | cut -d':' -f3 | base64 -D 2>/dev/null | \
+     jq -r '"https://" + .projects[0].previewUrl'
+   ```
+
+   Alternative URL extraction using grep (simpler but less reliable):
+
+   ```bash
+   gh api repos/jkirsteins/idlerpoc/issues/<pr-number>/comments | \
+     jq -r '.[] | select(.user.login == "vercel[bot]") | .body' | \
+     grep -o 'https://idlerpoc-git-[^,)]*\.vercel\.app' | head -1
+   ```
 
 3. Poll every 30 seconds, timeout after 10 minutes (20 attempts)
 
-4. **On success**:
-   - Extract the preview URL from the comment
-   - Display to user: "Vercel deployment successful: <URL>"
+4. **On success** (status is "DEPLOYED"):
+   - Extract the preview URL using the commands above
+   - Display to user: "✅ Vercel deployment successful: <URL>"
    - Ask: "Would you like me to merge this PR now? (yes/no)"
 
 5. **On failure** (timeout or deployment error):
-   - Fetch Vercel deployment details if available
-   - Show error output to help user understand what went wrong
-   - Suggest manual investigation
+   - Check if status is "ERROR" or other non-DEPLOYED state
+   - Show the deployment status and any error details
+   - Suggest checking Vercel dashboard manually
+
+**Note**: The skill uses `base64 -D` (macOS). On Linux systems, use `base64 -d` (lowercase) instead.
 
 ### Phase 6: Merge (conditional)
 
