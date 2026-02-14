@@ -1103,25 +1103,34 @@ function renderProfitabilitySection(gameData: GameData): HTMLElement {
   section.style.background = 'rgba(0, 0, 0, 0.3)';
   section.style.border = '1px solid #444';
   section.style.borderRadius = '4px';
+  // Fixed min-height to prevent vertical layout shifts when values update
+  section.style.minHeight = '140px';
 
   const title = document.createElement('h3');
   title.textContent = `📊 Ship Profitability: ${ship.name}`;
   title.style.fontSize = '0.9rem';
   title.style.marginBottom = '0.75rem';
   title.style.color = '#4a9eff';
+  // Prevent title from wrapping and causing height changes
+  title.style.overflow = 'hidden';
+  title.style.textOverflow = 'ellipsis';
+  title.style.whiteSpace = 'nowrap';
   section.appendChild(title);
 
   const metricsGrid = document.createElement('div');
   metricsGrid.style.display = 'grid';
-  metricsGrid.style.gridTemplateColumns = 'repeat(auto-fit, minmax(200px, 1fr))';
+  // Fixed grid layout to prevent column count changes from affecting height
+  metricsGrid.style.gridTemplateColumns =
+    'repeat(auto-fit, minmax(180px, 1fr))';
   metricsGrid.style.gap = '0.75rem';
   metricsGrid.style.fontSize = '0.85rem';
 
   // Lifetime Earned
   const earnedDiv = document.createElement('div');
+  earnedDiv.style.minHeight = '60px'; // Reserve vertical space
   earnedDiv.innerHTML = `
-    <div style="color: #888; margin-bottom: 0.25rem;">Lifetime Earned</div>
-    <div style="color: #4ade80; font-weight: bold; font-size: 1.1rem;">
+    <div style="color: #888; margin-bottom: 0.25rem; white-space: nowrap;">Lifetime Earned</div>
+    <div style="color: #4ade80; font-weight: bold; font-size: 1.1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
       ${formatCredits(ship.metrics.creditsEarned)}
     </div>
   `;
@@ -1133,12 +1142,13 @@ function renderProfitabilitySection(gameData: GameData): HTMLElement {
     ship.metrics.fuelCostsPaid +
     ship.metrics.repairCostsPaid;
   const costsDiv = document.createElement('div');
+  costsDiv.style.minHeight = '60px'; // Reserve vertical space
   costsDiv.innerHTML = `
-    <div style="color: #888; margin-bottom: 0.25rem;">Operating Costs</div>
-    <div style="color: #ffa500; font-weight: bold; font-size: 1.1rem;">
+    <div style="color: #888; margin-bottom: 0.25rem; white-space: nowrap;">Operating Costs</div>
+    <div style="color: #ffa500; font-weight: bold; font-size: 1.1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
       ${formatCredits(totalCosts)}
     </div>
-    <div style="color: #666; font-size: 0.75rem; margin-top: 0.15rem;">
+    <div style="color: #666; font-size: 0.75rem; margin-top: 0.15rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
       Crew: ${formatCredits(ship.metrics.crewCostsPaid)} |
       Fuel: ${formatCredits(ship.metrics.fuelCostsPaid)} |
       Repairs: ${formatCredits(ship.metrics.repairCostsPaid)}
@@ -1154,12 +1164,13 @@ function renderProfitabilitySection(gameData: GameData): HTMLElement {
       ? (performance.netProfit / ship.metrics.creditsEarned) * 100
       : 0;
   const profitDiv = document.createElement('div');
+  profitDiv.style.minHeight = '60px'; // Reserve vertical space
   profitDiv.innerHTML = `
-    <div style="color: #888; margin-bottom: 0.25rem;">Net Profit</div>
-    <div style="color: ${profitColor}; font-weight: bold; font-size: 1.1rem;">
+    <div style="color: #888; margin-bottom: 0.25rem; white-space: nowrap;">Net Profit</div>
+    <div style="color: ${profitColor}; font-weight: bold; font-size: 1.1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
       ${profitSign}${formatCredits(performance.netProfit)}
     </div>
-    <div style="color: #666; font-size: 0.75rem; margin-top: 0.15rem;">
+    <div style="color: #666; font-size: 0.75rem; margin-top: 0.15rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
       ${profitSign}${profitMargin.toFixed(1)}% margin
     </div>
   `;
@@ -1167,12 +1178,13 @@ function renderProfitabilitySection(gameData: GameData): HTMLElement {
 
   // Efficiency
   const efficiencyDiv = document.createElement('div');
+  efficiencyDiv.style.minHeight = '60px'; // Reserve vertical space
   efficiencyDiv.innerHTML = `
-    <div style="color: #888; margin-bottom: 0.25rem;">Efficiency</div>
-    <div style="color: #4a9eff; font-weight: bold; font-size: 1.1rem;">
+    <div style="color: #888; margin-bottom: 0.25rem; white-space: nowrap;">Efficiency</div>
+    <div style="color: #4a9eff; font-weight: bold; font-size: 1.1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
       ${formatCredits(Math.round(performance.creditsPerDay))}/day
     </div>
-    <div style="color: #666; font-size: 0.75rem; margin-top: 0.15rem;">
+    <div style="color: #666; font-size: 0.75rem; margin-top: 0.15rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
       ${performance.uptime.toFixed(0)}% uptime |
       ${ship.metrics.contractsCompleted} contracts
     </div>
