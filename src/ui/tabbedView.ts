@@ -46,7 +46,10 @@ export function createTabbedView(
   showNavigation: boolean,
   callbacks: TabbedViewCallbacks,
   selectedCrewId?: string
-): Component & { updateView(state: TabbedViewState): void } {
+): Component & {
+  updateView(state: TabbedViewState): void;
+  navigateGamepediaTo(articleId: string): void;
+} {
   // Reset module-level state on (re-)mount to prevent stale data across game resets
   previousCredits = null;
   creditDeltaTimeout = null;
@@ -782,6 +785,14 @@ export function createTabbedView(
       currentShowNav = state.showNavigation;
       currentSelectedCrewId = state.selectedCrewId;
       update(state.gameData);
+    },
+    navigateGamepediaTo(articleId: string) {
+      const component = tabComponents.get('guide') as
+        | (Component & { navigateTo?: (id: string) => void })
+        | undefined;
+      if (component?.navigateTo) {
+        component.navigateTo(articleId);
+      }
     },
   };
 }
