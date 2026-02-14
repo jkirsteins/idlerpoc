@@ -154,11 +154,11 @@ export interface FlightState {
   dockOnArrival: boolean;
   burnFraction: number; // 0.1-1.0: fraction of delta-v budget to use (1.0 = max speed)
   // 2D orbital trajectory fields
-  originPos?: Vec2; // origin 2D position (km), recomputed each tick from originBodyId or fixed for redirects
-  interceptPos?: Vec2; // destination 2D position (km), recomputed each tick from destination body
+  originPos?: Vec2; // origin 2D position (km), frozen at flight start
+  interceptPos?: Vec2; // destination intercept 2D position (km), frozen at flight start
   shipPos?: Vec2; // current ship 2D position (km), interpolated each tick between originPos and interceptPos
   estimatedArrivalGameTime?: number; // predicted arrival gameTime
-  originBodyId?: string; // real origin body ID (set for normal flights, undefined for redirects where origin is a point in space)
+  departureGameTime?: number; // gameTime at flight start (for projecting origin at correct time)
   gravityAssists?: GravityAssistOpportunity[]; // detected gravity assist opportunities along this trajectory
 }
 

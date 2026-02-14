@@ -50,8 +50,6 @@ import {
 import { addLog } from './logSystem';
 import {
   updateWorldPositions,
-  getLocationPosition,
-  euclideanDistance,
   lerpVec2,
 } from './orbitalMechanics';
 import { resolveGravityAssist } from './gravityAssistSystem';
@@ -122,63 +120,6 @@ function updateFlightPosition(fp: import('./models').FlightState): void {
 
   // Interpolate ship position along the fixed trajectory
   fp.shipPos = lerpVec2(fp.originPos, fp.interceptPos, progress);
-}
-
-/**
- * Mid-flight course correction (timing only).
- * Every 50 ticks, check if the destination's orbital motion has changed the
- * actual trip distance significantly. If drift exceeds 5%, update
- * totalDistance and estimatedArrivalGameTime so flight timing stays accurate.
- *
- * Position updates (originPos, interceptPos, shipPos) are handled every tick
- * by updateFlightPosition — this function only adjusts the flight plan's
- * distance/timing bookkeeping.
- */
-function applyCourseCorrection(
-  fp: import('./models').FlightState,
-  gameData: import('./models').GameData
-): void {
-  if (fp.totalDistance <= 0) return;
-
-  const ticksIntoFlight = Math.floor(fp.elapsedTime / GAME_SECONDS_PER_TICK);
-  if (ticksIntoFlight <= 0 || ticksIntoFlight % 50 !== 0) return;
-
-  const destLoc = gameData.world.locations.find((l) => l.id === fp.destination);
-  if (!destLoc) return;
-
-  const remainingSec = Math.max(0, fp.totalTime - fp.elapsedTime);
-  const futureArrival = gameData.gameTime + remainingSec;
-  const destFuturePos = getLocationPosition(
-    destLoc,
-    futureArrival,
-    gameData.world
-  );
-
-  // Compute origin position at the same future time so that co-orbiting
-  // bodies' shared motion cancels out (e.g. LEO station and Earth both
-  // orbit the Sun together — their relative distance stays ~400 km).
-  // For redirect flights (originBodyId unset), the origin is a fixed point
-  // in space — use the stored originPos.
-  const originLoc = fp.originBodyId
-    ? gameData.world.locations.find((l) => l.id === fp.originBodyId)
-    : undefined;
-  const originFuturePos = originLoc
-    ? getLocationPosition(originLoc, futureArrival, gameData.world)
-    : fp.originPos;
-  if (!originFuturePos) return;
-
-  const newRelativeDistKm = euclideanDistance(originFuturePos, destFuturePos);
-  const currentTotalDistKm = fp.totalDistance / 1000;
-
-  // Detect drift: has the correct relative distance diverged from stored?
-  const drift = Math.abs(newRelativeDistKm - currentTotalDistKm);
-  const driftFraction =
-    drift / Math.max(currentTotalDistKm, newRelativeDistKm, 1);
-
-  if (driftFraction > 0.05) {
-    fp.estimatedArrivalGameTime = futureArrival;
-    fp.totalDistance = newRelativeDistKm * 1000;
-  }
 }
 
 /**
@@ -503,11 +444,6 @@ function applyShipTick(gameData: GameData, ship: Ship): boolean {
     // Flight physics (only advance when engine is online)
     if (ship.activeFlightPlan && ship.engine.state === 'online') {
       const flightComplete = advanceFlight(ship.activeFlightPlan);
-
-      // Mid-flight course correction for orbital drift on long flights
-      if (!flightComplete) {
-        applyCourseCorrection(ship.activeFlightPlan, gameData);
-      }
 
       // Update 2D positions (originPos, interceptPos, shipPos) from
       // current-time body positions. Runs every tick so shipPos is always

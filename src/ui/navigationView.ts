@@ -1,4 +1,4 @@
-import type { GameData, WorldLocation, Quest, Ship } from '../models';
+import type { GameData, WorldLocation, Quest, Ship, Vec2 } from '../models';
 import { getActiveShip } from '../models';
 import { getLocationTypeTemplate } from '../spaceLocations';
 import {
@@ -31,6 +31,13 @@ import {
   getLocationPosition,
   type AlignmentQuality,
 } from '../orbitalMechanics';
+import {
+  orbitalRadiusToSvg,
+  projectToSvg,
+  localOrbitalRadiusToSvg,
+  projectToSvgLocal,
+  computeFrozenTrajectoryLocal,
+} from './mapProjection';
 
 const NAV_SERVICE_LABELS: Record<string, { icon: string; label: string }> = {
   refuel: { icon: '\u26FD', label: 'Fuel' },
@@ -176,72 +183,6 @@ function deconflictLabels(entries: LabelEntry[]): void {
 interface FlightLineRefs {
   line: SVGLineElement;
   shipDot: SVGCircleElement;
-}
-
-/**
- * Map an orbital radius (km) to SVG visual radius.
- * Logarithmic scaling so Earth-orbit (~150M km) and Jupiter (~778M km)
- * are both visible, while inner Earth-system bodies cluster near Earth.
- */
-function orbitalRadiusToSvg(radiusKm: number): number {
-  if (radiusKm <= 0) return 0;
-  const logMin = Math.log10(100_000_000); // ~0.67 AU
-  const logMax = Math.log10(900_000_000); // ~6 AU
-  const logR = Math.log10(Math.max(radiusKm, 100_000_000));
-  const t = (logR - logMin) / (logMax - logMin);
-  return 30 + t * 150; // 30..180 SVG units from center
-}
-
-/**
- * Project a location's real km position (x,y from Sun) to SVG coordinates.
- * Uses the angle from the real position but log-scales the radius
- * to keep the solar system viewable.
- */
-function projectToSvg(xKm: number, yKm: number): { x: number; y: number } {
-  const distFromSun = Math.sqrt(xKm * xKm + yKm * yKm);
-  if (distFromSun < 1000) {
-    // At origin (Sun) — center of SVG
-    return { x: 0, y: 0 };
-  }
-  const angle = Math.atan2(yKm, xKm);
-  const r = orbitalRadiusToSvg(distFromSun);
-  return { x: r * Math.cos(angle), y: r * Math.sin(angle) };
-}
-
-/**
- * Map a satellite's orbital radius (km from parent body) to SVG radius
- * for cluster Focus mode. Uses log scale across the LOCAL distance range.
- * Generic: works for any cluster given its log10 min/max orbital radii.
- */
-function localOrbitalRadiusToSvg(
-  radiusKm: number,
-  logMin: number,
-  logMax: number
-): number {
-  const logR = Math.log10(Math.max(radiusKm, 1));
-  if (logMax - logMin < 0.01) return 105; // degenerate: all at same radius
-  const t = (logR - logMin) / (logMax - logMin);
-  return 30 + t * 150; // same 30..180 SVG range as overview
-}
-
-/**
- * Project a satellite position to SVG in cluster Focus mode.
- * Uses the real-time angle from parent body and a local log scale
- * for the radial distance.
- */
-function projectToSvgLocal(
-  parentPos: { x: number; y: number },
-  satPos: { x: number; y: number },
-  logMin: number,
-  logMax: number
-): { x: number; y: number } {
-  const dx = satPos.x - parentPos.x;
-  const dy = satPos.y - parentPos.y;
-  const dist = Math.sqrt(dx * dx + dy * dy);
-  if (dist < 1) return { x: 0, y: 0 };
-  const angle = Math.atan2(dy, dx);
-  const r = localOrbitalRadiusToSvg(dist, logMin, logMax);
-  return { x: r * Math.cos(angle), y: r * Math.sin(angle) };
 }
 
 /** Get alignment badge color */
@@ -1555,6 +1496,13 @@ export function createNavigationView(
       flightRefs.shipDot.setAttribute('cy', String(shipSvg.y));
       flightRefs.shipDot.style.display = '';
 
+      // Ship dot stroke: yellow during burn, white during coast
+      if (fp.phase === 'accelerating' || fp.phase === 'decelerating') {
+        flightRefs.shipDot.setAttribute('stroke', '#ffc107');
+      } else {
+        flightRefs.shipDot.setAttribute('stroke', '#fff');
+      }
+
       const assists = fp.gravityAssists || [];
       for (let i = 0; i < MAX_ASSIST_MARKERS; i++) {
         const marker = assistMarkers[i];
@@ -1604,7 +1552,10 @@ export function createNavigationView(
     ship: Ship,
     isInFlight: boolean,
     parentId: string,
-    parentPos: { x: number; y: number }
+    parentPos: { x: number; y: number },
+    logMin: number,
+    logMax: number,
+    parentLoc: WorldLocation
   ): void {
     if (!isInFlight || !ship.activeFlightPlan) {
       hideFlightViz();
@@ -1630,7 +1581,13 @@ export function createNavigationView(
       return cached ?? { x: 0, y: 0 };
     };
 
-    const getEdgePos = (externalLocId: string): { x: number; y: number } => {
+    const getEdgePos = (frozenPos: Vec2 | undefined, externalLocId: string): { x: number; y: number } => {
+      // Prefer frozen position from flight plan for stable trajectory
+      if (frozenPos) {
+        const angle = Math.atan2(frozenPos.y - parentPos.y, frozenPos.x - parentPos.x);
+        return { x: 185 * Math.cos(angle), y: 185 * Math.sin(angle) };
+      }
+      // Fallback for legacy flights
       const extLoc = gd.world.locations.find((l) => l.id === externalLocId);
       if (!extLoc) return { x: 0, y: 0 };
       const extPos = getLocationPosition(extLoc, gd.gameTime, gd.world);
@@ -1641,18 +1598,50 @@ export function createNavigationView(
     let originSvg: { x: number; y: number };
     let destSvg: { x: number; y: number };
 
+    const depTime = fp.departureGameTime ?? fp.estimatedArrivalGameTime;
+
     if (originInCluster && destInCluster) {
-      // Scenario A: local flight
-      originSvg = getLocalPos(fp.origin);
-      destSvg = getLocalPos(fp.destination);
+      // Scenario A: local flight — use frozen trajectory if available
+      if (fp.originPos && fp.interceptPos && fp.estimatedArrivalGameTime) {
+        const frozen = computeFrozenTrajectoryLocal(
+          fp.originPos, fp.interceptPos, fp.estimatedArrivalGameTime,
+          parentLoc, gd.world, logMin, logMax, depTime
+        );
+        originSvg = frozen.originSvg;
+        destSvg = frozen.destSvg;
+      } else {
+        // Fallback for legacy flights without frozen positions
+        originSvg = getLocalPos(fp.origin);
+        destSvg = getLocalPos(fp.destination);
+      }
     } else if (originInCluster) {
       // Scenario B: leaving the cluster
-      originSvg = getLocalPos(fp.origin);
-      destSvg = getEdgePos(fp.destination);
+      if (fp.originPos && fp.interceptPos && fp.estimatedArrivalGameTime) {
+        const frozen = computeFrozenTrajectoryLocal(
+          fp.originPos, fp.interceptPos, fp.estimatedArrivalGameTime,
+          parentLoc, gd.world, logMin, logMax, depTime
+        );
+        originSvg = frozen.originSvg;
+        destSvg = getEdgePos(fp.interceptPos, fp.destination);
+      } else {
+        // Fallback for legacy flights
+        originSvg = getLocalPos(fp.origin);
+        destSvg = getEdgePos(undefined, fp.destination);
+      }
     } else {
       // Scenario B: arriving into the cluster
-      originSvg = getEdgePos(fp.origin);
-      destSvg = getLocalPos(fp.destination);
+      if (fp.originPos && fp.interceptPos && fp.estimatedArrivalGameTime) {
+        const frozen = computeFrozenTrajectoryLocal(
+          fp.originPos, fp.interceptPos, fp.estimatedArrivalGameTime,
+          parentLoc, gd.world, logMin, logMax, depTime
+        );
+        originSvg = getEdgePos(fp.originPos, fp.origin);
+        destSvg = frozen.destSvg;
+      } else {
+        // Fallback for legacy flights
+        originSvg = getEdgePos(undefined, fp.origin);
+        destSvg = getLocalPos(fp.destination);
+      }
     }
 
     flightRefs.line.setAttribute('x1', String(originSvg.x));
@@ -1666,15 +1655,19 @@ export function createNavigationView(
     // causes logarithmic distortion.
     const progress =
       fp.totalDistance > 0 ? fp.distanceCovered / fp.totalDistance : 0;
-    flightRefs.shipDot.setAttribute(
-      'cx',
-      String(originSvg.x + (destSvg.x - originSvg.x) * progress)
-    );
-    flightRefs.shipDot.setAttribute(
-      'cy',
-      String(originSvg.y + (destSvg.y - originSvg.y) * progress)
-    );
+
+    const shipSvgX = originSvg.x + (destSvg.x - originSvg.x) * progress;
+    const shipSvgY = originSvg.y + (destSvg.y - originSvg.y) * progress;
+    flightRefs.shipDot.setAttribute('cx', String(shipSvgX));
+    flightRefs.shipDot.setAttribute('cy', String(shipSvgY));
     flightRefs.shipDot.style.display = '';
+
+    // Ship dot stroke: yellow during burn, white during coast
+    if (fp.phase === 'accelerating' || fp.phase === 'decelerating') {
+      flightRefs.shipDot.setAttribute('stroke', '#ffc107');
+    } else {
+      flightRefs.shipDot.setAttribute('stroke', '#fff');
+    }
 
     // Hide assist markers in focus mode for simplicity
     for (const marker of assistMarkers) {
@@ -2130,7 +2123,7 @@ export function createNavigationView(
     }
 
     // Flight visualization (focus projection)
-    updateFlightVizFocus(gd, ship, isInFlight, parentId, parentPos);
+    updateFlightVizFocus(gd, ship, isInFlight, parentId, parentPos, logMin, logMax, parentLoc);
   }
 
   // Initial render

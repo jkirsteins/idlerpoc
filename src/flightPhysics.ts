@@ -480,8 +480,19 @@ export function initializeFlight(
     // computes both positions at the same future time. This cancels out
     // common orbital motion for co-orbiting bodies (e.g. LEO station → Earth).
     const originForSolver = orbital.originPos ? undefined : origin;
+    const isRedirect = !!orbital.originPos;
+
+    // Engine warmup delay: the ship doesn't start flying until warmup completes.
+    // On the tick that warmup finishes, the first advanceFlight also runs,
+    // so the effective delay is (warmupTicks - 1) ticks.
+    // Redirects skip warmup (engine already online).
+    const warmupDelaySeconds = isRedirect
+      ? 0
+      : Math.max(0, Math.ceil(100 / engineDef.warmupRate) - 1) *
+        GAME_SECONDS_PER_TICK;
 
     // Solve intercept: where will the destination be when we arrive?
+    // Include warmup delay so the solver targets the correct future position.
     const interceptResult = solveIntercept(
       flightOriginPos,
       destination,
@@ -492,7 +503,7 @@ export function initializeFlight(
           initialAcceleration,
           allocatedDeltaV
         );
-        return timing.totalTime;
+        return warmupDelaySeconds + timing.totalTime;
       },
       orbital.gameTime,
       orbital.world,
@@ -502,9 +513,10 @@ export function initializeFlight(
 
     distanceKm = interceptResult.travelDistanceKm;
     flightInterceptPos = interceptResult.interceptPos;
-    // Use co-moving origin position so originPos and interceptPos share
-    // the same time reference, keeping the interpolated path correct.
-    flightOriginPos = interceptResult.originPosAtArrival;
+    // Keep originPos at launch time (not arrival time). The origin is where
+    // the ship actually departs from. The intercept solver also returns
+    // originPosAtArrival for co-moving reference, but using that places
+    // the origin on the wrong side of the parent body after fast orbits.
     estimatedArrivalGameTime = interceptResult.arrivalGameTime;
   } else {
     // Legacy: use static distance
@@ -576,10 +588,7 @@ export function initializeFlight(
     interceptPos: flightInterceptPos,
     shipPos: flightOriginPos ? { ...flightOriginPos } : undefined,
     estimatedArrivalGameTime,
-    // Set for normal flights (origin is a real body whose position can be
-    // recomputed at any time). Left undefined for redirects where the origin
-    // is a fixed point in space. The caller (redirectShipFlight) clears this.
-    originBodyId: origin.id,
+    departureGameTime: orbital?.gameTime,
     gravityAssists,
   };
 }
@@ -666,9 +675,6 @@ export function redirectShipFlight(
 
   // Override originKm to the exact interpolated position
   ship.activeFlightPlan.originKm = currentKm;
-
-  // Mark as a redirect: origin is a point in space, not a real body
-  ship.activeFlightPlan.originBodyId = undefined;
 
   // Engine is already running — no warmup needed
   if (ship.engine.state !== 'online') {
@@ -824,17 +830,6 @@ export function advanceFlight(flight: FlightState): boolean {
         0.5 * flight.acceleration * timeIntoDecel * timeIntoDecel;
       flight.distanceCovered = accelDistance + coastDistance + decelDistance;
     }
-  }
-
-  // Safety: if distance covered meets or exceeds totalDistance (e.g. after a
-  // course correction reduced totalDistance mid-flight), complete immediately.
-  // This prevents ships from being stuck for the original (stale) totalTime
-  // while crew starves.
-  if (flight.distanceCovered >= flight.totalDistance) {
-    flight.distanceCovered = flight.totalDistance;
-    flight.currentVelocity = 0;
-    flight.phase = 'decelerating';
-    return true;
   }
 
   // 2D ship position (shipPos) is updated externally by updateFlightPosition()
