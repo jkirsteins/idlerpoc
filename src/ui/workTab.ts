@@ -153,6 +153,314 @@ interface NoContractRefs {
   miningRouteSetupNoMines: HTMLParagraphElement;
 }
 
+// ── Helper Functions (extracted to reduce function length) ──────
+
+function categorizeQuest(
+  quest: Quest,
+  gd: GameData
+): 'trade' | 'mining' | 'misc' {
+  if (quest.type === 'trade_route') return 'trade';
+
+  const miningKeywords = [
+    'ore',
+    'metal',
+    'mineral',
+    'raw ore',
+    'rare metal',
+    'unrefined',
+  ];
+  const cargoIsMining = quest.cargoTypeName
+    ?.toLowerCase()
+    .split(' ')
+    .some((word) =>
+      miningKeywords.some((kw) => kw.includes(word) || word.includes(kw))
+    );
+
+  if (cargoIsMining) return 'mining';
+
+  const origin = gd.world.locations.find((l) => l.id === quest.origin);
+  const dest = gd.world.locations.find((l) => l.id === quest.destination);
+
+  const originIsMine =
+    origin?.type === 'asteroid_belt' || origin?.services.includes('mine');
+  const destIsMine =
+    dest?.type === 'asteroid_belt' || dest?.services.includes('mine');
+
+  if (originIsMine || destIsMine) return 'mining';
+
+  return 'misc';
+}
+
+function syncCardExpansion(
+  refs: QuestCardRefs,
+  questId: string,
+  questExpandedState: Map<string, boolean>
+): void {
+  const expanded = questExpandedState.get(questId) || false;
+
+  refs.expandIcon.style.transform = expanded ? 'rotate(90deg)' : '';
+  refs.expandIcon.textContent = expanded ? '▼' : '▶';
+
+  const displayValue = expanded ? '' : 'none';
+  refs.title.style.display = displayValue;
+  refs.description.style.display = displayValue;
+  refs.details.style.display = expanded ? 'flex' : 'none';
+
+  if (!expanded) {
+    refs.buttonContainer.style.display = 'none';
+  }
+
+  refs.warningsDiv.style.display =
+    expanded && refs.warningsDiv.textContent ? '' : 'none';
+  refs.reasonDiv.style.display =
+    expanded && refs.reasonDiv.textContent ? '' : 'none';
+}
+
+function syncJobFilterButtons(
+  filterButtons: Record<'all' | 'trade' | 'mining' | 'misc', HTMLButtonElement>,
+  currentJobFilter: 'all' | 'trade' | 'mining' | 'misc'
+): void {
+  const filters = ['all', 'trade', 'mining', 'misc'] as const;
+  for (const f of filters) {
+    filterButtons[f].className =
+      f === currentJobFilter ? 'filter-btn active' : 'filter-btn';
+  }
+}
+
+function applyJobFilter(
+  gd: GameData,
+  currentJobFilter: 'all' | 'trade' | 'mining' | 'misc',
+  tradeQuestCards: Map<string, QuestCardRefs>,
+  regularQuestCards: Map<string, QuestCardRefs>
+): void {
+  const ship = getActiveShip(gd);
+  if (ship.location.status !== 'docked') return;
+
+  const locationId = ship.location.dockedAt || '';
+  const locationQuests = gd.availableQuests[locationId] || [];
+
+  for (const [questId, refs] of tradeQuestCards) {
+    const quest = locationQuests.find((q) => q.id === questId);
+    if (!quest) continue;
+
+    const category = categorizeQuest(quest, gd);
+    const visible = currentJobFilter === 'all' || currentJobFilter === category;
+    refs.card.style.display = visible ? '' : 'none';
+  }
+
+  for (const [questId, refs] of regularQuestCards) {
+    const quest = locationQuests.find((q) => q.id === questId);
+    if (!quest) continue;
+
+    const category = categorizeQuest(quest, gd);
+    const visible = currentJobFilter === 'all' || currentJobFilter === category;
+    refs.card.style.display = visible ? '' : 'none';
+  }
+}
+
+function createQuestCardRefs(
+  quest: Quest,
+  gd: GameData,
+  callbacks: WorkTabCallbacks,
+  questExpandedState: Map<string, boolean>,
+  updateQuestCardRefs: (refs: QuestCardRefs, quest: Quest, gd: GameData) => void
+): QuestCardRefs {
+  const card = document.createElement('div');
+  card.className = 'quest-card';
+
+  const header = document.createElement('div');
+  header.className = 'quest-card-header';
+  header.style.cssText = `
+    display: flex; align-items: center; gap: 8px;
+    cursor: pointer; padding-bottom: 8px;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+    margin-bottom: 8px;
+  `;
+
+  const typeBadge = document.createElement('span');
+  typeBadge.className = 'quest-type-badge';
+  typeBadge.style.cssText = `
+    padding: 2px 8px; border-radius: 4px; font-size: 0.75rem;
+    font-weight: bold; text-transform: uppercase;
+  `;
+  header.appendChild(typeBadge);
+
+  const headerDestination = document.createElement('span');
+  headerDestination.style.cssText = 'flex: 1; font-weight: bold;';
+  header.appendChild(headerDestination);
+
+  const headerProfit = document.createElement('span');
+  headerProfit.style.cssText = 'font-size: 0.9rem; font-weight: bold;';
+  header.appendChild(headerProfit);
+
+  const expandIcon = document.createElement('span');
+  expandIcon.textContent = '▶';
+  expandIcon.style.cssText = 'font-size: 0.8rem; transition: transform 0.2s;';
+  header.appendChild(expandIcon);
+
+  card.appendChild(header);
+
+  const title = document.createElement('div');
+  title.className = 'quest-title';
+  title.style.display = 'none';
+  card.appendChild(title);
+
+  const description = document.createElement('div');
+  description.className = 'quest-description';
+  description.style.display = 'none';
+  card.appendChild(description);
+
+  const details = document.createElement('div');
+  details.className = 'quest-details';
+  details.style.display = 'none';
+
+  const destInfo = document.createElement('div');
+  details.appendChild(destInfo);
+
+  const distanceInfo = document.createElement('div');
+  details.appendChild(distanceInfo);
+
+  const cargoInfo = document.createElement('div');
+  details.appendChild(cargoInfo);
+
+  const totalCargoInfo = document.createElement('div');
+  details.appendChild(totalCargoInfo);
+
+  const tripsInfo = document.createElement('div');
+  details.appendChild(tripsInfo);
+
+  const fuelInfo = document.createElement('div');
+  details.appendChild(fuelInfo);
+
+  const timeInfo = document.createElement('div');
+  details.appendChild(timeInfo);
+
+  const crewCostInfo = document.createElement('div');
+  crewCostInfo.style.color = '#ffa500';
+  details.appendChild(crewCostInfo);
+
+  const fuelCostInfo = document.createElement('div');
+  fuelCostInfo.style.color = '#ffa500';
+  details.appendChild(fuelCostInfo);
+
+  const captainBonusInfo = document.createElement('div');
+  details.appendChild(captainBonusInfo);
+
+  const captainHintInfo = document.createElement('div');
+  captainHintInfo.style.cssText = 'color: #666; font-size: 0.85em;';
+  details.appendChild(captainHintInfo);
+
+  const profitInfo = document.createElement('div');
+  profitInfo.style.cssText = 'font-weight: bold; margin-top: 4px;';
+  details.appendChild(profitInfo);
+
+  const riskLine = document.createElement('div');
+  riskLine.style.display = 'flex';
+  riskLine.style.alignItems = 'center';
+  riskLine.style.gap = '8px';
+  riskLine.style.marginTop = '4px';
+
+  const riskLabel = document.createElement('span');
+  riskLabel.textContent = 'Route Risk:';
+  riskLine.appendChild(riskLabel);
+
+  const riskBadgeSlot = document.createElement('div');
+  riskBadgeSlot.style.display = 'inline-block';
+  riskLine.appendChild(riskBadgeSlot);
+  details.appendChild(riskLine);
+
+  card.appendChild(details);
+
+  const payment = document.createElement('div');
+  payment.className = 'quest-payment';
+  card.appendChild(payment);
+
+  const buttonContainer = document.createElement('div');
+  buttonContainer.className = 'quest-buttons';
+  buttonContainer.style.display = 'none';
+  buttonContainer.style.gap = '8px';
+
+  const acceptBtn = document.createElement('button');
+  acceptBtn.className = 'accept-quest-button';
+  acceptBtn.textContent = 'Accept';
+  acceptBtn.addEventListener('click', () => callbacks.onAcceptQuest(quest.id));
+  buttonContainer.appendChild(acceptBtn);
+
+  const assignBtn = document.createElement('button');
+  assignBtn.className = 'assign-route-button';
+  assignBtn.textContent = 'Assign Route';
+  assignBtn.style.backgroundColor = '#4a90e2';
+  assignBtn.addEventListener('click', () => callbacks.onAssignRoute(quest.id));
+  buttonContainer.appendChild(assignBtn);
+
+  card.appendChild(buttonContainer);
+
+  const detailsToggle = document.createElement('button');
+  detailsToggle.className = 'quest-details-toggle';
+  detailsToggle.textContent = 'Show Details';
+  detailsToggle.addEventListener('click', () => {
+    const expanded = details.classList.toggle('quest-details-expanded');
+    detailsToggle.textContent = expanded ? 'Hide Details' : 'Show Details';
+  });
+  card.appendChild(detailsToggle);
+
+  const warningsDiv = document.createElement('div');
+  warningsDiv.className = 'quest-warnings';
+  warningsDiv.style.color = '#fbbf24';
+  warningsDiv.style.fontSize = '0.85em';
+  warningsDiv.style.marginTop = '0.5rem';
+  warningsDiv.style.padding = '0.4rem 0.6rem';
+  warningsDiv.style.background = 'rgba(251, 191, 36, 0.08)';
+  warningsDiv.style.borderLeft = '3px solid #fbbf24';
+  warningsDiv.style.display = 'none';
+  card.appendChild(warningsDiv);
+
+  const reasonDiv = document.createElement('div');
+  reasonDiv.className = 'quest-reason';
+  card.appendChild(reasonDiv);
+
+  const refs: QuestCardRefs = {
+    card,
+    header,
+    typeBadge,
+    headerDestination,
+    headerProfit,
+    expandIcon,
+    title,
+    description,
+    details,
+    destInfo,
+    distanceInfo,
+    cargoInfo,
+    totalCargoInfo,
+    tripsInfo,
+    fuelInfo,
+    timeInfo,
+    crewCostInfo,
+    fuelCostInfo,
+    captainBonusInfo,
+    captainHintInfo,
+    profitInfo,
+    riskLine,
+    riskBadgeSlot,
+    payment,
+    buttonContainer,
+    acceptBtn,
+    assignBtn,
+    warningsDiv,
+    reasonDiv,
+  };
+
+  header.addEventListener('click', () => {
+    const expanded = questExpandedState.get(quest.id) || false;
+    questExpandedState.set(quest.id, !expanded);
+    syncCardExpansion(refs, quest.id, questExpandedState);
+  });
+
+  updateQuestCardRefs(refs, quest, gd);
+  return refs;
+}
+
 export function createWorkTab(
   gameData: GameData,
   callbacks: WorkTabCallbacks
@@ -248,7 +556,10 @@ export function createWorkTab(
     filterBar.style.marginBottom = '1rem';
     filterBar.style.flexWrap = 'wrap';
 
-    const filterButtons: Record<'all' | 'trade' | 'mining' | 'misc', HTMLButtonElement> = {} as Record<'all' | 'trade' | 'mining' | 'misc', HTMLButtonElement>;
+    const filterButtons: Record<
+      'all' | 'trade' | 'mining' | 'misc',
+      HTMLButtonElement
+    > = {} as Record<'all' | 'trade' | 'mining' | 'misc', HTMLButtonElement>;
     const filters = ['all', 'trade', 'mining', 'misc'] as const;
 
     for (const filter of filters) {
@@ -257,8 +568,13 @@ export function createWorkTab(
       btn.textContent = filter.charAt(0).toUpperCase() + filter.slice(1);
       btn.addEventListener('click', () => {
         currentJobFilter = filter;
-        syncJobFilterButtons();
-        applyJobFilter(gameData);
+        syncJobFilterButtons(noContractRefs.filterButtons, currentJobFilter);
+        applyJobFilter(
+          gameData,
+          currentJobFilter,
+          tradeQuestCards,
+          regularQuestCards
+        );
       });
       filterButtons[filter] = btn;
       filterBar.appendChild(btn);
@@ -668,217 +984,6 @@ export function createWorkTab(
     }
   }
 
-  // ── Factory: Quest Card ─────────────────────────────────────
-  function createQuestCardRefs(quest: Quest, gd: GameData): QuestCardRefs {
-    const card = document.createElement('div');
-    card.className = 'quest-card';
-
-    // Collapsible header (always visible)
-    const header = document.createElement('div');
-    header.className = 'quest-card-header';
-    header.style.cssText = `
-      display: flex; align-items: center; gap: 8px;
-      cursor: pointer; padding-bottom: 8px;
-      border-bottom: 1px solid rgba(255,255,255,0.1);
-      margin-bottom: 8px;
-    `;
-
-    const typeBadge = document.createElement('span');
-    typeBadge.className = 'quest-type-badge';
-    typeBadge.style.cssText = `
-      padding: 2px 8px; border-radius: 4px; font-size: 0.75rem;
-      font-weight: bold; text-transform: uppercase;
-    `;
-    header.appendChild(typeBadge);
-
-    const headerDestination = document.createElement('span');
-    headerDestination.style.cssText = 'flex: 1; font-weight: bold;';
-    header.appendChild(headerDestination);
-
-    const headerProfit = document.createElement('span');
-    headerProfit.style.cssText = 'font-size: 0.9rem; font-weight: bold;';
-    header.appendChild(headerProfit);
-
-    const expandIcon = document.createElement('span');
-    expandIcon.textContent = '▶'; // Collapsed by default
-    expandIcon.style.cssText = 'font-size: 0.8rem; transition: transform 0.2s;';
-    header.appendChild(expandIcon);
-
-    // Click toggles expansion
-    header.addEventListener('click', () => {
-      const expanded = questExpandedState.get(quest.id) || false;
-      questExpandedState.set(quest.id, !expanded);
-      syncCardExpansion(refs, quest.id);
-    });
-
-    card.appendChild(header);
-
-    // Collapsible content (hidden by default)
-    const title = document.createElement('div');
-    title.className = 'quest-title';
-    title.style.display = 'none'; // Start collapsed
-    card.appendChild(title);
-
-    const description = document.createElement('div');
-    description.className = 'quest-description';
-    description.style.display = 'none'; // Start collapsed
-    card.appendChild(description);
-
-    const details = document.createElement('div');
-    details.className = 'quest-details';
-    details.style.display = 'none'; // Start collapsed
-
-    const destInfo = document.createElement('div');
-    details.appendChild(destInfo);
-
-    const distanceInfo = document.createElement('div');
-    details.appendChild(distanceInfo);
-
-    const cargoInfo = document.createElement('div');
-    details.appendChild(cargoInfo);
-
-    const totalCargoInfo = document.createElement('div');
-    details.appendChild(totalCargoInfo);
-
-    const tripsInfo = document.createElement('div');
-    details.appendChild(tripsInfo);
-
-    const fuelInfo = document.createElement('div');
-    details.appendChild(fuelInfo);
-
-    const timeInfo = document.createElement('div');
-    details.appendChild(timeInfo);
-
-    const crewCostInfo = document.createElement('div');
-    crewCostInfo.style.color = '#ffa500';
-    details.appendChild(crewCostInfo);
-
-    const fuelCostInfo = document.createElement('div');
-    fuelCostInfo.style.color = '#ffa500';
-    details.appendChild(fuelCostInfo);
-
-    const captainBonusInfo = document.createElement('div');
-    details.appendChild(captainBonusInfo);
-
-    const captainHintInfo = document.createElement('div');
-    captainHintInfo.style.cssText = 'color: #666; font-size: 0.85em;';
-    details.appendChild(captainHintInfo);
-
-    const profitInfo = document.createElement('div');
-    profitInfo.style.cssText = 'font-weight: bold; margin-top: 4px;';
-    details.appendChild(profitInfo);
-
-    // Risk line
-    const riskLine = document.createElement('div');
-    riskLine.style.display = 'flex';
-    riskLine.style.alignItems = 'center';
-    riskLine.style.gap = '8px';
-    riskLine.style.marginTop = '4px';
-
-    const riskLabel = document.createElement('span');
-    riskLabel.textContent = 'Route Risk:';
-    riskLine.appendChild(riskLabel);
-
-    const riskBadgeSlot = document.createElement('div');
-    riskBadgeSlot.style.display = 'inline-block';
-    riskLine.appendChild(riskBadgeSlot);
-    details.appendChild(riskLine);
-
-    card.appendChild(details);
-
-    // Payment
-    const payment = document.createElement('div');
-    payment.className = 'quest-payment';
-    card.appendChild(payment);
-
-    // Button container (hidden when collapsed)
-    const buttonContainer = document.createElement('div');
-    buttonContainer.className = 'quest-buttons';
-    buttonContainer.style.display = 'none'; // Start collapsed (will be flex when expanded)
-    buttonContainer.style.gap = '8px';
-
-    const acceptBtn = document.createElement('button');
-    acceptBtn.className = 'accept-quest-button';
-    acceptBtn.textContent = 'Accept';
-    acceptBtn.addEventListener('click', () =>
-      callbacks.onAcceptQuest(quest.id)
-    );
-    buttonContainer.appendChild(acceptBtn);
-
-    const assignBtn = document.createElement('button');
-    assignBtn.className = 'assign-route-button';
-    assignBtn.textContent = 'Assign Route';
-    assignBtn.style.backgroundColor = '#4a90e2';
-    assignBtn.addEventListener('click', () =>
-      callbacks.onAssignRoute(quest.id)
-    );
-    buttonContainer.appendChild(assignBtn);
-
-    card.appendChild(buttonContainer);
-
-    // Details toggle button (visible only on mobile via CSS)
-    const detailsToggle = document.createElement('button');
-    detailsToggle.className = 'quest-details-toggle';
-    detailsToggle.textContent = 'Show Details';
-    detailsToggle.addEventListener('click', () => {
-      const expanded = details.classList.toggle('quest-details-expanded');
-      detailsToggle.textContent = expanded ? 'Hide Details' : 'Show Details';
-    });
-    card.appendChild(detailsToggle);
-
-    // Warnings div (soft warnings that don't block acceptance)
-    const warningsDiv = document.createElement('div');
-    warningsDiv.className = 'quest-warnings';
-    warningsDiv.style.color = '#fbbf24';
-    warningsDiv.style.fontSize = '0.85em';
-    warningsDiv.style.marginTop = '0.5rem';
-    warningsDiv.style.padding = '0.4rem 0.6rem';
-    warningsDiv.style.background = 'rgba(251, 191, 36, 0.08)';
-    warningsDiv.style.borderLeft = '3px solid #fbbf24';
-    warningsDiv.style.display = 'none';
-    card.appendChild(warningsDiv);
-
-    // Reason div (for when quest can't be accepted)
-    const reasonDiv = document.createElement('div');
-    reasonDiv.className = 'quest-reason';
-    card.appendChild(reasonDiv);
-
-    // Initial population
-    const refs: QuestCardRefs = {
-      card,
-      header,
-      typeBadge,
-      headerDestination,
-      headerProfit,
-      expandIcon,
-      title,
-      description,
-      details,
-      destInfo,
-      distanceInfo,
-      cargoInfo,
-      totalCargoInfo,
-      tripsInfo,
-      fuelInfo,
-      timeInfo,
-      crewCostInfo,
-      fuelCostInfo,
-      captainBonusInfo,
-      captainHintInfo,
-      profitInfo,
-      riskLine,
-      riskBadgeSlot,
-      payment,
-      buttonContainer,
-      acceptBtn,
-      assignBtn,
-      warningsDiv,
-      reasonDiv,
-    };
-    updateQuestCardRefs(refs, quest, gd);
-    return refs;
-  }
-
   function updateQuestCardRefs(
     refs: QuestCardRefs,
     quest: Quest,
@@ -918,14 +1023,16 @@ export function createWorkTab(
     const badgeConfig = {
       trade: { text: 'Trade', bg: '#4a90e2', color: '#fff' },
       mining: { text: 'Mining', bg: '#b87333', color: '#fff' },
-      misc: { text: quest.type.replace('_', ' '), bg: '#666', color: '#fff' }
+      misc: { text: quest.type.replace('_', ' '), bg: '#666', color: '#fff' },
     };
     const config = badgeConfig[category];
     refs.typeBadge.textContent = config.text;
     refs.typeBadge.style.backgroundColor = config.bg;
     refs.typeBadge.style.color = config.color;
 
-    refs.headerDestination.textContent = destination ? destination.name : 'Unknown';
+    refs.headerDestination.textContent = destination
+      ? destination.name
+      : 'Unknown';
 
     refs.title.textContent = quest.title;
     refs.description.textContent = resolved.description;
@@ -1073,7 +1180,7 @@ export function createWorkTab(
     }
 
     // Apply collapsed/expanded state
-    syncCardExpansion(refs, quest.id);
+    syncCardExpansion(refs, quest.id, questExpandedState);
   }
 
   // ── Update: No Contract Phase ───────────────────────────────
@@ -1186,7 +1293,7 @@ export function createWorkTab(
 
     // Show and sync filter bar
     noContractRefs.filterBar.style.display = 'flex';
-    syncJobFilterButtons();
+    syncJobFilterButtons(noContractRefs.filterButtons, currentJobFilter);
 
     // Get quests
     const availableQuests = gd.availableQuests[location] || [];
@@ -1266,7 +1373,7 @@ export function createWorkTab(
     }
 
     // Apply job filter after reconciliation
-    applyJobFilter(gd);
+    applyJobFilter(gd, currentJobFilter, tradeQuestCards, regularQuestCards);
   }
 
   /** Reconcile a Map of quest card refs with the current quest list. */
@@ -1284,7 +1391,13 @@ export function createWorkTab(
       let refs = cardMap.get(quest.id);
       if (!refs) {
         // New quest — create card
-        refs = createQuestCardRefs(quest, gd);
+        refs = createQuestCardRefs(
+          quest,
+          gd,
+          callbacks,
+          questExpandedState,
+          updateQuestCardRefs
+        );
         cardMap.set(quest.id, refs);
         parentEl.appendChild(refs.card);
       } else {
@@ -1310,94 +1423,6 @@ export function createWorkTab(
         parentEl.appendChild(refs.card);
       }
     }
-  }
-
-  // ── Helper: Categorize Quest ───────────────────────────────────
-  function categorizeQuest(quest: Quest, gd: GameData): 'trade' | 'mining' | 'misc' {
-    // Trade routes
-    if (quest.type === 'trade_route') return 'trade';
-
-    // Mining: check cargo type and locations
-    const miningKeywords = ['ore', 'metal', 'mineral', 'raw ore', 'rare metal', 'unrefined'];
-    const cargoIsMining = quest.cargoTypeName?.toLowerCase().split(' ').some(word =>
-      miningKeywords.some(kw => kw.includes(word) || word.includes(kw))
-    );
-
-    if (cargoIsMining) return 'mining';
-
-    const origin = gd.world.locations.find(l => l.id === quest.origin);
-    const dest = gd.world.locations.find(l => l.id === quest.destination);
-
-    const originIsMine = origin?.type === 'asteroid_belt' || origin?.services.includes('mine');
-    const destIsMine = dest?.type === 'asteroid_belt' || dest?.services.includes('mine');
-
-    if (originIsMine || destIsMine) return 'mining';
-
-    // Default: misc (delivery, passenger, freight, rescue)
-    return 'misc';
-  }
-
-  // ── Helper: Sync Job Filter Buttons ────────────────────────────
-  function syncJobFilterButtons(): void {
-    const filters = ['all', 'trade', 'mining', 'misc'] as const;
-    for (const f of filters) {
-      const btn = noContractRefs.filterButtons[f];
-      btn.className = f === currentJobFilter ? 'filter-btn active' : 'filter-btn';
-    }
-  }
-
-  // ── Helper: Apply Job Filter ───────────────────────────────────
-  function applyJobFilter(gd: GameData): void {
-    const ship = getActiveShip(gd);
-    if (ship.location.status !== 'docked') return;
-
-    const locationId = ship.location.dockedAt || '';
-    const locationQuests = gd.availableQuests[locationId] || [];
-
-    // Filter trade route cards
-    for (const [questId, refs] of tradeQuestCards) {
-      const quest = locationQuests.find(q => q.id === questId);
-      if (!quest) continue;
-
-      const category = categorizeQuest(quest, gd);
-      const visible = currentJobFilter === 'all' || currentJobFilter === category;
-      refs.card.style.display = visible ? '' : 'none';
-    }
-
-    // Filter regular quest cards
-    for (const [questId, refs] of regularQuestCards) {
-      const quest = locationQuests.find(q => q.id === questId);
-      if (!quest) continue;
-
-      const category = categorizeQuest(quest, gd);
-      const visible = currentJobFilter === 'all' || currentJobFilter === category;
-      refs.card.style.display = visible ? '' : 'none';
-    }
-  }
-
-  // ── Helper: Sync Card Expansion ────────────────────────────────
-  function syncCardExpansion(refs: QuestCardRefs, questId: string): void {
-    const expanded = questExpandedState.get(questId) || false;
-
-    // Toggle icon rotation and text
-    refs.expandIcon.style.transform = expanded ? 'rotate(90deg)' : '';
-    refs.expandIcon.textContent = expanded ? '▼' : '▶';
-
-    // Show/hide details section
-    const displayValue = expanded ? '' : 'none';
-    refs.title.style.display = displayValue;
-    refs.description.style.display = displayValue;
-    refs.details.style.display = expanded ? 'flex' : 'none';
-
-    // buttonContainer: if collapsed, hide. If expanded, respect the canAccept logic
-    // from updateQuestCardRefs which sets this to 'flex' or 'none' based on canAccept
-    if (!expanded) {
-      refs.buttonContainer.style.display = 'none';
-    }
-
-    // Warnings and reason: only show if expanded and has content
-    refs.warningsDiv.style.display = expanded && refs.warningsDiv.textContent ? '' : 'none';
-    refs.reasonDiv.style.display = expanded && refs.reasonDiv.textContent ? '' : 'none';
   }
 
   // ── Update: Active Contract Phase ───────────────────────────
