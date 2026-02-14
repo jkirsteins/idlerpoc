@@ -29,6 +29,25 @@
   --text-secondary: #aaa;
   --text-muted: #888;
   --text-disabled: #666;
+  --text-dark-gray: #555;
+  --text-light-gray: #ccc;
+  --text-very-light-gray: #ddd;
+  --text-white: #fff;
+
+  /* Additional colors for UI states */
+  --yellow-bright: #fbbf24;
+  --red-light: #f87171;
+  --red-bright: #ff4444;
+  --red-error: #ef4444;
+  --red-critical: #dc2626;
+  --orange-bright: #ff8800;
+  --orange-medium: #fb923c;
+  --green-light: #81c784;
+  --blue-light: #4a90e2;
+  --purple-light: #a29bfe;
+  --gray-medium: #6b7280;
+  --gray-light: #a0a0b0;
+  --brown-dark: #665522;
 
   /* Typography */
   --font-display: 'IBM Plex Mono', 'Courier New', monospace;
