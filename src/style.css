@@ -578,6 +578,7 @@ button:active:not(:disabled) {
   font-size: 14px;
   white-space: nowrap;
   border-radius: 4px 4px 0 0;
+  overflow: visible;
   transition:
     color 0.2s,
     border-color 0.2s,
