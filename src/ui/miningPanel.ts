@@ -375,14 +375,14 @@ export function createMiningPanel(callbacks: MiningPanelCallbacks): {
     // ── Crew nudge ──
     if (!hasEquipment) {
       r.crewNudge.style.display = '';
-      r.crewNudge.style.color = '#e94560';
+      r.crewNudge.style.color = 'var(--brand-red)';
       r.crewNudge.style.borderColor = '#e94560';
       r.crewNudge.style.background = 'rgba(233,69,96,0.1)';
       r.crewNudge.textContent =
         'No mining equipment installed. Purchase at a station store.';
     } else if (miners.length === 0) {
       r.crewNudge.style.display = '';
-      r.crewNudge.style.color = '#ffa500';
+      r.crewNudge.style.color = 'var(--warning-orange)';
       r.crewNudge.style.borderColor = '#b87333';
       r.crewNudge.style.background = 'rgba(255,165,0,0.1)';
       r.crewNudge.textContent =
@@ -478,7 +478,7 @@ export function createMiningPanel(callbacks: MiningPanelCallbacks): {
         entry.infoEl.textContent = canAccess
           ? ''
           : `${formatCredits(ore.baseValue)}/unit`;
-        entry.infoEl.style.color = '#888';
+        entry.infoEl.style.color = 'var(--text-muted)';
       }
     }
 
@@ -500,7 +500,7 @@ export function createMiningPanel(callbacks: MiningPanelCallbacks): {
         const miningSkill = Math.floor(miner.skills.mining);
 
         if (miningSkill < (shipMiningEquip.miningLevelRequired ?? 0)) {
-          minerLine.style.color = '#ffa500';
+          minerLine.style.color = 'var(--warning-orange)';
           minerLine.textContent = `${miner.name} (Mining ${miningSkill}) \u2014 Skill too low to operate equipment`;
         } else {
           const targetOreId = selectedOreId || undefined;
@@ -525,7 +525,7 @@ export function createMiningPanel(callbacks: MiningPanelCallbacks): {
           if (targetOre) {
             minerLine.textContent += ` \u2192 ${targetOre.icon} ${targetOre.name}`;
           } else if (targetOreId) {
-            minerLine.style.color = '#888';
+            minerLine.style.color = 'var(--text-muted)';
             minerLine.textContent += ' \u2014 cannot mine selected ore';
           }
         }
@@ -548,7 +548,7 @@ export function createMiningPanel(callbacks: MiningPanelCallbacks): {
     const labelRight = document.createElement('span');
     if (remainingKg <= 0) {
       labelRight.textContent = `${formatMass(oreWeight)} / ${formatMass(maxCargoKg)} \u2014 FULL`;
-      labelRight.style.color = '#e94560';
+      labelRight.style.color = 'var(--brand-red)';
     } else {
       labelRight.textContent = `${formatMass(oreWeight)} / ${formatMass(maxCargoKg)}`;
       labelRight.style.color = '';
@@ -905,11 +905,11 @@ export function createMiningPanel(callbacks: MiningPanelCallbacks): {
     textCol.appendChild(profitEl);
 
     const revenueSpan = document.createElement('span');
-    revenueSpan.style.color = '#888';
+    revenueSpan.style.color = 'var(--text-muted)';
     profitEl.appendChild(revenueSpan);
 
     const costSpan = document.createElement('span');
-    costSpan.style.color = '#ffa500';
+    costSpan.style.color = 'var(--warning-orange)';
     profitEl.appendChild(costSpan);
 
     const netSpan = document.createElement('span');

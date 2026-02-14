@@ -440,7 +440,7 @@ export function createStationTab(
         'display: flex; flex-direction: column; align-items: flex-end; gap: 0.5rem;';
 
       const priceLabel = document.createElement('div');
-      priceLabel.style.color = '#4a9eff';
+      priceLabel.style.color = 'var(--accent-blue)';
       priceLabel.textContent = `${formatCredits(equipDef.value)}`;
       buyDiv.appendChild(priceLabel);
 
@@ -528,7 +528,7 @@ export function createStationTab(
       'display: flex; flex-direction: column; align-items: flex-end; gap: 0.25rem;';
 
     const priceLabel = document.createElement('div');
-    priceLabel.style.color = '#4a9eff';
+    priceLabel.style.color = 'var(--accent-blue)';
     buyDiv.appendChild(priceLabel);
 
     const tradeInLabel = document.createElement('div');
@@ -720,11 +720,11 @@ export function createStationTab(
           'font-size: 0.85rem; display: flex; align-items: center; gap: 4px;';
 
         const iconNameSpan = document.createElement('span');
-        iconNameSpan.style.color = '#ccc';
+        iconNameSpan.style.color = 'var(--text-light-gray)';
         info.appendChild(iconNameSpan);
 
         const quantitySpan = document.createElement('span');
-        quantitySpan.style.color = '#888';
+        quantitySpan.style.color = 'var(--text-muted)';
         info.appendChild(quantitySpan);
 
         const priceSpan = document.createElement('span');
@@ -865,7 +865,7 @@ export function createStationTab(
           'display: flex; flex-direction: column; align-items: flex-end; gap: 0.5rem;';
 
         const priceLabel = document.createElement('div');
-        priceLabel.style.color = '#4caf50';
+        priceLabel.style.color = 'var(--positive-green)';
         sellDiv.appendChild(priceLabel);
 
         const sellButton = document.createElement('button');
@@ -947,7 +947,7 @@ export function createStationTab(
       let nameText = `${equipDef.icon} ${equipDef.name}`;
       if (isCurrentlyInstalled) {
         nameText += ' (installed)';
-        refs.nameDiv.style.color = '#4caf50';
+        refs.nameDiv.style.color = 'var(--positive-green)';
       } else {
         refs.nameDiv.style.color = '';
       }

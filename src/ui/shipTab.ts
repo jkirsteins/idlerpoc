@@ -302,7 +302,7 @@ export function createShipTab(
     if (def?.skill) {
       skillBadge = document.createElement('span');
       skillBadge.style.fontSize = '0.7rem';
-      skillBadge.style.color = '#666';
+      skillBadge.style.color = 'var(--text-disabled)';
       skillBadge.style.marginLeft = '4px';
       skillBadge.textContent = `(${def.skill})`;
       jobLabel.appendChild(skillBadge);
@@ -358,7 +358,7 @@ export function createShipTab(
         const skillVal = Math.floor(crew.skills[def.skill]);
         const lvl = document.createElement('span');
         lvl.style.fontSize = '0.75rem';
-        lvl.style.color = '#4a9eff';
+        lvl.style.color = 'var(--accent-blue)';
         lvl.style.marginLeft = '4px';
         lvl.textContent = `[${skillVal}]`;
         crewSpan.appendChild(lvl);
@@ -413,7 +413,7 @@ export function createShipTab(
         refs.contentArea.appendChild(select);
       } else {
         const emptyLabel = document.createElement('span');
-        emptyLabel.style.color = '#555';
+        emptyLabel.style.color = 'var(--text-dark-gray)';
         emptyLabel.style.flex = '1';
         emptyLabel.textContent = '(empty)';
         refs.contentArea.appendChild(emptyLabel);
@@ -693,7 +693,7 @@ export function createShipTab(
 
     const repairInfo = document.createElement('div');
     repairInfo.style.fontSize = '0.8rem';
-    repairInfo.style.color = '#4ade80';
+    repairInfo.style.color = 'var(--positive-green)';
     repairInfo.style.padding = '0.25rem 0';
     card.appendChild(repairInfo);
 
@@ -1116,7 +1116,7 @@ function renderProfitabilitySection(gameData: GameData): HTMLElement {
   const title = document.createElement('div');
   title.textContent = '📊 Profitability:';
   title.style.fontWeight = 'bold';
-  title.style.color = '#4a9eff';
+  title.style.color = 'var(--accent-blue)';
   title.style.whiteSpace = 'nowrap';
   section.appendChild(title);
 
@@ -1735,7 +1735,7 @@ function renderShipStatsPanel(gameData: GameData): HTMLElement {
   title.textContent = 'SHIP CAPABILITIES';
   title.style.marginBottom = '0.5rem';
   title.style.fontSize = '0.9rem';
-  title.style.color = '#4a9eff';
+  title.style.color = 'var(--accent-blue)';
   section.appendChild(title);
 
   const statsGrid = document.createElement('div');
@@ -1892,7 +1892,7 @@ function renderEngineSlot(
   const engineSpecs = document.createElement('div');
   engineSpecs.className = 'equipment-item-specs';
   engineSpecs.style.fontSize = '0.75rem';
-  engineSpecs.style.color = '#888';
+  engineSpecs.style.color = 'var(--text-muted)';
   engineSpecs.style.marginTop = '0.25rem';
   engineSpecs.innerHTML = `Thrust: ${(engineDef.thrust / 1000).toFixed(1)}kN | Accel: ${accelerationG.toFixed(4)}g | \u0394V: ${(engineDef.maxDeltaV / 1000).toFixed(0)}km/s`;
   engineInfo.appendChild(engineSpecs);
@@ -1901,13 +1901,13 @@ function renderEngineSlot(
   engineState.className = 'equipment-item-state';
   if (ship.engine.state === 'off') {
     engineState.textContent = '\u26AB OFF';
-    engineState.style.color = '#ff6b6b';
+    engineState.style.color = 'var(--danger-red)';
   } else if (ship.engine.state === 'warming_up') {
     engineState.textContent = `\uD83D\uDFE1 WARMING ${ship.engine.warmupProgress.toFixed(0)}%`;
-    engineState.style.color = '#ffc107';
+    engineState.style.color = 'var(--warning-yellow)';
   } else {
     engineState.textContent = '\uD83D\uDFE2 ONLINE';
-    engineState.style.color = '#4caf50';
+    engineState.style.color = 'var(--positive-green)';
   }
   engineInfo.appendChild(engineState);
 
@@ -1994,16 +1994,16 @@ function renderGravityStatus(gameData: GameData): HTMLElement {
   const sourceValue = document.createElement('span');
   if (gravitySource.type === 'rotating_habitat') {
     sourceValue.textContent = 'Rotating Habitat';
-    sourceValue.style.color = '#4ade80';
+    sourceValue.style.color = 'var(--positive-green)';
   } else if (gravitySource.type === 'centrifuge') {
     sourceValue.textContent = 'Centrifuge Pod';
-    sourceValue.style.color = '#4ade80';
+    sourceValue.style.color = 'var(--positive-green)';
   } else if (gravitySource.type === 'thrust' && gravitySource.thrustG) {
     sourceValue.textContent = `Thrust (${gravitySource.thrustG.toFixed(2)}g)`;
-    sourceValue.style.color = '#fbbf24';
+    sourceValue.style.color = 'var(--yellow-bright)';
   } else {
     sourceValue.textContent = 'None';
-    sourceValue.style.color = '#f87171';
+    sourceValue.style.color = 'var(--red-light)';
   }
   sourceLine.appendChild(sourceValue);
   section.appendChild(sourceLine);
@@ -2025,7 +2025,7 @@ function renderGravityStatus(gameData: GameData): HTMLElement {
   ) {
     rate = 0;
     exposureValue.textContent = '0%';
-    exposureValue.style.color = '#4ade80';
+    exposureValue.style.color = 'var(--positive-green)';
   } else {
     if (gravitySource.type === 'thrust' && gravitySource.thrustG) {
       const reduction = Math.min(100, gravitySource.thrustG * 100);
@@ -2048,11 +2048,11 @@ function renderGravityStatus(gameData: GameData): HTMLElement {
     exposureValue.textContent = `${rate.toFixed(0)}%`;
 
     if (rate === 0) {
-      exposureValue.style.color = '#4ade80';
+      exposureValue.style.color = 'var(--positive-green)';
     } else if (rate <= 50) {
-      exposureValue.style.color = '#fbbf24';
+      exposureValue.style.color = 'var(--yellow-bright)';
     } else {
-      exposureValue.style.color = '#f87171';
+      exposureValue.style.color = 'var(--red-light)';
     }
 
     const modifiers: string[] = [];
@@ -2144,10 +2144,10 @@ function renderEquipmentSection(gameData: GameData): HTMLElement {
     categoryTag.style.fontWeight = 'bold';
     if (equipDef.category === 'defense') {
       categoryTag.style.background = 'rgba(248, 113, 113, 0.2)';
-      categoryTag.style.color = '#f87171';
+      categoryTag.style.color = 'var(--red-light)';
     } else {
       categoryTag.style.background = 'rgba(255, 255, 255, 0.1)';
-      categoryTag.style.color = '#888';
+      categoryTag.style.color = 'var(--text-muted)';
     }
     nameRow.appendChild(categoryTag);
 
@@ -2196,11 +2196,11 @@ function renderEquipmentSection(gameData: GameData): HTMLElement {
             : mode.value === 'auto'
               ? '#0f3460'
               : '#2e7d32';
-        btn.style.color = '#eee';
+        btn.style.color = 'var(--text-primary)';
         btn.style.fontWeight = 'bold';
       } else {
         btn.style.background = 'rgba(0,0,0,0.3)';
-        btn.style.color = '#888';
+        btn.style.color = 'var(--text-muted)';
       }
 
       btn.addEventListener('click', (e) => {

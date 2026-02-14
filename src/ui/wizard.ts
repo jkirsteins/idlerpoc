@@ -27,9 +27,21 @@ export function renderWizard(
   const container = document.createElement('div');
   container.className = 'wizard';
 
-  const title = document.createElement('h2');
-  title.textContent = 'New Game';
-  container.appendChild(title);
+  // Branded wizard header
+  const branding = document.createElement('div');
+  branding.className = 'wizard-branding';
+
+  const brandTitle = document.createElement('div');
+  brandTitle.className = 'game-title';
+  brandTitle.textContent = 'Starship Commander';
+  branding.appendChild(brandTitle);
+
+  const brandSub = document.createElement('div');
+  brandSub.className = 'game-subtitle';
+  brandSub.textContent = 'New Game';
+  branding.appendChild(brandSub);
+
+  container.appendChild(branding);
 
   const stepIndicator = document.createElement('div');
   stepIndicator.className = 'step-indicator';
@@ -248,7 +260,7 @@ function renderShipClassStep(
 
         const optionLabel = document.createElement('strong');
         optionLabel.textContent = '??? Unknown Vessel';
-        optionLabel.style.color = '#666';
+        optionLabel.style.color = 'var(--text-disabled)';
         header.appendChild(optionLabel);
 
         const lockedBadge = document.createElement('span');

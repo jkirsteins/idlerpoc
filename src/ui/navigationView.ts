@@ -805,7 +805,7 @@ function createLegendItemDom(
 
   const travelInfo = document.createElement('div');
   travelInfo.style.fontSize = '0.85em';
-  travelInfo.style.color = '#4ade80';
+  travelInfo.style.color = 'var(--positive-green)';
   travelInfo.style.marginTop = '0.25rem';
   travelInfo.style.display = 'none';
   details.appendChild(travelInfo);
@@ -813,7 +813,7 @@ function createLegendItemDom(
   const description = document.createElement('div');
   description.textContent = location.description;
   description.style.fontSize = '0.9em';
-  description.style.color = '#aaa';
+  description.style.color = 'var(--text-secondary)';
   details.appendChild(description);
 
   const contractsContainer = document.createElement('div');
@@ -828,7 +828,7 @@ function createLegendItemDom(
 
   const gravityWarning = document.createElement('div');
   gravityWarning.style.fontSize = '0.85em';
-  gravityWarning.style.color = '#fbbf24';
+  gravityWarning.style.color = 'var(--yellow-bright)';
   gravityWarning.style.marginTop = '0.25rem';
   gravityWarning.style.display = 'none';
   details.appendChild(gravityWarning);

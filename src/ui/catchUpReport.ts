@@ -146,7 +146,7 @@ export function renderCatchUpReport(
     capNote.textContent =
       `Away for ${formatRealDuration(report.elapsedRealSeconds)} — ` +
       `progress beyond ${formatRealDuration(FULL_RATE_SECONDS)} accrues at a reduced rate.`;
-    capNote.style.color = '#888';
+    capNote.style.color = 'var(--text-muted)';
     capNote.style.fontSize = '0.85rem';
     capNote.style.fontStyle = 'italic';
     capNote.style.marginTop = '0.25rem';
@@ -172,7 +172,7 @@ export function renderCatchUpReport(
     const contractLine = document.createElement('div');
     contractLine.className = 'catchup-progress-line';
     contractLine.textContent = `${report.contractsCompleted} contract${report.contractsCompleted > 1 ? 's' : ''} completed`;
-    contractLine.style.color = '#4ecdc4';
+    contractLine.style.color = 'var(--positive-teal)';
     fleetStats.appendChild(contractLine);
   }
 
@@ -180,7 +180,7 @@ export function renderCatchUpReport(
     const crewLostLine = document.createElement('div');
     crewLostLine.className = 'catchup-progress-line';
     crewLostLine.textContent = `${report.crewLost} crew member${report.crewLost > 1 ? 's' : ''} lost`;
-    crewLostLine.style.color = '#ff6b6b';
+    crewLostLine.style.color = 'var(--danger-red)';
     fleetStats.appendChild(crewLostLine);
   }
 
@@ -227,37 +227,37 @@ export function renderCatchUpReport(
         case 'trade_route':
           if (summary.activity.tripsCompleted > 0) {
             activityEl.textContent = `Made ${summary.activity.tripsCompleted} trip${summary.activity.tripsCompleted > 1 ? 's' : ''} on trade route ${summary.activity.routeName}`;
-            activityEl.style.color = '#4a9eff';
+            activityEl.style.color = 'var(--accent-blue)';
           } else {
             activityEl.textContent = `On trade route ${summary.activity.routeName} (no trips completed)`;
-            activityEl.style.color = '#a0a0b0';
+            activityEl.style.color = 'var(--gray-light)';
           }
           break;
         case 'mining_route':
           if (summary.activity.tripsCompleted > 0) {
             activityEl.textContent = `Made ${summary.activity.tripsCompleted} trip${summary.activity.tripsCompleted > 1 ? 's' : ''} on mining route ${summary.activity.routeName}`;
-            activityEl.style.color = '#81c784';
+            activityEl.style.color = 'var(--green-light)';
           } else {
             activityEl.textContent = `On mining route ${summary.activity.routeName} (no trips completed)`;
-            activityEl.style.color = '#a0a0b0';
+            activityEl.style.color = 'var(--gray-light)';
           }
           break;
         case 'completed_trips':
           activityEl.textContent = `Made ${summary.activity.tripsCompleted} trip${summary.activity.tripsCompleted > 1 ? 's' : ''}`;
-          activityEl.style.color = '#4caf50';
+          activityEl.style.color = 'var(--positive-green)';
           break;
         case 'arrived':
           activityEl.textContent = `Arrived at ${summary.activity.destination}`;
-          activityEl.style.color = '#4caf50';
+          activityEl.style.color = 'var(--positive-green)';
           break;
         case 'en_route':
           activityEl.textContent = `En route to ${summary.activity.destination}`;
-          activityEl.style.color = '#a0a0b0';
+          activityEl.style.color = 'var(--gray-light)';
           activityEl.style.fontStyle = 'italic';
           break;
         case 'idle':
           activityEl.textContent = `Docked at ${summary.activity.location}`;
-          activityEl.style.color = '#a0a0b0';
+          activityEl.style.color = 'var(--gray-light)';
           break;
       }
 
@@ -310,7 +310,7 @@ export function renderCatchUpReport(
         const powerLine = document.createElement('div');
         powerLine.className = 'catchup-ship-event';
         powerLine.textContent = `Made ${summary.powerChanges} power management adjustment${summary.powerChanges > 1 ? 's' : ''}`;
-        powerLine.style.color = '#888';
+        powerLine.style.color = 'var(--text-muted)';
         powerLine.style.paddingLeft = '0.75rem';
         powerLine.style.fontSize = '0.85rem';
         shipDiv.appendChild(powerLine);
@@ -379,7 +379,7 @@ export function renderCatchUpReport(
     if (avgHealthLost > 0) {
       const healthLine = document.createElement('div');
       healthLine.textContent = `Crew health: -${avgHealthLost.toFixed(0)} average across fleet`;
-      healthLine.style.color = '#ffa500';
+      healthLine.style.color = 'var(--warning-orange)';
       impact.appendChild(healthLine);
     }
 
@@ -398,7 +398,7 @@ export function renderCatchUpReport(
     const quietLine = document.createElement('div');
     quietLine.className = 'catchup-progress-line';
     quietLine.textContent = 'All quiet — nothing notable happened.';
-    quietLine.style.color = '#a0a0b0';
+    quietLine.style.color = 'var(--gray-light)';
     quietSection.appendChild(quietLine);
     container.appendChild(quietSection);
   }

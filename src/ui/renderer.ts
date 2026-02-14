@@ -28,6 +28,7 @@ import {
   getProvisionsSurvivalDays,
 } from '../provisionsSystem';
 import { formatMass } from '../formatting';
+import { iconPlay, iconPause } from './icons';
 import { formatGameDate } from '../timeSystem';
 import { calculateDailyLedger } from '../dailyLedger';
 import type { PlayingTab } from './types';
@@ -213,7 +214,9 @@ export function render(
   const titleHeader = document.createElement('div');
   titleHeader.className = 'game-header';
   const title = document.createElement('h1');
+  title.className = 'game-title game-title-glow';
   title.textContent = 'Starship Commander';
+  title.setAttribute('data-text', 'Starship Commander');
   titleHeader.appendChild(title);
   wrapper.appendChild(titleHeader);
 
@@ -262,11 +265,17 @@ export function render(
 
   container.appendChild(wrapper);
 
-  // Version badge
+  // Version badge with compact wordmark
   const versionBadge = document.createElement('div');
   versionBadge.className = 'version-badge';
-  versionBadge.textContent = `v${__GIT_COMMIT_SHA__.substring(0, 7)}`;
-  versionBadge.title = `Git commit: ${__GIT_COMMIT_SHA__}`;
+  const wordmark = document.createElement('span');
+  wordmark.className = 'wordmark';
+  wordmark.textContent = 'SC';
+  versionBadge.appendChild(wordmark);
+  versionBadge.appendChild(
+    document.createTextNode(`v${__GIT_COMMIT_SHA__.substring(0, 7)}`)
+  );
+  versionBadge.title = `Starship Commander \u2014 Git commit: ${__GIT_COMMIT_SHA__}`;
   container.appendChild(versionBadge);
 }
 
@@ -680,11 +689,11 @@ function createMobileHeaderBar(
     // Fuel status text (color is not the sole indicator per UX guidelines)
     if (fuelPct < 15) {
       fuelStatusSpan.textContent = ' CRITICAL';
-      fuelStatusSpan.style.color = '#e94560';
+      fuelStatusSpan.style.color = 'var(--brand-red)';
       fuelStatusSpan.style.display = '';
     } else if (fuelPct < 25) {
       fuelStatusSpan.textContent = ' LOW';
-      fuelStatusSpan.style.color = '#ffc107';
+      fuelStatusSpan.style.color = 'var(--warning-yellow)';
       fuelStatusSpan.style.display = '';
     } else {
       fuelStatusSpan.style.display = 'none';
@@ -703,8 +712,10 @@ function createMobileHeaderBar(
         : formatMass(Math.round(ship.provisionsKg));
     provValueSpan.style.color = provColor;
 
-    // Play/pause
-    playPauseBtn.textContent = gd.isPaused ? '\u25B6' : '\u23F8';
+    // Play/pause (swap SVG icon)
+    if (playPauseBtn.firstChild)
+      playPauseBtn.removeChild(playPauseBtn.firstChild);
+    playPauseBtn.appendChild(gd.isPaused ? iconPlay(16) : iconPause(16));
 
     // Date
     dateSpan.textContent = formatGameDate(gd.gameTime);
@@ -750,6 +761,23 @@ function createMobileHeaderBar(
 function renderNoGame(callbacks: RendererCallbacks): HTMLElement {
   const div = document.createElement('div');
   div.className = 'no-game';
+
+  // Branded splash title
+  const branding = document.createElement('div');
+  branding.className = 'no-game-branding';
+
+  const splashTitle = document.createElement('div');
+  splashTitle.className = 'game-title game-title-glow';
+  splashTitle.textContent = 'Starship Commander';
+  splashTitle.setAttribute('data-text', 'Starship Commander');
+  branding.appendChild(splashTitle);
+
+  const tagline = document.createElement('div');
+  tagline.className = 'game-subtitle';
+  tagline.textContent = 'Trade \u2022 Mine \u2022 Explore';
+  branding.appendChild(tagline);
+
+  div.appendChild(branding);
 
   const message = document.createElement('p');
   message.textContent = 'No ship found. Begin your journey across the stars!';

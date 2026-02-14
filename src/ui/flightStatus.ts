@@ -248,7 +248,7 @@ export function createFlightStatusComponent(
       const noAssistText = 'Gravity assists: None on this trajectory';
       if (gravAssistEl.textContent !== noAssistText) {
         gravAssistEl.textContent = noAssistText;
-        gravAssistEl.style.color = '#666';
+        gravAssistEl.style.color = 'var(--text-disabled)';
       }
     } else {
       const parts: string[] = [];

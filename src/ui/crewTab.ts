@@ -178,7 +178,7 @@ function createSkillBlock(
   const chevron = document.createElement('span');
   chevron.textContent = '▶';
   chevron.style.fontSize = '0.8rem';
-  chevron.style.color = '#888';
+  chevron.style.color = 'var(--text-muted)';
   chevron.style.transition = 'transform 0.2s';
   chevron.style.flexShrink = '0';
   chevron.style.marginLeft = '0.5rem';
@@ -189,7 +189,7 @@ function createSkillBlock(
   // Summary line
   const summaryLine = document.createElement('div');
   summaryLine.style.fontSize = '0.8rem';
-  summaryLine.style.color = '#888';
+  summaryLine.style.color = 'var(--text-muted)';
   summaryLine.style.marginTop = '0.25rem';
   summaryLine.style.marginLeft = '0.5rem';
   summaryLine.style.display = 'flex';
@@ -280,7 +280,7 @@ function updateMasterySummary(
   // Pool percentage
   if (state.pool.maxXp === 0) {
     refs.summaryPoolPct.textContent = 'No items discovered';
-    refs.summaryPoolPct.style.color = '#666';
+    refs.summaryPoolPct.style.color = 'var(--text-disabled)';
     refs.summaryItemCount.textContent = '';
     refs.summaryHighestLevel.textContent = '';
     refs.summaryActiveCheckpoints.textContent = '';
@@ -291,16 +291,16 @@ function updateMasterySummary(
 
     // Item count
     refs.summaryItemCount.textContent = `${itemCount} item${itemCount !== 1 ? 's' : ''}`;
-    refs.summaryItemCount.style.color = '#888';
+    refs.summaryItemCount.style.color = 'var(--text-muted)';
 
     // Highest level
     refs.summaryHighestLevel.textContent = `Best: Lv ${highestLevel}`;
     if (highestLevel >= 99) {
-      refs.summaryHighestLevel.style.color = '#fbbf24';
+      refs.summaryHighestLevel.style.color = 'var(--yellow-bright)';
     } else if (highestLevel >= 50) {
-      refs.summaryHighestLevel.style.color = '#4ade80';
+      refs.summaryHighestLevel.style.color = 'var(--positive-green)';
     } else {
-      refs.summaryHighestLevel.style.color = '#888';
+      refs.summaryHighestLevel.style.color = 'var(--text-muted)';
     }
 
     // Active checkpoints
@@ -535,7 +535,7 @@ export function createCrewTab(
 
     const unpaidBadge = document.createElement('div');
     unpaidBadge.className = 'unpaid-badge';
-    unpaidBadge.style.color = '#ff4444';
+    unpaidBadge.style.color = 'var(--red-bright)';
     unpaidBadge.style.fontSize = '0.75rem';
     unpaidBadge.style.fontWeight = 'bold';
     unpaidBadge.style.display = 'none';
@@ -626,16 +626,16 @@ export function createCrewTab(
   serviceSection.style.gap = '0.75rem';
   serviceSection.style.flexWrap = 'wrap';
   serviceSection.style.fontSize = '0.85rem';
-  serviceSection.style.color = '#aaa';
+  serviceSection.style.color = 'var(--text-secondary)';
 
   const serviceAssignment = document.createElement('span');
   serviceAssignment.style.whiteSpace = 'nowrap';
-  serviceAssignment.style.color = '#ccc';
+  serviceAssignment.style.color = 'var(--text-light-gray)';
   serviceSection.appendChild(serviceAssignment);
 
   const serviceSeparator1 = document.createElement('span');
   serviceSeparator1.textContent = '·';
-  serviceSeparator1.style.color = '#666';
+  serviceSeparator1.style.color = 'var(--text-disabled)';
   serviceSection.appendChild(serviceSeparator1);
 
   const serviceShipTenure = document.createElement('span');
@@ -644,7 +644,7 @@ export function createCrewTab(
 
   const serviceSeparator2 = document.createElement('span');
   serviceSeparator2.textContent = '·';
-  serviceSeparator2.style.color = '#666';
+  serviceSeparator2.style.color = 'var(--text-disabled)';
   serviceSeparator2.style.display = 'none';
   serviceSection.appendChild(serviceSeparator2);
 
@@ -655,12 +655,12 @@ export function createCrewTab(
 
   const serviceSeparator3 = document.createElement('span');
   serviceSeparator3.textContent = '·';
-  serviceSeparator3.style.color = '#666';
+  serviceSeparator3.style.color = 'var(--text-disabled)';
   serviceSection.appendChild(serviceSeparator3);
 
   const serviceOrigin = document.createElement('span');
   serviceOrigin.style.whiteSpace = 'nowrap';
-  serviceOrigin.style.color = '#888';
+  serviceOrigin.style.color = 'var(--text-muted)';
   serviceSection.appendChild(serviceOrigin);
 
   detailPanel.appendChild(serviceSection);
@@ -686,9 +686,9 @@ export function createCrewTab(
   healthRow.style.whiteSpace = 'nowrap';
   const healthLabel = document.createElement('span');
   healthLabel.textContent = 'HP:';
-  healthLabel.style.color = '#888';
+  healthLabel.style.color = 'var(--text-muted)';
   const healthValue = document.createElement('span');
-  healthValue.style.color = '#eee';
+  healthValue.style.color = 'var(--text-primary)';
   healthRow.appendChild(healthLabel);
   healthRow.appendChild(healthValue);
   statsSection.appendChild(healthRow);
@@ -700,9 +700,9 @@ export function createCrewTab(
   attackRow.style.whiteSpace = 'nowrap';
   const attackLabel = document.createElement('span');
   attackLabel.textContent = 'ATK:';
-  attackLabel.style.color = '#888';
+  attackLabel.style.color = 'var(--text-muted)';
   const attackValue = document.createElement('span');
-  attackValue.style.color = '#eee';
+  attackValue.style.color = 'var(--text-primary)';
   attackRow.appendChild(attackLabel);
   attackRow.appendChild(attackValue);
   statsSection.appendChild(attackRow);
@@ -714,9 +714,9 @@ export function createCrewTab(
   salaryRow.style.whiteSpace = 'nowrap';
   const salaryLabel = document.createElement('span');
   salaryLabel.textContent = 'Salary:';
-  salaryLabel.style.color = '#888';
+  salaryLabel.style.color = 'var(--text-muted)';
   const salaryValue = document.createElement('span');
-  salaryValue.style.color = '#eee';
+  salaryValue.style.color = 'var(--text-primary)';
   salaryRow.appendChild(salaryLabel);
   salaryRow.appendChild(salaryValue);
   statsSection.appendChild(salaryRow);
@@ -724,7 +724,7 @@ export function createCrewTab(
   // Unpaid warning (inline)
   const unpaidWarning = document.createElement('span');
   unpaidWarning.className = 'unpaid-warning';
-  unpaidWarning.style.color = '#ff4444';
+  unpaidWarning.style.color = 'var(--red-bright)';
   unpaidWarning.style.fontWeight = 'bold';
   unpaidWarning.style.whiteSpace = 'nowrap';
   unpaidWarning.style.display = 'none';
@@ -742,7 +742,7 @@ export function createCrewTab(
 
   const exposureTitle = document.createElement('span');
   exposureTitle.style.whiteSpace = 'nowrap';
-  exposureTitle.style.color = '#aaa';
+  exposureTitle.style.color = 'var(--text-secondary)';
   exposureSection.appendChild(exposureTitle);
 
   // Exposure progress bar container (compact)
@@ -815,7 +815,7 @@ export function createCrewTab(
 
   const radTitle = document.createElement('span');
   radTitle.style.whiteSpace = 'nowrap';
-  radTitle.style.color = '#aaa';
+  radTitle.style.color = 'var(--text-secondary)';
   radiationSection.appendChild(radTitle);
 
   const radContent = document.createElement('div');
@@ -842,7 +842,7 @@ export function createCrewTab(
   trainingDiv.style.margin = '0';
   trainingDiv.style.background = 'none';
   trainingDiv.style.fontSize = '0.85rem';
-  trainingDiv.style.color = '#4ade80';
+  trainingDiv.style.color = 'var(--positive-green)';
   trainingDiv.style.display = 'none';
   detailPanel.appendChild(trainingDiv);
 
@@ -856,12 +856,12 @@ export function createCrewTab(
 
   const transferTitle = document.createElement('span');
   transferTitle.textContent = 'Transfer:';
-  transferTitle.style.color = '#aaa';
+  transferTitle.style.color = 'var(--text-secondary)';
   transferTitle.style.whiteSpace = 'nowrap';
   transferSection.appendChild(transferTitle);
 
   const transferNoShipsMsg = document.createElement('span');
-  transferNoShipsMsg.style.color = '#888';
+  transferNoShipsMsg.style.color = 'var(--text-muted)';
   transferNoShipsMsg.style.whiteSpace = 'nowrap';
   transferNoShipsMsg.textContent = 'Dock to transfer';
   transferNoShipsMsg.style.display = 'none';
@@ -877,7 +877,7 @@ export function createCrewTab(
   transferSelect.style.background = 'rgba(0, 0, 0, 0.5)';
   transferSelect.style.border = '1px solid #666';
   transferSelect.style.borderRadius = '4px';
-  transferSelect.style.color = '#fff';
+  transferSelect.style.color = 'var(--text-white)';
   transferSelect.style.fontSize = '0.85rem';
 
   const placeholderOption = document.createElement('option');
@@ -925,7 +925,7 @@ export function createCrewTab(
 
   const specBadge = document.createElement('span');
   specBadge.style.fontSize = '0.8rem';
-  specBadge.style.color = '#4ade80';
+  specBadge.style.color = 'var(--positive-green)';
   specBadge.style.fontWeight = 'bold';
   specBadge.style.display = 'none';
   skillsHeader.appendChild(specBadge);
@@ -956,7 +956,7 @@ export function createCrewTab(
   combatValue.className = 'skill-value';
   combatValue.textContent = 'Equipped';
   combatValue.style.fontStyle = 'italic';
-  combatValue.style.color = '#888';
+  combatValue.style.color = 'var(--text-muted)';
   combatRow.appendChild(combatLabel);
   combatRow.appendChild(combatValue);
 
@@ -974,7 +974,7 @@ export function createCrewTab(
   const specLabel = document.createElement('div');
   specLabel.style.fontSize = '0.85rem';
   specLabel.style.marginBottom = '0.5rem';
-  specLabel.style.color = '#4ade80';
+  specLabel.style.color = 'var(--positive-green)';
   specLabel.textContent =
     'Specialization available! +50% training in chosen skill, -25% in others.';
   specSection.appendChild(specLabel);
@@ -1293,23 +1293,23 @@ export function createCrewTab(
     if (exposureLevel === 'none') {
       exposureBarFill.style.backgroundColor = '#4ade80';
       exposureStatusText.textContent = 'Normal';
-      exposureStatusText.style.color = '#4ade80';
+      exposureStatusText.style.color = 'var(--positive-green)';
     } else if (exposureLevel === 'minor') {
       exposureBarFill.style.backgroundColor = '#fbbf24';
       exposureStatusText.textContent = 'Minor';
-      exposureStatusText.style.color = '#fbbf24';
+      exposureStatusText.style.color = 'var(--yellow-bright)';
     } else if (exposureLevel === 'moderate') {
       exposureBarFill.style.backgroundColor = '#fb923c';
       exposureStatusText.textContent = 'Moderate';
-      exposureStatusText.style.color = '#fb923c';
+      exposureStatusText.style.color = 'var(--orange-medium)';
     } else if (exposureLevel === 'severe') {
       exposureBarFill.style.backgroundColor = '#f87171';
       exposureStatusText.textContent = 'Severe';
-      exposureStatusText.style.color = '#f87171';
+      exposureStatusText.style.color = 'var(--red-light)';
     } else {
       exposureBarFill.style.backgroundColor = '#dc2626';
       exposureStatusText.textContent = 'Critical';
-      exposureStatusText.style.color = '#dc2626';
+      exposureStatusText.style.color = 'var(--red-critical)';
     }
 
     // Build comprehensive tooltip
@@ -1441,7 +1441,7 @@ export function createCrewTab(
 
     if (engineRadiation === 0) {
       radTitle.textContent = 'Rad: N/A';
-      radTitle.style.color = '#555';
+      radTitle.style.color = 'var(--text-dark-gray)';
       tooltipParts.push(
         'Chemical engines produce no radiation. Higher-class drives require shielding.'
       );
@@ -1469,7 +1469,7 @@ export function createCrewTab(
         const damagePerDay = effectiveDamage * TICKS_PER_DAY;
 
         radTitle.textContent = `Rad: -${damagePerDay.toFixed(1)} HP/d`;
-        radTitle.style.color = '#f87171';
+        radTitle.style.color = 'var(--red-light)';
 
         tooltipParts.push(
           `Net Radiation: ${netRadiation.toFixed(0)} rad (${engineRadiation} engine - ${totalShielding.toFixed(0)} shield)`
@@ -1490,14 +1490,14 @@ export function createCrewTab(
         }
       } else if (ship.engine.state === 'online' && netRadiation === 0) {
         radTitle.textContent = 'Rad: Shielded';
-        radTitle.style.color = '#4ade80';
+        radTitle.style.color = 'var(--positive-green)';
 
         tooltipParts.push(
           `Engine output ${engineRadiation} rad fully absorbed by shielding (${totalShielding.toFixed(0)} capacity).`
         );
       } else {
         radTitle.textContent = 'Rad: Off';
-        radTitle.style.color = '#888';
+        radTitle.style.color = 'var(--text-muted)';
 
         tooltipParts.push(
           `Engine emits ${engineRadiation} rad when online. Shielding capacity: ${totalShielding.toFixed(0)}.`

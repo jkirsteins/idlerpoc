@@ -307,7 +307,7 @@ export function createGamepediaTab(
 
     const separator = document.createElement('span');
     separator.textContent = ' > ';
-    separator.style.color = '#666';
+    separator.style.color = 'var(--text-disabled)';
     breadcrumb.appendChild(separator);
 
     const catLink = document.createElement('button');
@@ -324,12 +324,12 @@ export function createGamepediaTab(
 
     const sep2 = document.createElement('span');
     sep2.textContent = ' > ';
-    sep2.style.color = '#666';
+    sep2.style.color = 'var(--text-disabled)';
     breadcrumb.appendChild(sep2);
 
     const current = document.createElement('span');
     current.textContent = article.title;
-    current.style.color = '#eee';
+    current.style.color = 'var(--text-primary)';
     breadcrumb.appendChild(current);
 
     mainArea.appendChild(breadcrumb);

@@ -205,11 +205,11 @@ export function createRefuelDialog(
     `;
     btn.addEventListener('mouseenter', () => {
       btn.style.background = '#4a90e2';
-      btn.style.color = '#fff';
+      btn.style.color = 'var(--text-white)';
     });
     btn.addEventListener('mouseleave', () => {
-      btn.style.background = '#16213e';
-      btn.style.color = '#4a90e2';
+      btn.style.background = 'var(--bg-container)';
+      btn.style.color = 'var(--blue-light)';
     });
     btn.addEventListener('click', () => {
       const amount = getAmount();
@@ -252,7 +252,7 @@ export function createRefuelDialog(
   `;
 
   const costLabel = document.createElement('div');
-  costLabel.style.color = '#888';
+  costLabel.style.color = 'var(--text-muted)';
   costLabel.style.fontSize = '0.9rem';
   costLabel.style.marginBottom = '0.25rem';
   costLabel.textContent = 'Total Cost:';
@@ -323,7 +323,7 @@ export function createRefuelDialog(
     cancelBtn.style.background = '#0f1729';
   });
   cancelBtn.addEventListener('mouseleave', () => {
-    cancelBtn.style.background = '#16213e';
+    cancelBtn.style.background = 'var(--bg-container)';
   });
   cancelBtn.addEventListener('click', () => {
     callbacks.onCancel();

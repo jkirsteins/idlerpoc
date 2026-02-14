@@ -31,7 +31,7 @@ export function createSettingsTab(
   const statsTitle = document.createElement('h4');
   statsTitle.textContent = 'Statistics';
   statsTitle.style.marginBottom = '1rem';
-  statsTitle.style.color = '#4a9eff';
+  statsTitle.style.color = 'var(--accent-blue)';
   statsSection.appendChild(statsTitle);
 
   // Lifetime Credits row
@@ -82,7 +82,7 @@ export function createSettingsTab(
 
   const progressFill = document.createElement('div');
   progressFill.style.height = '100%';
-  progressFill.style.background = '#4a9eff';
+  progressFill.style.background = 'var(--accent-blue)';
   progressFill.style.transition = 'width 0.3s ease';
   progressBar.appendChild(progressFill);
   statsSection.appendChild(progressBar);
@@ -92,7 +92,7 @@ export function createSettingsTab(
   encounterTitle.style.marginTop = '1.5rem';
   encounterTitle.style.marginBottom = '0.5rem';
   encounterTitle.style.fontWeight = 'bold';
-  encounterTitle.style.color = '#aaa';
+  encounterTitle.style.color = 'var(--text-secondary)';
   encounterTitle.textContent = 'Encounters:';
   statsSection.appendChild(encounterTitle);
 
@@ -136,7 +136,7 @@ export function createSettingsTab(
   const autoPauseTitle = document.createElement('h4');
   autoPauseTitle.textContent = 'Auto-Pause Settings';
   autoPauseTitle.style.marginBottom = '1rem';
-  autoPauseTitle.style.color = '#4a9eff';
+  autoPauseTitle.style.color = 'var(--accent-blue)';
   autoPauseSection.appendChild(autoPauseTitle);
 
   const autoPauseDesc = document.createElement('p');
@@ -197,13 +197,13 @@ export function createSettingsTab(
     const labelText = document.createElement('div');
     labelText.textContent = setting.label;
     labelText.style.fontWeight = '500';
-    labelText.style.color = '#fff';
+    labelText.style.color = 'var(--text-white)';
     textDiv.appendChild(labelText);
 
     const descText = document.createElement('div');
     descText.textContent = setting.description;
     descText.style.fontSize = '12px';
-    descText.style.color = '#aaa';
+    descText.style.color = 'var(--text-secondary)';
     descText.style.marginTop = '2px';
     textDiv.appendChild(descText);
 
@@ -227,7 +227,7 @@ export function createSettingsTab(
 
   const debugTitle = document.createElement('h4');
   debugTitle.style.marginBottom = '1rem';
-  debugTitle.style.color = '#4a9eff';
+  debugTitle.style.color = 'var(--accent-blue)';
 
   const debugTitleText = document.createElement('span');
   debugTitleText.textContent = 'State Backup';
@@ -240,7 +240,7 @@ export function createSettingsTab(
   debugBadge.style.padding = '2px 6px';
   debugBadge.style.borderRadius = '4px';
   debugBadge.style.background = 'rgba(251, 191, 36, 0.2)';
-  debugBadge.style.color = '#fbbf24';
+  debugBadge.style.color = 'var(--yellow-bright)';
   debugBadge.style.fontWeight = '600';
   debugBadge.style.verticalAlign = 'middle';
   debugTitle.appendChild(debugBadge);

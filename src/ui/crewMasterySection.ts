@@ -192,7 +192,7 @@ function createMasteryItemRow(
 
   // Right span children — created once, toggled via display
   const lockSpan = document.createElement('span');
-  lockSpan.style.color = '#665522';
+  lockSpan.style.color = 'var(--brown-dark)';
   lockSpan.style.fontSize = '0.75rem';
   lockSpan.style.display = 'none';
   rightSpan.appendChild(lockSpan);
@@ -202,7 +202,7 @@ function createMasteryItemRow(
   rightSpan.appendChild(levelSpan);
 
   const undiscoveredSpan = document.createElement('span');
-  undiscoveredSpan.style.color = '#555';
+  undiscoveredSpan.style.color = 'var(--text-dark-gray)';
   undiscoveredSpan.style.fontSize = '0.75rem';
   undiscoveredSpan.style.display = 'none';
   rightSpan.appendChild(undiscoveredSpan);
@@ -246,7 +246,7 @@ function createMasteryItemRow(
   row.appendChild(hintLine);
 
   const hintActiveSpan = document.createElement('span');
-  hintActiveSpan.style.color = '#4ade80';
+  hintActiveSpan.style.color = 'var(--positive-green)';
   hintActiveSpan.style.display = 'none';
   hintLine.appendChild(hintActiveSpan);
 
@@ -256,7 +256,7 @@ function createMasteryItemRow(
   hintLine.appendChild(hintSepSpan);
 
   const hintNextSpan = document.createElement('span');
-  hintNextSpan.style.color = '#666';
+  hintNextSpan.style.color = 'var(--text-disabled)';
   hintNextSpan.style.display = 'none';
   hintLine.appendChild(hintNextSpan);
 
@@ -492,7 +492,7 @@ export function createMasterySection(
   poolHeader.style.marginBottom = '3px';
 
   const poolLabel = document.createElement('span');
-  poolLabel.style.color = '#aaa';
+  poolLabel.style.color = 'var(--text-secondary)';
   poolLabel.textContent = 'Mastery Pool';
   poolHeader.appendChild(poolLabel);
 
@@ -535,7 +535,7 @@ export function createMasterySection(
   itemContainer.style.marginTop = '0.5rem';
 
   const itemHeader = document.createElement('div');
-  itemHeader.style.color = '#aaa';
+  itemHeader.style.color = 'var(--text-secondary)';
   itemHeader.style.marginBottom = '4px';
   itemContainer.appendChild(itemHeader);
 
@@ -653,15 +653,15 @@ export function updateMasterySection(
       const indicator = document.createElement('span');
       if (cp.active) {
         indicator.textContent = '●';
-        indicator.style.color = '#fbbf24';
+        indicator.style.color = 'var(--yellow-bright)';
       } else {
         indicator.textContent = '○';
-        indicator.style.color = '#555';
+        indicator.style.color = 'var(--text-dark-gray)';
       }
       row.appendChild(indicator);
 
       const threshLabel = document.createElement('span');
-      threshLabel.style.color = '#888';
+      threshLabel.style.color = 'var(--text-muted)';
       threshLabel.style.minWidth = '2.5rem';
       threshLabel.textContent = `${Math.round(cp.threshold * 100)}%`;
       row.appendChild(threshLabel);

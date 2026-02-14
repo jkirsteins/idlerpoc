@@ -131,7 +131,7 @@ export function createFleetTab(
   welcomeTitle.style.marginBottom = '0.5rem';
   welcomeSection.appendChild(welcomeTitle);
   const welcomeMessage = document.createElement('p');
-  welcomeMessage.style.color = '#aaa';
+  welcomeMessage.style.color = 'var(--text-secondary)';
   welcomeMessage.style.fontSize = '0.9rem';
   welcomeMessage.style.lineHeight = '1.6';
   welcomeMessage.textContent =
@@ -153,7 +153,7 @@ export function createFleetTab(
   dockedHint.style.background = 'rgba(0, 0, 0, 0.3)';
   dockedHint.style.border = '1px solid #444';
   dockedHint.style.borderRadius = '4px';
-  dockedHint.style.color = '#aaa';
+  dockedHint.style.color = 'var(--text-secondary)';
   dockedHint.style.fontSize = '0.9rem';
   dockedHint.textContent = '💡 Dock at a station to purchase additional ships.';
   container.appendChild(dockedHint);
@@ -265,7 +265,7 @@ function renderFleetMap(
     // Location name
     const name = document.createElement('div');
     name.style.fontSize = '0.7rem';
-    name.style.color = '#888';
+    name.style.color = 'var(--text-muted)';
     name.style.whiteSpace = 'nowrap';
     name.textContent = location.name;
     marker.appendChild(name);
@@ -352,7 +352,7 @@ function renderFleetMap(
   const capabilityTitle = document.createElement('div');
   capabilityTitle.style.fontWeight = 'bold';
   capabilityTitle.style.marginBottom = '0.5rem';
-  capabilityTitle.style.color = '#aaa';
+  capabilityTitle.style.color = 'var(--text-secondary)';
   capabilityTitle.textContent = 'Reachability Matrix';
   capabilitySection.appendChild(capabilityTitle);
 
@@ -367,7 +367,7 @@ function renderFleetMap(
   const headerCell = document.createElement('div');
   headerCell.style.padding = '4px';
   headerCell.style.fontWeight = 'bold';
-  headerCell.style.color = '#888';
+  headerCell.style.color = 'var(--text-muted)';
   headerCell.textContent = 'Location';
   grid.appendChild(headerCell);
 
@@ -390,7 +390,7 @@ function renderFleetMap(
   for (const location of gameData.world.locations) {
     const locationCell = document.createElement('div');
     locationCell.style.padding = '4px';
-    locationCell.style.color = '#aaa';
+    locationCell.style.color = 'var(--text-secondary)';
     locationCell.textContent = location.name;
     grid.appendChild(locationCell);
 
@@ -412,7 +412,7 @@ function renderFleetMap(
       if (currentLocationId && location.id === currentLocationId) {
         cell.textContent = '📍';
         cell.title = 'Current location';
-        cell.style.color = '#4ade80';
+        cell.style.color = 'var(--positive-green)';
       } else if (currentLocation) {
         // Check if ship can reach this location
         const shipClass = getShipClass(ship.classId);
@@ -423,11 +423,11 @@ function renderFleetMap(
           if (fuelCostKg <= ship.fuelKg) {
             cell.textContent = '✓';
             cell.title = `Can reach (${formatFuelMass(fuelCostKg)} fuel)`;
-            cell.style.color = '#4ade80';
+            cell.style.color = 'var(--positive-green)';
           } else {
             cell.textContent = '✗';
             cell.title = `Insufficient fuel (need ${formatFuelMass(fuelCostKg)}, have ${formatFuelMass(ship.fuelKg)})`;
-            cell.style.color = '#ff4444';
+            cell.style.color = 'var(--red-bright)';
           }
         }
       }
@@ -477,7 +477,7 @@ function renderFleetPerformanceDashboard(gameData: GameData): HTMLElement {
   fleetBadge.style.borderRadius = '3px';
   fleetBadge.style.background = 'rgba(74, 158, 255, 0.2)';
   fleetBadge.style.border = '1px solid rgba(74, 158, 255, 0.4)';
-  fleetBadge.style.color = '#4a9eff';
+  fleetBadge.style.color = 'var(--accent-blue)';
   titleRow.appendChild(fleetBadge);
 
   section.appendChild(titleRow);
@@ -624,7 +624,7 @@ function renderAllShipsOperational(): HTMLElement {
 
   const title = document.createElement('h3');
   title.textContent = 'Fleet Status: All Ships Operational';
-  title.style.color = '#aaa';
+  title.style.color = 'var(--text-secondary)';
   title.style.fontSize = '0.9rem';
   section.appendChild(title);
 
@@ -646,7 +646,7 @@ function renderNeedsAttentionQueue(ships: Ship[]): HTMLElement {
   const title = document.createElement('h3');
   title.textContent = `⚠️ Needs Attention (${ships.length} ${ships.length === 1 ? 'Ship' : 'Ships'})`;
   title.style.marginBottom = '0.75rem';
-  title.style.color = '#ff4444';
+  title.style.color = 'var(--red-bright)';
   section.appendChild(title);
 
   const alertsList = document.createElement('div');
@@ -787,7 +787,7 @@ function renderEnhancedShipCard(
   // Ship class
   const classDiv = document.createElement('div');
   classDiv.style.fontSize = '0.9rem';
-  classDiv.style.color = '#aaa';
+  classDiv.style.color = 'var(--text-secondary)';
   classDiv.style.marginBottom = '0.75rem';
   classDiv.textContent = shipClass?.name || ship.classId;
   card.appendChild(classDiv);
@@ -839,7 +839,7 @@ function renderEnhancedShipCard(
   // Location
   const locationDiv = document.createElement('div');
   locationDiv.style.fontSize = '0.85rem';
-  locationDiv.style.color = '#888';
+  locationDiv.style.color = 'var(--text-muted)';
   locationDiv.style.marginBottom = '0.75rem';
   if (ship.location.status === 'docked') {
     const dockedAt = ship.location.dockedAt;
@@ -899,7 +899,7 @@ function renderEnhancedShipCard(
   // Stats (fuel, crew, equipment, range)
   const statsDiv = document.createElement('div');
   statsDiv.style.fontSize = '0.85rem';
-  statsDiv.style.color = '#aaa';
+  statsDiv.style.color = 'var(--text-secondary)';
   statsDiv.style.display = 'flex';
   statsDiv.style.flexDirection = 'column';
   statsDiv.style.gap = '0.25rem';
@@ -943,7 +943,7 @@ function renderEnhancedShipCard(
     navButton.style.marginTop = '0.75rem';
     navButton.style.width = '100%';
     navButton.style.padding = '0.5rem';
-    navButton.style.background = '#4a9eff';
+    navButton.style.background = 'var(--accent-blue)';
     navButton.style.border = 'none';
     navButton.style.borderRadius = '4px';
     navButton.style.color = 'white';
@@ -1022,7 +1022,7 @@ function createShipPurchase(
   intro.textContent =
     'Expand your fleet by purchasing additional ships. Each ship operates independently and can run separate contracts.';
   intro.style.marginBottom = '1rem';
-  intro.style.color = '#aaa';
+  intro.style.color = 'var(--text-secondary)';
   intro.style.fontSize = '0.9rem';
   section.appendChild(intro);
 
@@ -1060,14 +1060,14 @@ function createShipPurchase(
     mysteryIcon.textContent = '???';
     mysteryIcon.style.fontSize = '2rem';
     mysteryIcon.style.fontWeight = 'bold';
-    mysteryIcon.style.color = '#555';
+    mysteryIcon.style.color = 'var(--text-dark-gray)';
     mysteryIcon.style.margin = '0.75rem 0 0.5rem';
     mysteryContainer.appendChild(mysteryIcon);
 
     const mysteryTitle = document.createElement('div');
     mysteryTitle.textContent = 'Unknown Vessel';
     mysteryTitle.style.fontWeight = 'bold';
-    mysteryTitle.style.color = '#888';
+    mysteryTitle.style.color = 'var(--text-muted)';
     mysteryTitle.style.marginBottom = '0.25rem';
     mysteryContainer.appendChild(mysteryTitle);
 
@@ -1075,7 +1075,7 @@ function createShipPurchase(
     mysterySub.textContent =
       'Earn more lifetime credits to discover this ship class';
     mysterySub.style.fontSize = '0.8rem';
-    mysterySub.style.color = '#666';
+    mysterySub.style.color = 'var(--text-disabled)';
     mysterySub.style.marginBottom = '0.75rem';
     mysteryContainer.appendChild(mysterySub);
 
@@ -1097,7 +1097,7 @@ function createShipPurchase(
 
     const mysteryProgressLabel = document.createElement('div');
     mysteryProgressLabel.style.fontSize = '0.75rem';
-    mysteryProgressLabel.style.color = '#666';
+    mysteryProgressLabel.style.color = 'var(--text-disabled)';
     mysteryContainer.appendChild(mysteryProgressLabel);
 
     card.appendChild(mysteryContainer);
@@ -1118,7 +1118,7 @@ function createShipPurchase(
     header.appendChild(nameDiv);
 
     const priceDiv = document.createElement('div');
-    priceDiv.style.color = '#4a9eff';
+    priceDiv.style.color = 'var(--accent-blue)';
     priceDiv.style.fontWeight = 'bold';
     priceDiv.textContent = formatCredits(shipClass.price);
     header.appendChild(priceDiv);
@@ -1128,7 +1128,7 @@ function createShipPurchase(
     // Static description
     const desc = document.createElement('div');
     desc.style.fontSize = '0.85rem';
-    desc.style.color = '#aaa';
+    desc.style.color = 'var(--text-secondary)';
     desc.style.marginBottom = '0.5rem';
     desc.textContent = shipClass.description;
     detailContainer.appendChild(desc);
@@ -1136,7 +1136,7 @@ function createShipPurchase(
     // Static specs
     const specs = document.createElement('div');
     specs.style.fontSize = '0.8rem';
-    specs.style.color = '#888';
+    specs.style.color = 'var(--text-muted)';
     specs.style.marginBottom = '0.5rem';
 
     const defaultEngine = getEngineDefinition(shipClass.defaultEngineId);
@@ -1164,7 +1164,7 @@ function createShipPurchase(
     // #4: Default engine line
     const engineLine = document.createElement('div');
     engineLine.style.fontSize = '0.8rem';
-    engineLine.style.color = '#888';
+    engineLine.style.color = 'var(--text-muted)';
     engineLine.style.marginBottom = '0.5rem';
     engineLine.innerHTML = `Engine: ${defaultEngine.icon} <span style="color: #aaa;">${defaultEngine.name}</span> <span style="color: #666;">(${defaultEngine.type})</span>`;
     detailContainer.appendChild(engineLine);
@@ -1190,11 +1190,11 @@ function createShipPurchase(
       if (hasRoom) {
         badge.style.background = 'rgba(74, 222, 128, 0.15)';
         badge.style.border = '1px solid rgba(74, 222, 128, 0.3)';
-        badge.style.color = '#4ade80';
+        badge.style.color = 'var(--positive-green)';
       } else {
         badge.style.background = 'rgba(255, 255, 255, 0.03)';
         badge.style.border = '1px solid rgba(255, 255, 255, 0.08)';
-        badge.style.color = '#555';
+        badge.style.color = 'var(--text-dark-gray)';
       }
       badge.textContent = `${roomDef?.icon ?? '?'} ${roomDef?.name ?? roomType}`;
       badge.title = hasRoom
@@ -1215,7 +1215,7 @@ function createShipPurchase(
       badge.style.whiteSpace = 'nowrap';
       badge.style.background = 'rgba(162, 155, 254, 0.15)';
       badge.style.border = '1px solid rgba(162, 155, 254, 0.3)';
-      badge.style.color = '#a29bfe';
+      badge.style.color = 'var(--purple-light)';
       badge.textContent = '🔄 Rotating Habitat';
       badge.title = 'Provides spin gravity to reduce zero-g health effects';
       facilitiesRow.appendChild(badge);
@@ -1226,11 +1226,11 @@ function createShipPurchase(
     // #2: Included equipment
     const equipSection = document.createElement('div');
     equipSection.style.fontSize = '0.75rem';
-    equipSection.style.color = '#888';
+    equipSection.style.color = 'var(--text-muted)';
     equipSection.style.marginBottom = '0.5rem';
 
     const equipLabel = document.createElement('span');
-    equipLabel.style.color = '#666';
+    equipLabel.style.color = 'var(--text-disabled)';
     equipLabel.textContent = 'Included: ';
     equipSection.appendChild(equipLabel);
 
@@ -1241,7 +1241,7 @@ function createShipPurchase(
       })
       .join(', ');
     const equipList = document.createElement('span');
-    equipList.style.color = '#aaa';
+    equipList.style.color = 'var(--text-secondary)';
     equipList.textContent = equipNames;
     equipSection.appendChild(equipList);
 
@@ -1259,12 +1259,12 @@ function createShipPurchase(
       resCostDiv.style.borderRadius = '3px';
 
       const resLabel = document.createElement('span');
-      resLabel.style.color = '#ffa500';
+      resLabel.style.color = 'var(--warning-orange)';
       resLabel.textContent = 'Resources: ';
       resCostDiv.appendChild(resLabel);
 
       const resValues = document.createElement('span');
-      resValues.style.color = '#ddd';
+      resValues.style.color = 'var(--text-very-light-gray)';
       resValues.textContent = resCosts
         .map((c) => `${c.icon} ${c.amount} ${c.name}`)
         .join(', ');
@@ -1276,13 +1276,13 @@ function createShipPurchase(
     // Insufficient funds message (toggled via display)
     const affordMsg = document.createElement('div');
     affordMsg.style.fontSize = '0.85rem';
-    affordMsg.style.color = '#ffa500';
+    affordMsg.style.color = 'var(--warning-orange)';
     detailContainer.appendChild(affordMsg);
 
     // Insufficient resources message (toggled via display)
     const resourceMsg = document.createElement('div');
     resourceMsg.style.fontSize = '0.85rem';
-    resourceMsg.style.color = '#ff8800';
+    resourceMsg.style.color = 'var(--orange-bright)';
     detailContainer.appendChild(resourceMsg);
 
     // Buy form (toggled via display)
@@ -1309,7 +1309,7 @@ function createShipPurchase(
     nameInput.style.background = 'rgba(0, 0, 0, 0.5)';
     nameInput.style.border = '1px solid #666';
     nameInput.style.borderRadius = '4px';
-    nameInput.style.color = '#fff';
+    nameInput.style.color = 'var(--text-white)';
     buyContainer.appendChild(nameInput);
 
     const randomBtn = document.createElement('button');

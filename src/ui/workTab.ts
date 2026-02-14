@@ -336,11 +336,11 @@ function createQuestCardRefs(
   details.appendChild(timeInfo);
 
   const crewCostInfo = document.createElement('div');
-  crewCostInfo.style.color = '#ffa500';
+  crewCostInfo.style.color = 'var(--warning-orange)';
   details.appendChild(crewCostInfo);
 
   const fuelCostInfo = document.createElement('div');
-  fuelCostInfo.style.color = '#ffa500';
+  fuelCostInfo.style.color = 'var(--warning-orange)';
   details.appendChild(fuelCostInfo);
 
   const captainBonusInfo = document.createElement('div');
@@ -406,7 +406,7 @@ function createQuestCardRefs(
 
   const warningsDiv = document.createElement('div');
   warningsDiv.className = 'quest-warnings';
-  warningsDiv.style.color = '#fbbf24';
+  warningsDiv.style.color = 'var(--yellow-bright)';
   warningsDiv.style.fontSize = '0.85em';
   warningsDiv.style.marginTop = '0.5rem';
   warningsDiv.style.padding = '0.4rem 0.6rem';
@@ -538,12 +538,12 @@ export function createWorkTab(
     shipContext.style.fontSize = '0.9rem';
 
     const assignLabel = document.createElement('span');
-    assignLabel.style.color = '#aaa';
+    assignLabel.style.color = 'var(--text-secondary)';
     assignLabel.textContent = 'Assigning to: ';
     shipContext.appendChild(assignLabel);
 
     const shipContextName = document.createElement('span');
-    shipContextName.style.color = '#4a9eff';
+    shipContextName.style.color = 'var(--accent-blue)';
     shipContextName.style.fontWeight = 'bold';
     shipContext.appendChild(shipContextName);
     cont.appendChild(shipContext);
@@ -593,12 +593,12 @@ export function createWorkTab(
 
     const tradeHeading = document.createElement('h4');
     tradeHeading.textContent = 'Trade Routes';
-    tradeHeading.style.color = '#4a9eff';
+    tradeHeading.style.color = 'var(--accent-blue)';
     tradeHeading.style.marginBottom = '0.25rem';
     tradeSection.appendChild(tradeHeading);
 
     const tradeDesc = document.createElement('p');
-    tradeDesc.style.color = '#888';
+    tradeDesc.style.color = 'var(--text-muted)';
     tradeDesc.style.fontSize = '0.85rem';
     tradeDesc.style.marginTop = '0';
     tradeDesc.style.marginBottom = '0.75rem';
@@ -741,7 +741,7 @@ export function createWorkTab(
     const header = document.createElement('div');
     header.style.fontSize = '14px';
     header.style.fontWeight = 'bold';
-    header.style.color = '#4a90e2';
+    header.style.color = 'var(--blue-light)';
     header.style.marginBottom = '8px';
     header.textContent = '\u{1F504} Automated Route Assignment';
     cont.appendChild(header);
@@ -1601,7 +1601,7 @@ function updateCaptainBonusDisplay(
 
   if (hasCaptain && bonusPercent > 0) {
     refs.captainBonusInfo.textContent = `Captain bonus: +${bonusPercent}%`;
-    refs.captainBonusInfo.style.color = '#fbbf24';
+    refs.captainBonusInfo.style.color = 'var(--yellow-bright)';
     refs.captainBonusInfo.style.display = '';
     refs.captainHintInfo.style.display = 'none';
   } else if (!hasCaptain) {
@@ -1610,7 +1610,7 @@ function updateCaptainBonusDisplay(
     } else {
       refs.captainBonusInfo.textContent = 'No command bonus';
     }
-    refs.captainBonusInfo.style.color = '#6b7280';
+    refs.captainBonusInfo.style.color = 'var(--gray-medium)';
     refs.captainBonusInfo.style.display = '';
     const hypothetical = getHypotheticalCaptainBonus(ship, gd);
     if (hypothetical > 0) {

@@ -25,6 +25,7 @@ import {
 } from '../encounterSystem';
 import { formatFuelMass, calculateFuelPercentage } from './fuelFormatting';
 import { isHelmManned } from '../jobSlots';
+import { iconChevronRight, iconChevronDown, iconSkipForward } from './icons';
 
 // Track credits for delta display
 let previousCredits: number | null = null;
@@ -93,7 +94,7 @@ export function createTabbedView(
   const dayProgressFill = document.createElement('div');
   dayProgressFill.className = 'day-progress-fill';
   dayProgressFill.style.height = '100%';
-  dayProgressFill.style.background = '#4a9eff';
+  dayProgressFill.style.background = 'var(--accent-blue)';
   dayProgressFill.style.borderRadius = '2px';
   dayProgressBar.appendChild(dayProgressFill);
 
@@ -136,10 +137,10 @@ export function createTabbedView(
 
   const creditsDiv = document.createElement('div');
   const creditsLabel = document.createElement('span');
-  creditsLabel.style.color = '#888';
+  creditsLabel.style.color = 'var(--text-muted)';
   creditsLabel.textContent = 'Credits:';
   const creditsValueSpan = document.createElement('span');
-  creditsValueSpan.style.color = '#4a9eff';
+  creditsValueSpan.style.color = 'var(--accent-blue)';
   creditsValueSpan.style.fontWeight = 'bold';
   creditsDiv.appendChild(creditsLabel);
   creditsDiv.appendChild(document.createTextNode(' '));
@@ -164,7 +165,7 @@ export function createTabbedView(
   // Crew count
   const crewDiv = document.createElement('div');
   const crewLabel = document.createElement('span');
-  crewLabel.style.color = '#888';
+  crewLabel.style.color = 'var(--text-muted)';
   crewLabel.textContent = 'Crew:';
   const crewValueSpan = document.createElement('span');
   crewValueSpan.style.fontWeight = 'bold';
@@ -176,7 +177,7 @@ export function createTabbedView(
   // Net income per day
   const netDiv = document.createElement('div');
   const netLabel = document.createElement('span');
-  netLabel.style.color = '#888';
+  netLabel.style.color = 'var(--text-muted)';
   netLabel.textContent = 'Net:';
   const netValueSpan = document.createElement('span');
   netValueSpan.style.fontWeight = 'bold';
@@ -186,7 +187,7 @@ export function createTabbedView(
 
   // Runway indicator (inline, after net)
   const runwaySpan = document.createElement('span');
-  runwaySpan.style.color = '#888';
+  runwaySpan.style.color = 'var(--text-muted)';
   runwaySpan.style.marginLeft = '8px';
   runwaySpan.style.fontSize = '0.85em';
   netDiv.appendChild(runwaySpan);
@@ -196,12 +197,14 @@ export function createTabbedView(
   // Ledger breakdown (collapsible — surfaces right sidebar info for tablet/mobile)
   const ledgerToggle = document.createElement('button');
   ledgerToggle.className = 'ledger-toggle small-button';
-  ledgerToggle.textContent = '\u25B6';
   ledgerToggle.title = 'Show daily ledger breakdown';
   ledgerToggle.style.padding = '2px 6px';
   ledgerToggle.style.fontSize = '10px';
   ledgerToggle.style.verticalAlign = 'middle';
   ledgerToggle.style.marginLeft = '6px';
+  ledgerToggle.style.display = 'inline-flex';
+  ledgerToggle.style.alignItems = 'center';
+  ledgerToggle.appendChild(iconChevronRight(16));
   netDiv.appendChild(ledgerToggle);
 
   const ledgerBreakdown = document.createElement('div');
@@ -223,7 +226,11 @@ export function createTabbedView(
   ledgerToggle.addEventListener('click', () => {
     ledgerOpen = !ledgerOpen;
     ledgerBreakdown.style.display = ledgerOpen ? '' : 'none';
-    ledgerToggle.textContent = ledgerOpen ? '\u25BC' : '\u25B6';
+    if (ledgerToggle.firstChild)
+      ledgerToggle.removeChild(ledgerToggle.firstChild);
+    ledgerToggle.appendChild(
+      ledgerOpen ? iconChevronDown(16) : iconChevronRight(16)
+    );
     ledgerToggle.title = ledgerOpen
       ? 'Hide daily ledger breakdown'
       : 'Show daily ledger breakdown';
@@ -278,13 +285,13 @@ export function createTabbedView(
   const flightProgressFill = document.createElement('span');
   flightProgressFill.style.display = 'block';
   flightProgressFill.style.height = '100%';
-  flightProgressFill.style.background = '#4a9eff';
+  flightProgressFill.style.background = 'var(--accent-blue)';
   flightProgressFill.style.borderRadius = '4px';
   flightProgressBar.appendChild(flightProgressFill);
 
   const flightProgressLabel = document.createElement('span');
   flightProgressLabel.style.fontSize = '11px';
-  flightProgressLabel.style.color = '#aaa';
+  flightProgressLabel.style.color = 'var(--text-secondary)';
 
   flightProgressContainer.appendChild(flightProgressBar);
   flightProgressContainer.appendChild(flightProgressLabel);
@@ -311,8 +318,11 @@ export function createTabbedView(
 
   // Advance Day button (created once, toggled display)
   const advanceDayBtn = document.createElement('button');
-  advanceDayBtn.textContent = '\u23ED Advance Day';
   advanceDayBtn.className = 'global-status-btn';
+  const skipIcon = iconSkipForward(16);
+  skipIcon.style.marginRight = '4px';
+  advanceDayBtn.appendChild(skipIcon);
+  advanceDayBtn.appendChild(document.createTextNode('Advance Day'));
   advanceDayBtn.style.display = 'none';
   advanceDayBtn.addEventListener('click', () => callbacks.onAdvanceDay());
   actionsDiv.appendChild(advanceDayBtn);
@@ -534,10 +544,10 @@ export function createTabbedView(
 
       if (delta > 0) {
         creditDeltaEl.textContent = `+${delta.toLocaleString()}`;
-        creditDeltaEl.style.color = '#4ade80';
+        creditDeltaEl.style.color = 'var(--positive-green)';
       } else {
         creditDeltaEl.textContent = delta.toLocaleString();
-        creditDeltaEl.style.color = '#ef4444';
+        creditDeltaEl.style.color = 'var(--red-error)';
       }
 
       // Reset animation by removing and re-adding
@@ -595,7 +605,7 @@ export function createTabbedView(
     const incText = `Income: ${formatCredits(Math.round(ledger.incomePerDay))}/day`;
     if (ledgerIncomeSpan.textContent !== incText) {
       ledgerIncomeSpan.textContent = incText;
-      ledgerIncomeSpan.style.color = '#4ade80';
+      ledgerIncomeSpan.style.color = 'var(--positive-green)';
     }
     const crewCostText = `Crew: -${formatCredits(Math.round(ledger.crewCostPerDay))}/day`;
     if (ledgerCrewSpan.textContent !== crewCostText) {

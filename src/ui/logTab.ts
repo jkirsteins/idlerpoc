@@ -63,7 +63,7 @@ export function createLogTab(gameData: GameData): Component {
   const shipFilterLabel = document.createElement('span');
   shipFilterLabel.textContent = '|  Ship:';
   shipFilterLabel.style.marginLeft = '0.5rem';
-  shipFilterLabel.style.color = '#888';
+  shipFilterLabel.style.color = 'var(--text-muted)';
   filterBar.appendChild(shipFilterLabel);
 
   // Ship filter dropdown and buttons
@@ -164,7 +164,7 @@ export function createLogTab(gameData: GameData): Component {
 
   const capNote = document.createElement('p');
   capNote.className = 'log-cap-note';
-  capNote.style.color = '#888';
+  capNote.style.color = 'var(--text-muted)';
   capNote.style.fontSize = '0.8rem';
   capNote.style.fontStyle = 'italic';
   capNote.style.textAlign = 'center';
@@ -355,7 +355,7 @@ function renderLogEntry(entry: LogEntry): HTMLElement {
     const shipPrefix = document.createElement('span');
     shipPrefix.className = 'log-ship-name';
     shipPrefix.textContent = `[${entry.shipName}] `;
-    shipPrefix.style.color = '#4a9eff';
+    shipPrefix.style.color = 'var(--accent-blue)';
     shipPrefix.style.fontWeight = 'bold';
     entryDiv.appendChild(shipPrefix);
   }
