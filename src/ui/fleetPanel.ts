@@ -214,19 +214,19 @@ export function createFleetPanel(
 
     // Stats
     const fuelSpan = document.createElement('span');
-    fuelSpan.className = 'fleet-row-stat';
+    fuelSpan.className = 'fleet-row-stat fleet-row-stat-fuel';
     bottomLine.appendChild(fuelSpan);
 
     const crewSpan = document.createElement('span');
-    crewSpan.className = 'fleet-row-stat';
+    crewSpan.className = 'fleet-row-stat fleet-row-stat-crew';
     bottomLine.appendChild(crewSpan);
 
     const equipSpan = document.createElement('span');
-    equipSpan.className = 'fleet-row-stat';
+    equipSpan.className = 'fleet-row-stat fleet-row-stat-equip';
     bottomLine.appendChild(equipSpan);
 
     const rangeSpan = document.createElement('span');
-    rangeSpan.className = 'fleet-row-stat';
+    rangeSpan.className = 'fleet-row-stat fleet-row-stat-range';
     bottomLine.appendChild(rangeSpan);
 
     content.appendChild(bottomLine);

@@ -130,19 +130,22 @@ body {
 .global-status-stats {
   display: flex;
   gap: 2rem;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
 }
 
 .global-status-actions {
   display: flex;
   gap: 0.5rem;
   align-items: center;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
 }
 
 .global-status-text {
   margin-right: 0.5rem;
   color: #aaa;
+  white-space: nowrap;
 }
 
 .global-status-btn {
@@ -2931,7 +2934,7 @@ button:disabled:hover {
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   color: #aaa;
   font-size: 0.8rem;
 }
@@ -2940,11 +2943,28 @@ button:disabled:hover {
   flex: 1;
   min-width: 0;
   text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .fleet-row-stat {
   white-space: nowrap;
   text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.fleet-row-stat-fuel {
+  min-width: 105px;
+}
+.fleet-row-stat-crew {
+  min-width: 68px;
+}
+.fleet-row-stat-equip {
+  min-width: 68px;
+}
+.fleet-row-stat-range {
+  min-width: 92px;
 }
 
 .fleet-row-flight {
@@ -2952,7 +2972,8 @@ button:disabled:hover {
   align-items: center;
   gap: 4px;
   width: 100%;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  overflow: hidden;
 }
 
 .fleet-row-minibar {
@@ -4082,6 +4103,22 @@ button:disabled:hover {
     flex-basis: 100%;
   }
 
+  .fleet-row-bottom {
+    flex-wrap: wrap;
+  }
+
+  .fleet-row-stat {
+    min-width: 0;
+  }
+
+  .global-status-stats {
+    flex-wrap: wrap;
+  }
+
+  .global-status-actions {
+    flex-wrap: wrap;
+  }
+
   .fleet-row-activity {
     overflow: hidden;
     text-overflow: ellipsis;
@@ -4359,6 +4396,7 @@ button:disabled:hover {
   .fleet-row-bottom {
     gap: 0.4rem;
     font-size: 0.7rem;
+    flex-wrap: wrap;
   }
 
   .fleet-row-location {
@@ -4367,6 +4405,7 @@ button:disabled:hover {
 
   .fleet-row-stat {
     font-size: 0.65rem;
+    min-width: 0;
   }
 
   .fleet-row-activity {

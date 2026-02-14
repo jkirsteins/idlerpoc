@@ -345,6 +345,63 @@ describe('Mining System', () => {
       // Miner should sit idle — no ore mined at all
       expect(ship.oreCargo.length).toBe(0);
     });
+
+    it('awards mastery XP to all crew members mining the same ore type', () => {
+      const miner1 = createTestCrew({
+        name: 'Miner 1',
+        role: 'miner',
+        skills: { piloting: 5, mining: 15, commerce: 0, repairs: 0 },
+        mastery: createInitialMastery(),
+      });
+      const miner2 = createTestCrew({
+        name: 'Miner 2',
+        role: 'miner',
+        skills: { piloting: 5, mining: 15, commerce: 0, repairs: 0 },
+        mastery: createInitialMastery(),
+      });
+
+      const ship = createTestShip({
+        crew: [miner1, miner2],
+        location: { status: 'orbiting', orbitingAt: 'graveyard_drift' },
+        // Add two mining lasers so both miners can work
+        equipment: [
+          {
+            id: 'eq-ml1',
+            definitionId: 'mining_laser',
+            degradation: 0,
+            powered: true,
+            powerMode: 'auto' as const,
+          },
+          {
+            id: 'eq-ml2',
+            definitionId: 'mining_laser',
+            degradation: 0,
+            powered: true,
+            powerMode: 'auto' as const,
+          },
+        ],
+      });
+      assignCrewToJob(ship, miner1.id, 'mining_ops');
+      assignCrewToJob(ship, miner2.id, 'mining_ops');
+
+      const location = createMineLocation({
+        availableOres: [{ oreId: 'iron_ore' }],
+      });
+
+      // Run a few ticks — both miners should contribute to the same accumulator
+      for (let i = 0; i < 10; i++) {
+        applyMiningTick(ship, location);
+      }
+
+      // Both miners should have non-zero mastery XP for iron_ore
+      const miner1IronXp =
+        miner1.mastery?.mining?.itemMasteries['iron_ore']?.xp ?? 0;
+      const miner2IronXp =
+        miner2.mastery?.mining?.itemMasteries['iron_ore']?.xp ?? 0;
+
+      expect(miner1IronXp).toBeGreaterThan(0);
+      expect(miner2IronXp).toBeGreaterThan(0);
+    });
   });
 
   // ── Cargo Weight ────────────────────────────────────────────────

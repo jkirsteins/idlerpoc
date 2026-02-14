@@ -407,26 +407,25 @@ export function applyMiningTick(
         // Track extraction
         result.oreExtracted[ore.id] =
           (result.oreExtracted[ore.id] ?? 0) + wholeUnits;
+      }
 
-        // Award mastery XP
-        if (masteryState) {
-          const xpPerUnit = MASTERY_XP_PER_ORE;
-          const totalXp = xpPerUnit * wholeUnits;
-          const masteryResult = awardMasteryXp(
-            masteryState,
-            ore.id,
-            totalXp,
-            Math.floor(miner.skills.mining),
-            totalOreCount
-          );
+      // Award mastery XP based on fractional yield (every tick, every miner)
+      if (masteryState) {
+        const totalXp = MASTERY_XP_PER_ORE * oreYield;
+        const masteryResult = awardMasteryXp(
+          masteryState,
+          ore.id,
+          totalXp,
+          Math.floor(miner.skills.mining),
+          totalOreCount
+        );
 
-          if (masteryResult.leveledUp) {
-            result.masteryLevelUps.push({
-              crewName: miner.name,
-              oreName: ore.name,
-              newLevel: masteryResult.newLevel,
-            });
-          }
+        if (masteryResult.leveledUp) {
+          result.masteryLevelUps.push({
+            crewName: miner.name,
+            oreName: ore.name,
+            newLevel: masteryResult.newLevel,
+          });
         }
       }
 
