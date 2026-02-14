@@ -323,6 +323,11 @@ export function buildCatchUpReport(
 
     const gravityAssists = gravityAssistsByShip.get(ship.name);
 
+    // Count power management changes during absence
+    const powerChanges = newLogs.filter(
+      (l) => l.type === 'power_change' && l.shipName === ship.name
+    ).length;
+
     shipSummaries.push({
       shipId: ship.id,
       shipName: ship.name,
@@ -330,6 +335,7 @@ export function buildCatchUpReport(
       encounters,
       contractInfo,
       gravityAssists,
+      powerChanges: powerChanges > 0 ? powerChanges : undefined,
     });
   }
 

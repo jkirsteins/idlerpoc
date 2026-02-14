@@ -209,6 +209,7 @@ export function applyMiningTick(
 
   // Get all mining equipment instances with their definitions
   const shipMiningGear = ship.equipment
+    .filter((eq) => eq.powered)
     .map((eq) => ({
       instance: eq,
       def: getEquipmentDefinition(eq.definitionId),
@@ -618,6 +619,7 @@ export function getMiningYieldPerHour(
   const ticksPerHour = GAME_SECONDS_PER_HOUR / GAME_SECONDS_PER_TICK;
 
   const shipMiningGear = ship.equipment
+    .filter((eq) => eq.powered)
     .map((eq) => ({
       instance: eq,
       def: getEquipmentDefinition(eq.definitionId),

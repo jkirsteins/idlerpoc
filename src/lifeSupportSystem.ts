@@ -42,9 +42,10 @@ export function computeOxygenStatus(ship: Ship): OxygenStatus {
   let totalGeneration = 0;
   const generationItems: Array<{ name: string; output: number }> = [];
 
-  // Equipment O2 generation (only when powered)
+  // Equipment O2 generation (only when ship has power and equipment is powered)
   if (hasPower) {
     for (const eq of ship.equipment) {
+      if (!eq.powered) continue;
       const eqDef = getEquipmentDefinition(eq.definitionId);
       if (eqDef?.oxygenOutput && eqDef.oxygenOutput > 0) {
         // Degradation reduces effectiveness

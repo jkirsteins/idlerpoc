@@ -1,4 +1,4 @@
-import type { GameData, Room, JobSlot } from '../models';
+import type { GameData, Room, JobSlot, EquipmentPowerMode } from '../models';
 import { getActiveShip } from '../models';
 import { getShipClass } from '../shipClasses';
 import { getRoomDefinition } from '../rooms';
@@ -12,6 +12,8 @@ import {
   getEffectiveRadiationShielding,
   getEffectiveHeatDissipation,
 } from '../equipment';
+import { canSetPowerModeOn } from '../powerManagement';
+import { getPowerRuleDescription } from '../powerPriorities';
 import { calculateRepairPoints } from '../crewRoles';
 import { calculateDefenseScore } from '../combatSystem';
 import { getCommandBonusBreakdown } from '../captainBonus';
@@ -2102,6 +2104,9 @@ function renderEquipmentSection(gameData: GameData): HTMLElement {
 
     const item = document.createElement('div');
     item.className = 'equipment-item';
+    if (!equipment.powered) {
+      item.style.opacity = '0.6';
+    }
 
     const icon = document.createElement('div');
     icon.className = 'equipment-icon';
@@ -2116,6 +2121,16 @@ function renderEquipmentSection(gameData: GameData): HTMLElement {
     nameRow.style.display = 'flex';
     nameRow.style.alignItems = 'center';
     nameRow.style.gap = '0.4em';
+
+    // Power indicator dot
+    const powerDot = document.createElement('span');
+    powerDot.style.display = 'inline-block';
+    powerDot.style.width = '8px';
+    powerDot.style.height = '8px';
+    powerDot.style.borderRadius = '50%';
+    powerDot.style.flexShrink = '0';
+    powerDot.style.backgroundColor = equipment.powered ? '#4caf50' : '#666';
+    nameRow.appendChild(powerDot);
 
     const nameText = document.createElement('span');
     nameText.textContent = equipDef.name;
@@ -2138,10 +2153,88 @@ function renderEquipmentSection(gameData: GameData): HTMLElement {
 
     info.appendChild(nameRow);
 
-    const power = document.createElement('div');
+    // Power draw + mode toggle row
+    const powerRow = document.createElement('div');
+    powerRow.style.display = 'flex';
+    powerRow.style.alignItems = 'center';
+    powerRow.style.gap = '0.5em';
+    powerRow.style.marginTop = '0.15em';
+
+    const power = document.createElement('span');
     power.className = 'equipment-power';
     power.textContent = `${equipDef.powerDraw} kW`;
-    info.appendChild(power);
+    powerRow.appendChild(power);
+
+    // 3-state power mode toggle: Off / Auto / On
+    const modeToggle = document.createElement('div');
+    modeToggle.style.display = 'inline-flex';
+    modeToggle.style.borderRadius = '3px';
+    modeToggle.style.overflow = 'hidden';
+    modeToggle.style.border = '1px solid rgba(255,255,255,0.15)';
+    modeToggle.style.fontSize = '0.7em';
+    modeToggle.style.marginLeft = 'auto';
+
+    const modes: { label: string; value: EquipmentPowerMode }[] = [
+      { label: 'Off', value: 'off' },
+      { label: 'Auto', value: 'auto' },
+      { label: 'On', value: 'on' },
+    ];
+
+    for (const mode of modes) {
+      const btn = document.createElement('button');
+      btn.textContent = mode.label;
+      btn.style.border = 'none';
+      btn.style.padding = '2px 6px';
+      btn.style.cursor = 'pointer';
+      btn.style.fontSize = 'inherit';
+      btn.style.minWidth = '32px';
+
+      if (equipment.powerMode === mode.value) {
+        btn.style.background =
+          mode.value === 'off'
+            ? '#666'
+            : mode.value === 'auto'
+              ? '#0f3460'
+              : '#2e7d32';
+        btn.style.color = '#eee';
+        btn.style.fontWeight = 'bold';
+      } else {
+        btn.style.background = 'rgba(0,0,0,0.3)';
+        btn.style.color = '#888';
+      }
+
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (mode.value === 'on') {
+          const check = canSetPowerModeOn(ship, gameData, equipment.id);
+          if (!check.allowed) {
+            // Brief visual feedback — flash the button red
+            btn.style.background = '#8b0000';
+            btn.title = check.reason ?? 'Insufficient power';
+            setTimeout(() => {
+              btn.style.background = 'rgba(0,0,0,0.3)';
+            }, 600);
+            return;
+          }
+        }
+        equipment.powerMode = mode.value;
+      });
+
+      modeToggle.appendChild(btn);
+    }
+
+    // Tooltip showing the AI rule description
+    const ruleDesc = getPowerRuleDescription(equipment.definitionId);
+    const modeLabel =
+      equipment.powerMode === 'auto'
+        ? `Auto: ${ruleDesc}`
+        : equipment.powerMode === 'on'
+          ? 'Forced on (manual)'
+          : 'Forced off (manual)';
+    attachTooltip(modeToggle, { content: modeLabel, followMouse: false });
+
+    powerRow.appendChild(modeToggle);
+    info.appendChild(powerRow);
 
     item.appendChild(info);
 

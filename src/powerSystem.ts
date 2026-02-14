@@ -61,8 +61,9 @@ export function computePowerStatus(ship: Ship): PowerStatus {
     }
   }
 
-  // Add equipment power draw
+  // Add equipment power draw (only powered equipment)
   for (const equipment of ship.equipment) {
+    if (!equipment.powered) continue;
     const equipDef = getEquipmentDefinition(equipment.definitionId);
     if (equipDef) {
       totalDraw += equipDef.powerDraw;

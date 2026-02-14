@@ -1326,9 +1326,50 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
         ],
       },
       {
+        heading: 'Power Management',
+        paragraphs: [
+          'Each piece of equipment can be in one of three power modes: Off (never powered), Auto (AI-managed), or On (always powered). Auto is the default.',
+          "In Auto mode, the ship's pilot automatically manages power based on context. Life support and air filtration are always critical. Shielding and thermal equipment power up when the engine is active. Defense and navigation equipment activates during flight. [[mining-system|Mining]] equipment powers on only when actively mining.",
+          'Equipment that is not powered draws no energy and provides no effects — unpowered shields do not protect, unpowered mining lasers do not extract ore, and unpowered defense systems do not contribute to [[encounters|combat]].',
+          'When total power demand exceeds supply, the AI sheds lower-priority equipment first: comfort systems before defense, defense before engine protection, engine protection before life support. Life support is never shed.',
+          "A skilled pilot at the helm provides a small power efficiency bonus (up to +10% effective output at [[skill-system|piloting]] 100), stretching the ship's power budget.",
+        ],
+      },
+      {
+        heading: 'Priority Levels',
+        paragraphs: [
+          'When power is constrained, equipment is shed by priority level:',
+        ],
+        table: {
+          headers: ['Priority', 'Equipment', 'When Active'],
+          rows: [
+            [
+              'Critical',
+              '[[life-support|Life Support]], Air Filters',
+              'Always',
+            ],
+            [
+              'High',
+              'Radiation Shielding, Heat Radiators, Containment',
+              'Engine active',
+            ],
+            [
+              'Medium',
+              'Defense, Navigation, Gravity, [[mining-system|Mining]]',
+              'Contextual (flight, mining, zero-g)',
+            ],
+            [
+              'Low',
+              'Any equipment not needed in current state',
+              'Shed first when power is tight',
+            ],
+          ],
+        },
+      },
+      {
         heading: 'Degradation & Repair',
         paragraphs: [
-          'Equipment degrades during use. Air filtration units wear down constantly, excess [[waste-heat|waste heat]] during flight damages all degradable equipment, and [[mining-system|mining]] equipment wears from active extraction.',
+          'Equipment degrades during use. Air filtration units wear down constantly, excess [[waste-heat|waste heat]] during flight damages all degradable equipment, and [[mining-system|mining]] equipment wears from active extraction. Only powered equipment takes heat damage — unpowered equipment does not generate waste heat.',
           'As equipment degrades, its effectiveness decreases. At maximum wear, most equipment operates at 50% capacity. Air filtration units are the exception — they lose all output at full degradation, making them the highest maintenance priority.',
           'Crew assigned to repair [[job-slots|job slots]] generate repair points that restore equipment condition. Repair works whether your ship is docked, in flight, or orbiting — assign crew to repair duty to keep equipment in working order.',
         ],
@@ -1340,6 +1381,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
       'life-support',
       'radiation',
       'mining-system',
+      'skill-system',
     ],
   },
 

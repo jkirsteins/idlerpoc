@@ -798,6 +798,8 @@ const migrations: Record<number, MigrationFn> = {
                 id: generateId(),
                 definitionId: 'rad_shield_basic',
                 degradation: 0,
+                powered: true,
+                powerMode: 'auto',
               });
             }
           }
@@ -991,6 +993,7 @@ export function loadGame(): GameData | null {
     backfillCrewFields(migrated);
     backfillGameDataFields(migrated);
     backfillFlightOriginBodyId(migrated);
+    backfillEquipmentPowered(migrated);
 
     return migrated;
   } catch (e) {
@@ -1056,6 +1059,8 @@ function backfillMiningData(gameData: GameData): void {
           id: generateId(),
           definitionId: 'mining_laser',
           degradation: 0,
+          powered: true,
+          powerMode: 'auto',
         });
       }
     }
@@ -1131,6 +1136,7 @@ export function importGame(json: string): GameData | null {
   backfillCrewFields(migrated);
   backfillGameDataFields(migrated);
   backfillFlightOriginBodyId(migrated);
+  backfillEquipmentPowered(migrated);
 
   // Reset timestamp so the game doesn't try to catch up for offline time
   migrated.lastTickTimestamp = Date.now();
@@ -1286,6 +1292,25 @@ function backfillFlightOriginBodyId(gameData: GameData): void {
       } else {
         // No 2D data (pre-orbital save) — default to body-origin
         fp.originBodyId = fp.origin;
+      }
+    }
+  }
+}
+
+/**
+ * Additive backfill for equipment power management fields.
+ * Existing saves have no powered/powerMode fields — default to powered + auto.
+ * No version bump needed — additive with safe defaults.
+ */
+function backfillEquipmentPowered(gameData: GameData): void {
+  for (const ship of gameData.ships) {
+    for (const eq of ship.equipment) {
+      const raw = eq as unknown as Record<string, unknown>;
+      if (raw.powered === undefined) {
+        eq.powered = true;
+      }
+      if (raw.powerMode === undefined) {
+        eq.powerMode = 'auto';
       }
     }
   }

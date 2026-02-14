@@ -40,6 +40,8 @@ function createEquipmentInstance(definitionId: EquipmentId): EquipmentInstance {
     id: generateId(),
     definitionId,
     degradation: 0,
+    powered: true,
+    powerMode: 'auto',
   };
 }
 
