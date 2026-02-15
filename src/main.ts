@@ -56,6 +56,13 @@ import { spendPoolXpOnItem } from './masterySystem';
 
 const app = document.getElementById('app')!;
 
+/** Debug speed multiplier from ?debugspeed=N query param */
+function getDebugSpeedMultiplier(): number {
+  const param = new URLSearchParams(window.location.search).get('debugspeed');
+  const n = param ? Number(param) : 1;
+  return Number.isFinite(n) && n >= 1 ? n : 1;
+}
+
 /** Show a dismissable banner at the top of the page. */
 function showErrorBanner(message: string): void {
   const banner = document.createElement('div');
@@ -123,13 +130,14 @@ const FULL_RATE_CATCH_UP_SECONDS = 4 * 3600;
  *   48h → ~30 500 ticks (~64 game-days)
  */
 function computeCatchUpTicks(elapsedSeconds: number, speed: number): number {
+  const effectiveSpeed = speed * getDebugSpeedMultiplier();
   if (elapsedSeconds <= FULL_RATE_CATCH_UP_SECONDS) {
-    return Math.floor(elapsedSeconds * speed);
+    return Math.floor(elapsedSeconds * effectiveSpeed);
   }
-  const fullTicks = FULL_RATE_CATCH_UP_SECONDS * speed;
+  const fullTicks = FULL_RATE_CATCH_UP_SECONDS * effectiveSpeed;
   const extraSeconds = elapsedSeconds - FULL_RATE_CATCH_UP_SECONDS;
   const K = FULL_RATE_CATCH_UP_SECONDS; // controls decay curve
-  const extraTicks = K * Math.log(1 + extraSeconds / K) * speed;
+  const extraTicks = K * Math.log(1 + extraSeconds / K) * effectiveSpeed;
   return Math.floor(fullTicks + extraTicks);
 }
 
@@ -1263,6 +1271,10 @@ const callbacks: RendererCallbacks = {
 // The only top-level call is init() at the bottom of the file.
 
 function init(): void {
+  if (getDebugSpeedMultiplier() > 1) {
+    console.log(`[DEBUG] Speed multiplier: ${getDebugSpeedMultiplier()}x`);
+  }
+
   // Register cross-module callbacks
   initCombatSystem();
   initProvisionsEvents();
@@ -1753,7 +1765,11 @@ function startTickSystem(): void {
 
   document.addEventListener('visibilitychange', onVisibilityChange);
   window.addEventListener('pagehide', onPageHide);
-  tickInterval = window.setInterval(processPendingTicks, 1000);
+  const tickDelay =
+    getDebugSpeedMultiplier() > 1
+      ? Math.max(100, Math.floor(1000 / getDebugSpeedMultiplier()))
+      : 1000;
+  tickInterval = window.setInterval(processPendingTicks, tickDelay);
 }
 
 function stopTickSystem(): void {
