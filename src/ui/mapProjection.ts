@@ -20,7 +20,10 @@ export function orbitalRadiusToSvg(radiusKm: number): number {
  * Uses the angle from the real position but log-scales the radius
  * to keep the solar system viewable.
  */
-export function projectToSvg(xKm: number, yKm: number): { x: number; y: number } {
+export function projectToSvg(
+  xKm: number,
+  yKm: number
+): { x: number; y: number } {
   const distFromSun = Math.sqrt(xKm * xKm + yKm * yKm);
   if (distFromSun < 1000) {
     // At origin (Sun) — center of SVG
@@ -82,16 +85,36 @@ export function computeFrozenTrajectoryLocal(
   originPos: Vec2,
   interceptPos: Vec2,
   arrivalGameTime: number,
-  parentLoc: WorldLocation,
-  world: World,
-  logMin: number,
-  logMax: number,
-  departureGameTime?: number
+  ctx: {
+    parentLoc: WorldLocation;
+    world: World;
+    logMin: number;
+    logMax: number;
+    departureGameTime?: number;
+  }
 ): { originSvg: { x: number; y: number }; destSvg: { x: number; y: number } } {
-  const originTime = departureGameTime ?? arrivalGameTime;
-  const parentPosAtDeparture = getLocationPosition(parentLoc, originTime, world);
-  const parentPosAtArrival = getLocationPosition(parentLoc, arrivalGameTime, world);
-  const originSvg = projectToSvgLocal(parentPosAtDeparture, originPos, logMin, logMax);
-  const destSvg = projectToSvgLocal(parentPosAtArrival, interceptPos, logMin, logMax);
+  const originTime = ctx.departureGameTime ?? arrivalGameTime;
+  const parentPosAtDeparture = getLocationPosition(
+    ctx.parentLoc,
+    originTime,
+    ctx.world
+  );
+  const parentPosAtArrival = getLocationPosition(
+    ctx.parentLoc,
+    arrivalGameTime,
+    ctx.world
+  );
+  const originSvg = projectToSvgLocal(
+    parentPosAtDeparture,
+    originPos,
+    ctx.logMin,
+    ctx.logMax
+  );
+  const destSvg = projectToSvgLocal(
+    parentPosAtArrival,
+    interceptPos,
+    ctx.logMin,
+    ctx.logMax
+  );
   return { originSvg, destSvg };
 }

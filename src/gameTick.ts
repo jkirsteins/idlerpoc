@@ -48,10 +48,7 @@ import {
   retryMiningRouteDeparture,
 } from './miningRoute';
 import { addLog } from './logSystem';
-import {
-  updateWorldPositions,
-  lerpVec2,
-} from './orbitalMechanics';
+import { updateWorldPositions, lerpVec2 } from './orbitalMechanics';
 import { resolveGravityAssist } from './gravityAssistSystem';
 import { formatMass, formatCredits } from './formatting';
 import {

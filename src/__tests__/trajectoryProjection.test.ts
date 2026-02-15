@@ -4,8 +4,8 @@ import {
   projectToSvgLocal,
   localOrbitalRadiusToSvg,
 } from '../ui/mapProjection';
-import { getLocationPosition } from '../orbitalMechanics';
-import { initializeFlight } from '../flightPhysics';
+import { getLocationPosition, lerpVec2 } from '../orbitalMechanics';
+import { initializeFlight, redirectShipFlight } from '../flightPhysics';
 import { createTestWorld, createTestShip } from './testHelpers';
 import type { Vec2 } from '../models';
 
@@ -21,8 +21,16 @@ describe('trajectoryProjection', () => {
 
       // Define frozen positions at some arbitrary arrival time
       const arrivalGameTime = 100_000;
-      const earthPosAtArrival = getLocationPosition(earth, arrivalGameTime, world);
-      const gatewayPosAtArrival = getLocationPosition(gateway, arrivalGameTime, world);
+      const earthPosAtArrival = getLocationPosition(
+        earth,
+        arrivalGameTime,
+        world
+      );
+      const gatewayPosAtArrival = getLocationPosition(
+        gateway,
+        arrivalGameTime,
+        world
+      );
 
       // Log scale parameters for Earth's satellites
       const logMin = Math.log10(400); // LEO at 400 km
@@ -34,20 +42,14 @@ describe('trajectoryProjection', () => {
         earthPosAtArrival,
         gatewayPosAtArrival,
         arrivalGameTime,
-        earth,
-        world,
-        logMin,
-        logMax
+        { parentLoc: earth, world, logMin, logMax }
       );
 
       const result2 = computeFrozenTrajectoryLocal(
         earthPosAtArrival,
         gatewayPosAtArrival,
         arrivalGameTime,
-        earth,
-        world,
-        logMin,
-        logMax
+        { parentLoc: earth, world, logMin, logMax }
       );
 
       // Results should be identical (deterministic given same inputs)
@@ -78,12 +80,22 @@ describe('trajectoryProjection', () => {
       const movementDistance = Math.sqrt(dx * dx + dy * dy);
 
       // Should be roughly 2× orbital radius (diameter)
-      expect(movementDistance).toBeGreaterThan(gateway.orbital!.orbitalRadiusKm * 1.8);
+      expect(movementDistance).toBeGreaterThan(
+        gateway.orbital!.orbitalRadiusKm * 1.8
+      );
 
       // Now use FROZEN positions (both at the same arrival time)
       const arrivalGameTime = 50_000;
-      const frozenOriginPos = getLocationPosition(earth, arrivalGameTime, world);
-      const frozenInterceptPos = getLocationPosition(gateway, arrivalGameTime, world);
+      const frozenOriginPos = getLocationPosition(
+        earth,
+        arrivalGameTime,
+        world
+      );
+      const frozenInterceptPos = getLocationPosition(
+        gateway,
+        arrivalGameTime,
+        world
+      );
 
       const logMin = Math.log10(400);
       const logMax = Math.log10(400_000);
@@ -94,20 +106,14 @@ describe('trajectoryProjection', () => {
         frozenOriginPos,
         frozenInterceptPos,
         arrivalGameTime,
-        earth,
-        world,
-        logMin,
-        logMax
+        { parentLoc: earth, world, logMin, logMax }
       );
 
       const trajectory2 = computeFrozenTrajectoryLocal(
         frozenOriginPos,
         frozenInterceptPos,
         arrivalGameTime,
-        earth,
-        world,
-        logMin,
-        logMax
+        { parentLoc: earth, world, logMin, logMax }
       );
 
       // Trajectories should be identical despite Gateway's real orbit moving
@@ -139,10 +145,7 @@ describe('trajectoryProjection', () => {
         earthPos, // origin at Earth
         gatewayPos, // intercept at Gateway
         arrivalGameTime,
-        earth, // parent is Earth
-        world,
-        logMin,
-        logMax
+        { parentLoc: earth, world, logMin, logMax }
       );
 
       // Origin should be at (0, 0) since it's Earth relative to Earth
@@ -179,10 +182,7 @@ describe('trajectoryProjection', () => {
         earthPos,
         gatewayPos,
         arrivalGameTime,
-        earth,
-        world,
-        logMin,
-        logMax
+        { parentLoc: earth, world, logMin, logMax }
       );
 
       // Calculate expected SVG radius for Gateway's orbital radius
@@ -332,10 +332,7 @@ describe('trajectoryProjection', () => {
         originPos,
         interceptPos,
         arrivalGameTime,
-        earth,
-        world,
-        logMin,
-        logMax
+        { parentLoc: earth, world, logMin, logMax }
       );
 
       // Origin at Earth → should be near (0,0)
@@ -371,10 +368,7 @@ describe('trajectoryProjection', () => {
         originPos,
         interceptPos,
         arrivalGameTime,
-        earth,
-        world,
-        logMin,
-        logMax
+        { parentLoc: earth, world, logMin, logMax }
       );
 
       // Origin at Earth → near (0,0)
@@ -408,14 +402,10 @@ describe('trajectoryProjection', () => {
         location: { status: 'docked', dockedAt: 'leo_station' },
       });
 
-      const flight = initializeFlight(
-        ship,
-        gateway,
-        geo,
-        false,
-        1.0,
-        { gameTime, world }
-      );
+      const flight = initializeFlight(ship, gateway, geo, false, 1.0, {
+        gameTime,
+        world,
+      });
 
       // Gateway's position at launch time
       const gatewayAtLaunch = getLocationPosition(gateway, gameTime, world);
@@ -454,7 +444,11 @@ describe('trajectoryProjection', () => {
       const arrivalTime = 100_000;
 
       // Get positions at their respective times
-      const gatewayAtDeparture = getLocationPosition(gateway, departureTime, world);
+      const gatewayAtDeparture = getLocationPosition(
+        gateway,
+        departureTime,
+        world
+      );
       const geoAtArrival = getLocationPosition(geo, arrivalTime, world);
 
       const logMin = Math.log10(400);
@@ -465,20 +459,32 @@ describe('trajectoryProjection', () => {
         gatewayAtDeparture,
         geoAtArrival,
         arrivalTime,
-        earth,
-        world,
-        logMin,
-        logMax,
-        departureTime
+        {
+          parentLoc: earth,
+          world,
+          logMin,
+          logMax,
+          departureGameTime: departureTime,
+        }
       );
 
       // Compute expected: origin projected relative to Earth at departure time
       const earthAtDeparture = getLocationPosition(earth, departureTime, world);
-      const expectedOrigin = projectToSvgLocal(earthAtDeparture, gatewayAtDeparture, logMin, logMax);
+      const expectedOrigin = projectToSvgLocal(
+        earthAtDeparture,
+        gatewayAtDeparture,
+        logMin,
+        logMax
+      );
 
       // Destination projected relative to Earth at arrival time
       const earthAtArrival = getLocationPosition(earth, arrivalTime, world);
-      const expectedDest = projectToSvgLocal(earthAtArrival, geoAtArrival, logMin, logMax);
+      const expectedDest = projectToSvgLocal(
+        earthAtArrival,
+        geoAtArrival,
+        logMin,
+        logMax
+      );
 
       expect(result.originSvg.x).toBeCloseTo(expectedOrigin.x, 5);
       expect(result.originSvg.y).toBeCloseTo(expectedOrigin.y, 5);
@@ -499,14 +505,10 @@ describe('trajectoryProjection', () => {
       const ship = createTestShip({
         location: { status: 'docked', dockedAt: 'leo_station' },
       });
-      const outbound = initializeFlight(
-        ship,
-        gateway,
-        geo,
-        false,
-        1.0,
-        { gameTime: departureTime, world }
-      );
+      const outbound = initializeFlight(ship, gateway, geo, false, 1.0, {
+        gameTime: departureTime,
+        world,
+      });
 
       const arrivalTime = outbound.estimatedArrivalGameTime!;
 
@@ -534,13 +536,267 @@ describe('trajectoryProjection', () => {
 
       // Return flight's originPos should NOT match GEO at the return arrival time
       const returnArrivalTime = returnFlight.estimatedArrivalGameTime!;
-      if (returnArrivalTime - arrivalTime > geo.orbital!.orbitalPeriodSec * 0.1) {
-        const geoAtReturnArrival = getLocationPosition(geo, returnArrivalTime, world);
+      if (
+        returnArrivalTime - arrivalTime >
+        geo.orbital!.orbitalPeriodSec * 0.1
+      ) {
+        const geoAtReturnArrival = getLocationPosition(
+          geo,
+          returnArrivalTime,
+          world
+        );
         const dxArr = returnFlight.originPos!.x - geoAtReturnArrival.x;
         const dyArr = returnFlight.originPos!.y - geoAtReturnArrival.y;
         const distFromArrival = Math.sqrt(dxArr * dxArr + dyArr * dyArr);
         expect(distFromArrival).toBeGreaterThan(10);
       }
+    });
+  });
+
+  describe('shipPos interpolation stays near parent body', () => {
+    it('mid-flight shipPos for local flight is near Earth, not along orbital chord', () => {
+      const world = createTestWorld();
+      const earth = world.locations.find((l) => l.id === 'earth')!;
+      const gateway = world.locations.find((l) => l.id === 'leo_station')!;
+      const geo = world.locations.find((l) => l.id === 'geo_depot')!;
+
+      const gameTime = 50_000;
+
+      const ship = createTestShip({
+        location: { status: 'docked', dockedAt: 'leo_station' },
+      });
+
+      const flight = initializeFlight(ship, gateway, geo, false, 1.0, {
+        gameTime,
+        world,
+      });
+
+      expect(flight.originPos).toBeDefined();
+      expect(flight.interceptPos).toBeDefined();
+
+      // Simulate 50% progress — interpolate shipPos as updateFlightPosition does
+      const progress = 0.5;
+      const shipPos = lerpVec2(
+        flight.originPos!,
+        flight.interceptPos!,
+        progress
+      );
+
+      // Earth's position at mid-flight time
+      const midTime =
+        gameTime + (flight.estimatedArrivalGameTime! - gameTime) * 0.5;
+      const earthAtMid = getLocationPosition(earth, midTime, world);
+
+      // Ship should be near Earth (within ~50,000 km, which covers GEO orbit)
+      // NOT millions of km away along a chord of Earth's solar orbit
+      const distFromEarth = Math.sqrt(
+        (shipPos.x - earthAtMid.x) ** 2 + (shipPos.y - earthAtMid.y) ** 2
+      );
+
+      // GEO is at ~36,000 km from Earth. Ship should be within that range + margin.
+      // If interpolation crosses time frames, distance would be millions of km.
+      expect(distFromEarth).toBeLessThan(50_000);
+    });
+
+    it('redirect from mid-flight gets reasonable travel time', () => {
+      const world = createTestWorld();
+      const earth = world.locations.find((l) => l.id === 'earth')!;
+      const gateway = world.locations.find((l) => l.id === 'leo_station')!;
+      const geo = world.locations.find((l) => l.id === 'geo_depot')!;
+
+      const gameTime = 50_000;
+
+      const ship = createTestShip({
+        location: { status: 'docked', dockedAt: 'leo_station' },
+      });
+
+      const outbound = initializeFlight(ship, gateway, geo, false, 1.0, {
+        gameTime,
+        world,
+      });
+
+      // Simulate ship at 50% progress
+      const progress = 0.5;
+      const shipPos = lerpVec2(
+        outbound.originPos!,
+        outbound.interceptPos!,
+        progress
+      );
+
+      // Build redirect flight from mid-flight position to Gateway
+      const virtualOrigin = {
+        distanceFromEarth: 20_000, // approximate
+        id: 'leo_station',
+      } as import('../models').WorldLocation;
+
+      const redirectTime =
+        gameTime + (outbound.estimatedArrivalGameTime! - gameTime) * 0.5;
+      const redirect = initializeFlight(
+        ship,
+        virtualOrigin,
+        gateway,
+        false,
+        1.0,
+        { gameTime: redirectTime, world, originPos: shipPos }
+      );
+
+      const earthAtRedirect = getLocationPosition(earth, redirectTime, world);
+      const distShipFromEarth = Math.sqrt(
+        (shipPos.x - earthAtRedirect.x) ** 2 +
+          (shipPos.y - earthAtRedirect.y) ** 2
+      );
+
+      // Ship should be within the Earth system
+      expect(distShipFromEarth).toBeLessThan(50_000);
+
+      const redirectDistKm = redirect.totalDistance / 1000;
+      // Distance should be reasonable (< 100,000 km for intra-Earth flight)
+      expect(redirectDistKm).toBeLessThan(100_000);
+
+      // Travel time should be reasonable (< 1 year = ~31.5M game seconds)
+      expect(redirect.totalTime).toBeLessThan(31_500_000);
+    });
+  });
+
+  describe('redirect from Earth→Gateway mid-flight back to Earth', () => {
+    it('gets reasonable travel time when redirecting back to Earth', () => {
+      const world = createTestWorld();
+      const earth = world.locations.find((l) => l.id === 'earth')!;
+      const gateway = world.locations.find((l) => l.id === 'leo_station')!;
+
+      const gameTime = 50_000;
+
+      const ship = createTestShip({
+        location: { status: 'docked', dockedAt: 'earth' },
+      });
+
+      // Start flight from Earth to Gateway Station
+      const outbound = initializeFlight(ship, earth, gateway, false, 1.0, {
+        gameTime,
+        world,
+      });
+
+      expect(outbound.originPos).toBeDefined();
+      expect(outbound.interceptPos).toBeDefined();
+
+      // Simulate ship at 50% progress — lerp as updateFlightPosition does
+      const progress = 0.5;
+      const shipPos = lerpVec2(
+        outbound.originPos!,
+        outbound.interceptPos!,
+        progress
+      );
+
+      const redirectTime =
+        gameTime + (outbound.estimatedArrivalGameTime! - gameTime) * progress;
+
+      // Ship should be near Earth at mid-flight (Gateway is LEO, 400km)
+      const earthAtRedirect = getLocationPosition(earth, redirectTime, world);
+      const distShipFromEarth = Math.sqrt(
+        (shipPos.x - earthAtRedirect.x) ** 2 +
+          (shipPos.y - earthAtRedirect.y) ** 2
+      );
+      // Ship at 50% between Earth and LEO should be ~200km from Earth.
+      // If lerp drifts along Earth's solar orbit chord, this will be millions of km.
+      expect(distShipFromEarth).toBeLessThan(50_000);
+
+      // Redirect back to Earth from mid-flight
+      const virtualOrigin = {
+        distanceFromEarth: 200,
+        id: 'earth',
+      } as import('../models').WorldLocation;
+
+      const redirect = initializeFlight(
+        ship,
+        virtualOrigin,
+        earth,
+        false,
+        1.0,
+        { gameTime: redirectTime, world, originPos: shipPos }
+      );
+
+      const redirectDistKm = redirect.totalDistance / 1000;
+      // Distance should be reasonable (< 1,000 km for a ~200km return to Earth)
+      expect(redirectDistKm).toBeLessThan(1_000);
+
+      // Travel time should be reasonable (< 1 day game time)
+      expect(redirect.totalTime).toBeLessThan(86_400);
+    });
+  });
+
+  describe('redirect with corrected ship position via redirectShipFlight', () => {
+    it('redirectShipFlight computes correct local-frame position for intra-cluster redirect', () => {
+      const world = createTestWorld();
+      const earth = world.locations.find((l) => l.id === 'earth')!;
+      const gateway = world.locations.find((l) => l.id === 'leo_station')!;
+
+      const gameTime = 50_000;
+
+      const ship = createTestShip({
+        location: { status: 'docked', dockedAt: 'earth' },
+      });
+
+      // Start flight from Earth to Gateway Station
+      const outbound = initializeFlight(ship, earth, gateway, false, 1.0, {
+        gameTime,
+        world,
+      });
+
+      expect(outbound.originPos).toBeDefined();
+      expect(outbound.interceptPos).toBeDefined();
+
+      // Simulate 50% progress
+      const progress = 0.5;
+      const rawShipPos = lerpVec2(
+        outbound.originPos!,
+        outbound.interceptPos!,
+        progress
+      );
+      const redirectTime =
+        gameTime + (outbound.estimatedArrivalGameTime! - gameTime) * progress;
+
+      const earthAtRedirect = getLocationPosition(earth, redirectTime, world);
+
+      // Set up ship with active flight plan to simulate redirect
+      ship.activeFlightPlan = {
+        ...outbound,
+        shipPos: rawShipPos,
+        distanceCovered: outbound.totalDistance * progress,
+        elapsedTime: outbound.totalTime * progress,
+      };
+      ship.location = { status: 'in_flight' };
+
+      // Use redirectShipFlight to redirect back to Earth
+      const currentKm =
+        (outbound.originKm ?? 0) + (outbound.totalDistance / 1000) * progress;
+      const success = redirectShipFlight(
+        ship,
+        currentKm,
+        earth,
+        true,
+        1.0,
+        redirectTime,
+        world
+      );
+
+      expect(success).toBe(true);
+      expect(ship.activeFlightPlan).toBeDefined();
+
+      // The redirect flight's originPos should be near Earth at redirect time
+      const redirectOrigin = ship.activeFlightPlan.originPos!;
+      const originDistFromEarth = Math.sqrt(
+        (redirectOrigin.x - earthAtRedirect.x) ** 2 +
+          (redirectOrigin.y - earthAtRedirect.y) ** 2
+      );
+      // Origin should be within the Earth system (< 1,000 km)
+      expect(originDistFromEarth).toBeLessThan(1_000);
+
+      // Travel distance should be reasonable (< 1,000 km)
+      const redirectDistKm = ship.activeFlightPlan.totalDistance / 1000;
+      expect(redirectDistKm).toBeLessThan(1_000);
+
+      // Travel time should be reasonable (< 1 day)
+      expect(ship.activeFlightPlan.totalTime).toBeLessThan(86_400);
     });
   });
 });

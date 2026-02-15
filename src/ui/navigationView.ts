@@ -1,4 +1,11 @@
-import type { GameData, WorldLocation, Quest, Ship, Vec2 } from '../models';
+import type {
+  GameData,
+  WorldLocation,
+  Quest,
+  Ship,
+  Vec2,
+  FlightState,
+} from '../models';
 import { getActiveShip } from '../models';
 import { getLocationTypeTemplate } from '../spaceLocations';
 import {
@@ -838,6 +845,82 @@ function createLegendItemDom(
   };
 }
 
+/** Compute edge position for a trajectory endpoint outside the current cluster */
+function computeEdgePos(
+  frozenPos: Vec2 | undefined,
+  externalLocId: string,
+  parentPos: { x: number; y: number },
+  gd: GameData
+): { x: number; y: number } {
+  if (frozenPos) {
+    const angle = Math.atan2(
+      frozenPos.y - parentPos.y,
+      frozenPos.x - parentPos.x
+    );
+    return { x: 185 * Math.cos(angle), y: 185 * Math.sin(angle) };
+  }
+  const extLoc = gd.world.locations.find((l) => l.id === externalLocId);
+  if (!extLoc) return { x: 0, y: 0 };
+  const extPos = getLocationPosition(extLoc, gd.gameTime, gd.world);
+  const angle = Math.atan2(extPos.y - parentPos.y, extPos.x - parentPos.x);
+  return { x: 185 * Math.cos(angle), y: 185 * Math.sin(angle) };
+}
+
+/** Resolve origin/dest SVG positions for a flight in focus mode */
+function resolveFlightEndpoints(
+  fp: FlightState,
+  originInCluster: boolean,
+  destInCluster: boolean,
+  cachedSvgPositions: Map<string, { x: number; y: number }>,
+  parentPos: { x: number; y: number },
+  gd: GameData,
+  ctx: { parentLoc: WorldLocation; logMin: number; logMax: number }
+): { originSvg: { x: number; y: number }; destSvg: { x: number; y: number } } {
+  const getLocalPos = (locId: string) =>
+    cachedSvgPositions.get(locId) ?? { x: 0, y: 0 };
+
+  const depTime = fp.departureGameTime ?? fp.estimatedArrivalGameTime;
+  const hasFrozen = !!(
+    fp.originPos &&
+    fp.interceptPos &&
+    fp.estimatedArrivalGameTime
+  );
+  const frozen = hasFrozen
+    ? computeFrozenTrajectoryLocal(
+        fp.originPos!,
+        fp.interceptPos!,
+        fp.estimatedArrivalGameTime!,
+        {
+          parentLoc: ctx.parentLoc,
+          world: gd.world,
+          logMin: ctx.logMin,
+          logMax: ctx.logMax,
+          departureGameTime: depTime,
+        }
+      )
+    : undefined;
+
+  let originSvg: { x: number; y: number };
+  let destSvg: { x: number; y: number };
+
+  if (originInCluster && destInCluster) {
+    originSvg = frozen?.originSvg ?? getLocalPos(fp.origin);
+    destSvg = frozen?.destSvg ?? getLocalPos(fp.destination);
+  } else if (originInCluster) {
+    originSvg = frozen?.originSvg ?? getLocalPos(fp.origin);
+    destSvg = frozen
+      ? computeEdgePos(fp.interceptPos, fp.destination, parentPos, gd)
+      : computeEdgePos(undefined, fp.destination, parentPos, gd);
+  } else {
+    originSvg = frozen
+      ? computeEdgePos(fp.originPos, fp.origin, parentPos, gd)
+      : computeEdgePos(undefined, fp.origin, parentPos, gd);
+    destSvg = frozen?.destSvg ?? getLocalPos(fp.destination);
+  }
+
+  return { originSvg, destSvg };
+}
+
 export function createNavigationView(
   gameData: GameData,
   callbacks: NavigationViewCallbacks
@@ -1551,11 +1634,19 @@ export function createNavigationView(
     gd: GameData,
     ship: Ship,
     isInFlight: boolean,
-    parentId: string,
-    parentPos: { x: number; y: number },
-    logMin: number,
-    logMax: number,
-    parentLoc: WorldLocation
+    {
+      parentId,
+      parentPos,
+      logMin,
+      logMax,
+      parentLoc,
+    }: {
+      parentId: string;
+      parentPos: { x: number; y: number };
+      logMin: number;
+      logMax: number;
+      parentLoc: WorldLocation;
+    }
   ): void {
     if (!isInFlight || !ship.activeFlightPlan) {
       hideFlightViz();
@@ -1575,101 +1666,43 @@ export function createNavigationView(
       return;
     }
 
-    // For scenarios A and B, we need projected positions
-    const getLocalPos = (locId: string): { x: number; y: number } => {
-      const cached = cachedSvgPositions.get(locId);
-      return cached ?? { x: 0, y: 0 };
-    };
+    const { originSvg, destSvg } = resolveFlightEndpoints(
+      fp,
+      originInCluster,
+      destInCluster,
+      cachedSvgPositions,
+      parentPos,
+      gd,
+      { parentLoc, logMin, logMax }
+    );
 
-    const getEdgePos = (frozenPos: Vec2 | undefined, externalLocId: string): { x: number; y: number } => {
-      // Prefer frozen position from flight plan for stable trajectory
-      if (frozenPos) {
-        const angle = Math.atan2(frozenPos.y - parentPos.y, frozenPos.x - parentPos.x);
-        return { x: 185 * Math.cos(angle), y: 185 * Math.sin(angle) };
-      }
-      // Fallback for legacy flights
-      const extLoc = gd.world.locations.find((l) => l.id === externalLocId);
-      if (!extLoc) return { x: 0, y: 0 };
-      const extPos = getLocationPosition(extLoc, gd.gameTime, gd.world);
-      const angle = Math.atan2(extPos.y - parentPos.y, extPos.x - parentPos.x);
-      return { x: 185 * Math.cos(angle), y: 185 * Math.sin(angle) };
-    };
+    const line = flightRefs.line;
+    line.setAttribute('x1', String(originSvg.x));
+    line.setAttribute('y1', String(originSvg.y));
+    line.setAttribute('x2', String(destSvg.x));
+    line.setAttribute('y2', String(destSvg.y));
+    line.style.display = '';
 
-    let originSvg: { x: number; y: number };
-    let destSvg: { x: number; y: number };
-
-    const depTime = fp.departureGameTime ?? fp.estimatedArrivalGameTime;
-
-    if (originInCluster && destInCluster) {
-      // Scenario A: local flight — use frozen trajectory if available
-      if (fp.originPos && fp.interceptPos && fp.estimatedArrivalGameTime) {
-        const frozen = computeFrozenTrajectoryLocal(
-          fp.originPos, fp.interceptPos, fp.estimatedArrivalGameTime,
-          parentLoc, gd.world, logMin, logMax, depTime
-        );
-        originSvg = frozen.originSvg;
-        destSvg = frozen.destSvg;
-      } else {
-        // Fallback for legacy flights without frozen positions
-        originSvg = getLocalPos(fp.origin);
-        destSvg = getLocalPos(fp.destination);
-      }
-    } else if (originInCluster) {
-      // Scenario B: leaving the cluster
-      if (fp.originPos && fp.interceptPos && fp.estimatedArrivalGameTime) {
-        const frozen = computeFrozenTrajectoryLocal(
-          fp.originPos, fp.interceptPos, fp.estimatedArrivalGameTime,
-          parentLoc, gd.world, logMin, logMax, depTime
-        );
-        originSvg = frozen.originSvg;
-        destSvg = getEdgePos(fp.interceptPos, fp.destination);
-      } else {
-        // Fallback for legacy flights
-        originSvg = getLocalPos(fp.origin);
-        destSvg = getEdgePos(undefined, fp.destination);
-      }
-    } else {
-      // Scenario B: arriving into the cluster
-      if (fp.originPos && fp.interceptPos && fp.estimatedArrivalGameTime) {
-        const frozen = computeFrozenTrajectoryLocal(
-          fp.originPos, fp.interceptPos, fp.estimatedArrivalGameTime,
-          parentLoc, gd.world, logMin, logMax, depTime
-        );
-        originSvg = getEdgePos(fp.originPos, fp.origin);
-        destSvg = frozen.destSvg;
-      } else {
-        // Fallback for legacy flights
-        originSvg = getEdgePos(undefined, fp.origin);
-        destSvg = getLocalPos(fp.destination);
-      }
-    }
-
-    flightRefs.line.setAttribute('x1', String(originSvg.x));
-    flightRefs.line.setAttribute('y1', String(originSvg.y));
-    flightRefs.line.setAttribute('x2', String(destSvg.x));
-    flightRefs.line.setAttribute('y2', String(destSvg.y));
-    flightRefs.line.style.display = '';
-
-    // Ship dot position: interpolate in SVG space (post-projection) to match
-    // visual progress with flight progress. Projecting a linear km position
-    // causes logarithmic distortion.
+    // Interpolate in SVG space (post-projection) to avoid log distortion
     const progress =
       fp.totalDistance > 0 ? fp.distanceCovered / fp.totalDistance : 0;
+    const dot = flightRefs.shipDot;
+    dot.setAttribute(
+      'cx',
+      String(originSvg.x + (destSvg.x - originSvg.x) * progress)
+    );
+    dot.setAttribute(
+      'cy',
+      String(originSvg.y + (destSvg.y - originSvg.y) * progress)
+    );
+    dot.setAttribute(
+      'stroke',
+      fp.phase === 'accelerating' || fp.phase === 'decelerating'
+        ? '#ffc107'
+        : '#fff'
+    );
+    dot.style.display = '';
 
-    const shipSvgX = originSvg.x + (destSvg.x - originSvg.x) * progress;
-    const shipSvgY = originSvg.y + (destSvg.y - originSvg.y) * progress;
-    flightRefs.shipDot.setAttribute('cx', String(shipSvgX));
-    flightRefs.shipDot.setAttribute('cy', String(shipSvgY));
-    flightRefs.shipDot.style.display = '';
-
-    // Ship dot stroke: yellow during burn, white during coast
-    if (fp.phase === 'accelerating' || fp.phase === 'decelerating') {
-      flightRefs.shipDot.setAttribute('stroke', '#ffc107');
-    } else {
-      flightRefs.shipDot.setAttribute('stroke', '#fff');
-    }
-
-    // Hide assist markers in focus mode for simplicity
     for (const marker of assistMarkers) {
       marker.halo.style.display = 'none';
       marker.diamond.style.display = 'none';
@@ -2123,7 +2156,13 @@ export function createNavigationView(
     }
 
     // Flight visualization (focus projection)
-    updateFlightVizFocus(gd, ship, isInFlight, parentId, parentPos, logMin, logMax, parentLoc);
+    updateFlightVizFocus(gd, ship, isInFlight, {
+      parentId,
+      parentPos,
+      logMin,
+      logMax,
+      parentLoc,
+    });
   }
 
   // Initial render
