@@ -98,6 +98,22 @@ function getAtmosphereOpacity(zone: Zone): number {
   return 0; // none
 }
 
+function getInsolationTint(zone: Zone): { fill: string; opacity: number } {
+  if (zone.insolationBand === 'light') {
+    return { fill: '#ffcf66', opacity: 0.2 };
+  }
+  if (zone.insolationBand === 'dark') {
+    return { fill: '#3f4c93', opacity: 0.28 };
+  }
+  return { fill: '#6ab8c9', opacity: 0.2 };
+}
+
+function getInsolationStroke(zone: Zone): string {
+  if (zone.insolationBand === 'light') return 'rgba(255, 207, 102, 0.45)';
+  if (zone.insolationBand === 'dark') return 'rgba(108, 128, 209, 0.55)';
+  return 'rgba(106, 184, 201, 0.5)';
+}
+
 export function createPlanetMapComponent(
   container: HTMLElement,
   _gameData: GameData,
@@ -171,13 +187,12 @@ export function createPlanetMapComponent(
 
   // SVG for hex grid
   const svg = document.createElementNS(SVG_NS, 'svg');
-  // Larger world-space view to allow meaningful zoom-out on dense zone maps.
-  const mapViewSize = 1600;
+  const defaultMapViewSize = 1600;
   svg.setAttribute('width', '100%');
   svg.setAttribute('height', '100%');
   svg.setAttribute(
     'viewBox',
-    `${-mapViewSize / 2} ${-mapViewSize / 2} ${mapViewSize} ${mapViewSize}`
+    `${-defaultMapViewSize / 2} ${-defaultMapViewSize / 2} ${defaultMapViewSize} ${defaultMapViewSize}`
   );
   svg.style.cssText = 'display: block;';
 
@@ -203,10 +218,10 @@ export function createPlanetMapComponent(
 
   const zoomControls: MapZoomPanControls = setupMapZoomPan(svg, mapContainer, {
     initialViewBox: {
-      x: -mapViewSize / 2,
-      y: -mapViewSize / 2,
-      width: mapViewSize,
-      height: mapViewSize,
+      x: -defaultMapViewSize / 2,
+      y: -defaultMapViewSize / 2,
+      width: defaultMapViewSize,
+      height: defaultMapViewSize,
     },
     startZoom: 1,
     minZoom: 1,
@@ -265,6 +280,9 @@ export function createPlanetMapComponent(
     <span style="color: #4caf50">● Harvesting</span>
     <span style="color: #00bcd4">◆ Liquid</span>
     <span style="color: #e0e0ff">◆ Ice</span>
+    <span style="color: #ffcf66">◌ Light side</span>
+    <span style="color: #6ab8c9">◌ Terminator</span>
+    <span style="color: #6c80d1">◌ Dark side</span>
   `;
   el.appendChild(legend);
 
@@ -352,6 +370,7 @@ export function createPlanetMapComponent(
           // Hex background
           const hexBg = document.createElementNS(SVG_NS, 'path');
           hexBg.setAttribute('d', createHexPath(x, y));
+          hexBg.setAttribute('class', 'zone-bg');
           hexBg.setAttribute(
             'fill',
             getZoneStateColor(zone, zone.planetId === gameData.homePlanetId)
@@ -359,6 +378,25 @@ export function createPlanetMapComponent(
           hexBg.setAttribute('stroke', '#333');
           hexBg.setAttribute('stroke-width', '0.5');
           hexGroup.appendChild(hexBg);
+
+          const insolationTint = getInsolationTint(zone);
+          const insolationOverlay = document.createElementNS(SVG_NS, 'path');
+          insolationOverlay.setAttribute('d', createHexPath(x, y));
+          insolationOverlay.setAttribute('fill', insolationTint.fill);
+          insolationOverlay.setAttribute(
+            'opacity',
+            String(insolationTint.opacity)
+          );
+          insolationOverlay.style.pointerEvents = 'none';
+          hexGroup.appendChild(insolationOverlay);
+
+          const insolationRing = document.createElementNS(SVG_NS, 'path');
+          insolationRing.setAttribute('d', createHexPath(x, y));
+          insolationRing.setAttribute('fill', 'none');
+          insolationRing.setAttribute('stroke', getInsolationStroke(zone));
+          insolationRing.setAttribute('stroke-width', '0.9');
+          insolationRing.style.pointerEvents = 'none';
+          hexGroup.appendChild(insolationRing);
 
           // Terrain indicator (small shape in center)
           const terrainColor = getTerrainIndicator(zone);
@@ -450,9 +488,25 @@ export function createPlanetMapComponent(
           const spanY = Math.max(1, maxY - minY + padding * 2);
           const centerX = (minX + maxX) / 2;
           const centerY = (minY + maxY) / 2;
+          const dynamicPadding = Math.max(
+            HEX_SIZE * 3,
+            Math.max(spanX, spanY) * 0.08
+          );
+          const worldWidth = spanX + dynamicPadding * 2;
+          const worldHeight = spanY + dynamicPadding * 2;
+          zoomControls.setViewBounds(
+            {
+              x: centerX - worldWidth / 2,
+              y: centerY - worldHeight / 2,
+              width: worldWidth,
+              height: worldHeight,
+            },
+            { resetToFit: false }
+          );
+
           const fitZoom = Math.max(
             1,
-            Math.min(10, Math.min(mapViewSize / spanX, mapViewSize / spanY))
+            Math.min(10, Math.min(worldWidth / spanX, worldHeight / spanY))
           );
           zoomControls.zoomTo(centerX, centerY, fitZoom, false);
         } else {
@@ -472,7 +526,7 @@ export function createPlanetMapComponent(
       // Update zone colors (states may change)
       for (let i = 0; i < zoneHexes.length; i++) {
         const { zone, hex } = zoneHexes[i];
-        const hexBg = hex.querySelector('path');
+        const hexBg = hex.querySelector('.zone-bg');
         if (hexBg) {
           hexBg.setAttribute(
             'fill',

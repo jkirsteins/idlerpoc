@@ -16,6 +16,7 @@ The swarm is not an army. It is a planetary organism that replaces ecosystems th
 - **Homeostatic Equilibrium**: Population finds natural balance through starvation and birth
 - **Cargo Logistics**: Workers carry physical biomass, creating spatial constraints
 - **Skill Progression**: Workers improve through practice, not arbitrary upgrades
+- **Planetary Metabolism**: Planet atmosphere and pressure emerge from zone ecology
 
 ## Key Features
 
@@ -34,6 +35,8 @@ All seven TRAPPIST-1 planets are visible from the start, but reaching them requi
 - **Heinlein** (f): Cold ice world
 - **Clarke** (g): Deep frozen
 - **Lewis** (h): Outer wasteland
+
+Each world is generated as an organic hex biome map. Zones carry local light bands (light, terminator, dark), terrain, mineral potential, and atmospheric gas contributions. Planet-level atmosphere is derived from those zone states, so terraforming outcomes emerge from expansion instead of static planet stats.
 
 ### 📦 Cargo-Based Logistics
 
