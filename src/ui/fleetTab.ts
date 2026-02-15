@@ -7,8 +7,6 @@ import { formatTradeRouteName } from '../utils';
 import { getRoomDefinition } from '../rooms';
 import { getEquipmentDefinition } from '../equipment';
 import { computeMaxRange } from '../flightPhysics';
-import { calculateTripFuelKg } from '../questGen';
-import { getDistanceBetween } from '../worldGen';
 import { createFleetPanel } from './fleetPanel';
 import {
   formatCredits,
@@ -27,17 +25,14 @@ import {
 } from '../fleetAnalytics';
 import { calculateDailyLedger } from '../dailyLedger';
 import type { Component } from './component';
-import {
-  formatFuelMass,
-  calculateFuelPercentage,
-  getFuelColorHex,
-} from './fuelFormatting';
+import { calculateFuelPercentage, getFuelColorHex } from './fuelFormatting';
 import { generateShipName } from '../names';
 import {
   formatResourceCost,
   checkResourceCost,
   canAffordResources,
 } from '../resourceCost';
+import { createFleetMapOrrery } from './fleetMapOrrery';
 
 /**
  * Rooms that vary between ship classes and are worth highlighting in purchase cards.
@@ -83,9 +78,25 @@ export function createFleetTab(
   container.className = 'fleet-tab';
   container.style.padding = '1rem';
 
-  // --- Slot for fleet map (always visible, leaf helper swapped each tick) ---
-  const fleetMapSlot = document.createElement('div');
-  container.appendChild(fleetMapSlot);
+  // --- Fleet Map (always visible, mount-once component) ---
+  const fleetMapSection = document.createElement('div');
+  fleetMapSection.className = 'fleet-map-section';
+  fleetMapSection.style.marginBottom = '1.5rem';
+  fleetMapSection.style.padding = '1rem';
+  fleetMapSection.style.background = 'rgba(0, 0, 0, 0.3)';
+  fleetMapSection.style.border = '1px solid #444';
+  fleetMapSection.style.borderRadius = '4px';
+
+  const mapTitle = document.createElement('h3');
+  mapTitle.textContent = 'Fleet Map';
+  mapTitle.style.marginBottom = '0.75rem';
+  fleetMapSection.appendChild(mapTitle);
+
+  const fleetMapComp = createFleetMapOrrery(gameData, {
+    onSelectShip: callbacks.onSelectShip,
+  });
+  fleetMapSection.appendChild(fleetMapComp.el);
+  container.appendChild(fleetMapSection);
 
   // --- Multi-ship section (toggled via display) ---
   const multiShipSection = document.createElement('div');
@@ -120,25 +131,6 @@ export function createFleetTab(
   const singleShipSection = document.createElement('div');
   container.appendChild(singleShipSection);
 
-  const welcomeSection = document.createElement('div');
-  welcomeSection.style.marginBottom = '1.5rem';
-  welcomeSection.style.padding = '1rem';
-  welcomeSection.style.background = 'rgba(0, 0, 0, 0.3)';
-  welcomeSection.style.border = '1px solid #444';
-  welcomeSection.style.borderRadius = '4px';
-  const welcomeTitle = document.createElement('h3');
-  welcomeTitle.textContent = 'Fleet Management';
-  welcomeTitle.style.marginBottom = '0.5rem';
-  welcomeSection.appendChild(welcomeTitle);
-  const welcomeMessage = document.createElement('p');
-  welcomeMessage.style.color = '#aaa';
-  welcomeMessage.style.fontSize = '0.9rem';
-  welcomeMessage.style.lineHeight = '1.6';
-  welcomeMessage.textContent =
-    'Welcome to Fleet Management! Expand your operations by purchasing additional ships. Each ship can operate independently, running separate contracts and exploring different regions of space.';
-  welcomeSection.appendChild(welcomeMessage);
-  singleShipSection.appendChild(welcomeSection);
-
   // Slot for single ship card (leaf helper)
   const singleCardSlot = document.createElement('div');
   singleShipSection.appendChild(singleCardSlot);
@@ -165,8 +157,8 @@ export function createFleetTab(
   }
 
   function update(gameData: GameData) {
-    // Fleet map — always visible (leaf helper, swapped each tick)
-    swapSlot(fleetMapSlot, renderFleetMap(gameData, callbacks));
+    // Fleet map — always visible (mount-once component)
+    fleetMapComp.update(gameData);
 
     const isMultiShip = gameData.ships.length > 1;
     multiShipSection.style.display = isMultiShip ? '' : 'none';
@@ -210,240 +202,6 @@ export function createFleetTab(
 
   update(gameData);
   return { el: container, update };
-}
-
-/**
- * Render Fleet Map - Strategic overview of all ships' positions
- */
-function renderFleetMap(
-  gameData: GameData,
-  callbacks: FleetTabCallbacks
-): HTMLElement {
-  const section = document.createElement('div');
-  section.className = 'fleet-map-section';
-  section.style.marginBottom = '1.5rem';
-  section.style.padding = '1rem';
-  section.style.background = 'rgba(0, 0, 0, 0.3)';
-  section.style.border = '1px solid #444';
-  section.style.borderRadius = '4px';
-
-  const title = document.createElement('h3');
-  title.textContent = 'Fleet Map';
-  title.style.marginBottom = '0.75rem';
-  section.appendChild(title);
-
-  // Visual map showing all locations and ships
-  const mapContainer = document.createElement('div');
-  mapContainer.style.position = 'relative';
-  mapContainer.style.height = '200px';
-  mapContainer.style.background = 'rgba(0, 0, 0, 0.5)';
-  mapContainer.style.borderRadius = '4px';
-  mapContainer.style.border = '1px solid #666';
-  mapContainer.style.marginBottom = '1rem';
-
-  // Render location markers
-  for (const location of gameData.world.locations) {
-    const marker = document.createElement('div');
-    marker.style.position = 'absolute';
-    marker.style.left = `${location.x}%`;
-    marker.style.top = `${location.y}%`;
-    marker.style.transform = 'translate(-50%, -50%)';
-    marker.style.display = 'flex';
-    marker.style.flexDirection = 'column';
-    marker.style.alignItems = 'center';
-    marker.style.gap = '4px';
-
-    // Location dot
-    const dot = document.createElement('div');
-    dot.style.width = '8px';
-    dot.style.height = '8px';
-    dot.style.borderRadius = '50%';
-    dot.style.background = '#666';
-    dot.style.border = '1px solid #888';
-    marker.appendChild(dot);
-
-    // Location name
-    const name = document.createElement('div');
-    name.style.fontSize = '0.7rem';
-    name.style.color = '#888';
-    name.style.whiteSpace = 'nowrap';
-    name.textContent = location.name;
-    marker.appendChild(name);
-
-    mapContainer.appendChild(marker);
-  }
-
-  // Render ship markers on top of locations
-  for (const ship of gameData.ships) {
-    let shipX = 50;
-    let shipY = 50;
-    let locationName = '';
-
-    if (ship.location.status === 'docked' && ship.location.dockedAt) {
-      const location = gameData.world.locations.find(
-        (l) => l.id === ship.location.dockedAt
-      );
-      if (location) {
-        shipX = location.x;
-        shipY = location.y;
-        locationName = location.name;
-      }
-    } else if (
-      ship.location.status === 'orbiting' &&
-      ship.location.orbitingAt
-    ) {
-      const location = gameData.world.locations.find(
-        (l) => l.id === ship.location.orbitingAt
-      );
-      if (location) {
-        shipX = location.x;
-        shipY = location.y;
-        locationName = location.name;
-      }
-    } else if (ship.activeFlightPlan) {
-      // Calculate position between origin and destination based on progress
-      const origin = gameData.world.locations.find(
-        (l) => l.id === ship.activeFlightPlan!.origin
-      );
-      const destination = gameData.world.locations.find(
-        (l) => l.id === ship.activeFlightPlan!.destination
-      );
-      if (origin && destination) {
-        const progress =
-          ship.activeFlightPlan.distanceCovered /
-          ship.activeFlightPlan.totalDistance;
-        shipX = origin.x + (destination.x - origin.x) * progress;
-        shipY = origin.y + (destination.y - origin.y) * progress;
-        locationName = `→ ${destination.name}`;
-      }
-    }
-
-    const shipMarker = document.createElement('div');
-    shipMarker.style.position = 'absolute';
-    shipMarker.style.left = `${shipX}%`;
-    shipMarker.style.top = `${shipY}%`;
-    shipMarker.style.transform = 'translate(-50%, -50%)';
-    shipMarker.style.cursor = 'pointer';
-    shipMarker.style.zIndex = '10';
-    shipMarker.title = `${ship.name} - ${locationName || 'Unknown'}`;
-
-    // Ship icon
-    const shipIcon = document.createElement('div');
-    shipIcon.style.fontSize = '1.2rem';
-    shipIcon.textContent = '🚀';
-    if (ship.id === gameData.activeShipId) {
-      shipIcon.style.filter = 'drop-shadow(0 0 4px #4a9eff)';
-    }
-
-    shipMarker.appendChild(shipIcon);
-    shipMarker.addEventListener('click', () => {
-      callbacks.onSelectShip(ship.id);
-    });
-
-    mapContainer.appendChild(shipMarker);
-  }
-
-  section.appendChild(mapContainer);
-
-  // Location capability comparison
-  const capabilitySection = document.createElement('div');
-  capabilitySection.style.fontSize = '0.85rem';
-
-  const capabilityTitle = document.createElement('div');
-  capabilityTitle.style.fontWeight = 'bold';
-  capabilityTitle.style.marginBottom = '0.5rem';
-  capabilityTitle.style.color = '#aaa';
-  capabilityTitle.textContent = 'Reachability Matrix';
-  capabilitySection.appendChild(capabilityTitle);
-
-  // Create a grid showing which ships can reach which locations
-  const grid = document.createElement('div');
-  grid.style.display = 'grid';
-  grid.style.gridTemplateColumns = `120px repeat(${gameData.ships.length}, 1fr)`;
-  grid.style.gap = '4px';
-  grid.style.fontSize = '0.75rem';
-
-  // Header row
-  const headerCell = document.createElement('div');
-  headerCell.style.padding = '4px';
-  headerCell.style.fontWeight = 'bold';
-  headerCell.style.color = '#888';
-  headerCell.textContent = 'Location';
-  grid.appendChild(headerCell);
-
-  for (const ship of gameData.ships) {
-    const shipHeader = document.createElement('div');
-    shipHeader.style.padding = '4px';
-    shipHeader.style.fontWeight = 'bold';
-    shipHeader.style.color =
-      ship.id === gameData.activeShipId ? '#4a9eff' : '#aaa';
-    shipHeader.style.textAlign = 'center';
-    shipHeader.style.whiteSpace = 'nowrap';
-    shipHeader.style.overflow = 'hidden';
-    shipHeader.style.textOverflow = 'ellipsis';
-    shipHeader.textContent = ship.name;
-    shipHeader.title = ship.name;
-    grid.appendChild(shipHeader);
-  }
-
-  // Data rows
-  for (const location of gameData.world.locations) {
-    const locationCell = document.createElement('div');
-    locationCell.style.padding = '4px';
-    locationCell.style.color = '#aaa';
-    locationCell.textContent = location.name;
-    grid.appendChild(locationCell);
-
-    for (const ship of gameData.ships) {
-      const cell = document.createElement('div');
-      cell.style.padding = '4px';
-      cell.style.textAlign = 'center';
-
-      // Current location is only where the ship physically is (docked or orbiting)
-      const currentLocationId =
-        ship.location.dockedAt || ship.location.orbitingAt || null;
-      // Reference location for distance calculations (includes flight destination as fallback)
-      const referenceLocationId =
-        currentLocationId || ship.activeFlightPlan?.destination || 'earth';
-      const currentLocation = gameData.world.locations.find(
-        (l) => l.id === referenceLocationId
-      );
-
-      if (currentLocationId && location.id === currentLocationId) {
-        cell.textContent = '📍';
-        cell.title = 'Current location';
-        cell.style.color = '#4ade80';
-      } else if (currentLocation) {
-        // Check if ship can reach this location
-        const shipClass = getShipClass(ship.classId);
-        if (shipClass) {
-          const distanceKm = getDistanceBetween(currentLocation, location);
-          const fuelCostKg = calculateTripFuelKg(ship, distanceKm);
-
-          if (fuelCostKg <= ship.fuelKg) {
-            cell.textContent = '✓';
-            cell.title = `Can reach (${formatFuelMass(fuelCostKg)} fuel)`;
-            cell.style.color = '#4ade80';
-          } else {
-            cell.textContent = '✗';
-            cell.title = `Insufficient fuel (need ${formatFuelMass(fuelCostKg)}, have ${formatFuelMass(ship.fuelKg)})`;
-            cell.style.color = '#ff4444';
-          }
-        }
-      }
-
-      grid.appendChild(cell);
-    }
-  }
-
-  // Scrollable wrapper so the grid can overflow horizontally on mobile
-  const gridScroll = document.createElement('div');
-  gridScroll.className = 'fleet-reachability-scroll';
-  gridScroll.appendChild(grid);
-  capabilitySection.appendChild(gridScroll);
-  section.appendChild(capabilitySection);
-
-  return section;
 }
 
 /**
