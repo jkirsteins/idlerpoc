@@ -82,10 +82,6 @@ export function createFleetTab(
   const fleetMapSection = document.createElement('div');
   fleetMapSection.className = 'fleet-map-section';
   fleetMapSection.style.marginBottom = '1.5rem';
-  fleetMapSection.style.padding = '1rem';
-  fleetMapSection.style.background = 'rgba(0, 0, 0, 0.3)';
-  fleetMapSection.style.border = '1px solid #444';
-  fleetMapSection.style.borderRadius = '4px';
 
   const mapTitle = document.createElement('h3');
   mapTitle.textContent = 'Fleet Map';

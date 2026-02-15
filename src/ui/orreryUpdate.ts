@@ -15,6 +15,12 @@ import {
 } from './orreryCore';
 import { getLocationPosition } from '../orbitalMechanics';
 
+/** Gravity assist marker refs */
+export interface AssistMarkerRefs {
+  halo: SVGCircleElement; // influence zone halo around body
+  diamond: SVGPolygonElement; // marker on trajectory line
+}
+
 export interface ShipDisplayInfo {
   shipId: string;
   shipName: string;
@@ -132,10 +138,28 @@ export function updateShipVisualization(
       // Ship is in flight — show trajectory and moving dot
       const fp = ship.flightPlan;
 
-      if (fp.originPos && fp.interceptPos && fp.shipPos) {
+      if (fp.originPos && fp.interceptPos) {
         const originSvg = projectToSvg(fp.originPos.x, fp.originPos.y);
         const destSvg = projectToSvg(fp.interceptPos.x, fp.interceptPos.y);
-        const shipSvg = projectToSvg(fp.shipPos.x, fp.shipPos.y);
+
+        // CRITICAL: Interpolate ship position in SVG space, not in linear km space!
+        // With logarithmic radial scaling, projecting a linearly-interpolated km
+        // position causes massive distortion (5% real progress can appear as 50%
+        // visual progress). Always interpolate in the post-projection SVG space
+        // so visual progress matches flight progress.
+        const progress =
+          fp.totalDistance > 0 ? fp.distanceCovered / fp.totalDistance : 0;
+        const shipSvg = {
+          x: originSvg.x + (destSvg.x - originSvg.x) * progress,
+          y: originSvg.y + (destSvg.y - originSvg.y) * progress,
+        };
+
+        // Compute rotation angle for triangle ship symbol (pointing toward destination)
+        const angle = Math.atan2(
+          destSvg.y - originSvg.y,
+          destSvg.x - originSvg.x
+        );
+        const angleDeg = (angle * 180) / Math.PI;
 
         // Trajectory line
         if (ship.isActive) {
@@ -147,12 +171,22 @@ export function updateShipVisualization(
           dotRefs.trajectory.setAttribute('stroke', ship.color);
           dotRefs.trajectory.setAttribute('stroke-opacity', '0.6');
           dotRefs.trajectory.style.display = '';
+        } else {
+          // Inactive ships: faint trajectory line
+          dotRefs.trajectory.setAttribute('x1', String(originSvg.x));
+          dotRefs.trajectory.setAttribute('y1', String(originSvg.y));
+          dotRefs.trajectory.setAttribute('x2', String(destSvg.x));
+          dotRefs.trajectory.setAttribute('y2', String(destSvg.y));
+          dotRefs.trajectory.setAttribute('stroke', ship.color);
+          dotRefs.trajectory.setAttribute('stroke-opacity', '0.25');
+          dotRefs.trajectory.style.display = '';
         }
-        // Other ships: hide trajectory to reduce clutter (can be changed to show faint line)
 
-        // Ship dot at current position
-        dotRefs.dot.setAttribute('cx', String(shipSvg.x));
-        dotRefs.dot.setAttribute('cy', String(shipSvg.y));
+        // Ship triangle at current position (rotated to point toward destination)
+        dotRefs.dot.setAttribute(
+          'transform',
+          `translate(${shipSvg.x},${shipSvg.y}) rotate(${angleDeg + 90})`
+        );
         dotRefs.dot.style.display = '';
 
         // Label (active ship only)
@@ -165,11 +199,13 @@ export function updateShipVisualization(
         }
       }
     } else if (ship.locationId) {
-      // Ship is docked/orbiting — show dot at location
+      // Ship is docked/orbiting — show triangle pointing upward at location
       const pos = svgPositions.get(ship.locationId);
       if (pos) {
-        dotRefs.dot.setAttribute('cx', String(pos.x));
-        dotRefs.dot.setAttribute('cy', String(pos.y));
+        dotRefs.dot.setAttribute(
+          'transform',
+          `translate(${pos.x},${pos.y}) rotate(0)`
+        );
         dotRefs.dot.style.display = '';
 
         // Label (active ship only, or on hover for others)
@@ -181,6 +217,65 @@ export function updateShipVisualization(
           dotRefs.label.style.display = '';
         }
       }
+    }
+  }
+}
+
+/**
+ * Update gravity assist markers for a flight trajectory.
+ * Shows halos around assisting bodies and diamonds on the trajectory line.
+ * Extracted from navigationView.ts for reuse.
+ */
+export function updateGravityAssistMarkers(
+  assistMarkers: AssistMarkerRefs[],
+  flightPlan: FlightState | null,
+  originSvg: { x: number; y: number },
+  destSvg: { x: number; y: number },
+  gameData: GameData
+): void {
+  const assists = flightPlan?.gravityAssists || [];
+
+  for (let i = 0; i < assistMarkers.length; i++) {
+    const marker = assistMarkers[i];
+    if (i < assists.length) {
+      const a = assists[i];
+      const color =
+        a.result === 'success'
+          ? '#4caf50'
+          : a.result === 'failure'
+            ? '#f44336'
+            : '#ffc107';
+
+      const bodyLoc = gameData.world.locations.find((l) => l.id === a.bodyId);
+      if (bodyLoc) {
+        const bodyPos = getLocationPosition(
+          bodyLoc,
+          gameData.gameTime,
+          gameData.world
+        );
+        const bodySvg = projectToSvg(bodyPos.x, bodyPos.y);
+        marker.halo.setAttribute('cx', String(bodySvg.x));
+        marker.halo.setAttribute('cy', String(bodySvg.y));
+        marker.halo.setAttribute('stroke', color);
+        marker.halo.style.display = '';
+      } else {
+        marker.halo.style.display = 'none';
+      }
+
+      const dx = destSvg.x - originSvg.x;
+      const dy = destSvg.y - originSvg.y;
+      const mx = originSvg.x + dx * a.approachProgress;
+      const my = originSvg.y + dy * a.approachProgress;
+      const ds = 2.5;
+      marker.diamond.setAttribute(
+        'points',
+        `${mx},${my - ds} ${mx + ds},${my} ${mx},${my + ds} ${mx - ds},${my}`
+      );
+      marker.diamond.setAttribute('fill', color);
+      marker.diamond.style.display = '';
+    } else {
+      marker.halo.style.display = 'none';
+      marker.diamond.style.display = 'none';
     }
   }
 }

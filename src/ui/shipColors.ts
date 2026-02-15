@@ -5,13 +5,13 @@
  * the Fleet Map orrery and other multi-ship UIs.
  *
  * Design:
- * - Active ship is always red (#e94560) with glow for visual prominence
+ * - Active ship is always red (#dc2626) with glow for visual prominence
  * - Other ships get distinct, visually accessible colors hashed from their ID
  * - Colors are chosen to work on dark backgrounds and be distinguishable
  */
 
 const SHIP_COLORS = [
-  '#e94560', // red (reserved for active ship)
+  '#dc2626', // red (reserved for active ship)
   '#4a9eff', // blue
   '#4caf50', // green
   '#ffc107', // amber

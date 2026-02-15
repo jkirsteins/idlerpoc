@@ -100,7 +100,7 @@ export function localOrbitalRadiusToSvg(
   const logR = Math.log10(Math.max(radiusKm, 1));
   if (logMax - logMin < 0.01) return 105; // degenerate: all at same radius
   const t = (logR - logMin) / (logMax - logMin);
-  return 30 + t * 150; // same 30..180 SVG range as overview
+  return 20 + t * 170; // Focus mode: spread wider (20..190 SVG range vs overview's 30..180)
 }
 
 /**
@@ -226,7 +226,7 @@ export interface MarkerRefs {
 
 /** Ship flight trajectory line and moving dot */
 export interface ShipDotRefs {
-  dot: SVGCircleElement;
+  dot: SVGPolygonElement;
   label: SVGTextElement;
   trajectory: SVGLineElement;
 }
@@ -238,8 +238,8 @@ export interface OrreryRefs {
     bodies: SVGGElement;
     flights: SVGGElement;
   };
-  overviewRings: SVGCircleElement[];
-  localRings: SVGCircleElement[];
+  overviewRings: SVGPathElement[];
+  localRings: SVGPathElement[];
   sunDot: SVGCircleElement;
   sunLabel: SVGTextElement;
   focusParentDot: SVGCircleElement;
@@ -292,20 +292,20 @@ export function createOrreryVisualization(
   ringLayer.setAttribute('class', 'orrery-rings');
   svg.appendChild(ringLayer);
 
-  // Orbit rings — one per unique Sun-orbiting radius (overview mode)
-  const overviewOrbitRings: SVGCircleElement[] = [];
-  const sunOrbitRadii = new Set<number>();
+  // Orbit rings — one per unique Sun-orbiting (radius, eccentricity) pair (overview mode)
+  const overviewOrbitRings: SVGPathElement[] = [];
+  const sunOrbits = new Map<string, { a: number; e: number }>();
   for (const loc of locations) {
     if (loc.orbital && !loc.orbital.parentId) {
-      sunOrbitRadii.add(loc.orbital.orbitalRadiusKm);
+      const a = loc.orbital.orbitalRadiusKm;
+      const e = loc.orbital.eccentricity ?? 0;
+      const key = `${a}:${e}`;
+      if (!sunOrbits.has(key)) sunOrbits.set(key, { a, e });
     }
   }
-  for (const radiusKm of sunOrbitRadii) {
-    const r = orbitalRadiusToSvg(radiusKm);
-    const ring = document.createElementNS(SVG_NS, 'circle');
-    ring.setAttribute('cx', '0');
-    ring.setAttribute('cy', '0');
-    ring.setAttribute('r', String(r));
+  for (const { a, e } of sunOrbits.values()) {
+    const ring = document.createElementNS(SVG_NS, 'path');
+    ring.setAttribute('d', buildOrbitPath(a, e, orbitalRadiusToSvg));
     ring.setAttribute('fill', 'none');
     ring.setAttribute('stroke', 'rgba(15, 52, 96, 0.5)');
     ring.setAttribute('stroke-width', '0.5');
@@ -316,12 +316,10 @@ export function createOrreryVisualization(
 
   // Focus-mode local orbit ring pool (max 8, hidden by default)
   const MAX_LOCAL_RINGS = 8;
-  const localRings: SVGCircleElement[] = [];
+  const localRings: SVGPathElement[] = [];
   for (let i = 0; i < MAX_LOCAL_RINGS; i++) {
-    const ring = document.createElementNS(SVG_NS, 'circle');
-    ring.setAttribute('cx', '0');
-    ring.setAttribute('cy', '0');
-    ring.setAttribute('r', '0');
+    const ring = document.createElementNS(SVG_NS, 'path');
+    ring.setAttribute('d', '');
     ring.setAttribute('fill', 'none');
     ring.setAttribute('stroke', 'rgba(74, 158, 255, 0.3)');
     ring.setAttribute('stroke-width', '0.5');
@@ -380,7 +378,7 @@ export function createOrreryVisualization(
 
   // Single-ship flight line + ship dot (used by Nav tab)
   const flightLine = document.createElementNS(SVG_NS, 'line');
-  flightLine.setAttribute('stroke', '#e94560');
+  flightLine.setAttribute('stroke', '#dc2626');
   flightLine.setAttribute('stroke-width', '1');
   flightLine.setAttribute('stroke-dasharray', '4,2');
   flightLine.setAttribute('stroke-opacity', '0.6');
@@ -389,7 +387,7 @@ export function createOrreryVisualization(
 
   const shipDot = document.createElementNS(SVG_NS, 'circle');
   shipDot.setAttribute('r', '3');
-  shipDot.setAttribute('fill', '#e94560');
+  shipDot.setAttribute('fill', '#dc2626');
   shipDot.setAttribute('stroke', '#fff');
   shipDot.setAttribute('stroke-width', '0.5');
   shipDot.style.display = 'none';
@@ -399,8 +397,8 @@ export function createOrreryVisualization(
   const shipDotsPool: ShipDotRefs[] = [];
   const maxShips = config.maxShips || 10;
   for (let i = 0; i < maxShips; i++) {
-    const dot = document.createElementNS(SVG_NS, 'circle');
-    dot.setAttribute('r', '2.5');
+    const dot = document.createElementNS(SVG_NS, 'polygon');
+    dot.setAttribute('points', '0,-4 3.5,4 -3.5,4'); // Triangle pointing up, ~8 SVG units tall
     dot.setAttribute('stroke', '#fff');
     dot.setAttribute('stroke-width', '0.5');
     dot.style.display = 'none';
@@ -408,7 +406,7 @@ export function createOrreryVisualization(
 
     const label = document.createElementNS(SVG_NS, 'text');
     label.setAttribute('text-anchor', 'middle');
-    label.setAttribute('font-size', '5');
+    label.setAttribute('font-size', '7');
     label.setAttribute('fill', '#fff');
     label.style.display = 'none';
     flightLayer.appendChild(label);
@@ -425,7 +423,7 @@ export function createOrreryVisualization(
   // Current-location pulsing ring (visual prominence)
   const currentRing = document.createElementNS(SVG_NS, 'circle');
   currentRing.setAttribute('fill', 'none');
-  currentRing.setAttribute('stroke', '#e94560');
+  currentRing.setAttribute('stroke', '#dc2626');
   currentRing.setAttribute('stroke-width', '1');
   currentRing.setAttribute('stroke-opacity', '0');
   currentRing.style.display = 'none';

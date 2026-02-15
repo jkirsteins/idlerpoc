@@ -26,8 +26,11 @@ export interface MapZoomPanControls {
   resetBtn: HTMLButtonElement;
   zoomInBtn: HTMLButtonElement;
   zoomOutBtn: HTMLButtonElement;
+  controlsContainer: HTMLDivElement;
   /** Animate to center the given SVG coordinate at the given zoom level. */
   zoomTo(svgX: number, svgY: number, zoom: number, animate?: boolean): void;
+  /** Get the current zoom level (1x = default, 10x = max zoomed in). */
+  getCurrentZoom(): number;
 }
 
 /**
@@ -73,26 +76,31 @@ export function setupMapZoomPan(
     viewBoxY = Math.max(minY, Math.min(maxY, viewBoxY));
   }
 
+  // Controls container - uses flexbox for automatic spacing
+  const controlsContainer = document.createElement('div');
+  controlsContainer.className = 'nav-map-controls';
+  container.appendChild(controlsContainer);
+
   // Zoom control buttons (HTML overlay, not SVG)
-  const zoomInBtn = document.createElement('button');
-  zoomInBtn.className = 'nav-map-zoom-btn';
-  zoomInBtn.textContent = '+';
-  zoomInBtn.setAttribute('aria-label', 'Zoom in');
-  zoomInBtn.title = 'Zoom in';
-  container.appendChild(zoomInBtn);
+  const resetBtn = document.createElement('button');
+  resetBtn.className = 'nav-map-btn';
+  resetBtn.textContent = 'Reset';
+  resetBtn.style.display = 'none';
+  controlsContainer.appendChild(resetBtn);
 
   const zoomOutBtn = document.createElement('button');
-  zoomOutBtn.className = 'nav-map-zoom-btn';
+  zoomOutBtn.className = 'nav-map-btn nav-map-zoom-btn';
   zoomOutBtn.textContent = '−';
   zoomOutBtn.setAttribute('aria-label', 'Zoom out');
   zoomOutBtn.title = 'Zoom out';
-  container.appendChild(zoomOutBtn);
+  controlsContainer.appendChild(zoomOutBtn);
 
-  const resetBtn = document.createElement('button');
-  resetBtn.className = 'nav-map-reset-zoom';
-  resetBtn.textContent = 'Reset';
-  resetBtn.style.display = 'none';
-  container.appendChild(resetBtn);
+  const zoomInBtn = document.createElement('button');
+  zoomInBtn.className = 'nav-map-btn nav-map-zoom-btn';
+  zoomInBtn.textContent = '+';
+  zoomInBtn.setAttribute('aria-label', 'Zoom in');
+  zoomInBtn.title = 'Zoom in';
+  controlsContainer.appendChild(zoomInBtn);
 
   /**
    * Update button states based on current viewBox.
@@ -227,11 +235,13 @@ export function setupMapZoomPan(
 
   resetBtn.addEventListener('click', (e) => {
     e.stopPropagation();
+    // Reset to default zoom (START_ZOOM = 4x)
+    const defaultSize = INITIAL_VB_WIDTH / START_ZOOM;
     animateViewBoxTo(
-      INITIAL_VB_X,
-      INITIAL_VB_Y,
-      INITIAL_VB_WIDTH,
-      INITIAL_VB_HEIGHT
+      -defaultSize / 2,
+      -defaultSize / 2,
+      defaultSize,
+      defaultSize
     );
   });
 
@@ -456,5 +466,12 @@ export function setupMapZoomPan(
   // Initialize viewBox
   applyViewBox();
 
-  return { resetBtn, zoomInBtn, zoomOutBtn, zoomTo };
+  return {
+    resetBtn,
+    zoomInBtn,
+    zoomOutBtn,
+    controlsContainer,
+    zoomTo,
+    getCurrentZoom,
+  };
 }

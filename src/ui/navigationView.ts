@@ -24,6 +24,22 @@ import {
 } from './flightProfileControl';
 import { setupMapZoomPan, type MapZoomPanControls } from './mapZoomPan';
 import { getLocationPosition } from '../orbitalMechanics';
+import {
+  createOrreryVisualization,
+  buildOrbitPath,
+  projectToSvg,
+  localOrbitalRadiusToSvg,
+  projectToSvgLocal,
+  computeClusterData,
+  positionMarker,
+  hideMarker,
+  showMarker,
+  type OrreryRefs,
+  type MarkerRefs,
+  type LabelEntry,
+  deconflictLabels,
+} from './orreryCore';
+import { updateGravityAssistMarkers } from './orreryUpdate';
 
 const NAV_SERVICE_LABELS: Record<string, { icon: string; label: string }> = {
   refuel: { icon: '\u26FD', label: 'Fuel' },
@@ -38,182 +54,13 @@ export interface NavigationViewCallbacks {
   onStartTrip?: (destinationId: string) => void;
 }
 
-/** Per-location refs for the SVG orrery marker */
-interface MarkerRefs {
-  dot: SVGCircleElement; // the body dot
-  label: SVGTextElement; // name label
-  hitArea: SVGCircleElement; // invisible click target
-  leaderLine: SVGLineElement; // connects dot to displaced label
-  clusterIndicator: SVGCircleElement | null; // dashed ring on cluster parents
-}
-
 // SVG namespace
 const SVG_NS = 'http://www.w3.org/2000/svg';
-const ORRERY_SIZE = 400; // viewBox is -200..200
-const ORRERY_HALF = ORRERY_SIZE / 2;
-
-/** Minimum SVG-unit separation between label centers before repulsion kicks in */
-const MIN_LABEL_SEPARATION = 14;
-/** Displacement threshold before a leader line is shown */
-const LEADER_LINE_THRESHOLD = 4;
-/** Number of repulsion iterations per tick */
-const DECONFLICT_ITERATIONS = 3;
-
-/**
- * Generic label deconfliction — no location-specific layout logic.
- *
- * Design principle: the orrery must never contain location-specific layout
- * logic. All visual positioning derives from orbital data through generic
- * algorithms. Adding new locations to the world should "just work" without
- * any orrery-specific code changes.
- */
-interface LabelEntry {
-  id: string;
-  dotX: number;
-  dotY: number;
-  labelX: number;
-  labelY: number;
-}
-
-function deconflictLabels(entries: LabelEntry[]): void {
-  for (let iter = 0; iter < DECONFLICT_ITERATIONS; iter++) {
-    for (let i = 0; i < entries.length; i++) {
-      for (let j = i + 1; j < entries.length; j++) {
-        const a = entries[i];
-        const b = entries[j];
-        const dx = b.labelX - a.labelX;
-        const dy = b.labelY - a.labelY;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-        if (dist < MIN_LABEL_SEPARATION && dist > 0.01) {
-          // Push labels apart along the line connecting them
-          const overlap = MIN_LABEL_SEPARATION - dist;
-          const pushX = (dx / dist) * overlap * 0.5;
-          const pushY = (dy / dist) * overlap * 0.5;
-          a.labelX -= pushX;
-          a.labelY -= pushY;
-          b.labelX += pushX;
-          b.labelY += pushY;
-        } else if (dist <= 0.01) {
-          // Labels exactly coincide — push radially outward from centroid
-          const cx = (a.dotX + b.dotX) * 0.5;
-          const cy = (a.dotY + b.dotY) * 0.5;
-          const angleA = Math.atan2(a.dotY - cy, a.dotX - cx) + Math.PI * 0.1;
-          const angleB = angleA + Math.PI;
-          a.labelX += Math.cos(angleA) * MIN_LABEL_SEPARATION * 0.5;
-          a.labelY += Math.sin(angleA) * MIN_LABEL_SEPARATION * 0.5;
-          b.labelX += Math.cos(angleB) * MIN_LABEL_SEPARATION * 0.5;
-          b.labelY += Math.sin(angleB) * MIN_LABEL_SEPARATION * 0.5;
-        }
-      }
-    }
-  }
-  // Clamp to viewBox bounds
-  const bound = ORRERY_HALF - 10;
-  for (const e of entries) {
-    e.labelX = Math.max(-bound, Math.min(bound, e.labelX));
-    e.labelY = Math.max(-bound, Math.min(bound, e.labelY));
-  }
-}
 
 /** Ship flight trajectory line and moving dot */
 interface FlightLineRefs {
   line: SVGLineElement;
   shipDot: SVGCircleElement;
-}
-
-/**
- * Map an orbital radius (km) to SVG visual radius.
- * Logarithmic scaling so Earth-orbit (~150M km) and Jupiter (~778M km)
- * are both visible, while inner Earth-system bodies cluster near Earth.
- */
-/**
- * Build an SVG path string for an elliptical orbit.
- * Samples 72 points along the orbit and projects each through the provided
- * radius-to-SVG mapping function, so the path matches the log-scale
- * projection used for dot positions.
- */
-function buildOrbitPath(
-  semiMajorAxis: number,
-  eccentricity: number,
-  radiusToSvg: (km: number) => number
-): string {
-  const N = 72; // every 5°
-  const parts: string[] = [];
-  for (let i = 0; i <= N; i++) {
-    const theta = (2 * Math.PI * i) / N;
-    const r =
-      eccentricity === 0
-        ? semiMajorAxis
-        : (semiMajorAxis * (1 - eccentricity * eccentricity)) /
-          (1 + eccentricity * Math.cos(theta));
-    const svgR = radiusToSvg(r);
-    const x = svgR * Math.cos(theta);
-    const y = svgR * Math.sin(theta);
-    parts.push(`${i === 0 ? 'M' : 'L'}${x.toFixed(2)},${y.toFixed(2)}`);
-  }
-  parts.push('Z');
-  return parts.join(' ');
-}
-
-function orbitalRadiusToSvg(radiusKm: number): number {
-  if (radiusKm <= 0) return 0;
-  const logMin = Math.log10(100_000_000); // ~0.67 AU
-  const logMax = Math.log10(900_000_000); // ~6 AU
-  const logR = Math.log10(Math.max(radiusKm, 100_000_000));
-  const t = (logR - logMin) / (logMax - logMin);
-  return 30 + t * 150; // 30..180 SVG units from center
-}
-
-/**
- * Project a location's real km position (x,y from Sun) to SVG coordinates.
- * Uses the angle from the real position but log-scales the radius
- * to keep the solar system viewable.
- */
-function projectToSvg(xKm: number, yKm: number): { x: number; y: number } {
-  const distFromSun = Math.sqrt(xKm * xKm + yKm * yKm);
-  if (distFromSun < 1000) {
-    // At origin (Sun) — center of SVG
-    return { x: 0, y: 0 };
-  }
-  const angle = Math.atan2(yKm, xKm);
-  const r = orbitalRadiusToSvg(distFromSun);
-  return { x: r * Math.cos(angle), y: r * Math.sin(angle) };
-}
-
-/**
- * Map a satellite's orbital radius (km from parent body) to SVG radius
- * for cluster Focus mode. Uses log scale across the LOCAL distance range.
- * Generic: works for any cluster given its log10 min/max orbital radii.
- */
-function localOrbitalRadiusToSvg(
-  radiusKm: number,
-  logMin: number,
-  logMax: number
-): number {
-  const logR = Math.log10(Math.max(radiusKm, 1));
-  if (logMax - logMin < 0.01) return 105; // degenerate: all at same radius
-  const t = (logR - logMin) / (logMax - logMin);
-  return 30 + t * 150; // same 30..180 SVG range as overview
-}
-
-/**
- * Project a satellite position to SVG in cluster Focus mode.
- * Uses the real-time angle from parent body and a local log scale
- * for the radial distance.
- */
-function projectToSvgLocal(
-  parentPos: { x: number; y: number },
-  satPos: { x: number; y: number },
-  logMin: number,
-  logMax: number
-): { x: number; y: number } {
-  const dx = satPos.x - parentPos.x;
-  const dy = satPos.y - parentPos.y;
-  const dist = Math.sqrt(dx * dx + dy * dy);
-  if (dist < 1) return { x: 0, y: 0 };
-  const angle = Math.atan2(dy, dx);
-  const r = localOrbitalRadiusToSvg(dist, logMin, logMax);
-  return { x: r * Math.cos(angle), y: r * Math.sin(angle) };
 }
 
 /** Per-location refs for the legend item (compact card — no accordion) */
@@ -229,36 +76,6 @@ interface LegendItemRefs {
   statusText: HTMLElement;
   travelButton: HTMLButtonElement;
   unreachableReason: HTMLElement;
-}
-
-/**
- * Compute cluster membership from location orbital data.
- * Returns parent→children map and convenience sets.
- * Generic: any body with 2+ satellites (via parentId) forms a cluster.
- */
-function computeClusterData(locations: WorldLocation[]): {
-  childrenMap: Map<string, string[]>;
-  parentIds: Set<string>;
-  memberIds: Set<string>;
-} {
-  const childrenMap = new Map<string, string[]>();
-  for (const loc of locations) {
-    if (loc.orbital?.parentId) {
-      const pid = loc.orbital.parentId;
-      if (!childrenMap.has(pid)) childrenMap.set(pid, []);
-      childrenMap.get(pid)!.push(loc.id);
-    }
-  }
-  // Only keep clusters with 2+ children
-  const parentIds = new Set<string>();
-  const memberIds = new Set<string>();
-  for (const [parentId, childIds] of childrenMap) {
-    if (childIds.length >= 2) {
-      parentIds.add(parentId);
-      for (const id of childIds) memberIds.add(id);
-    }
-  }
-  return { childrenMap, parentIds, memberIds };
 }
 
 /**
@@ -281,7 +98,7 @@ function buildClusterButtons(
     if (!parent) continue;
 
     const btn = document.createElement('button');
-    btn.className = 'nav-map-cluster-btn';
+    btn.className = 'nav-map-btn';
     btn.textContent = `${parent.name} System`;
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -473,57 +290,6 @@ function updateMarkerVisual(
       getLocationTypeTemplate(location.type).color ?? '#0f3460'
     );
   }
-}
-
-/** Position a marker and its label, update leader line */
-function positionMarker(
-  refs: MarkerRefs,
-  svgPos: { x: number; y: number },
-  labelPos: { x: number; y: number },
-  dotR: number
-): void {
-  refs.dot.setAttribute('cx', String(svgPos.x));
-  refs.dot.setAttribute('cy', String(svgPos.y));
-  refs.label.setAttribute('x', String(labelPos.x));
-  refs.label.setAttribute('y', String(labelPos.y));
-  refs.hitArea.setAttribute('cx', String(svgPos.x));
-  refs.hitArea.setAttribute('cy', String(svgPos.y));
-
-  const labelDx = labelPos.x - svgPos.x;
-  const labelDy = labelPos.y - (svgPos.y + dotR + 6);
-  const labelDisplacement = Math.sqrt(labelDx * labelDx + labelDy * labelDy);
-  if (labelDisplacement > LEADER_LINE_THRESHOLD) {
-    refs.leaderLine.setAttribute('x1', String(svgPos.x));
-    refs.leaderLine.setAttribute('y1', String(svgPos.y));
-    refs.leaderLine.setAttribute('x2', String(labelPos.x));
-    refs.leaderLine.setAttribute('y2', String(labelPos.y - 3));
-    refs.leaderLine.style.display = '';
-  } else {
-    refs.leaderLine.style.display = 'none';
-  }
-}
-
-/** Hide a marker's SVG elements */
-function hideMarker(refs: MarkerRefs): void {
-  refs.dot.style.display = 'none';
-  refs.label.style.display = 'none';
-  refs.hitArea.style.display = 'none';
-  refs.leaderLine.style.display = 'none';
-  if (refs.clusterIndicator) refs.clusterIndicator.style.display = 'none';
-
-  // Reset stale attributes to prevent visual artifacts if element becomes visible
-  refs.dot.setAttribute('stroke', '#0f3460');
-  refs.dot.setAttribute('stroke-width', '1');
-  refs.dot.removeAttribute('opacity');
-  refs.label.setAttribute('fill', '#ccc');
-  refs.label.removeAttribute('opacity');
-}
-
-/** Show a marker's SVG elements */
-function showMarker(refs: MarkerRefs): void {
-  refs.dot.style.display = '';
-  refs.label.style.display = '';
-  refs.hitArea.style.display = '';
 }
 
 /** Create legend item DOM — compact flat card (no accordion) */
@@ -855,203 +621,40 @@ export function createNavigationView(
   title.textContent = 'Navigation Chart';
   header.appendChild(title);
 
-  const closeBtn = document.createElement('button');
-  closeBtn.className = 'nav-close-btn';
-  closeBtn.textContent = 'Close';
-  closeBtn.addEventListener('click', callbacks.onToggleNavigation);
-  header.appendChild(closeBtn);
-
   container.appendChild(header);
 
   // Orrery SVG map area
   const mapArea = document.createElement('div');
   mapArea.className = 'nav-map';
 
-  const svg = document.createElementNS(SVG_NS, 'svg');
-  svg.setAttribute(
-    'viewBox',
-    `${-ORRERY_HALF} ${-ORRERY_HALF} ${ORRERY_SIZE} ${ORRERY_SIZE}`
-  );
-  svg.setAttribute('width', '100%');
-  svg.setAttribute('height', '100%');
-  svg.style.display = 'block';
-
-  // Background ring layer (behind dots)
-  const ringLayer = document.createElementNS(SVG_NS, 'g');
-  ringLayer.setAttribute('class', 'orrery-rings');
-  svg.appendChild(ringLayer);
-
-  // Orbit rings — one per unique Sun-orbiting (radius, eccentricity) pair
-  const overviewOrbitRings: SVGPathElement[] = [];
-  const sunOrbits = new Map<string, { a: number; e: number }>();
-  for (const loc of gameData.world.locations) {
-    if (loc.orbital && !loc.orbital.parentId) {
-      const a = loc.orbital.orbitalRadiusKm;
-      const e = loc.orbital.eccentricity ?? 0;
-      const key = `${a}:${e}`;
-      if (!sunOrbits.has(key)) sunOrbits.set(key, { a, e });
+  // Create orrery using shared visualization component
+  const orreryRefs: OrreryRefs = createOrreryVisualization(
+    gameData.world.locations,
+    {
+      mode: 'single-ship',
+      showZoomControls: true,
+      showClusterButtons: true,
     }
-  }
-  for (const { a, e } of sunOrbits.values()) {
-    const ring = document.createElementNS(SVG_NS, 'path');
-    ring.setAttribute('d', buildOrbitPath(a, e, orbitalRadiusToSvg));
-    ring.setAttribute('fill', 'none');
-    ring.setAttribute('stroke', 'rgba(15, 52, 96, 0.5)');
-    ring.setAttribute('stroke-width', '0.5');
-    ring.setAttribute('stroke-dasharray', '3,3');
-    ringLayer.appendChild(ring);
-    overviewOrbitRings.push(ring);
-  }
+  );
 
-  // Focus-mode local orbit ring pool (max 8, hidden by default)
-  const MAX_LOCAL_RINGS = 8;
-  const localRings: SVGPathElement[] = [];
-  for (let i = 0; i < MAX_LOCAL_RINGS; i++) {
-    const ring = document.createElementNS(SVG_NS, 'path');
-    ring.setAttribute('d', '');
-    ring.setAttribute('fill', 'none');
-    ring.setAttribute('stroke', 'rgba(74, 158, 255, 0.3)');
-    ring.setAttribute('stroke-width', '0.5');
-    ring.setAttribute('stroke-dasharray', '3,3');
-    ring.style.display = 'none';
-    ringLayer.appendChild(ring);
-    localRings.push(ring);
-  }
-
-  // Sun marker at center
-  const sunDot = document.createElementNS(SVG_NS, 'circle');
-  sunDot.setAttribute('cx', '0');
-  sunDot.setAttribute('cy', '0');
-  sunDot.setAttribute('r', '4');
-  sunDot.setAttribute('fill', '#ffd700');
-  svg.appendChild(sunDot);
-  const sunLabel = document.createElementNS(SVG_NS, 'text');
-  sunLabel.setAttribute('x', '0');
-  sunLabel.setAttribute('y', '10');
-  sunLabel.setAttribute('text-anchor', 'middle');
-  sunLabel.setAttribute('fill', '#888');
-  sunLabel.setAttribute('font-size', '5');
-  sunLabel.textContent = 'Sun';
-  svg.appendChild(sunLabel);
-
-  // Body dots layer
-  const bodyLayer = document.createElementNS(SVG_NS, 'g');
-  bodyLayer.setAttribute('class', 'orrery-bodies');
-  svg.appendChild(bodyLayer);
-
-  // Focus-mode parent dot at center (hidden by default)
-  const focusParentDot = document.createElementNS(SVG_NS, 'circle');
-  focusParentDot.setAttribute('cx', '0');
-  focusParentDot.setAttribute('cy', '0');
-  focusParentDot.setAttribute('r', '8');
-  focusParentDot.setAttribute('fill', '#4fc3f7');
-  focusParentDot.setAttribute('stroke', '#fff');
-  focusParentDot.setAttribute('stroke-width', '1');
-  focusParentDot.style.display = 'none';
-  bodyLayer.appendChild(focusParentDot);
-
-  const focusParentLabel = document.createElementNS(SVG_NS, 'text');
-  focusParentLabel.setAttribute('x', '0');
-  focusParentLabel.setAttribute('y', '14');
-  focusParentLabel.setAttribute('text-anchor', 'middle');
-  focusParentLabel.setAttribute('fill', '#fff');
-  focusParentLabel.setAttribute('font-size', '7');
-  focusParentLabel.style.display = 'none';
-  bodyLayer.appendChild(focusParentLabel);
-
-  // Flight trajectory layer (on top of rings, below labels)
-  const flightLayer = document.createElementNS(SVG_NS, 'g');
-  flightLayer.setAttribute('class', 'orrery-flights');
-  svg.appendChild(flightLayer);
-
-  // Flight line + ship dot (created once, updated each tick)
-  const flightLine = document.createElementNS(SVG_NS, 'line');
-  flightLine.setAttribute('stroke', '#dc2626');
-  flightLine.setAttribute('stroke-width', '1');
-  flightLine.setAttribute('stroke-dasharray', '4,2');
-  flightLine.setAttribute('stroke-opacity', '0.6');
-  flightLine.style.display = 'none';
-  flightLayer.appendChild(flightLine);
-
-  const shipDot = document.createElementNS(SVG_NS, 'circle');
-  shipDot.setAttribute('r', '2');
-  shipDot.setAttribute('fill', '#dc2626');
-  shipDot.setAttribute('stroke', '#fff');
-  shipDot.setAttribute('stroke-width', '0.5');
-  shipDot.style.display = 'none';
-  flightLayer.appendChild(shipDot);
-
+  // Extract refs for Nav-specific use
+  const svg = orreryRefs.svg;
+  const overviewOrbitRings = orreryRefs.overviewRings;
+  const localRings = orreryRefs.localRings;
+  const sunDot = orreryRefs.sunDot;
+  const sunLabel = orreryRefs.sunLabel;
+  const bodyLayer = orreryRefs.layers.bodies;
+  const focusParentDot = orreryRefs.focusParentDot;
+  const focusParentLabel = orreryRefs.focusParentLabel;
+  const flightLine = orreryRefs.flightLine;
+  const shipDot = orreryRefs.shipDot;
   const flightRefs: FlightLineRefs = { line: flightLine, shipDot };
-
-  // Current-location pulsing ring — animation 'from'/'to' set dynamically from dot size
-  const currentRing = document.createElementNS(SVG_NS, 'circle');
-  currentRing.setAttribute('fill', 'none');
-  currentRing.setAttribute('stroke', '#dc2626');
-  currentRing.setAttribute('stroke-width', '1');
-  currentRing.setAttribute('stroke-opacity', '0');
-  currentRing.style.display = 'none';
-  const currentRingAnim = document.createElementNS(SVG_NS, 'animate');
-  currentRingAnim.setAttribute('attributeName', 'r');
-  currentRingAnim.setAttribute('from', '6');
-  currentRingAnim.setAttribute('to', '16');
-  currentRingAnim.setAttribute('dur', '2s');
-  currentRingAnim.setAttribute('repeatCount', 'indefinite');
-  currentRing.appendChild(currentRingAnim);
-  const currentRingOpacAnim = document.createElementNS(SVG_NS, 'animate');
-  currentRingOpacAnim.setAttribute('attributeName', 'stroke-opacity');
-  currentRingOpacAnim.setAttribute('values', '0.7;0');
-  currentRingOpacAnim.setAttribute('dur', '2s');
-  currentRingOpacAnim.setAttribute('repeatCount', 'indefinite');
-  currentRing.appendChild(currentRingOpacAnim);
-  flightLayer.appendChild(currentRing);
-
-  // Destination glow ring (steady) — radius set dynamically from dot size
-  const destRing = document.createElementNS(SVG_NS, 'circle');
-  destRing.setAttribute('fill', 'none');
-  destRing.setAttribute('stroke', '#4a9eff');
-  destRing.setAttribute('stroke-width', '1.5');
-  destRing.setAttribute('stroke-opacity', '0.6');
-  destRing.style.display = 'none';
-  flightLayer.appendChild(destRing);
-
-  // Selection highlight ring — radius set dynamically from dot size
-  const selectionRing = document.createElementNS(SVG_NS, 'circle');
-  selectionRing.setAttribute('fill', 'none');
-  selectionRing.setAttribute('stroke', '#4a9eff');
-  selectionRing.setAttribute('stroke-width', '2');
-  selectionRing.setAttribute('stroke-opacity', '0.8');
-  selectionRing.style.display = 'none';
-  flightLayer.appendChild(selectionRing);
-
-  // Gravity assist markers pool (max 5 — created once, show/hide as needed)
-  const MAX_ASSIST_MARKERS = 5;
-
-  interface AssistMarkerRefs {
-    halo: SVGCircleElement; // influence zone halo around body
-    diamond: SVGPolygonElement; // marker on trajectory line
-  }
-
-  const assistMarkers: AssistMarkerRefs[] = [];
-  for (let i = 0; i < MAX_ASSIST_MARKERS; i++) {
-    const halo = document.createElementNS(SVG_NS, 'circle');
-    halo.setAttribute('r', '10');
-    halo.setAttribute('fill', 'none');
-    halo.setAttribute('stroke', '#ffc107');
-    halo.setAttribute('stroke-width', '1');
-    halo.setAttribute('stroke-opacity', '0.5');
-    halo.setAttribute('stroke-dasharray', '2,2');
-    halo.style.display = 'none';
-    flightLayer.appendChild(halo);
-
-    const diamond = document.createElementNS(SVG_NS, 'polygon');
-    diamond.setAttribute('fill', '#ffc107');
-    diamond.setAttribute('stroke', '#fff');
-    diamond.setAttribute('stroke-width', '0.3');
-    diamond.style.display = 'none';
-    flightLayer.appendChild(diamond);
-
-    assistMarkers.push({ halo, diamond });
-  }
+  const currentRing = orreryRefs.currentRing;
+  const currentRingAnim = currentRing.children[0] as SVGAnimateElement;
+  const destRing = orreryRefs.destRing;
+  const selectionRing = orreryRefs.selectionRing;
+  const assistMarkers = orreryRefs.assistMarkers;
+  const MAX_LOCAL_RINGS = localRings.length;
 
   mapArea.appendChild(svg);
 
@@ -1064,6 +667,90 @@ export function createNavigationView(
   // Zoom/pan gesture handling (pinch, drag, wheel)
   const zoomControls: MapZoomPanControls = setupMapZoomPan(svg, mapArea);
 
+  // Add legend toggle button to controls container
+  const legendButton = document.createElement('button');
+  legendButton.textContent = 'Legend';
+  legendButton.className = 'nav-map-btn';
+  // Insert at the beginning so it appears on the left
+  zoomControls.controlsContainer.insertBefore(
+    legendButton,
+    zoomControls.controlsContainer.firstChild
+  );
+
+  // Create orrery legend panel (hidden by default)
+  const orreryLegend = document.createElement('div');
+  orreryLegend.className = 'nav-map-legend-panel';
+  orreryLegend.style.display = 'none';
+
+  // Ships section header
+  const shipsHeader = document.createElement('div');
+  shipsHeader.textContent = 'Ships';
+  shipsHeader.style.fontWeight = 'bold';
+  shipsHeader.style.marginBottom = '6px';
+  shipsHeader.style.color = '#4a9eff';
+  shipsHeader.style.fontSize = '11px';
+  orreryLegend.appendChild(shipsHeader);
+
+  // Ships list container (single ship for Nav tab)
+  const shipsList = document.createElement('div');
+  shipsList.style.marginBottom = '10px';
+  orreryLegend.appendChild(shipsList);
+
+  // Location types section header
+  const typesHeader = document.createElement('div');
+  typesHeader.textContent = 'Locations';
+  typesHeader.style.fontWeight = 'bold';
+  typesHeader.style.marginBottom = '6px';
+  typesHeader.style.color = '#4a9eff';
+  typesHeader.style.fontSize = '11px';
+  typesHeader.style.borderTop = '1px solid #333';
+  typesHeader.style.paddingTop = '8px';
+  orreryLegend.appendChild(typesHeader);
+
+  // Location types list (static, built once)
+  const typesList = document.createElement('div');
+  orreryLegend.appendChild(typesList);
+
+  // Build location types list
+  const worldTypes = new Set(gameData.world.locations.map((loc) => loc.type));
+  for (const typeName of worldTypes) {
+    const template = getLocationTypeTemplate(typeName);
+
+    const row = document.createElement('div');
+    row.style.display = 'flex';
+    row.style.alignItems = 'center';
+    row.style.gap = '6px';
+    row.style.padding = '2px 0';
+    row.style.whiteSpace = 'nowrap';
+
+    // Colored circle indicator
+    const circle = document.createElement('div');
+    circle.style.width = '8px';
+    circle.style.height = '8px';
+    circle.style.borderRadius = '50%';
+    circle.style.background = template.color ?? '#0f3460';
+    circle.style.flexShrink = '0';
+    row.appendChild(circle);
+
+    // Type name
+    const name = document.createElement('span');
+    name.textContent = template.name ?? typeName;
+    name.style.color = '#ccc';
+    row.appendChild(name);
+
+    typesList.appendChild(row);
+  }
+
+  mapArea.appendChild(orreryLegend);
+
+  // Toggle legend visibility
+  let legendVisible = false;
+  legendButton.addEventListener('click', () => {
+    legendVisible = !legendVisible;
+    orreryLegend.style.display = legendVisible ? 'block' : 'none';
+    legendButton.style.fontWeight = legendVisible ? 'bold' : 'normal';
+  });
+
   // Cluster focus buttons (e.g. "Earth System") — switches to focus mode
   const clusterBar = buildClusterButtons(
     gameData.world.locations,
@@ -1075,7 +762,7 @@ export function createNavigationView(
 
   // Back-to-overview button (hidden by default, shown in focus mode)
   const backToOverviewBtn = document.createElement('button');
-  backToOverviewBtn.className = 'nav-map-cluster-btn nav-map-back-btn';
+  backToOverviewBtn.className = 'nav-map-btn nav-map-back-btn';
   backToOverviewBtn.textContent = '\u2190 Overview';
   backToOverviewBtn.style.display = 'none';
   backToOverviewBtn.addEventListener('click', (e) => {
@@ -1109,7 +796,7 @@ export function createNavigationView(
   container.appendChild(legend);
 
   // --- Create per-location elements once ---
-  const markerMap = new Map<string, MarkerRefs>();
+  const markerMap = orreryRefs.markerMap; // Use shared marker map
   const legendMap = new Map<string, LegendItemRefs>();
 
   for (const location of gameData.world.locations) {
@@ -1271,8 +958,9 @@ export function createNavigationView(
   /** Switch orrery to cluster Focus mode */
   function switchToFocus(parentId: string): void {
     orreryMode = { type: 'focus', parentId };
-    // Reset CSS zoom/pan
-    zoomControls.zoomTo(0, 0, 1, false);
+    // Preserve current zoom level
+    const currentZoom = zoomControls.getCurrentZoom();
+    zoomControls.zoomTo(0, 0, currentZoom, false);
     // Keep selection if it's in this cluster, otherwise clear
     const childIds = clusterChildrenMap.get(parentId) || [];
     if (
@@ -1289,8 +977,9 @@ export function createNavigationView(
   /** Switch orrery back to solar system Overview mode */
   function switchToOverview(): void {
     orreryMode = { type: 'overview' };
-    // Reset CSS zoom/pan
-    zoomControls.zoomTo(0, 0, 1, false);
+    // Preserve current zoom level
+    const currentZoom = zoomControls.getCurrentZoom();
+    zoomControls.zoomTo(0, 0, currentZoom, false);
     // If selected location was a hidden cluster child, select parent instead
     if (selectedLocationId && clusterMemberIds.has(selectedLocationId)) {
       const loc = latestGameData.world.locations.find(
@@ -1349,44 +1038,8 @@ export function createNavigationView(
       flightRefs.shipDot.setAttribute('cy', String(shipSvg.y));
       flightRefs.shipDot.style.display = '';
 
-      const assists = fp.gravityAssists || [];
-      for (let i = 0; i < MAX_ASSIST_MARKERS; i++) {
-        const marker = assistMarkers[i];
-        if (i < assists.length) {
-          const a = assists[i];
-          const color =
-            a.result === 'success'
-              ? '#4caf50'
-              : a.result === 'failure'
-                ? '#f44336'
-                : '#ffc107';
-          const bodyLoc = gd.world.locations.find((l) => l.id === a.bodyId);
-          if (bodyLoc) {
-            const bodyPos = getLocationPosition(bodyLoc, gd.gameTime, gd.world);
-            const bodySvg = projectToSvg(bodyPos.x, bodyPos.y);
-            marker.halo.setAttribute('cx', String(bodySvg.x));
-            marker.halo.setAttribute('cy', String(bodySvg.y));
-            marker.halo.setAttribute('stroke', color);
-            marker.halo.style.display = '';
-          } else {
-            marker.halo.style.display = 'none';
-          }
-          const dx = destSvg.x - originSvg.x;
-          const dy = destSvg.y - originSvg.y;
-          const mx = originSvg.x + dx * a.approachProgress;
-          const my = originSvg.y + dy * a.approachProgress;
-          const ds = 2.5;
-          marker.diamond.setAttribute(
-            'points',
-            `${mx},${my - ds} ${mx + ds},${my} ${mx},${my + ds} ${mx - ds},${my}`
-          );
-          marker.diamond.setAttribute('fill', color);
-          marker.diamond.style.display = '';
-        } else {
-          marker.halo.style.display = 'none';
-          marker.diamond.style.display = 'none';
-        }
-      }
+      // Update gravity assist markers
+      updateGravityAssistMarkers(assistMarkers, fp, originSvg, destSvg, gd);
     } else {
       hideFlightViz();
     }
@@ -1716,6 +1369,50 @@ export function createNavigationView(
 
       updateLegendItem(location, legendRefs, ctx);
     }
+
+    // Update orrery legend ships section
+    shipsList.innerHTML = '';
+    const shipRow = document.createElement('div');
+    shipRow.style.display = 'flex';
+    shipRow.style.alignItems = 'center';
+    shipRow.style.gap = '6px';
+    shipRow.style.padding = '2px 0';
+    shipRow.style.whiteSpace = 'nowrap';
+    shipRow.style.fontWeight = 'bold';
+
+    // Triangle indicator
+    const triangle = document.createElement('div');
+    triangle.style.width = '0';
+    triangle.style.height = '0';
+    triangle.style.borderLeft = '4px solid transparent';
+    triangle.style.borderRight = '4px solid transparent';
+    triangle.style.borderBottom = '7px solid #dc2626';
+    triangle.style.flexShrink = '0';
+    shipRow.appendChild(triangle);
+
+    // Ship name
+    const shipName = document.createElement('span');
+    shipName.textContent = ship.name;
+    shipName.style.color = '#dc2626';
+    shipRow.appendChild(shipName);
+
+    // Status
+    const shipStatus = document.createElement('span');
+    shipStatus.style.color = '#888';
+    shipStatus.style.fontSize = '9px';
+    shipStatus.style.marginLeft = '4px';
+    if (isInFlight && flightDestinationId) {
+      const destLoc = gd.world.locations.find(
+        (l) => l.id === flightDestinationId
+      );
+      shipStatus.textContent = `→ ${destLoc?.name ?? 'Unknown'}`;
+    } else if (currentLocationId) {
+      const loc = gd.world.locations.find((l) => l.id === currentLocationId);
+      shipStatus.textContent = `@ ${loc?.name ?? 'Unknown'}`;
+    }
+    shipRow.appendChild(shipStatus);
+
+    shipsList.appendChild(shipRow);
 
     // Flight visualization (overview projection)
     updateFlightVizOverview(gd, ship, isInFlight);
