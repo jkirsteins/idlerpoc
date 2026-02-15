@@ -1,3 +1,5 @@
+import { computePosition, flip, shift, offset } from '@floating-ui/dom';
+
 export interface TooltipOptions {
   content: string; // Can include HTML
   followMouse?: boolean; // If true, tooltip follows mouse; if false, positions near element
@@ -26,31 +28,62 @@ function ensureTouchDismiss(): void {
   );
 }
 
-// Register a document-level mouse dismiss listener (once) as safety net for stuck tooltips
-let mouseDismissRegistered = false;
-function ensureMouseDismiss(): void {
-  if (mouseDismissRegistered) return;
-  mouseDismissRegistered = true;
+/**
+ * Position tooltip using Floating UI for robust viewport-aware positioning.
+ * Replaces manual positioning logic with professional collision detection.
+ */
+async function positionTooltipWithFloating(
+  tooltip: HTMLElement,
+  trigger: HTMLElement
+): Promise<void> {
+  const { x, y } = await computePosition(trigger, tooltip, {
+    placement: 'bottom-start', // Default: below trigger, left-aligned
+    middleware: [
+      offset(8), // 8px spacing from trigger
+      flip({
+        // Auto-flip to opposite side if overflow
+        fallbackPlacements: ['top-start', 'bottom-end', 'top-end'],
+      }),
+      shift({
+        // Slide along edge to stay in viewport
+        padding: 8, // Minimum 8px from viewport edges
+      }),
+    ],
+  });
 
-  document.addEventListener(
-    'mousemove',
-    (e: MouseEvent) => {
-      if (!activeTooltip || !activeTrigger) return;
+  tooltip.style.left = `${x}px`;
+  tooltip.style.top = `${y}px`;
+}
 
-      const target = e.target as Node;
-
-      // Keep visible if cursor is over tooltip or trigger
-      if (activeTooltip.contains(target) || activeTrigger.contains(target)) {
-        return;
-      }
-
-      // Cursor is outside both - dismiss
-      activeTooltip.classList.remove('visible');
-      activeTooltip = null;
-      activeTrigger = null;
+/**
+ * Position tooltip at mouse cursor using virtual element (for followMouse mode).
+ */
+async function positionTooltipAtMouse(
+  tooltip: HTMLElement,
+  mouseEvent: MouseEvent
+): Promise<void> {
+  const virtualEl = {
+    getBoundingClientRect() {
+      return {
+        x: mouseEvent.clientX,
+        y: mouseEvent.clientY,
+        width: 0,
+        height: 0,
+        top: mouseEvent.clientY,
+        left: mouseEvent.clientX,
+        right: mouseEvent.clientX,
+        bottom: mouseEvent.clientY,
+      };
     },
-    { passive: true }
-  );
+  };
+
+  const { x, y } = await computePosition(virtualEl, tooltip, {
+    placement: 'bottom-start',
+    middleware: [offset(15), flip(), shift({ padding: 8 })],
+  });
+
+  tooltip.style.left = `${x}px`;
+  tooltip.style.top = `${y}px`;
 }
 
 export function attachTooltip(
@@ -65,60 +98,22 @@ export function attachTooltip(
   // Mark element as having a tooltip (for CSS touch target sizing)
   element.setAttribute('data-has-tooltip', '');
 
-  const positionNearElement = (tip: HTMLElement, elem: HTMLElement) => {
-    const elemRect = elem.getBoundingClientRect();
-    const tipRect = tip.getBoundingClientRect();
-
-    let left = elemRect.left;
-    let top = elemRect.bottom + 8;
-
-    // Prevent tooltip from going off-screen
-    if (left + tipRect.width > window.innerWidth) {
-      left = window.innerWidth - tipRect.width - 16;
-    }
-    if (left < 8) left = 8;
-    if (top + tipRect.height > window.innerHeight) {
-      top = elemRect.top - tipRect.height - 8;
+  const showTooltip = async (e: MouseEvent) => {
+    // Dismiss any other active tooltip (singleton enforcement)
+    if (activeTooltip && activeTooltip !== tooltip) {
+      activeTooltip.classList.remove('visible');
     }
 
-    tip.style.left = `${left}px`;
-    tip.style.top = `${top}px`;
-  };
-
-  const updateTooltipPosition = (
-    e: MouseEvent,
-    tip: HTMLElement,
-    elem: HTMLElement,
-    followMouse: boolean
-  ) => {
-    if (followMouse) {
-      // Position near mouse
-      const offsetX = 15;
-      const offsetY = 15;
-      let left = e.clientX + offsetX;
-      let top = e.clientY + offsetY;
-
-      // Prevent tooltip from going off-screen
-      const rect = tip.getBoundingClientRect();
-      if (left + rect.width > window.innerWidth) {
-        left = e.clientX - rect.width - offsetX;
-      }
-      if (top + rect.height > window.innerHeight) {
-        top = e.clientY - rect.height - offsetY;
-      }
-
-      tip.style.left = `${left}px`;
-      tip.style.top = `${top}px`;
-    } else {
-      positionNearElement(tip, elem);
-    }
-  };
-
-  const showTooltip = (e: MouseEvent) => {
     tooltip.classList.add('visible');
-    updateTooltipPosition(e, tooltip, element, options.followMouse ?? false);
     activeTooltip = tooltip;
     activeTrigger = element;
+
+    // Use Floating UI for positioning
+    if (options.followMouse) {
+      await positionTooltipAtMouse(tooltip, e);
+    } else {
+      await positionTooltipWithFloating(tooltip, element);
+    }
   };
 
   const hideTooltip = () => {
@@ -130,10 +125,12 @@ export function attachTooltip(
   };
 
   // Mouse events (hover — desktop)
-  element.addEventListener('mouseenter', showTooltip);
+  element.addEventListener('mouseenter', (e) => {
+    void showTooltip(e);
+  });
   element.addEventListener('mousemove', (e) => {
     if (tooltip.classList.contains('visible') && options.followMouse) {
-      updateTooltipPosition(e, tooltip, element, true);
+      void positionTooltipAtMouse(tooltip, e);
     }
   });
   element.addEventListener('mouseleave', hideTooltip);
@@ -143,7 +140,6 @@ export function attachTooltip(
     'touchstart',
     () => {
       ensureTouchDismiss();
-      ensureMouseDismiss();
 
       if (tooltip.classList.contains('visible')) {
         // Tap again to dismiss
@@ -166,7 +162,7 @@ export function attachTooltip(
       activeTrigger = element;
 
       // Position anchored to element (not mouse)
-      positionNearElement(tooltip, element);
+      void positionTooltipWithFloating(tooltip, element);
     },
     { passive: true }
   );
@@ -213,60 +209,22 @@ export function attachDynamicTooltip(
   let currentContent = initialContent;
   const followMouse = options?.followMouse ?? false;
 
-  const positionNearElement = (tip: HTMLElement, elem: HTMLElement) => {
-    const elemRect = elem.getBoundingClientRect();
-    const tipRect = tip.getBoundingClientRect();
-
-    let left = elemRect.left;
-    let top = elemRect.bottom + 8;
-
-    // Prevent tooltip from going off-screen
-    if (left + tipRect.width > window.innerWidth) {
-      left = window.innerWidth - tipRect.width - 16;
-    }
-    if (left < 8) left = 8;
-    if (top + tipRect.height > window.innerHeight) {
-      top = elemRect.top - tipRect.height - 8;
+  const showTooltip = async (e: MouseEvent) => {
+    // Dismiss any other active tooltip (singleton enforcement)
+    if (activeTooltip && activeTooltip !== tooltip) {
+      activeTooltip.classList.remove('visible');
     }
 
-    tip.style.left = `${left}px`;
-    tip.style.top = `${top}px`;
-  };
-
-  const updateTooltipPosition = (
-    e: MouseEvent,
-    tip: HTMLElement,
-    elem: HTMLElement,
-    follow: boolean
-  ) => {
-    if (follow) {
-      // Position near mouse
-      const offsetX = 15;
-      const offsetY = 15;
-      let left = e.clientX + offsetX;
-      let top = e.clientY + offsetY;
-
-      // Prevent tooltip from going off-screen
-      const rect = tip.getBoundingClientRect();
-      if (left + rect.width > window.innerWidth) {
-        left = e.clientX - rect.width - offsetX;
-      }
-      if (top + rect.height > window.innerHeight) {
-        top = e.clientY - rect.height - offsetY;
-      }
-
-      tip.style.left = `${left}px`;
-      tip.style.top = `${top}px`;
-    } else {
-      positionNearElement(tip, elem);
-    }
-  };
-
-  const showTooltip = (e: MouseEvent) => {
     tooltip.classList.add('visible');
-    updateTooltipPosition(e, tooltip, element, followMouse);
     activeTooltip = tooltip;
     activeTrigger = element;
+
+    // Use Floating UI for positioning
+    if (followMouse) {
+      await positionTooltipAtMouse(tooltip, e);
+    } else {
+      await positionTooltipWithFloating(tooltip, element);
+    }
   };
 
   const hideTooltip = () => {
@@ -278,10 +236,12 @@ export function attachDynamicTooltip(
   };
 
   // Mouse events (hover — desktop)
-  element.addEventListener('mouseenter', showTooltip);
+  element.addEventListener('mouseenter', (e) => {
+    void showTooltip(e);
+  });
   element.addEventListener('mousemove', (e) => {
     if (tooltip.classList.contains('visible') && followMouse) {
-      updateTooltipPosition(e, tooltip, element, true);
+      void positionTooltipAtMouse(tooltip, e);
     }
   });
   element.addEventListener('mouseleave', hideTooltip);
@@ -291,7 +251,6 @@ export function attachDynamicTooltip(
     'touchstart',
     () => {
       ensureTouchDismiss();
-      ensureMouseDismiss();
 
       if (tooltip.classList.contains('visible')) {
         // Tap again to dismiss
@@ -314,7 +273,7 @@ export function attachDynamicTooltip(
       activeTrigger = element;
 
       // Position anchored to element (not mouse)
-      positionNearElement(tooltip, element);
+      void positionTooltipWithFloating(tooltip, element);
     },
     { passive: true }
   );
@@ -342,6 +301,11 @@ export function attachDynamicTooltip(
       if (html !== currentContent) {
         currentContent = html;
         tooltip.innerHTML = html;
+
+        // Reposition if visible (dimensions may have changed with new content)
+        if (tooltip.classList.contains('visible') && activeTrigger) {
+          void positionTooltipWithFloating(tooltip, activeTrigger);
+        }
       }
     },
   };
