@@ -164,7 +164,12 @@ export function createOrreryMap(
 } {
   const container = document.createElement('div');
   container.className = 'orrery-map-container';
-  container.style.position = 'relative';
+  container.style.cssText = `
+    position: relative;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+  `;
 
   // Cluster membership data — computed once at mount
   const {
