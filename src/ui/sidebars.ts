@@ -28,24 +28,49 @@ import {
 } from '../provisionsSystem';
 import { isHelmManned } from '../jobSlots';
 import { getFeaturedArc } from '../arcDetector';
+import { createFleetPanel } from './fleetPanel';
+import {
+  getShipPositionKm,
+  calculatePositionDanger,
+  getThreatLevel,
+} from '../encounterSystem';
 
 interface SidebarCallbacks {
   onBuyFuel?: () => void;
   onToggleNavigation?: () => void;
   onUndock?: () => void;
   onDock?: () => void;
-  onAdvanceDay?: () => void;
   onTogglePause?: () => void;
   onSetSpeed?: (speed: 1 | 2 | 5) => void;
   onTabChange?: (tab: PlayingTab) => void;
+  onSelectShip?: (shipId: string) => void;
 }
+
+// Track credits for delta display (module-level state per sidebar instance)
+let previousCredits: number | null = null;
+let creditDeltaTimeout: number | null = null;
 
 export function createLeftSidebar(
   gameData: GameData,
   callbacks: SidebarCallbacks
 ): Component {
+  // Reset module-level state on (re-)mount to prevent stale data across game resets
+  previousCredits = null;
+  creditDeltaTimeout = null;
+
   const sidebar = document.createElement('div');
   sidebar.className = 'left-sidebar';
+
+  // ── FLEET PANEL SECTION (compact mode) ──
+  let fleetPanelComponent: Component | null = null;
+  if (callbacks.onSelectShip && gameData.ships.length > 0) {
+    fleetPanelComponent = createFleetPanel(
+      gameData,
+      { onSelectShip: callbacks.onSelectShip },
+      'compact'
+    );
+    sidebar.appendChild(fleetPanelComponent.el);
+  }
 
   // ── TIME CONTROLS SECTION ──
   const timeControlsSection = document.createElement('div');
@@ -86,12 +111,30 @@ export function createLeftSidebar(
   creditsLabel.textContent = 'Credits';
   creditsSection.appendChild(creditsLabel);
 
+  // Credits value with delta animation wrapper
+  const creditsContainer = document.createElement('div');
+  creditsContainer.style.position = 'relative';
+  creditsContainer.style.display = 'inline-block';
+
   const creditsValue = document.createElement('div');
   creditsValue.style.fontSize = '24px';
   creditsValue.style.fontWeight = 'bold';
   creditsValue.style.color = '#4a9eff';
-  creditsSection.appendChild(creditsValue);
+  creditsContainer.appendChild(creditsValue);
 
+  // Credit delta element (animated)
+  const creditDeltaEl = document.createElement('div');
+  creditDeltaEl.style.position = 'absolute';
+  creditDeltaEl.style.left = '100%';
+  creditDeltaEl.style.top = '0';
+  creditDeltaEl.style.marginLeft = '0.75rem';
+  creditDeltaEl.style.fontSize = '1rem';
+  creditDeltaEl.style.fontWeight = 'bold';
+  creditDeltaEl.style.whiteSpace = 'nowrap';
+  creditDeltaEl.style.display = 'none';
+  creditsContainer.appendChild(creditDeltaEl);
+
+  creditsSection.appendChild(creditsContainer);
   sidebar.appendChild(creditsSection);
 
   // ── LOCATION SECTION ──
@@ -105,7 +148,46 @@ export function createLeftSidebar(
   const locationValue = document.createElement('div');
   locationValue.style.fontSize = '14px';
   locationValue.style.color = '#eee';
+  locationValue.style.marginBottom = '8px';
   locationSection.appendChild(locationValue);
+
+  // Threat badge (only visible during flight)
+  const threatBadge = document.createElement('div');
+  threatBadge.style.display = 'none';
+  threatBadge.style.fontWeight = '700';
+  threatBadge.style.fontSize = '11px';
+  threatBadge.style.padding = '3px 8px';
+  threatBadge.style.borderRadius = '4px';
+  threatBadge.style.marginBottom = '8px';
+  threatBadge.style.width = 'fit-content';
+  locationSection.appendChild(threatBadge);
+
+  // Flight progress container (only visible during flight)
+  const flightProgressContainer = document.createElement('div');
+  flightProgressContainer.style.display = 'none';
+
+  const flightProgressBar = document.createElement('div');
+  flightProgressBar.style.height = '8px';
+  flightProgressBar.style.background = 'rgba(255, 255, 255, 0.1)';
+  flightProgressBar.style.borderRadius = '4px';
+  flightProgressBar.style.overflow = 'hidden';
+  flightProgressBar.style.marginBottom = '4px';
+
+  const flightProgressFill = document.createElement('div');
+  flightProgressFill.style.height = '100%';
+  flightProgressFill.style.background =
+    'linear-gradient(90deg, #4ecdc4 0%, #d4850a 100%)';
+  flightProgressFill.style.borderRadius = '4px';
+  flightProgressFill.style.transition = 'width 0.3s';
+  flightProgressBar.appendChild(flightProgressFill);
+
+  const flightProgressLabel = document.createElement('div');
+  flightProgressLabel.style.fontSize = '11px';
+  flightProgressLabel.style.color = '#aaa';
+
+  flightProgressContainer.appendChild(flightProgressBar);
+  flightProgressContainer.appendChild(flightProgressLabel);
+  locationSection.appendChild(flightProgressContainer);
 
   sidebar.appendChild(locationSection);
 
@@ -205,6 +287,11 @@ export function createLeftSidebar(
   function update(gameData: GameData): void {
     const ship = getActiveShip(gameData);
 
+    // Update fleet panel if present
+    if (fleetPanelComponent) {
+      fleetPanelComponent.update(gameData);
+    }
+
     // Time display
     timeDisplay.textContent = formatGameDate(gameData.gameTime);
 
@@ -217,8 +304,39 @@ export function createLeftSidebar(
       playPauseLabel.textContent = 'Pause';
     }
 
-    // Credits
-    creditsValue.textContent = Math.round(gameData.credits).toLocaleString();
+    // Credits with delta animation
+    const currentCredits = Math.round(gameData.credits);
+    creditsValue.textContent = currentCredits.toLocaleString();
+
+    // Credit delta animation
+    if (previousCredits !== null && previousCredits !== currentCredits) {
+      const delta = currentCredits - previousCredits;
+
+      if (delta > 0) {
+        creditDeltaEl.textContent = `+${delta.toLocaleString()}`;
+        creditDeltaEl.style.color = '#4ade80';
+      } else {
+        creditDeltaEl.textContent = delta.toLocaleString();
+        creditDeltaEl.style.color = '#ef4444';
+      }
+
+      // Reset animation by removing and re-adding
+      creditDeltaEl.style.display = '';
+      creditDeltaEl.style.animation = 'none';
+      // Force reflow to restart animation
+      void creditDeltaEl.offsetHeight;
+      creditDeltaEl.style.animation = 'credit-delta-float 2s ease-out forwards';
+
+      // Clear old timeout and set new one
+      if (creditDeltaTimeout !== null) {
+        clearTimeout(creditDeltaTimeout);
+      }
+      creditDeltaTimeout = window.setTimeout(() => {
+        creditDeltaEl.style.display = 'none';
+        creditDeltaTimeout = null;
+      }, 2000);
+    }
+    previousCredits = currentCredits;
 
     // Location
     if (ship.location.status === 'in_flight' && ship.activeFlightPlan) {
@@ -229,6 +347,42 @@ export function createLeftSidebar(
         (l) => l.id === ship.activeFlightPlan!.destination
       );
       locationValue.textContent = `${origin?.name || '?'} \u2192 ${destination?.name || '?'}`;
+
+      // Show threat badge
+      const currentKm = getShipPositionKm(ship, gameData.world);
+      const positionDanger = calculatePositionDanger(currentKm, gameData.world);
+      const dangerRisk =
+        positionDanger > 3
+          ? 0.35
+          : positionDanger > 1.5
+            ? 0.2
+            : positionDanger > 0.5
+              ? 0.08
+              : 0.02;
+      const threatLevelValue = getThreatLevel(dangerRisk);
+
+      if (threatLevelValue !== 'clear') {
+        const colors: Record<string, string> = {
+          caution: '#ffc107',
+          danger: '#ff6b6b',
+          critical: '#ff6b6b',
+        };
+        threatBadge.style.display = '';
+        threatBadge.style.color = colors[threatLevelValue] || '#aaa';
+        threatBadge.style.background = `${colors[threatLevelValue]}22`;
+        threatBadge.textContent = threatLevelValue.toUpperCase();
+      } else {
+        threatBadge.style.display = 'none';
+      }
+
+      // Show flight progress bar
+      const progressPercent =
+        (ship.activeFlightPlan.distanceCovered /
+          ship.activeFlightPlan.totalDistance) *
+        100;
+      flightProgressFill.style.width = `${progressPercent}%`;
+      flightProgressLabel.textContent = `${progressPercent.toFixed(0)}%`;
+      flightProgressContainer.style.display = '';
     } else if (
       ship.location.status === 'orbiting' &&
       ship.location.orbitingAt
@@ -237,13 +391,19 @@ export function createLeftSidebar(
         (l) => l.id === ship.location.orbitingAt
       );
       locationValue.textContent = `Orbiting ${location?.name || 'Unknown'}`;
+      threatBadge.style.display = 'none';
+      flightProgressContainer.style.display = 'none';
     } else if (ship.location.dockedAt) {
       const location = gameData.world.locations.find(
         (l) => l.id === ship.location.dockedAt
       );
       locationValue.textContent = location?.name || 'Unknown';
+      threatBadge.style.display = 'none';
+      flightProgressContainer.style.display = 'none';
     } else {
       locationValue.textContent = 'In Space';
+      threatBadge.style.display = 'none';
+      flightProgressContainer.style.display = 'none';
     }
 
     // Fuel bar
@@ -315,11 +475,15 @@ export function createLeftSidebar(
       }
     }
 
-    // Equipment
+    // Equipment (only powered equipment draws power)
     for (const equipment of ship.equipment) {
       const equipDef = getEquipmentDefinition(equipment.definitionId);
       if (equipDef && equipDef.powerDraw > 0) {
-        drawItems.push({ name: equipDef.name, draw: equipDef.powerDraw });
+        if (equipment.powered) {
+          drawItems.push({ name: equipDef.name, draw: equipDef.powerDraw });
+        } else {
+          drawItems.push({ name: `${equipDef.name} (off)`, draw: 0 });
+        }
       }
     }
 
@@ -438,7 +602,7 @@ export function createRightSidebar(gameData: GameData): Component {
   const shipNameEl = document.createElement('div');
   shipNameEl.style.fontSize = '16px';
   shipNameEl.style.fontWeight = 'bold';
-  shipNameEl.style.color = '#e94560';
+  shipNameEl.style.color = '#d4850a';
   shipNameEl.style.marginBottom = '4px';
   shipInfoSection.appendChild(shipNameEl);
 
@@ -501,55 +665,117 @@ export function createRightSidebar(gameData: GameData): Component {
   ledgerInfo.style.fontSize = '12px';
   ledgerInfo.style.lineHeight = '1.6';
 
-  // Income line
-  const incomeLine = document.createElement('div');
-  const incomeLabelSpan = document.createElement('span');
-  incomeLabelSpan.style.color = '#888';
-  incomeLabelSpan.textContent = 'Income: ';
-  const incomeValue = document.createElement('span');
-  incomeValue.style.color = '#4ade80';
-  incomeLine.appendChild(incomeLabelSpan);
-  incomeLine.appendChild(incomeValue);
-  ledgerInfo.appendChild(incomeLine);
+  // "Today" sub-header
+  const todayHeader = document.createElement('div');
+  todayHeader.textContent = 'Today';
+  todayHeader.style.color = '#aaa';
+  todayHeader.style.fontSize = '11px';
+  todayHeader.style.fontWeight = 'bold';
+  todayHeader.style.marginBottom = '4px';
+  ledgerInfo.appendChild(todayHeader);
 
-  // Crew cost line
-  const ledgerCrewLine = document.createElement('div');
-  const ledgerCrewLabelSpan = document.createElement('span');
-  ledgerCrewLabelSpan.style.color = '#888';
-  ledgerCrewLabelSpan.textContent = 'Crew: ';
-  const ledgerCrewValue = document.createElement('span');
-  ledgerCrewValue.style.color = '#ffa500';
-  ledgerCrewLine.appendChild(ledgerCrewLabelSpan);
-  ledgerCrewLine.appendChild(ledgerCrewValue);
-  ledgerInfo.appendChild(ledgerCrewLine);
+  // Today Earned line
+  const todayEarnedLine = document.createElement('div');
+  const todayEarnedLabelSpan = document.createElement('span');
+  todayEarnedLabelSpan.style.color = '#888';
+  todayEarnedLabelSpan.textContent = 'Earned: ';
+  const todayEarnedValue = document.createElement('span');
+  todayEarnedValue.style.color = '#4caf50';
+  todayEarnedLine.appendChild(todayEarnedLabelSpan);
+  todayEarnedLine.appendChild(todayEarnedValue);
+  ledgerInfo.appendChild(todayEarnedLine);
 
-  // Fuel cost line
-  const ledgerFuelLine = document.createElement('div');
-  const ledgerFuelLabelSpan = document.createElement('span');
-  ledgerFuelLabelSpan.style.color = '#888';
-  ledgerFuelLabelSpan.textContent = 'Fuel: ';
-  const ledgerFuelValue = document.createElement('span');
-  ledgerFuelValue.style.color = '#ffa500';
-  ledgerFuelLine.appendChild(ledgerFuelLabelSpan);
-  ledgerFuelLine.appendChild(ledgerFuelValue);
-  ledgerInfo.appendChild(ledgerFuelLine);
+  // Today Spent line
+  const todaySpentLine = document.createElement('div');
+  const todaySpentLabelSpan = document.createElement('span');
+  todaySpentLabelSpan.style.color = '#888';
+  todaySpentLabelSpan.textContent = 'Spent: ';
+  const todaySpentValue = document.createElement('span');
+  todaySpentValue.style.color = '#ffa500';
+  todaySpentLine.appendChild(todaySpentLabelSpan);
+  todaySpentLine.appendChild(todaySpentValue);
+  ledgerInfo.appendChild(todaySpentLine);
+
+  // Today Net line
+  const todayNetLine = document.createElement('div');
+  const todayNetLabelSpan = document.createElement('span');
+  todayNetLabelSpan.style.color = '#888';
+  todayNetLabelSpan.textContent = 'Net: ';
+  const todayNetValue = document.createElement('span');
+  todayNetValue.style.fontWeight = 'bold';
+  todayNetLine.appendChild(todayNetLabelSpan);
+  todayNetLine.appendChild(todayNetValue);
+  ledgerInfo.appendChild(todayNetLine);
 
   // Separator
-  const ledgerSep = document.createElement('div');
-  ledgerSep.style.borderTop = '1px solid #444';
-  ledgerSep.style.margin = '4px 0';
-  ledgerInfo.appendChild(ledgerSep);
+  const ledgerSep1 = document.createElement('div');
+  ledgerSep1.style.borderTop = '1px solid #444';
+  ledgerSep1.style.margin = '8px 0 4px';
+  ledgerInfo.appendChild(ledgerSep1);
 
-  // Net line
-  const netLine = document.createElement('div');
-  const netLabelSpan = document.createElement('span');
-  netLabelSpan.style.color = '#888';
-  netLabelSpan.textContent = 'Net: ';
-  const netValue = document.createElement('span');
-  netValue.style.fontWeight = 'bold';
-  netLine.appendChild(netLabelSpan);
-  netLine.appendChild(netValue);
-  ledgerInfo.appendChild(netLine);
+  // "Avg/day" sub-header (with days label)
+  const avgHeader = document.createElement('div');
+  avgHeader.style.color = '#aaa';
+  avgHeader.style.fontSize = '11px';
+  avgHeader.style.fontWeight = 'bold';
+  avgHeader.style.marginBottom = '4px';
+  const avgHeaderLabel = document.createElement('span');
+  avgHeaderLabel.textContent = 'Avg/day ';
+  const avgHeaderNote = document.createElement('span');
+  avgHeaderNote.style.fontWeight = 'normal';
+  avgHeader.appendChild(avgHeaderLabel);
+  avgHeader.appendChild(avgHeaderNote);
+  ledgerInfo.appendChild(avgHeader);
+
+  // Average Income line
+  const avgIncomeLine = document.createElement('div');
+  const avgIncomeLabelSpan = document.createElement('span');
+  avgIncomeLabelSpan.style.color = '#888';
+  avgIncomeLabelSpan.textContent = 'Income: ';
+  const avgIncomeValue = document.createElement('span');
+  avgIncomeValue.style.color = '#4caf50';
+  avgIncomeLine.appendChild(avgIncomeLabelSpan);
+  avgIncomeLine.appendChild(avgIncomeValue);
+  ledgerInfo.appendChild(avgIncomeLine);
+
+  // Average Crew line
+  const avgCrewLine = document.createElement('div');
+  const avgCrewLabelSpan = document.createElement('span');
+  avgCrewLabelSpan.style.color = '#888';
+  avgCrewLabelSpan.textContent = 'Crew: ';
+  const avgCrewValue = document.createElement('span');
+  avgCrewValue.style.color = '#ffa500';
+  avgCrewLine.appendChild(avgCrewLabelSpan);
+  avgCrewLine.appendChild(avgCrewValue);
+  ledgerInfo.appendChild(avgCrewLine);
+
+  // Average Fuel line
+  const avgFuelLine = document.createElement('div');
+  const avgFuelLabelSpan = document.createElement('span');
+  avgFuelLabelSpan.style.color = '#888';
+  avgFuelLabelSpan.textContent = 'Fuel: ';
+  const avgFuelValue = document.createElement('span');
+  avgFuelValue.style.color = '#ffa500';
+  avgFuelLine.appendChild(avgFuelLabelSpan);
+  avgFuelLine.appendChild(avgFuelValue);
+  ledgerInfo.appendChild(avgFuelLine);
+
+  // Separator before Net
+  const ledgerSep2 = document.createElement('div');
+  ledgerSep2.style.borderTop = '1px solid #444';
+  ledgerSep2.style.margin = '4px 0';
+  ledgerInfo.appendChild(ledgerSep2);
+
+  // Average Net line
+  const avgNetLine = document.createElement('div');
+  const avgNetLabelSpan = document.createElement('span');
+  avgNetLabelSpan.style.color = '#888';
+  avgNetLabelSpan.textContent = 'Net: ';
+  const avgNetValue = document.createElement('span');
+  avgNetValue.style.fontWeight = 'bold';
+  avgNetLine.appendChild(avgNetLabelSpan);
+  avgNetLine.appendChild(avgNetValue);
+  ledgerInfo.appendChild(avgNetLine);
 
   // Runway line
   const runwayLine = document.createElement('div');
@@ -707,23 +933,58 @@ export function createRightSidebar(gameData: GameData): Component {
     // Daily ledger
     const ledger = calculateDailyLedger(gameData);
 
-    if (ledger.incomeDays > 0) {
-      incomeValue.textContent = `+${formatCredits(Math.round(ledger.incomePerDay))}/day`;
-      incomeValue.style.color = '#4caf50';
+    // Today section
+    todayEarnedValue.textContent = `+${formatCredits(Math.round(ledger.todayIncome))}`;
+    todaySpentValue.textContent = `-${formatCredits(Math.round(ledger.todayExpenses))}`;
+
+    const todayNetRounded = Math.round(ledger.todayNet);
+    const todayNetSign = todayNetRounded >= 0 ? '+' : '';
+    todayNetValue.textContent = `${todayNetSign}${formatCredits(todayNetRounded)}`;
+    todayNetValue.style.color = todayNetRounded >= 0 ? '#4ade80' : '#ff4444';
+
+    // Avg/day section header note
+    const maxDays = Math.max(ledger.incomeDays, ledger.expenseDays);
+    if (maxDays > 0) {
+      avgHeaderNote.textContent = `(${maxDays}d avg)`;
     } else {
-      incomeValue.textContent = 'collecting data\u2026';
-      incomeValue.style.color = '#666';
+      avgHeaderNote.textContent = '';
     }
 
-    ledgerCrewValue.textContent = `-${formatCredits(Math.round(ledger.crewCostPerDay))}/day`;
-    ledgerFuelValue.textContent = `-${formatCredits(Math.round(ledger.fuelCostPerDay))}/day`;
+    // Avg Income
+    if (ledger.incomeDays > 0) {
+      avgIncomeValue.textContent = `+${formatCredits(Math.round(ledger.incomePerDay))}/day`;
+      avgIncomeValue.style.color = '#4caf50';
+    } else {
+      avgIncomeValue.textContent = 'collecting data\u2026';
+      avgIncomeValue.style.color = '#666';
+    }
 
-    const netRounded = Math.round(ledger.netPerDay);
-    const netSign = netRounded >= 0 ? '+' : '';
-    netValue.textContent = `${netSign}${formatCredits(netRounded)}/day`;
-    netValue.style.color = netRounded >= 0 ? '#4ade80' : '#ff4444';
+    // Avg Crew
+    if (ledger.expenseDays > 0) {
+      avgCrewValue.textContent = `-${formatCredits(Math.round(ledger.crewCostPerDay))}/day`;
+      avgCrewValue.style.color = '#ffa500';
+    } else {
+      avgCrewValue.textContent = 'collecting data\u2026';
+      avgCrewValue.style.color = '#666';
+    }
 
-    if (ledger.incomeDays === 0) {
+    // Avg Fuel
+    if (ledger.expenseDays > 0) {
+      avgFuelValue.textContent = `-${formatCredits(Math.round(ledger.fuelCostPerDay))}/day`;
+      avgFuelValue.style.color = '#ffa500';
+    } else {
+      avgFuelValue.textContent = 'collecting data\u2026';
+      avgFuelValue.style.color = '#666';
+    }
+
+    // Avg Net
+    const avgNetRounded = Math.round(ledger.netPerDay);
+    const avgNetSign = avgNetRounded >= 0 ? '+' : '';
+    avgNetValue.textContent = `${avgNetSign}${formatCredits(avgNetRounded)}/day`;
+    avgNetValue.style.color = avgNetRounded >= 0 ? '#4ade80' : '#ff4444';
+
+    // Runway
+    if (ledger.incomeDays === 0 || ledger.expenseDays === 0) {
       runwayValue.textContent = 'collecting data\u2026';
       runwayValue.style.color = '#666';
     } else if (ledger.runwayDays !== null) {

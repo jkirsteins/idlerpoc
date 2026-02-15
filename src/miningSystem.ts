@@ -11,7 +11,7 @@
  * Without crew, equipment operates at a reduced base rate on tier-0 ores.
  *
  * Per-tick yield formula (with crew):
- *   orePerTick = BASE_RATE × equipmentRate × skillFactor × (1 + masteryYield) × (1 + poolYield) × captainBonus
+ *   orePerTick = BASE_RATE × equipmentRate × skillFactor × (1 + masteryYield) × (1 + poolYield) × captainBonus × healthEfficiency
  *
  * Per-tick yield formula (without crew):
  *   orePerTick = BASE_RATE × equipmentRate × CREWLESS_RATE_MULT
@@ -21,7 +21,7 @@
  */
 
 import type { Ship, GameData, OreId, WorldLocation } from './models';
-import { getShipCommander } from './models';
+import { getShipCommander, getFinancials } from './models';
 import {
   getCommandMiningBonus,
   getFleetAuraIncomeMultiplier,
@@ -46,10 +46,11 @@ import { getBestCrewSkill, getBestCrewPool } from './crewRoles';
 import { getAllOreDefinitions } from './oreTypes';
 import { addLog } from './logSystem';
 import { getTraitModifier } from './personalitySystem';
-import { calculateAvailableCargoCapacity } from './flightPhysics';
+import { getCargoUsedKg, getCrewEquipmentCargoWeight } from './flightPhysics';
 import { getShipClass } from './shipClasses';
 import { formatCredits } from './formatting';
 import { GAME_SECONDS_PER_TICK, GAME_SECONDS_PER_HOUR } from './timeSystem';
+import { getCrewHealthEfficiency } from './provisionsSystem';
 
 // ─── Constants ──────────────────────────────────────────────────
 
@@ -156,32 +157,18 @@ function selectOreToMine(
   });
 }
 
-/**
- * Calculate the current ore cargo weight on a ship.
- */
-export function getOreCargoWeight(ship: Ship): number {
-  let weight = 0;
-  for (const item of ship.oreCargo) {
-    const ore = getOreDefinition(item.oreId);
-    weight += ore.weightPerUnit * item.quantity;
-  }
-  return weight;
-}
+// getOreCargoWeight is now defined in flightPhysics.ts (single source of truth
+// for all cargo mass calculations). Re-export so existing importers keep working.
+export { getOreCargoWeight } from './flightPhysics';
 
 /**
  * Calculate remaining cargo capacity for ore (kg).
+ * Uses the unified getCargoUsedKg for accurate accounting of all hold contents.
  */
 export function getRemainingOreCapacity(ship: Ship): number {
   const shipClass = getShipClass(ship.classId);
   if (!shipClass) return 0;
-  const maxCargo = calculateAvailableCargoCapacity(shipClass.cargoCapacity);
-
-  // Account for provisions, crew equipment, and ore already in the hold
-  const provisionsWeight = ship.provisionsKg || 0;
-  const equipmentWeight = ship.cargo.length * 5;
-  const oreWeight = getOreCargoWeight(ship);
-
-  return Math.max(0, maxCargo - provisionsWeight - equipmentWeight - oreWeight);
+  return Math.max(0, shipClass.cargoCapacity - getCargoUsedKg(ship));
 }
 
 /**
@@ -223,6 +210,7 @@ export function applyMiningTick(
 
   // Get all mining equipment instances with their definitions
   const shipMiningGear = ship.equipment
+    .filter((eq) => eq.powered)
     .map((eq) => ({
       instance: eq,
       def: getEquipmentDefinition(eq.definitionId),
@@ -359,6 +347,9 @@ export function applyMiningTick(
       // Personality trait mining yield modifier
       const traitMiningMod = getTraitModifier(miner, 'mining_yield');
 
+      // Health efficiency — injured/starving crew work slower
+      const healthEfficiency = getCrewHealthEfficiency(miner.health);
+
       // Final yield per tick
       const oreYield =
         BASE_MINING_RATE *
@@ -368,7 +359,8 @@ export function applyMiningTick(
         (1 + poolYieldBonus) *
         captainMiningMultiplier *
         yieldMult *
-        traitMiningMod;
+        traitMiningMod *
+        healthEfficiency;
 
       // Accumulate fractional ore
       const prevAccum = ship.miningAccumulator[ore.id] ?? 0;
@@ -403,7 +395,7 @@ export function applyMiningTick(
 
         if (wholeUnits > maxUnitsFromCapacity) {
           wholeUnits = maxUnitsFromCapacity;
-          newAccum = 0; // Reset accumulator — cargo is full
+          // Preserve fractional progress — don't discard partially-mined ore
           result.cargoFull = true;
         }
 
@@ -420,26 +412,25 @@ export function applyMiningTick(
         // Track extraction
         result.oreExtracted[ore.id] =
           (result.oreExtracted[ore.id] ?? 0) + wholeUnits;
+      }
 
-        // Award mastery XP
-        if (masteryState) {
-          const xpPerUnit = MASTERY_XP_PER_ORE;
-          const totalXp = xpPerUnit * wholeUnits;
-          const masteryResult = awardMasteryXp(
-            masteryState,
-            ore.id,
-            totalXp,
-            Math.floor(miner.skills.mining),
-            totalOreCount
-          );
+      // Award mastery XP based on fractional yield (every tick, every miner)
+      if (masteryState) {
+        const totalXp = MASTERY_XP_PER_ORE * oreYield;
+        const masteryResult = awardMasteryXp(
+          masteryState,
+          ore.id,
+          totalXp,
+          Math.floor(miner.skills.mining),
+          totalOreCount
+        );
 
-          if (masteryResult.leveledUp) {
-            result.masteryLevelUps.push({
-              crewName: miner.name,
-              oreName: ore.name,
-              newLevel: masteryResult.newLevel,
-            });
-          }
+        if (masteryResult.leveledUp) {
+          result.masteryLevelUps.push({
+            crewName: miner.name,
+            oreName: ore.name,
+            newLevel: masteryResult.newLevel,
+          });
         }
       }
 
@@ -546,6 +537,7 @@ export function sellOre(
   gameData.credits += boostedCredits;
   gameData.lifetimeCreditsEarned += boostedCredits;
   ship.metrics.creditsEarned += boostedCredits;
+  getFinancials(gameData).incomeOreSales += boostedCredits;
 
   // Award commerce mastery XP to ship commander (captain or acting CO)
   const captain = getShipCommander(ship);
@@ -566,7 +558,8 @@ export function sellOre(
     gameData.gameTime,
     'ore_sold',
     `${ship.name} sold ${quantity} ${ore.icon} ${ore.name} for ${formatCredits(boostedCredits)} at ${location.name}`,
-    ship.name
+    ship.name,
+    { credits: boostedCredits }
   );
 
   return boostedCredits;
@@ -599,14 +592,15 @@ export function sellAllOre(
 // ─── Mining Rate Calculation Helpers ─────────────────────────────
 
 /**
- * Get the maximum ore cargo capacity in kg (total minus crew equipment weight).
+ * Get the maximum ore cargo capacity in kg — total cargo hold minus everything
+ * that isn't ore (crew equipment, provisions). Uses unified weight functions.
  */
 export function getMaxOreCargoCapacity(ship: Ship): number {
   const shipClass = getShipClass(ship.classId);
   if (!shipClass) return 0;
-  const maxCargo = calculateAvailableCargoCapacity(shipClass.cargoCapacity);
-  const equipmentWeight = ship.cargo.length * 5;
-  return Math.max(0, maxCargo - equipmentWeight);
+  const nonOreWeight =
+    getCrewEquipmentCargoWeight(ship) + (ship.provisionsKg || 0);
+  return Math.max(0, shipClass.cargoCapacity - nonOreWeight);
 }
 
 /**
@@ -631,6 +625,7 @@ export function getMiningYieldPerHour(
   const ticksPerHour = GAME_SECONDS_PER_HOUR / GAME_SECONDS_PER_TICK;
 
   const shipMiningGear = ship.equipment
+    .filter((eq) => eq.powered)
     .map((eq) => ({
       instance: eq,
       def: getEquipmentDefinition(eq.definitionId),
@@ -708,6 +703,8 @@ export function getMiningYieldPerHour(
       ore.id
     );
 
+    const healthEfficiency = getCrewHealthEfficiency(miner.health);
+
     totalYieldPerTick +=
       BASE_MINING_RATE *
       equipRate *
@@ -715,7 +712,8 @@ export function getMiningYieldPerHour(
       (1 + masteryYieldBonus) *
       (1 + poolYieldBonus) *
       captainMiningMultiplier *
-      yieldMult;
+      yieldMult *
+      healthEfficiency;
   }
 
   return totalYieldPerTick * ticksPerHour;

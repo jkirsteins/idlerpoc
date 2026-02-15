@@ -42,6 +42,103 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
   // CORE SYSTEMS
   // ═══════════════════════════════════════════════════════════
   {
+    id: 'getting-started',
+    title: 'Getting Started',
+    category: 'Core Systems',
+    summary:
+      'Your first steps after starting a new game — earning credits, hiring crew, and launching your first flight.',
+    sections: [
+      {
+        paragraphs: [
+          'Welcome to The Long Haul: 2247! You begin docked at Earth with a [[ship-classes|Class I]] vessel, your captain alone at the helm, 5,000 [[credits-economy|credits]], a full fuel tank, and enough [[provisions|provisions]] to last about 30 days. This guide walks you through the first things to do.',
+        ],
+      },
+      {
+        heading: 'First Steps at Earth',
+        paragraphs: [
+          'While docked at Earth, open the Station tab to access [[station-services|station services]]. Earth is a major hub with all services available: refueling, trade, hiring, and equipment shops.',
+          'Your first priority is [[crew-hiring|hiring crew]]. Your captain can fly the ship solo, but additional crew members fill [[job-slots|job slots]] aboard your ship, unlocking passive [[skill-system|skill training]] and improving efficiency. Hire a pilot and a trader early — the pilot trains the Piloting skill needed to unlock bigger ships, and the trader boosts your income through the [[commerce-skill|Commerce skill]].',
+          'Check the Work tab for available [[contracts|contracts]] and trade routes. Earth always has several to choose from.',
+        ],
+      },
+      {
+        heading: 'Earning Your First Credits',
+        paragraphs: [
+          'You have two main options for income early on:',
+          '[[contracts|Contracts]] are one-time delivery, passenger, or freight jobs with deadlines. They pay well but expire if not completed in time. Look for short-distance contracts between Earth and nearby stations — these complete in a few real-world minutes.',
+          '[[contracts|Trade routes]] are permanent, repeating cargo runs between two stations. They pay less per trip but run automatically forever once accepted. Accept one and your ship will haul cargo back and forth while you are away.',
+          '[[mining-system|Mining]] is a third income source, but requires a Class II ship with mining equipment — it becomes available later as you progress.',
+        ],
+        table: {
+          headers: ['Income Source', 'Pay', 'Automation', 'Requirement'],
+          rows: [
+            [
+              '[[contracts|Contracts]]',
+              'High (deadline bonus)',
+              'Auto-flies, but expires',
+              'None — available immediately',
+            ],
+            [
+              '[[contracts|Trade routes]]',
+              'Moderate (recurring)',
+              'Fully automatic, runs forever',
+              'None — available immediately',
+            ],
+            [
+              '[[mining-system|Mining]]',
+              'High at remote locations',
+              'Automatic via mining routes',
+              '[[ship-classes|Class II]] ship + mining gear',
+            ],
+          ],
+        },
+      },
+      {
+        heading: 'Your First Flight',
+        paragraphs: [
+          'Accept a contract from the Work tab. Your ship will automatically undock, warm up its [[engines|engines]], and fly to the destination. You can watch the progress on the Ship tab or leave the game running — it is fully idle-friendly.',
+          'Flight duration depends on distance and your engine. Short runs (like Earth to a nearby station) take about 1-2 game days (~5-8 real minutes). The [[time-system|time controls]] let you speed up to 2x or 5x if you are watching.',
+          'On arrival the contract completes (or continues for unlimited trade routes). Your [[credits-economy|credits]] increase and you can check the Log tab for details.',
+        ],
+      },
+      {
+        heading: 'Managing Your Ship',
+        paragraphs: [
+          'A few ongoing costs keep you from idling forever without thought:',
+          '[[engines|Fuel]] is consumed during flight and must be refilled at stations with a refuel service. Your starting ship uses cheap chemical propellant — keep an eye on your fuel gauge on the Ship tab.',
+          '[[provisions|Provisions]] (food and water) are consumed during flight. When docked at a trade station, provisions are auto-purchased and crew eat station-side, so you only need to worry about them on long flights or at remote outposts. [[life-support|Life support]] recyclers reduce consumption significantly.',
+          '[[crew-salaries|Crew salaries]] are deducted daily. A small crew is cheap, but costs add up as your fleet grows. Keep income ahead of expenses.',
+          '[[ship-equipment|Ship equipment]] degrades over time. Visit a station with trade services to repair or replace worn-out gear.',
+        ],
+      },
+      {
+        heading: 'Crew Skills & Progression',
+        paragraphs: [
+          'Every crew member has [[skill-system|skills]] that improve passively while assigned to a [[job-slots|job slot]]. Piloting, Mining, Commerce, Engineering, and Combat each affect different mechanics.',
+          'Piloting is especially important early: reaching Piloting 25 on your helm crew unlocks [[ship-classes|Class II]] ships, and Piloting 50 unlocks Class III. Higher-class ships have longer range, more crew capacity, and access to [[mining-system|mining]] and deep-space routes.',
+          'The [[mastery-system|Mastery system]] rewards repetition — running the same route or mining the same ore type builds familiarity bonuses over time.',
+        ],
+      },
+      {
+        heading: 'Growing Your Fleet',
+        paragraphs: [
+          'Once you have earned enough credits and trained your piloting skill, purchase a second ship from the Fleet tab (available at stations with a shipyard). Transfer crew between ships and set each one on its own route or contract.',
+          'The game is fully idle-friendly: progress continues while you are away. When you return after a long absence, a catch-up report shows everything that happened — contracts completed, [[encounters|encounters]] survived, credits earned, and more.',
+          'There is no single "right" strategy — experiment with different routes, crew compositions, and ship configurations. Check the other Gamepedia articles for detailed mechanics on any topic.',
+        ],
+      },
+    ],
+    relatedArticles: [
+      'time-system',
+      'credits-economy',
+      'contracts',
+      'crew-hiring',
+      'ship-classes',
+      'station-services',
+    ],
+  },
+
+  {
     id: 'time-system',
     title: 'Time System',
     category: 'Core Systems',
@@ -152,6 +249,97 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
   },
 
   {
+    id: 'finances-tab',
+    title: 'Finances Tab',
+    category: 'Core Systems',
+    summary:
+      'Comprehensive financial dashboard showing net worth, daily cash flow, and lifetime income/expense breakdown by category.',
+    sections: [
+      {
+        paragraphs: [
+          "The Finances tab provides a complete view of your financial situation — a ship accountant's terminal showing all assets, all cash flows, net gain/loss per day, and lifetime earnings broken down by category.",
+          'This tab is available from the main navigation bar. It tracks every credit earned and spent, categorized by source (contracts, mining, bounties, equipment sales) and type (fuel, salaries, provisions, purchases, combat losses).',
+        ],
+      },
+      {
+        heading: 'Summary Banner',
+        paragraphs: [
+          '**Net Worth**: Total value of all your assets — cash, ships, equipment, fuel, provisions, and ore cargo. Assets are valued at base market rates (not location-specific) to provide a stable benchmark.',
+          "**Daily Net**: Your daily income minus daily expenses. Green means you're making money; red means you're losing money. The [[credits-economy|Daily Ledger]] uses the same calculation.",
+          '**Runway**: How many days your current cash will last at your current burn rate. Only shown if your daily net is negative. If the runway is low (under 30 days), you need to take action soon — accept profitable [[contracts|contracts]], cut [[crew-salaries|crew]], or optimize routes.',
+        ],
+      },
+      {
+        heading: 'Assets Breakdown',
+        paragraphs: [
+          'Shows the current value of everything you own:',
+          '**Cash**: Your current [[credits-economy|credit]] balance.',
+          '**Ships**: Total purchase price of all [[ship-classes|ships]] in your fleet.',
+          '**Ship Equipment**: Value of installed [[ship-equipment|ship equipment]] like mining lasers and point defense.',
+          '**Crew Equipment**: Value of [[crew-equipment|crew equipment]] in cargo holds and equipped on crew members.',
+          '**Fuel**: Value of fuel aboard all ships, calculated at base fuel price (2 cr/kg).',
+          '**Provisions**: Value of [[provisions|provisions]] aboard all ships (0.5 cr/kg).',
+          '**Ore Cargo**: Value of unrefined [[ore-types|ore]] waiting to be sold.',
+        ],
+      },
+      {
+        heading: 'Daily Cash Flow',
+        paragraphs: [
+          'Estimates your daily income and expenses to show whether your fleet is profitable:',
+          '**Income (7-day avg)**: Average credits earned per game day over the past 7 days, from [[contracts|contracts]], [[mining-system|ore sales]], [[encounters|combat bounties]], and equipment sales. The average smooths out the lumpy nature of contract payments.',
+          "**Crew Salaries**: Fixed daily cost based on your fleet's [[crew-salaries|crew composition]]. This is deterministic — it will not change unless you hire or lose crew.",
+          '**Fuel (projected)**: Estimated fuel costs per day based on active [[contracts|trade routes]], [[mining-system|mining routes]], and contracts. This is an approximation — actual fuel costs vary by route efficiency and combat encounters.',
+          "**Net Per Day**: Income minus expenses. Positive is good; negative means you're burning through savings.",
+        ],
+      },
+      {
+        heading: 'Lifetime Finances',
+        paragraphs: [
+          'Tracks all income and expenses since the start of your game, categorized for accountability:',
+        ],
+      },
+      {
+        heading: 'Income Categories',
+        paragraphs: [
+          '**Contracts**: All payments from [[contracts|contracts and trade routes]].',
+          '**Ore Sales**: Revenue from selling [[ore-types|mined ore]] at stations.',
+          '**Bounties**: Credits earned from [[encounters|combat]] victories.',
+          '**Equipment Sales**: Revenue from selling [[crew-equipment|crew equipment]].',
+        ],
+      },
+      {
+        heading: 'Expense Categories',
+        paragraphs: [
+          '**Crew Salaries**: All [[crew-salaries|daily salary]] payments to crew members.',
+          '**Fuel**: All fuel purchases (manual refuels and automatic route refuels).',
+          '**Provisions**: All [[provisions|provisions]] resupply purchases.',
+          '**Crew Hiring**: Upfront hiring costs for [[crew-hiring|new crew members]].',
+          '**Crew Equipment**: Purchases of [[crew-equipment|personal equipment]] for crew.',
+          '**Ship Equipment**: Purchases of [[ship-equipment|ship equipment]] like mining lasers and engines.',
+          '**Ship Purchases**: Costs of buying new [[ship-classes|ships]].',
+          '**Combat Losses**: Credits lost to pirate ransoms and boarding actions during [[encounters|combat encounters]].',
+        ],
+      },
+      {
+        heading: 'Lifetime Net',
+        paragraphs: [
+          'Total income minus total expenses. This is your actual lifetime profit — how much your operation has earned since the start. A positive lifetime net means your business is profitable overall, even if your current daily net is negative (maybe you just bought a new ship).',
+        ],
+      },
+    ],
+    relatedArticles: [
+      'credits-economy',
+      'contracts',
+      'crew-salaries',
+      'mining-system',
+      'ship-classes',
+      'crew-hiring',
+      'provisions',
+      'encounters',
+    ],
+  },
+
+  {
     id: 'station-services',
     title: 'Station Services',
     category: 'Core Systems',
@@ -228,7 +416,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
         heading: 'Active Contracts (High Pay)',
         paragraphs: [
           "Finite contracts pay significantly more than automated trade routes — the reward for paying attention. Each accepted contract has a deadline: if you don't complete it in time, it expires and you lose the remaining payout (but keep any per-trip credits earned).",
-          'Passenger: Ferry passengers between locations. Highest pay of any contract type but tightest deadline (3 days). Requires crew quarters.',
+          'Passenger: Ferry passengers between locations. Highest pay of any contract type but tightest deadline (3 days).',
           'Delivery: Transport specific cargo to a destination. High one-time payment on completion. 7-day deadline.',
           'Freight: Haul bulk goods over multiple trips (2-7 round trips). Good per-trip pay with a 14-day deadline. Credits earned from completed trips are kept even if the contract expires.',
         ],
@@ -257,6 +445,14 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
           'Accepting a contract requires the [[job-slots|helm]] to be manned — make sure you have crew assigned to the helm before browsing the job board.',
         ],
       },
+      {
+        heading: 'Safety Gates',
+        paragraphs: [
+          'Before each automated departure, the game checks that your ship can safely complete the next leg. If any check fails, the contract pauses automatically and the game auto-pauses so you can fix the issue.',
+          'Three gates are checked in order: fuel (can you afford a refuel?), [[provisions|provisions]] (will food last through the flight plus a 2-day safety buffer?), and helm (is a crew member assigned?). If any gate fails, the ship stays docked and logs a warning explaining what needs to be fixed.',
+          'These safety gates prevent your crew from being stranded or starving during automated operations. You can resume the contract after resupplying fuel or provisions, or assigning crew to the helm.',
+        ],
+      },
     ],
     relatedArticles: [
       'credits-economy',
@@ -264,6 +460,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
       'launch-windows',
       'navigation',
       'commerce-skill',
+      'provisions',
     ],
   },
 
@@ -785,7 +982,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
         heading: 'Skill Training',
         paragraphs: [
           'Each job slot trains specific [[skill-system|skills]]. Assigning crew to jobs that match their [[crew-roles|role]] skill gives a 1.5x training speed bonus.',
-          'Passive slots (Patient, Rest) benefit crew without training skills, allowing health recovery and rest.',
+          'Some slots (like Rest) provide passive benefits without training skills. Health recovery is handled automatically by Medical Station equipment when the ship has power.',
         ],
       },
       {
@@ -1227,9 +1424,50 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
         ],
       },
       {
+        heading: 'Power Management',
+        paragraphs: [
+          'Each piece of equipment can be in one of three power modes: Off (never powered), Auto (AI-managed), or On (always powered). Auto is the default.',
+          "In Auto mode, the ship's pilot automatically manages power based on context. Life support and air filtration are always critical. Shielding and thermal equipment power up when the engine is active. Defense and navigation equipment activates during flight. [[mining-system|Mining]] equipment powers on only when actively mining.",
+          'Equipment that is not powered draws no energy and provides no effects — unpowered shields do not protect, unpowered mining lasers do not extract ore, and unpowered defense systems do not contribute to [[encounters|combat]].',
+          'When total power demand exceeds supply, the AI sheds lower-priority equipment first: comfort systems before defense, defense before engine protection, engine protection before life support. Life support is never shed.',
+          "A skilled pilot at the helm provides a small power efficiency bonus (up to +10% effective output at [[skill-system|piloting]] 100), stretching the ship's power budget.",
+        ],
+      },
+      {
+        heading: 'Priority Levels',
+        paragraphs: [
+          'When power is constrained, equipment is shed by priority level:',
+        ],
+        table: {
+          headers: ['Priority', 'Equipment', 'When Active'],
+          rows: [
+            [
+              'Critical',
+              '[[life-support|Life Support]], Air Filters',
+              'Always',
+            ],
+            [
+              'High',
+              'Radiation Shielding, Heat Radiators, Containment',
+              'Engine active',
+            ],
+            [
+              'Medium',
+              'Defense, Navigation, Gravity, [[mining-system|Mining]]',
+              'Contextual (flight, mining, zero-g)',
+            ],
+            [
+              'Low',
+              'Any equipment not needed in current state',
+              'Shed first when power is tight',
+            ],
+          ],
+        },
+      },
+      {
         heading: 'Degradation & Repair',
         paragraphs: [
-          'Equipment degrades during use. Air filtration units wear down constantly, excess [[waste-heat|waste heat]] during flight damages all degradable equipment, and [[mining-system|mining]] equipment wears from active extraction.',
+          'Equipment degrades during use. Air filtration units wear down constantly, excess [[waste-heat|waste heat]] during flight damages all degradable equipment, and [[mining-system|mining]] equipment wears from active extraction. Only powered equipment takes heat damage — unpowered equipment does not generate waste heat.',
           'As equipment degrades, its effectiveness decreases. At maximum wear, most equipment operates at 50% capacity. Air filtration units are the exception — they lose all output at full degradation, making them the highest maintenance priority.',
           'Crew assigned to repair [[job-slots|job slots]] generate repair points that restore equipment condition. Repair works whether your ship is docked, in flight, or orbiting — assign crew to repair duty to keep equipment in working order.',
         ],
@@ -1241,6 +1479,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
       'life-support',
       'radiation',
       'mining-system',
+      'skill-system',
     ],
   },
 
@@ -1876,13 +2115,13 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
     sections: [
       {
         paragraphs: [
-          'All drives above chemical emit radiation proportional to their power output. On [[ship-classes|Class III]] fusion vessels ("torch ships"), radiation management is a critical concern.',
+          'All drives above chemical emit radiation proportional to their power output. All ships with nuclear or fusion engines come equipped with [[ship-equipment|radiation shielding]] to protect crew. On [[ship-classes|Class III]] fusion vessels ("torch ships"), radiation management is a critical concern due to high output and containment complexity.',
         ],
       },
       {
         heading: 'Radiation Sources',
         paragraphs: [
-          'Fission drives: Mild radiation, manageable on short flights but cumulative on long ones.',
+          'Fission drives: Mild radiation, fully blocked by the standard-issue Type-I Radiation Barrier.',
           'Fusion drives: Significant radiation requiring dedicated shielding equipment.',
           'Advanced fusion: Extreme radiation requiring heavy shielding.',
           'Reactor containment failures cause radiation spikes far exceeding normal output.',
@@ -1899,7 +2138,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
         heading: 'Monitoring Radiation',
         paragraphs: [
           'The Ship tab displays a RADIATION status bar showing net exposure (engine output minus shielding). Hover over it for a detailed breakdown including per-crew health loss rate and containment status.',
-          "Each crew member's detail panel in the Crew tab shows their individual radiation exposure status, including effective damage rate and whether medbay treatment is reducing it.",
+          "Each crew member's detail panel in the Crew tab shows their individual radiation exposure status, including effective damage rate. Medical Station equipment provides automatic healing to counter radiation damage when the ship has power.",
           'When containment integrity drops below 70%, 50%, or 30%, the ship log records warnings and a toast notification alerts you. Keep the reactor room staffed to slow containment degradation.',
         ],
       },
@@ -2031,8 +2270,9 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
       {
         heading: 'Auto-Sell Mining Routes',
         paragraphs: [
-          'For fully idle mining, set up an auto-sell route from the mining panel while orbiting a mining location. The destination picker shows each reachable trade station with estimated profitability: sell price per unit, [[crew-salaries|crew]] and fuel costs, round-trip travel time, and projected profit per hour (net of operating costs).',
-          'Once a route is established, the ship automatically:\n1. Mines until cargo is full\n2. Flies to the trade station and docks\n3. Sells all ore and auto-refuels if needed\n4. Flies back to the mining location and resumes mining',
+          'For fully idle mining, set up an auto-sell route from the mining panel while orbiting a mining location, or from the Mining Routes section at any station with a reachable mine. When starting from a non-mining station, select a mining destination and a sell station — your ship will automatically fly to the mine to begin the cycle. The destination picker shows each reachable trade station with estimated profitability: sell price per unit, [[crew-salaries|crew]] and fuel costs, round-trip travel time, and projected profit per hour (net of operating costs).',
+          'Once a route is established, the ship automatically:\n1. Mines until cargo is full (or [[provisions|provisions]] run low)\n2. Flies to the trade station and docks\n3. Sells all ore, auto-refuels, and resupplies provisions\n4. Flies back to the mining location and resumes mining',
+          "The route also monitors [[provisions|provisions]] — if remaining food won't last through the return trip plus a 2-day safety buffer, the ship departs early to resupply, even if cargo is not full. This prevents crew starvation on extended mining operations.",
           'The route repeats indefinitely until cancelled or funds run out for refueling. The mining panel shows route stats including trips completed, total revenue, and estimated profit per hour (accounting for [[crew-salaries|crew salaries]] and fuel costs).',
           'Choose your sell destination carefully — closer stations reduce transit time but may offer lower prices. The profitability estimate accounts for fill time, travel time, crew salaries, and fuel costs, so the best destination balances sell price against total operating cost. The piloting skill gate still applies: you can only pick stations your crew can reach.',
         ],
@@ -2045,6 +2285,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
       'ship-equipment',
       'skill-system',
       'commerce-skill',
+      'provisions',
     ],
   },
 
@@ -2193,7 +2434,9 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
       {
         heading: 'Starvation',
         paragraphs: [
-          'When provisions reach zero, all crew take 3.0 health damage per day — aggressive damage that will kill unprotected crew within days. The captain is exempt from [[crew-death|death]] (health floors at 1) but still suffers damage effects. Starvation cannot occur at trade stations (crew eat station-side), but can happen at remote mining locations without trade services.',
+          'When provisions reach zero, crew begin starving — losing health gradually over 7 game days. As health drops, crew become less effective: [[mining-system|mining]] yield, [[skill-system|skill training]] speed, and repair output all scale with crew health. The penalty follows a curve where minor injuries barely matter but serious damage becomes debilitating — a crew member at 50% health works at roughly 71% efficiency, while one at 25% health works at only 50%.',
+          'The captain is exempt from [[crew-death|death]] (health floors at 1) but still suffers reduced efficiency. Ships equipped with a Medical Station automatically heal all crew at 2 HP per tick when powered — healing outpaces starvation damage, keeping crew alive even at zero provisions as long as the ship has power.',
+          'Health-based efficiency applies to all sources of damage, not just starvation — crew injured by [[radiation|radiation]], [[encounters|combat]], or oxygen deprivation also work at reduced capacity until healed.',
           'Starvation warnings appear at 7 days and 3 days remaining. At zero provisions, a critical alert fires and the game auto-pauses if critical alert pausing is enabled.',
           'Provisions are the survival clock for [[stranded-ships|stranded ships]] — when fuel runs out and provisions deplete, crew begin dying.',
         ],
@@ -2202,7 +2445,8 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
         heading: 'Strategy',
         paragraphs: [
           'On short inner-system routes, provisions are a minor concern — auto-resupply handles everything. On long outer-system voyages, provisions mass becomes significant: a 5-crew ship with functioning life support needs about 750 kg for a 30-day trip. With degraded or missing life support, that figure climbs toward 2,250 kg at the base rate.',
-          'When planning [[mining-system|mining]] routes or long-haul [[contracts|contracts]], factor in provisions mass. A ship loaded with 30 days of food for a large crew has less room for profitable cargo.',
+          "[[mining-system|Mining routes]] automatically monitor provisions — if remaining food won't last through the return trip plus a 2-day safety buffer, the ship departs to the sell station early to resupply, even if cargo is not full. This prevents crew starvation on long mining operations.",
+          'When planning long-haul [[contracts|contracts]], factor in provisions mass. A ship loaded with 30 days of food for a large crew has less room for profitable cargo.',
         ],
       },
     ],
@@ -2213,6 +2457,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
       'life-support',
       'contracts',
       'station-services',
+      'mining-system',
     ],
   },
 

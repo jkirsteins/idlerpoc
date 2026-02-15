@@ -289,10 +289,10 @@ export function createRefuelDialog(
     const canAfford = gameData.credits >= totalCost;
 
     costValue.textContent = formatCredits(totalCost);
-    costValue.style.color = canAfford ? '#4a90e2' : '#e94560';
+    costValue.style.color = canAfford ? '#4a90e2' : '#ff6b6b';
 
     creditsAvailable.textContent = `Available: ${formatCredits(gameData.credits)}`;
-    creditsAvailable.style.color = canAfford ? '#888' : '#e94560';
+    creditsAvailable.style.color = canAfford ? '#888' : '#ff6b6b';
 
     confirmBtn.disabled = !canAfford || fuelKg <= 0;
     confirmBtn.style.opacity = !canAfford || fuelKg <= 0 ? '0.5' : '1';

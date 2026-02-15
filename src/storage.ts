@@ -1,4 +1,5 @@
 import type { GameData, WorldLocation } from './models';
+import { createDefaultFinancials } from './models';
 import { generateWorld } from './worldGen';
 import { generateJobSlotsForShip } from './jobSlots';
 import { generateId } from './utils';
@@ -18,7 +19,7 @@ const BACKUP_KEY = 'spaceship_game_data_backup';
  *
  * See docs/save-migration.md for the full migration architecture.
  */
-export const CURRENT_SAVE_VERSION = 11;
+export const CURRENT_SAVE_VERSION = 14;
 
 /** Whether the last save attempt failed (used for UI warnings). */
 let _lastSaveFailed = false;
@@ -411,17 +412,7 @@ const migrations: Record<number, MigrationFn> = {
           }
         }
 
-        // 2d. Cancel trade routes referencing removed locations
-        const route = ship.routeAssignment as Record<string, unknown> | null;
-        if (route) {
-          const rOrigin = route.originId as string;
-          const rDest = route.destinationId as string;
-          if (REMOVED_LOCATIONS.has(rOrigin) || REMOVED_LOCATIONS.has(rDest)) {
-            ship.routeAssignment = null;
-          }
-        }
-
-        // 2e. Cancel mining routes referencing removed locations
+        // 2d. Cancel mining routes referencing removed locations
         const mRoute = ship.miningRoute as Record<string, unknown> | null;
         if (mRoute) {
           const mineLoc = mRoute.mineLocationId as string;
@@ -772,6 +763,109 @@ const migrations: Record<number, MigrationFn> = {
     data.saveVersion = 11;
     return data;
   },
+
+  /**
+   * v11 → v12: Default radiation shielding for Class II fission ships.
+   * - Wayfarer (ntr_mk1, 5 rad) and Dreadnought (ntr_heavy, 15 rad) now ship
+   *   with a Type-I Radiation Barrier. Retrofit existing ships that lack one.
+   */
+  11: (data: RawSave): RawSave => {
+    const ships = data.ships as Array<Record<string, unknown>> | undefined;
+    if (ships) {
+      for (const ship of ships) {
+        const classId = ship.classId as string;
+        if (classId === 'wayfarer' || classId === 'dreadnought') {
+          const equipment = ship.equipment as
+            | Array<Record<string, unknown>>
+            | undefined;
+          if (equipment) {
+            const hasRadShield = equipment.some(
+              (eq) =>
+                (eq.definitionId as string) === 'rad_shield_basic' ||
+                (eq.definitionId as string) === 'rad_shield_heavy'
+            );
+            if (!hasRadShield) {
+              equipment.push({
+                id: generateId(),
+                definitionId: 'rad_shield_basic',
+                degradation: 0,
+                powered: true,
+                powerMode: 'auto',
+              });
+            }
+          }
+        }
+      }
+    }
+
+    data.saveVersion = 12;
+    return data;
+  },
+
+  /**
+   * v12 → v13: Add medical_station equipment to all ships.
+   * Medical equipment now provides automatic healing to all crew when powered,
+   * removing the need for manual patient job slot assignments.
+   */
+  12: (data: RawSave): RawSave => {
+    const ships = data.ships as Array<Record<string, unknown>> | undefined;
+    if (ships) {
+      for (const ship of ships) {
+        const equipment = ship.equipment as
+          | Array<Record<string, unknown>>
+          | undefined;
+        const equipmentSlots = ship.equipmentSlots as
+          | Array<Record<string, unknown>>
+          | undefined;
+
+        if (equipment && equipmentSlots) {
+          // Check if ship already has medical_station
+          const hasMedical = equipment.some(
+            (eq) => (eq.definitionId as string) === 'medical_station'
+          );
+
+          if (!hasMedical) {
+            // Add medical_station equipment
+            equipment.push({
+              id: generateId(),
+              definitionId: 'medical_station',
+              degradation: 0,
+            });
+
+            // Add an extra equipment slot to accommodate the new equipment
+            equipmentSlots.push({
+              id: generateId(),
+              tags: ['standard'],
+            });
+          }
+        }
+      }
+    }
+
+    data.saveVersion = 13;
+    return data;
+  },
+
+  /**
+   * v13 → v14: Add realTime field to log entries.
+   * Existing log entries don't have a real-time timestamp, so we use the
+   * migration time as a placeholder. This groups old entries together but
+   * doesn't corrupt the data; future entries will have accurate timestamps.
+   */
+  13: (data: RawSave): RawSave => {
+    const migrationTime = Date.now();
+    const log = data.log as Array<Record<string, unknown>> | undefined;
+    if (log) {
+      for (const entry of log) {
+        if (entry.realTime === undefined) {
+          entry.realTime = migrationTime;
+        }
+      }
+    }
+
+    data.saveVersion = 14;
+    return data;
+  },
 };
 
 /**
@@ -889,7 +983,7 @@ export function loadGame(): GameData | null {
     backfillRepairsSkill(migrated);
     backfillCrewFields(migrated);
     backfillGameDataFields(migrated);
-    backfillFlightOriginBodyId(migrated);
+    backfillEquipmentPowered(migrated);
 
     return migrated;
   } catch (e) {
@@ -955,6 +1049,8 @@ function backfillMiningData(gameData: GameData): void {
           id: generateId(),
           definitionId: 'mining_laser',
           degradation: 0,
+          powered: true,
+          powerMode: 'auto',
         });
       }
     }
@@ -1029,7 +1125,8 @@ export function importGame(json: string): GameData | null {
   backfillRepairsSkill(migrated);
   backfillCrewFields(migrated);
   backfillGameDataFields(migrated);
-  backfillFlightOriginBodyId(migrated);
+  backfillEquipmentPowered(migrated);
+  backfillFinancials(migrated);
 
   // Reset timestamp so the game doesn't try to catch up for offline time
   migrated.lastTickTimestamp = Date.now();
@@ -1147,46 +1244,41 @@ function backfillGameDataFields(gameData: GameData): void {
 }
 
 /**
- * Additive backfill for FlightState.originBodyId.
- * Determines whether each in-flight ship is a body-origin or redirect flight
- * by comparing the stored originPos against the origin body's position at the
- * estimated arrival time. For body-origin flights, these should nearly match
- * (since originPos was computed from the body at arrival time). For redirects,
- * the ship is mid-flight and far from the origin body.
- * No version bump needed — additive optional field.
+ * Additive backfill for equipment power management fields.
+ * Existing saves have no powered/powerMode fields — default to powered + auto.
+ * No version bump needed — additive with safe defaults.
  */
-function backfillFlightOriginBodyId(gameData: GameData): void {
+function backfillEquipmentPowered(gameData: GameData): void {
   for (const ship of gameData.ships) {
-    const fp = ship.activeFlightPlan;
-    if (fp && fp.originBodyId === undefined) {
-      if (fp.originPos && fp.estimatedArrivalGameTime !== undefined) {
-        const originLoc = gameData.world.locations.find(
-          (l) => l.id === fp.origin
-        );
-        if (originLoc) {
-          const bodyPos = getLocationPosition(
-            originLoc,
-            fp.estimatedArrivalGameTime,
-            gameData.world
-          );
-          const dx = fp.originPos.x - bodyPos.x;
-          const dy = fp.originPos.y - bodyPos.y;
-          const distKm = Math.sqrt(dx * dx + dy * dy);
-          // Body-origin flights: originPos was derived from this body at
-          // arrival time, so positions should nearly match.
-          // Redirects: ship is mid-flight, far from the origin body.
-          if (distKm < 10_000) {
-            fp.originBodyId = fp.origin;
-          }
-          // else: leave undefined — redirect flight (fixed origin point)
-        } else {
-          fp.originBodyId = fp.origin; // body not found — best effort
-        }
-      } else {
-        // No 2D data (pre-orbital save) — default to body-origin
-        fp.originBodyId = fp.origin;
+    for (const eq of ship.equipment) {
+      const raw = eq as unknown as Record<string, unknown>;
+      if (raw.powered === undefined) {
+        eq.powered = true;
+      }
+      if (raw.powerMode === undefined) {
+        eq.powerMode = 'auto';
       }
     }
+  }
+}
+
+/**
+ * Additive backfill for lifetime financials tracking.
+ * Bootstraps from ship metrics to provide reasonable initial values for existing saves.
+ * No version bump needed — purely additive optional field with safe defaults.
+ */
+function backfillFinancials(gameData: GameData): void {
+  if (!gameData.financials) {
+    const financials = createDefaultFinancials();
+
+    // Bootstrap from ship metrics (approximate — can't distinguish income sources in old saves)
+    for (const ship of gameData.ships) {
+      financials.expenseFuel += ship.metrics.fuelCostsPaid;
+      financials.expenseCrewSalaries += ship.metrics.crewCostsPaid;
+      financials.incomeContracts += ship.metrics.creditsEarned; // Approximation: includes mining income
+    }
+
+    gameData.financials = financials;
   }
 }
 

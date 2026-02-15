@@ -55,7 +55,7 @@ export function getFuelColorClass(percentage: number): string {
  * Get color hex for fuel level (for inline styles).
  */
 export function getFuelColorHex(percentage: number): string {
-  if (percentage <= 20) return '#e94560';
+  if (percentage <= 20) return '#ff6b6b';
   if (percentage <= 50) return '#ffc107';
   return '#4caf50';
 }

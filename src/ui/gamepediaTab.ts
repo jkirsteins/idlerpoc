@@ -19,7 +19,8 @@ const LINK_RE = /\[\[([^|\]]+)\|([^\]]+)\]\]/g;
  */
 export function createGamepediaTab(
   _gameData: GameData,
-  initialArticleId?: string
+  initialArticleId?: string,
+  onBack?: () => void
 ): Component & { navigateTo?: (articleId: string) => void } {
   const container = document.createElement('div');
   container.className = 'gamepedia-tab';
@@ -32,6 +33,19 @@ export function createGamepediaTab(
   // ── Sidebar ──────────────────────────────────────────────
   const sidebar = document.createElement('div');
   sidebar.className = 'gamepedia-sidebar';
+
+  // Mobile header (back button, hidden on desktop)
+  const mobileHeader = document.createElement('div');
+  mobileHeader.className = 'gamepedia-mobile-header';
+
+  const backBtn = document.createElement('button');
+  backBtn.className = 'gamepedia-back-btn';
+  backBtn.innerHTML = '← Back to Game';
+  backBtn.addEventListener('click', () => {
+    if (onBack) onBack();
+  });
+  mobileHeader.appendChild(backBtn);
+  sidebar.appendChild(mobileHeader);
 
   // Title
   const title = document.createElement('h3');
@@ -212,8 +226,20 @@ export function createGamepediaTab(
     selectedArticleId = articleId;
     rebuildTopicList();
     rebuildArticle();
-    // Scroll main area to top when selecting new article
-    mainArea.scrollTop = 0;
+    // Scroll to article title (or top for welcome screen)
+    if (selectedArticleId) {
+      // Use requestAnimationFrame to ensure DOM is updated
+      requestAnimationFrame(() => {
+        const titleEl = mainArea.querySelector('.gamepedia-article-title');
+        if (titleEl) {
+          titleEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        } else {
+          mainArea.scrollTop = 0;
+        }
+      });
+    } else {
+      mainArea.scrollTop = 0;
+    }
   }
 
   function rebuildArticle(): void {

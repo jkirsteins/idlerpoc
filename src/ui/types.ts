@@ -12,6 +12,7 @@ export type PlayingTab =
   | 'work'
   | 'nav'
   | 'fleet'
+  | 'finances'
   | 'log'
   | 'stories'
   | 'guide'
@@ -32,9 +33,6 @@ export interface TabbedViewCallbacks {
   onEquipItem: (crewId: string, itemId: string) => void;
   onUnequipItem: (crewId: string, itemId: string) => void;
   onAcceptQuest: (questId: string) => void;
-  onAssignRoute: (questId: string) => void;
-  onUnassignRoute: () => void;
-  onAdvanceDay: () => void;
   onDockAtNearestPort: () => void;
   onCancelPause: () => void;
   onRequestAbandon: () => void;

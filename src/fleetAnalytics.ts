@@ -1,7 +1,7 @@
 import type { GameData, Ship, Quest } from './models';
 import { getShipClass } from './shipClasses';
 import {
-  calculateAvailableCargoCapacity,
+  calculateShipAvailableCargo,
   calculateOneLegFuelKg,
 } from './flightPhysics';
 import { calculateShipSalaryPerTick } from './crewRoles';
@@ -299,11 +299,9 @@ export function matchShipToContract(
     }
   }
 
-  // Check cargo capacity (available space after fuel allocation)
+  // Check cargo capacity (available space after all current hold contents)
   if (quest.cargoRequired > 0) {
-    const availableCargo = calculateAvailableCargoCapacity(
-      shipClass.cargoCapacity
-    );
+    const availableCargo = calculateShipAvailableCargo(ship);
     if (quest.cargoRequired > availableCargo) {
       score = 1;
       reasons.push(

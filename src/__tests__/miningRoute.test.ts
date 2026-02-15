@@ -6,6 +6,7 @@ import {
   cancelMiningRoute,
   checkMiningRouteDeparture,
   handleMiningRouteArrival,
+  retryMiningRouteDeparture,
 } from '../miningRoute';
 import { getRemainingOreCapacity } from '../miningSystem';
 
@@ -27,7 +28,6 @@ describe('Mining Route System', () => {
     };
     delete ship.activeFlightPlan;
     ship.activeContract = null;
-    ship.routeAssignment = null;
     ship.miningRoute = null;
     // Ensure helm crew for flights
     const helmSlot = ship.jobSlots.find((s) => s.type === 'helm');
@@ -87,23 +87,6 @@ describe('Mining Route System', () => {
       const result = assignMiningRoute(gameData, ship, TRADE_LOCATION_ID);
       expect(result.success).toBe(false);
       expect(result.error).toContain('contract');
-    });
-
-    it('fails if ship has freight route assignment', () => {
-      ship.routeAssignment = {
-        questId: 'q1',
-        originId: 'earth',
-        destinationId: 'mars',
-        autoRefuel: true,
-        autoRefuelThreshold: 30,
-        totalTripsCompleted: 0,
-        creditsEarned: 0,
-        assignedAt: 0,
-        lastTripCompletedAt: 0,
-      };
-      const result = assignMiningRoute(gameData, ship, TRADE_LOCATION_ID);
-      expect(result.success).toBe(false);
-      expect(result.error).toContain('freight route');
     });
 
     it('logs mining route creation', () => {
@@ -395,6 +378,193 @@ describe('Mining Route System', () => {
         .slice(logBefore)
         .find((l) => l.message.includes('helm'));
       expect(helmLog).toBeDefined();
+    });
+  });
+
+  // ─── Remote mining route start (from non-mine stations) ───
+
+  describe('remote mining route start', () => {
+    beforeEach(() => {
+      // Place ship at a non-mine station (Earth Dock)
+      ship.location = { status: 'docked', dockedAt: TRADE_LOCATION_ID };
+      delete ship.activeFlightPlan;
+    });
+
+    it('creates route with status returning when mineLocationId is provided', () => {
+      const result = assignMiningRoute(
+        gameData,
+        ship,
+        TRADE_LOCATION_ID,
+        MINE_LOCATION_ID
+      );
+
+      expect(result.success).toBe(true);
+      expect(ship.miningRoute).not.toBeNull();
+      expect(ship.miningRoute!.mineLocationId).toBe(MINE_LOCATION_ID);
+      expect(ship.miningRoute!.sellLocationId).toBe(TRADE_LOCATION_ID);
+      expect(ship.miningRoute!.status).toBe('returning');
+      expect(ship.miningRoute!.totalTrips).toBe(0);
+    });
+
+    it('initiates flight to mine on remote start', () => {
+      assignMiningRoute(gameData, ship, TRADE_LOCATION_ID, MINE_LOCATION_ID);
+
+      // Ship should be in flight heading to the mine
+      expect(ship.location.status).toBe('in_flight');
+      expect(ship.activeFlightPlan).toBeDefined();
+      expect(ship.activeFlightPlan!.destination).toBe(MINE_LOCATION_ID);
+      expect(ship.activeFlightPlan!.dockOnArrival).toBe(false); // orbit on arrival
+    });
+
+    it('works when ship is orbiting a non-mine location', () => {
+      ship.location = { status: 'orbiting', orbitingAt: TRADE_LOCATION_ID };
+
+      const result = assignMiningRoute(
+        gameData,
+        ship,
+        TRADE_LOCATION_ID,
+        MINE_LOCATION_ID
+      );
+
+      expect(result.success).toBe(true);
+      expect(ship.location.status).toBe('in_flight');
+    });
+
+    it('rejects when mineLocationId has no mine service', () => {
+      const result = assignMiningRoute(
+        gameData,
+        ship,
+        TRADE_LOCATION_ID,
+        TRADE_LOCATION_ID // Earth has no mine service
+      );
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('mining');
+    });
+
+    it('rejects when ship has active contract', () => {
+      ship.activeContract = {
+        quest: {} as GameData['availableQuests'][string][0],
+        tripsCompleted: 0,
+        cargoDelivered: 0,
+        creditsEarned: 0,
+        leg: 'outbound',
+        paused: false,
+      };
+
+      const result = assignMiningRoute(
+        gameData,
+        ship,
+        TRADE_LOCATION_ID,
+        MINE_LOCATION_ID
+      );
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('contract');
+    });
+
+    it('creates route even if helm is unmanned (for retry)', () => {
+      // Unassign helm crew
+      for (const slot of ship.jobSlots) {
+        if (slot.type === 'helm') slot.assignedCrewId = null;
+      }
+
+      const result = assignMiningRoute(
+        gameData,
+        ship,
+        TRADE_LOCATION_ID,
+        MINE_LOCATION_ID
+      );
+
+      expect(result.success).toBe(true);
+      expect(ship.miningRoute).not.toBeNull();
+      // Ship should still be docked (flight didn't start)
+      expect(ship.location.status).toBe('docked');
+    });
+
+    it('arrival at mine transitions to mining status', () => {
+      assignMiningRoute(gameData, ship, TRADE_LOCATION_ID, MINE_LOCATION_ID);
+
+      // Simulate arrival at mine (orbiting)
+      ship.location = { status: 'orbiting', orbitingAt: MINE_LOCATION_ID };
+      delete ship.activeFlightPlan;
+
+      const handled = handleMiningRouteArrival(gameData, ship);
+
+      expect(handled).toBe(true);
+      expect(ship.miningRoute!.status).toBe('mining');
+    });
+
+    it('logs route creation for remote start', () => {
+      const logBefore = gameData.log.length;
+      assignMiningRoute(gameData, ship, TRADE_LOCATION_ID, MINE_LOCATION_ID);
+
+      const newLogs = gameData.log.slice(logBefore);
+      const routeLog = newLogs.find((l) => l.type === 'mining_route');
+      expect(routeLog).toBeDefined();
+      expect(routeLog!.message).toContain('Mining route established');
+    });
+  });
+
+  // ─── retryMiningRouteDeparture (stalled initial departure) ─
+
+  describe('retryMiningRouteDeparture for remote start', () => {
+    it('retries departure when returning status but not at mine', () => {
+      // Place ship docked at trade station with a returning route
+      ship.location = { status: 'docked', dockedAt: TRADE_LOCATION_ID };
+      delete ship.activeFlightPlan;
+
+      ship.miningRoute = {
+        mineLocationId: MINE_LOCATION_ID,
+        sellLocationId: TRADE_LOCATION_ID,
+        status: 'returning',
+        totalTrips: 0,
+        totalCreditsEarned: 0,
+        assignedAt: 0,
+      };
+
+      const departed = retryMiningRouteDeparture(gameData, ship);
+
+      expect(departed).toBe(true);
+      expect(ship.location.status).toBe('in_flight');
+      expect(ship.activeFlightPlan!.destination).toBe(MINE_LOCATION_ID);
+    });
+
+    it('does not retry when already at mine location', () => {
+      // Ship is orbiting at the mine with returning status (normal return from sell)
+      ship.location = { status: 'orbiting', orbitingAt: MINE_LOCATION_ID };
+      delete ship.activeFlightPlan;
+
+      ship.miningRoute = {
+        mineLocationId: MINE_LOCATION_ID,
+        sellLocationId: TRADE_LOCATION_ID,
+        status: 'returning',
+        totalTrips: 1,
+        totalCreditsEarned: 500,
+        assignedAt: 0,
+      };
+
+      const departed = retryMiningRouteDeparture(gameData, ship);
+
+      // Should not retry — handleMiningRouteArrival handles this case
+      expect(departed).toBe(false);
+      expect(ship.location.status).toBe('orbiting');
+    });
+
+    it('does not retry when ship is in flight', () => {
+      ship.location = { status: 'in_flight' };
+      ship.miningRoute = {
+        mineLocationId: MINE_LOCATION_ID,
+        sellLocationId: TRADE_LOCATION_ID,
+        status: 'returning',
+        totalTrips: 0,
+        totalCreditsEarned: 0,
+        assignedAt: 0,
+      };
+
+      const departed = retryMiningRouteDeparture(gameData, ship);
+
+      expect(departed).toBe(false);
     });
   });
 });

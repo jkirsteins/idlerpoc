@@ -305,6 +305,17 @@ export function renderCatchUpReport(
         renderGravityAssistLine(summary.gravityAssists, shipDiv);
       }
 
+      // Power management changes (if any)
+      if (summary.powerChanges && summary.powerChanges > 0) {
+        const powerLine = document.createElement('div');
+        powerLine.className = 'catchup-ship-event';
+        powerLine.textContent = `Made ${summary.powerChanges} power management adjustment${summary.powerChanges > 1 ? 's' : ''}`;
+        powerLine.style.color = '#888';
+        powerLine.style.paddingLeft = '0.75rem';
+        powerLine.style.fontSize = '0.85rem';
+        shipDiv.appendChild(powerLine);
+      }
+
       // Crew highlights nested under this ship
       if (summary.crewHighlights && summary.crewHighlights.length > 0) {
         for (const entry of summary.crewHighlights) {

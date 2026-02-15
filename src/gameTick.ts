@@ -5,6 +5,7 @@ import type {
   Toast,
   JobSlotType,
 } from './models';
+import { getFinancials } from './models';
 import { getEngineDefinition } from './engines';
 import {
   advanceFlight,
@@ -34,7 +35,10 @@ import { applyPassiveTraining, logSkillUps } from './skillProgression';
 import { getCommandTrainingMultiplier } from './captainBonus';
 import { getCrewForJobType, isRoomStaffed, getCrewJobSlot } from './jobSlots';
 import { applyOxygenTick, getOxygenHealthDamage } from './lifeSupportSystem';
-import { applyProvisionsTick } from './provisionsSystem';
+import {
+  applyProvisionsTick,
+  getCrewHealthEfficiency,
+} from './provisionsSystem';
 import {
   processCrewDeaths,
   recordCrewDamage,
@@ -44,18 +48,14 @@ import { checkStrandedShips } from './strandedSystem';
 import { applyMiningTick } from './miningSystem';
 import {
   checkMiningRouteDeparture,
+  checkMiningRouteProvisionsReturn,
   retryMiningRouteDeparture,
 } from './miningRoute';
 import { addLog } from './logSystem';
 import { emit } from './gameEvents';
-import {
-  updateWorldPositions,
-  getLocationPosition,
-  euclideanDistance,
-  lerpVec2,
-} from './orbitalMechanics';
+import { updateWorldPositions, lerpVec2 } from './orbitalMechanics';
 import { resolveGravityAssist } from './gravityAssistSystem';
-import { formatMass } from './formatting';
+import { formatMass, formatCredits } from './formatting';
 import {
   awardMasteryXp,
   getEquipmentRepairMasteryBonus,
@@ -73,6 +73,8 @@ import { countPilotingMasteryItems } from './contractExec';
 import { getAllEquipmentDefinitions } from './equipment';
 import { getBestCrewPool } from './crewRoles';
 import { detectArcs, shouldRunArcScan } from './arcDetector';
+import { computePowerStatus } from './powerSystem';
+import { applyPowerManagement } from './powerManagement';
 
 /**
  * Determine which job slot types should NOT train passively given the
@@ -99,110 +101,28 @@ function getInactiveTrainingJobTypes(
 }
 
 /**
- * Update a flight's 2D positions (originPos, interceptPos, shipPos) using
- * current-time body positions. Called every tick so that shipPos is always
- * in current-time coordinates — no stale arrival-time snapshots.
+ * Update a flight's ship position along its planned trajectory.
  *
- * For body-origin flights (originBodyId set): recompute origin position.
- * For redirect flights (originBodyId unset): origin is a fixed point in space.
- * Destination is always recomputed from the real body.
+ * The trajectory (originPos → interceptPos) is frozen at flight initialization
+ * and represents the straight-line path the ship follows in heliocentric space.
+ * This function interpolates the ship's current position along that fixed path
+ * based on flight progress.
+ *
+ * We do NOT update originPos/interceptPos every tick — that would cause the
+ * trajectory to constantly shift as bodies move, making the ship appear to
+ * follow the wrong path. The ship commits to a ballistic trajectory at launch
+ * and follows it to completion.
  */
-function updateFlightPosition(
-  fp: import('./models').FlightState,
-  gameData: import('./models').GameData
-): void {
+function updateFlightPosition(fp: import('./models').FlightState): void {
   if (fp.totalDistance <= 0) return;
 
-  const destLoc = gameData.world.locations.find((l) => l.id === fp.destination);
-  if (!destLoc) return;
-
-  const destPosNow = getLocationPosition(
-    destLoc,
-    gameData.gameTime,
-    gameData.world
-  );
-
-  let originPosNow: import('./models').Vec2 | undefined;
-  if (fp.originBodyId) {
-    const originLoc = gameData.world.locations.find(
-      (l) => l.id === fp.originBodyId
-    );
-    if (originLoc) {
-      originPosNow = getLocationPosition(
-        originLoc,
-        gameData.gameTime,
-        gameData.world
-      );
-    }
-  }
-  // Redirect flights: originPos is a fixed point in space — keep as-is
-  if (!originPosNow) {
-    originPosNow = fp.originPos;
-  }
-  if (!originPosNow) return;
+  // Use the planned trajectory endpoints stored at flight initialization
+  if (!fp.originPos || !fp.interceptPos) return;
 
   const progress = Math.min(1, fp.distanceCovered / fp.totalDistance);
 
-  fp.originPos = originPosNow;
-  fp.interceptPos = destPosNow;
-  fp.shipPos = lerpVec2(originPosNow, destPosNow, progress);
-}
-
-/**
- * Mid-flight course correction (timing only).
- * Every 50 ticks, check if the destination's orbital motion has changed the
- * actual trip distance significantly. If drift exceeds 5%, update
- * totalDistance and estimatedArrivalGameTime so flight timing stays accurate.
- *
- * Position updates (originPos, interceptPos, shipPos) are handled every tick
- * by updateFlightPosition — this function only adjusts the flight plan's
- * distance/timing bookkeeping.
- */
-function applyCourseCorrection(
-  fp: import('./models').FlightState,
-  gameData: import('./models').GameData
-): void {
-  if (fp.totalDistance <= 0) return;
-
-  const ticksIntoFlight = Math.floor(fp.elapsedTime / GAME_SECONDS_PER_TICK);
-  if (ticksIntoFlight <= 0 || ticksIntoFlight % 50 !== 0) return;
-
-  const destLoc = gameData.world.locations.find((l) => l.id === fp.destination);
-  if (!destLoc) return;
-
-  const remainingSec = Math.max(0, fp.totalTime - fp.elapsedTime);
-  const futureArrival = gameData.gameTime + remainingSec;
-  const destFuturePos = getLocationPosition(
-    destLoc,
-    futureArrival,
-    gameData.world
-  );
-
-  // Compute origin position at the same future time so that co-orbiting
-  // bodies' shared motion cancels out (e.g. LEO station and Earth both
-  // orbit the Sun together — their relative distance stays ~400 km).
-  // For redirect flights (originBodyId unset), the origin is a fixed point
-  // in space — use the stored originPos.
-  const originLoc = fp.originBodyId
-    ? gameData.world.locations.find((l) => l.id === fp.originBodyId)
-    : undefined;
-  const originFuturePos = originLoc
-    ? getLocationPosition(originLoc, futureArrival, gameData.world)
-    : fp.originPos;
-  if (!originFuturePos) return;
-
-  const newRelativeDistKm = euclideanDistance(originFuturePos, destFuturePos);
-  const currentTotalDistKm = fp.totalDistance / 1000;
-
-  // Detect drift: has the correct relative distance diverged from stored?
-  const drift = Math.abs(newRelativeDistKm - currentTotalDistKm);
-  const driftFraction =
-    drift / Math.max(currentTotalDistKm, newRelativeDistKm, 1);
-
-  if (driftFraction > 0.05) {
-    fp.estimatedArrivalGameTime = futureArrival;
-    fp.totalDistance = newRelativeDistKm * 1000;
-  }
+  // Interpolate ship position along the fixed trajectory
+  fp.shipPos = lerpVec2(fp.originPos, fp.interceptPos, progress);
 }
 
 /**
@@ -290,11 +210,27 @@ export function deductFleetSalaries(
 
   if (gameData.credits >= totalSalary) {
     gameData.credits -= totalSalary;
+    getFinancials(gameData).expenseCrewSalaries += totalSalary;
 
-    // Track per-ship crew costs
+    // Track per-ship crew costs and log salary payments
     for (const ship of gameData.ships) {
       const shipSalary = shipSalaries.get(ship.id) || 0;
-      ship.metrics.crewCostsPaid += shipSalary * numTicks;
+      if (shipSalary > 0) {
+        const totalPaid = shipSalary * numTicks;
+        ship.metrics.crewCostsPaid += totalPaid;
+
+        // Log salary payment
+        const crewCount = ship.crew.filter(
+          (c) => getCrewSalaryPerTick(c) > 0
+        ).length;
+        addLog(
+          gameData.log,
+          gameData.gameTime,
+          'salary_paid',
+          `Paid salaries to ${crewCount} crew on ${ship.name}: ${formatCredits(totalPaid)}`,
+          ship.name
+        );
+      }
     }
   } else {
     const availableCredits = gameData.credits;
@@ -305,10 +241,25 @@ export function deductFleetSalaries(
     );
     const ticksUnpaid = numTicks - ticksWeCanPay;
 
-    // Track paid portion per ship
+    // Track paid portion per ship and log partial payments
     for (const ship of gameData.ships) {
       const shipSalary = shipSalaries.get(ship.id) || 0;
-      ship.metrics.crewCostsPaid += shipSalary * ticksWeCanPay;
+      if (shipSalary > 0 && ticksWeCanPay > 0) {
+        const totalPaid = shipSalary * ticksWeCanPay;
+        ship.metrics.crewCostsPaid += totalPaid;
+
+        // Log partial salary payment
+        const crewCount = ship.crew.filter(
+          (c) => getCrewSalaryPerTick(c) > 0
+        ).length;
+        addLog(
+          gameData.log,
+          gameData.gameTime,
+          'salary_paid',
+          `Partially paid salaries to ${crewCount} crew on ${ship.name}: ${formatCredits(totalPaid)} (insufficient credits)`,
+          ship.name
+        );
+      }
     }
 
     if (ticksUnpaid > 0) {
@@ -326,24 +277,38 @@ export function deductFleetSalaries(
 }
 
 /**
- * Heal patients assigned to operational medbay slots (2 HP/tick).
+ * Heal all crew using medical equipment (when powered).
+ * Medical equipment provides automatic health regeneration to all crew members.
  */
 function applyMedbayHealing(ship: Ship): boolean {
-  let healed = false;
-  for (const slot of ship.jobSlots) {
-    if (slot.type === 'patient' && slot.assignedCrewId) {
-      const medbay = slot.sourceRoomId
-        ? ship.rooms.find((r) => r.id === slot.sourceRoomId)
-        : null;
-      if (medbay?.state === 'operational') {
-        const crew = ship.crew.find((c) => c.id === slot.assignedCrewId);
-        if (crew && crew.health < 100) {
-          crew.health = Math.min(100, crew.health + 2);
-          healed = true;
-        }
-      }
+  const powerStatus = computePowerStatus(ship);
+  const hasPower = powerStatus.totalOutput > 0;
+
+  if (!hasPower) return false;
+
+  let totalHealthRegen = 0;
+
+  // Sum up health regen from all medical equipment
+  for (const eq of ship.equipment) {
+    const eqDef = getEquipmentDefinition(eq.definitionId);
+    if (eqDef?.healthRegenPerTick && eqDef.healthRegenPerTick > 0) {
+      // Degradation reduces effectiveness
+      const effectiveness = eqDef.hasDegradation ? 1 - eq.degradation / 100 : 1;
+      totalHealthRegen += eqDef.healthRegenPerTick * effectiveness;
     }
   }
+
+  if (totalHealthRegen <= 0) return false;
+
+  // Apply healing to all crew members
+  let healed = false;
+  for (const crew of ship.crew) {
+    if (crew.health < 100) {
+      crew.health = Math.min(100, crew.health + totalHealthRegen);
+      healed = true;
+    }
+  }
+
   return healed;
 }
 
@@ -480,6 +445,9 @@ function applyShipTick(gameData: GameData, ship: Ship): boolean {
   // Cache helm crew for warmup + fuel bonus lookups
   const helmCrew = getCrewForJobType(ship, 'helm');
 
+  // Power management: decide which equipment is powered this tick
+  applyPowerManagement(ship, gameData);
+
   // Engine warmup progress (independent of ship location)
   // Piloting pool 25% checkpoint: +5% warmup speed
   if (ship.engine.state === 'warming_up') {
@@ -506,17 +474,12 @@ function applyShipTick(gameData: GameData, ship: Ship): boolean {
     if (ship.activeFlightPlan && ship.engine.state === 'online') {
       const flightComplete = advanceFlight(ship.activeFlightPlan);
 
-      // Mid-flight course correction for orbital drift on long flights
-      if (!flightComplete) {
-        applyCourseCorrection(ship.activeFlightPlan, gameData);
-      }
-
       // Update 2D positions (originPos, interceptPos, shipPos) from
       // current-time body positions. Runs every tick so shipPos is always
       // accurate — no stale arrival-time snapshots.
       // Skip on completion — completeLeg docks the ship and discards positions.
       if (!flightComplete) {
-        updateFlightPosition(ship.activeFlightPlan, gameData);
+        updateFlightPosition(ship.activeFlightPlan);
       }
 
       // === GRAVITY ASSIST CHECK ===
@@ -640,6 +603,7 @@ function applyShipTick(gameData: GameData, ship: Ship): boolean {
           const heatDegradationMultiplier = 1 + excessHeat / 100;
 
           for (const eq of ship.equipment) {
+            if (!eq.powered) continue; // unpowered equipment doesn't generate heat
             const eqDef = getEquipmentDefinition(eq.definitionId);
             if (eqDef?.hasDegradation && eq.degradation < 100) {
               const baseDegradation = 0.005;
@@ -905,7 +869,8 @@ function applyShipTick(gameData: GameData, ship: Ship): boolean {
                 gameData.gameTime,
                 'ore_mined',
                 `${ship.name} extracted ${qty} ${oreId.replace(/_/g, ' ')}`,
-                ship.name
+                ship.name,
+                { oreQty: qty, oreType: oreId.replace(/_/g, ' ') }
               );
             }
           }
@@ -921,29 +886,9 @@ function applyShipTick(gameData: GameData, ship: Ship): boolean {
             );
           }
 
-          // Log cargo full warning (once per full-empty cycle)
-          if (miningResult.cargoFull) {
-            const wasLogging = ship.miningAccumulator?._cargoFullLogged;
-            if (!wasLogging) {
-              addLog(
-                gameData.log,
-                gameData.gameTime,
-                'cargo_full',
-                `${ship.name} cargo hold is full. Mining paused.`,
-                ship.name
-              );
-              if (!ship.miningAccumulator) ship.miningAccumulator = {};
-              ship.miningAccumulator['_cargoFullLogged'] = 1;
-            }
-
-            // Mining route: auto-depart to sell station when cargo full
-            checkMiningRouteDeparture(gameData, ship);
-          } else {
-            // Clear the flag when cargo has space again
-            if (ship.miningAccumulator?._cargoFullLogged) {
-              delete ship.miningAccumulator['_cargoFullLogged'];
-            }
-          }
+          handleMiningDepartureChecks(gameData, ship, miningResult.cargoFull);
+        } else if (ship.miningRoute?.status === 'mining') {
+          handleMiningDepartureChecks(gameData, ship, false);
         }
       }
     }
@@ -1035,6 +980,49 @@ function emitNearDeathEvents(
 }
 
 /**
+ * Handle mining route departure decisions: provisions-based early return
+ * or cargo-full departure to sell station.
+ */
+function handleMiningDepartureChecks(
+  gameData: GameData,
+  ship: Ship,
+  cargoFull: boolean
+): void {
+  // Provisions check takes priority over cargo-full check
+  if (
+    ship.miningRoute?.status === 'mining' &&
+    !cargoFull &&
+    checkMiningRouteProvisionsReturn(gameData, ship)
+  ) {
+    return; // Provisions departure initiated
+  }
+
+  if (cargoFull) {
+    // Log cargo full warning (once per full-empty cycle)
+    const wasLogging = ship.miningAccumulator?._cargoFullLogged;
+    if (!wasLogging) {
+      addLog(
+        gameData.log,
+        gameData.gameTime,
+        'cargo_full',
+        `${ship.name} cargo hold is full. Mining paused.`,
+        ship.name
+      );
+      if (!ship.miningAccumulator) ship.miningAccumulator = {};
+      ship.miningAccumulator['_cargoFullLogged'] = 1;
+    }
+
+    // Mining route: auto-depart to sell station when cargo full
+    checkMiningRouteDeparture(gameData, ship);
+  } else {
+    // Clear the flag when cargo has space again
+    if (ship.miningAccumulator?._cargoFullLogged) {
+      delete ship.miningAccumulator['_cargoFullLogged'];
+    }
+  }
+}
+
+/**
  * Apply one tick of crew repair activity.
  * Works in all ship states (docked, in_flight, orbiting).
  * Repair mastery: each equipment type repaired gains mastery XP for the repairer.
@@ -1057,6 +1045,8 @@ function applyRepairTick(ship: Ship): boolean {
   let totalRepairPoints = 0;
   for (const eng of repairCrew) {
     let points = calculateRepairPoints(eng);
+    // Health efficiency — injured/starving crew repair slower
+    points *= getCrewHealthEfficiency(eng.health);
     // Pool bonus: +5% repair speed at 25%
     points *= 1 + poolSpeedBonus;
     // Pool bonus: +10% chance for bonus repair points at 95%

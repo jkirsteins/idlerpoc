@@ -1,4 +1,5 @@
 import type { Ship, GameData } from './models';
+import { getFinancials } from './models';
 import { TICKS_PER_DAY } from './timeSystem';
 import { addLog } from './logSystem';
 import { formatMass, formatCredits } from './formatting';
@@ -67,11 +68,28 @@ export function getProvisionsSurvivalDays(ship: Ship): number {
   return getProvisionsSurvivalTicks(ship) / TICKS_PER_DAY;
 }
 
+/** Starvation duration: crew die over 7 game days without food. */
+export const STARVATION_DAYS = 7;
+
 /** Health damage per tick from starvation (no provisions). */
 export function getStarvationHealthDamage(provisionsKg: number): number {
   if (provisionsKg > 0) return 0;
-  // Aggressive damage — starvation is serious
-  return 3.0;
+  // Gradual starvation: 100 HP drained over STARVATION_DAYS game days
+  return 100 / (STARVATION_DAYS * TICKS_PER_DAY);
+}
+
+/**
+ * Crew efficiency multiplier based on health.
+ * Unhealthy crew work slower — applies to mining yield, skill training,
+ * and repair output. Uses sqrt curve: forgiving at high health,
+ * increasingly debilitating at low health.
+ *
+ * 100 HP → 1.0 | 75 HP → 0.87 | 50 HP → 0.71
+ * 25 HP → 0.50 | 10 HP → 0.32 | 1 HP → 0.10
+ */
+export function getCrewHealthEfficiency(health: number): number {
+  const normalizedHealth = Math.max(0, Math.min(100, health)) / 100;
+  return Math.sqrt(normalizedHealth);
 }
 
 // ── Tick Logic ───────────────────────────────────────────────────
@@ -175,13 +193,15 @@ export function autoResupplyProvisions(
   if (gameData.credits >= totalCost) {
     ship.provisionsKg = maxProvisions;
     gameData.credits -= totalCost;
+    getFinancials(gameData).expenseProvisions += totalCost;
     if (totalCost > 0) {
       addLog(
         gameData.log,
         gameData.gameTime,
         'refueled',
         `Resupplied ${ship.name} provisions at ${location.name}: ${formatMass(needed)} (${formatCredits(totalCost)})`,
-        ship.name
+        ship.name,
+        { credits: totalCost }
       );
     }
     return true;
@@ -196,12 +216,14 @@ export function autoResupplyProvisions(
     const cost = Math.round(affordableKg * pricePerKg);
     ship.provisionsKg += affordableKg;
     gameData.credits -= cost;
+    getFinancials(gameData).expenseProvisions += cost;
     addLog(
       gameData.log,
       gameData.gameTime,
       'refueled',
       `Partially resupplied ${ship.name} provisions at ${location.name}: ${formatMass(affordableKg)} (${formatCredits(cost)}) — insufficient credits for full resupply`,
-      ship.name
+      ship.name,
+      { credits: cost }
     );
     return true;
   }

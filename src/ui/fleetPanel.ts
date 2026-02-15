@@ -3,7 +3,6 @@ import { getShipClass, type ShipClassTier } from '../shipClasses';
 import { getEngineDefinition } from '../engines';
 import { computeMaxRange } from '../flightPhysics';
 import { formatDualTime } from '../timeSystem';
-import { getTradeRouteName } from '../utils';
 import type { Component } from './component';
 import {
   formatFuelMass,
@@ -12,10 +11,13 @@ import {
 } from './fuelFormatting';
 import { getCommandCommerceBonus, getFleetAuraBonus } from '../captainBonus';
 import { formatLargeNumber } from '../formatting';
+import { attachDynamicTooltip, type TooltipHandle } from './components/tooltip';
 
 export interface FleetPanelCallbacks {
   onSelectShip: (shipId: string) => void;
 }
+
+export type FleetPanelMode = 'full' | 'compact';
 
 /** Refs kept per ship row so we can patch in-place. */
 interface ShipRowRefs {
@@ -37,6 +39,15 @@ interface ShipRowRefs {
   equipSpan: HTMLSpanElement;
   rangeSpan: HTMLSpanElement;
   commandBadge: HTMLSpanElement;
+  tooltipHandle?: TooltipHandle;
+  /** Compact mode: row containers */
+  compactRow2?: HTMLDivElement;
+  compactRow3?: HTMLDivElement;
+  compactActivityBadge?: HTMLSpanElement;
+  compactLocationText?: Text;
+  compactProgressBar?: HTMLDivElement;
+  compactProgressFill?: HTMLDivElement;
+  compactEtaText?: HTMLSpanElement;
 }
 
 interface ShipActivity {
@@ -58,13 +69,6 @@ function getShipActivity(ship: Ship, gd: GameData): ShipActivity {
     } else {
       return { label: 'Mining (returning)', color: '#ffd700' };
     }
-  }
-
-  if (ship.routeAssignment) {
-    return {
-      label: `Trade Route: ${getTradeRouteName(ship, gd)}`,
-      color: '#4a9eff',
-    };
   }
 
   if (ship.activeContract) {
@@ -109,14 +113,64 @@ function getShipActivity(ship: Ship, gd: GameData): ShipActivity {
   return { label: 'Idle', color: '#666' };
 }
 
+/** Get concise activity label for compact mode */
+function getShipActivityConcise(ship: Ship, _gd: GameData): ShipActivity {
+  if (ship.miningRoute) {
+    const phase = ship.miningRoute.status;
+    if (phase === 'mining') {
+      return { label: 'Mining', color: '#ffd700' };
+    } else if (phase === 'selling') {
+      return { label: 'Selling', color: '#4ade80' };
+    } else {
+      return { label: 'Returning', color: '#ffa500' };
+    }
+  }
+
+  if (ship.activeContract) {
+    const quest = ship.activeContract.quest;
+    const isPaused = ship.activeContract.paused;
+
+    let typeLabel: string;
+    switch (quest.type) {
+      case 'delivery':
+        typeLabel = 'Delivery';
+        break;
+      case 'passenger':
+        typeLabel = 'Passenger';
+        break;
+      case 'freight':
+        typeLabel = 'Freight';
+        break;
+      case 'trade_route':
+        typeLabel = 'Trading';
+        break;
+      case 'rescue':
+        typeLabel = 'Rescue';
+        break;
+      default:
+        typeLabel = 'Contract';
+    }
+
+    if (isPaused) {
+      return { label: `${typeLabel} (paused)`, color: '#888' };
+    }
+
+    return { label: typeLabel, color: '#ff9f43' };
+  }
+
+  return { label: 'Idle', color: '#666' };
+}
+
 export function createFleetPanel(
   gameData: GameData,
-  callbacks: FleetPanelCallbacks
+  callbacks: FleetPanelCallbacks,
+  mode: FleetPanelMode = 'full'
 ): Component {
   const panel = document.createElement('div');
-  panel.className = 'fleet-panel';
+  panel.className =
+    mode === 'compact' ? 'fleet-panel fleet-panel--compact' : 'fleet-panel';
 
-  // Title — created once, never changes
+  // Title — created once, never changes (hidden in compact mode via CSS)
   const title = document.createElement('div');
   title.className = 'fleet-panel-title';
   title.textContent = 'Fleet';
@@ -145,6 +199,12 @@ export function createFleetPanel(
     });
     row.addEventListener('click', () => callbacks.onSelectShip(ship.id));
 
+    // In compact mode, attach a dynamic tooltip for full ship details
+    let tooltipHandle: TooltipHandle | undefined;
+    if (mode === 'compact') {
+      tooltipHandle = attachDynamicTooltip(row, 'Click to select ship');
+    }
+
     // Active indicator dot
     const indicator = document.createElement('div');
     indicator.className = 'fleet-row-indicator';
@@ -167,6 +227,7 @@ export function createFleetPanel(
     topLine.appendChild(nameSpan);
 
     const commandBadge = document.createElement('span');
+    commandBadge.className = 'fleet-row-command';
     commandBadge.style.cssText =
       'font-size: 0.75em; margin-left: 4px; font-weight: bold;';
     topLine.appendChild(commandBadge);
@@ -214,22 +275,67 @@ export function createFleetPanel(
 
     // Stats
     const fuelSpan = document.createElement('span');
-    fuelSpan.className = 'fleet-row-stat';
+    fuelSpan.className = 'fleet-row-stat fleet-row-stat-fuel';
     bottomLine.appendChild(fuelSpan);
 
     const crewSpan = document.createElement('span');
-    crewSpan.className = 'fleet-row-stat';
+    crewSpan.className = 'fleet-row-stat fleet-row-stat-crew';
     bottomLine.appendChild(crewSpan);
 
     const equipSpan = document.createElement('span');
-    equipSpan.className = 'fleet-row-stat';
+    equipSpan.className = 'fleet-row-stat fleet-row-stat-equip';
     bottomLine.appendChild(equipSpan);
 
     const rangeSpan = document.createElement('span');
-    rangeSpan.className = 'fleet-row-stat';
+    rangeSpan.className = 'fleet-row-stat fleet-row-stat-range';
     bottomLine.appendChild(rangeSpan);
 
     content.appendChild(bottomLine);
+
+    // Compact mode: Row 2 (activity + location)
+    let compactRow2: HTMLDivElement | undefined;
+    let compactLocationText: Text | undefined;
+    let compactActivityBadge: HTMLSpanElement | undefined;
+    if (mode === 'compact') {
+      compactRow2 = document.createElement('div');
+      compactRow2.className = 'fleet-row-compact-2';
+
+      // Create activity badge for Row 2
+      compactActivityBadge = document.createElement('span');
+      compactActivityBadge.className = 'fleet-row-activity';
+      compactRow2.appendChild(compactActivityBadge);
+
+      compactLocationText = document.createTextNode('');
+      compactRow2.appendChild(compactLocationText);
+      content.appendChild(compactRow2);
+    }
+
+    // Compact mode: Row 3 (progress bar - only shown when in flight)
+    let compactRow3: HTMLDivElement | undefined;
+    let compactProgressBar: HTMLDivElement | undefined;
+    let compactProgressFill: HTMLDivElement | undefined;
+    let compactEtaText: HTMLSpanElement | undefined;
+    if (mode === 'compact') {
+      compactRow3 = document.createElement('div');
+      compactRow3.className = 'fleet-row-compact-3';
+      compactRow3.style.display = 'none';
+
+      compactProgressBar = document.createElement('div');
+      compactProgressBar.className = 'fleet-row-progress-bar';
+
+      compactProgressFill = document.createElement('div');
+      compactProgressFill.className = 'fleet-row-progress-fill';
+      compactProgressBar.appendChild(compactProgressFill);
+
+      compactRow3.appendChild(compactProgressBar);
+
+      compactEtaText = document.createElement('span');
+      compactEtaText.className = 'fleet-row-eta';
+      compactRow3.appendChild(compactEtaText);
+
+      content.appendChild(compactRow3);
+    }
+
     row.appendChild(content);
 
     return {
@@ -249,6 +355,14 @@ export function createFleetPanel(
       equipSpan,
       rangeSpan,
       commandBadge,
+      tooltipHandle,
+      compactRow2,
+      compactRow3,
+      compactActivityBadge,
+      compactLocationText,
+      compactProgressBar,
+      compactProgressFill,
+      compactEtaText,
     };
   }
 
@@ -256,7 +370,10 @@ export function createFleetPanel(
     const isActive = ship.id === gd.activeShipId;
 
     // Row class & style
-    refs.row.className = isActive ? 'fleet-row active' : 'fleet-row';
+    const compactClass = mode === 'compact' ? ' fleet-row--compact' : '';
+    refs.row.className = isActive
+      ? `fleet-row active${compactClass}`
+      : `fleet-row${compactClass}`;
 
     // Indicator dot
     refs.indicator.style.background = isActive ? '#4a9eff' : 'transparent';
@@ -275,7 +392,7 @@ export function createFleetPanel(
     }
     refs.nameSpan.style.color = isActive ? '#4a9eff' : '#fff';
 
-    // Activity badge
+    // Activity badge (full mode uses full label, compact mode uses concise label)
     const activity = getShipActivity(ship, gd);
     if (refs.activityBadge.textContent !== activity.label) {
       refs.activityBadge.textContent = activity.label;
@@ -283,6 +400,18 @@ export function createFleetPanel(
     refs.activityBadge.style.background = activity.color + '22';
     refs.activityBadge.style.color = activity.color;
     refs.activityBadge.style.borderColor = activity.color + '44';
+
+    // Compact mode: separate activity badge with concise label
+    if (mode === 'compact' && refs.compactActivityBadge) {
+      const activityConcise = getShipActivityConcise(ship, gd);
+      if (refs.compactActivityBadge.textContent !== activityConcise.label) {
+        refs.compactActivityBadge.textContent = activityConcise.label;
+      }
+      refs.compactActivityBadge.style.background = activityConcise.color + '22';
+      refs.compactActivityBadge.style.color = activityConcise.color;
+      refs.compactActivityBadge.style.borderColor =
+        activityConcise.color + '44';
+    }
 
     // Command badge
     const hasCaptain = ship.crew.some((c) => c.isCaptain);
@@ -353,6 +482,59 @@ export function createFleetPanel(
       refs.flightContainer.style.display = 'none';
     }
 
+    // Compact mode: Row 2 (location) and Row 3 (progress)
+    if (mode === 'compact' && refs.compactLocationText && refs.compactRow3) {
+      if (ship.location.status === 'docked') {
+        const dockedAt = ship.location.dockedAt;
+        const location = gd.world.locations.find((l) => l.id === dockedAt);
+        const compactText = `at ${location?.name || dockedAt}`;
+        if (refs.compactLocationText.textContent !== compactText) {
+          refs.compactLocationText.textContent = compactText;
+        }
+        refs.compactRow3.style.display = 'none';
+      } else if (ship.location.status === 'orbiting') {
+        const orbitingAt = ship.location.orbitingAt;
+        const location = gd.world.locations.find((l) => l.id === orbitingAt);
+        const compactText = `orbiting ${location?.name || orbitingAt}`;
+        if (refs.compactLocationText.textContent !== compactText) {
+          refs.compactLocationText.textContent = compactText;
+        }
+        refs.compactRow3.style.display = 'none';
+      } else if (ship.activeFlightPlan) {
+        const destId = ship.activeFlightPlan.destination;
+        const destination = gd.world.locations.find((l) => l.id === destId);
+        const compactText = `→ ${destination?.name || destId}`;
+        if (refs.compactLocationText.textContent !== compactText) {
+          refs.compactLocationText.textContent = compactText;
+        }
+
+        // Show progress bar (Row 3)
+        refs.compactRow3.style.display = 'flex';
+
+        const progressPercent =
+          (ship.activeFlightPlan.distanceCovered /
+            ship.activeFlightPlan.totalDistance) *
+          100;
+
+        if (refs.compactProgressFill) {
+          refs.compactProgressFill.style.width = `${progressPercent}%`;
+        }
+
+        if (refs.compactEtaText) {
+          const remainingTime =
+            ship.activeFlightPlan.totalTime - ship.activeFlightPlan.elapsedTime;
+          const timeLabel = formatDualTime(remainingTime);
+          const etaText = `${timeLabel}`;
+          if (refs.compactEtaText.textContent !== etaText) {
+            refs.compactEtaText.textContent = etaText;
+          }
+        }
+      } else {
+        refs.compactLocationText.textContent = 'in flight';
+        refs.compactRow3.style.display = 'none';
+      }
+    }
+
     // Fuel
     const fuelPercentage = calculateFuelPercentage(ship.fuelKg, ship.maxFuelKg);
     refs.fuelSpan.style.color =
@@ -386,6 +568,59 @@ export function createFleetPanel(
         refs.rangeSpan.textContent = rangeText;
       }
       refs.rangeSpan.title = `Max range: ${maxRangeKm.toLocaleString()} km`;
+    }
+
+    // Compact mode: build comprehensive rich HTML tooltip
+    if (mode === 'compact' && refs.tooltipHandle) {
+      const tooltipParts: string[] = [];
+
+      // Location/flight status
+      if (ship.location.status === 'docked') {
+        const dockedAt = ship.location.dockedAt;
+        const location = gd.world.locations.find((l) => l.id === dockedAt);
+        tooltipParts.push(
+          `<div><strong>Location:</strong> Docked at ${location?.name || dockedAt}</div>`
+        );
+      } else if (ship.location.status === 'orbiting') {
+        const orbitingAt = ship.location.orbitingAt;
+        const location = gd.world.locations.find((l) => l.id === orbitingAt);
+        tooltipParts.push(
+          `<div><strong>Location:</strong> Orbiting ${location?.name || orbitingAt}</div>`
+        );
+      } else if (ship.activeFlightPlan) {
+        const destId = ship.activeFlightPlan.destination;
+        const destination = gd.world.locations.find((l) => l.id === destId);
+        const progressPercent =
+          (ship.activeFlightPlan.distanceCovered /
+            ship.activeFlightPlan.totalDistance) *
+          100;
+        tooltipParts.push(
+          `<div><strong>In Flight:</strong> ${destination?.name || destId} (${progressPercent.toFixed(0)}%)</div>`
+        );
+      } else {
+        tooltipParts.push(`<div><strong>Status:</strong> In Flight</div>`);
+      }
+
+      // Stats
+      tooltipParts.push(
+        `<div><strong>Fuel:</strong> ${formatFuelMass(ship.fuelKg)} / ${formatFuelMass(ship.maxFuelKg)}</div>`
+      );
+      tooltipParts.push(
+        `<div><strong>Crew:</strong> ${ship.crew.length}/${shipClass?.maxCrew ?? '?'}</div>`
+      );
+      const maxSlots2 = shipClass?.equipmentSlotDefs.length ?? 0;
+      tooltipParts.push(
+        `<div><strong>Equipment:</strong> ${ship.equipment.length}/${maxSlots2}</div>`
+      );
+      if (shipClass) {
+        const engineDef = getEngineDefinition(ship.engine.definitionId);
+        const maxRangeKm = computeMaxRange(shipClass, engineDef);
+        tooltipParts.push(
+          `<div><strong>Range:</strong> ${formatLargeNumber(maxRangeKm)} km</div>`
+        );
+      }
+
+      refs.tooltipHandle.updateContent(tooltipParts.join(''));
     }
   }
 

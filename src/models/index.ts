@@ -7,7 +7,6 @@ export type RoomType =
   | 'medbay'
   | 'cargo_hold'
   | 'armory'
-  | 'quarters'
   | 'point_defense_station'
   | 'mining_bay';
 
@@ -40,7 +39,8 @@ export type EquipmentId =
   | 'mining_laser'
   | 'mining_rig'
   | 'deep_core_mining'
-  | 'quantum_mining';
+  | 'quantum_mining'
+  | 'medical_station';
 
 export type FactionId =
   | 'terran_alliance'
@@ -109,10 +109,14 @@ export interface EquipmentSlotDef {
 
 export type ShipFeatureId = 'rotating_habitat';
 
+export type EquipmentPowerMode = 'off' | 'on' | 'auto';
+
 export interface EquipmentInstance {
   id: string;
   definitionId: EquipmentId;
   degradation: number; // 0 = new, 100 = worn out
+  powered: boolean; // actual powered state, set each tick by power management
+  powerMode: EquipmentPowerMode; // user preference: off/on/auto (default: auto)
 }
 
 export type ShipStatus = 'docked' | 'in_flight' | 'orbiting';
@@ -150,11 +154,11 @@ export interface FlightState {
   dockOnArrival: boolean;
   burnFraction: number; // 0.1-1.0: fraction of delta-v budget to use (1.0 = max speed)
   // 2D orbital trajectory fields
-  originPos?: Vec2; // origin 2D position (km), recomputed each tick from originBodyId or fixed for redirects
-  interceptPos?: Vec2; // destination 2D position (km), recomputed each tick from destination body
+  originPos?: Vec2; // origin 2D position (km), frozen at flight start
+  interceptPos?: Vec2; // destination intercept 2D position (km), frozen at flight start
   shipPos?: Vec2; // current ship 2D position (km), interpolated each tick between originPos and interceptPos
   estimatedArrivalGameTime?: number; // predicted arrival gameTime
-  originBodyId?: string; // real origin body ID (set for normal flights, undefined for redirects where origin is a point in space)
+  departureGameTime?: number; // gameTime at flight start (for projecting origin at correct time)
   gravityAssists?: GravityAssistOpportunity[]; // detected gravity assist opportunities along this trajectory
 }
 
@@ -391,21 +395,19 @@ export interface Room {
 
 /**
  * Job slot types - each represents a specific crew position.
- * Room-sourced: helm, comms, drive_ops, containment, patient, arms_maint, fire_control, rest
+ * Room-sourced: helm, comms, containment, patient, arms_maint, fire_control
  * Equipment-sourced: scanner (nav_scanner), targeting (point_defense)
- * Ship-wide: repair
+ * Ship-wide: repair, mining_ops
  */
 export type JobSlotType =
   | 'helm'
   | 'scanner'
   | 'comms'
-  | 'drive_ops'
   | 'containment'
   | 'patient'
   | 'arms_maint'
   | 'fire_control'
   | 'targeting'
-  | 'rest'
   | 'repair'
   | 'mining_ops';
 
@@ -450,7 +452,6 @@ export interface Ship {
   oreCargo: OreCargoItem[]; // mined ore in cargo hold
   miningAccumulator: Record<string, number>; // fractional ore per OreId
   activeContract: ActiveContract | null;
-  routeAssignment: RouteAssignment | null; // Automated route for trade routes
   miningRoute: MiningRoute | null; // Automated mine → sell → return loop
   lastEncounterTime?: number; // gameTime of last encounter (for cooldown)
   metrics: ShipMetrics; // Performance tracking for fleet management
@@ -500,18 +501,6 @@ export interface ActiveContract {
   acceptedOnDay?: number; // game day when contract was accepted (for deadline enforcement)
 }
 
-export interface RouteAssignment {
-  questId: string; // Trade route quest being automated
-  originId: string; // Route origin location
-  destinationId: string; // Route destination location
-  autoRefuel: boolean; // Auto-purchase fuel at stations
-  autoRefuelThreshold: number; // Trigger refuel when fuel < threshold% (default 30%)
-  totalTripsCompleted: number; // Lifetime counter for this route
-  creditsEarned: number; // Lifetime earnings for this route
-  assignedAt: number; // gameTime when route was assigned
-  lastTripCompletedAt: number; // gameTime of last trip completion
-}
-
 export interface MiningRoute {
   mineLocationId: string; // Asteroid belt / mine location
   sellLocationId: string; // Trade station to sell ore
@@ -557,13 +546,25 @@ export type LogEntryType =
   | 'crew_death'
   | 'stranded'
   | 'rescue'
-  | 'fuel_depleted';
+  | 'fuel_depleted'
+  | 'power_change';
+
+/** Structured metadata for log entry aggregation during trim. */
+export interface LogEntryMeta {
+  credits?: number;
+  oreType?: string;
+  oreQty?: number;
+  /** Number of original events this summary represents. */
+  count?: number;
+}
 
 export interface LogEntry {
   gameTime: number;
+  realTime: number; // milliseconds since epoch (Date.now())
   type: LogEntryType;
   message: string;
   shipName?: string;
+  meta?: LogEntryMeta;
 }
 
 export interface EncounterStats {
@@ -680,6 +681,7 @@ export interface CatchUpShipSummary {
   contractInfo?: CatchUpContractInfo;
   gravityAssists?: CatchUpGravityAssistStats;
   crewHighlights?: LogEntry[];
+  powerChanges?: number;
 }
 
 export interface CatchUpReport {
@@ -693,10 +695,33 @@ export interface CatchUpReport {
   newStories?: StoryArc[]; // story arcs detected during catch-up
 }
 
-/** Snapshot of lifetime earnings at the end of a game day, for rolling income averages. */
+/** Snapshot of lifetime earnings and expenses at the end of a game day, for rolling averages. */
 export interface DailyLedgerSnapshot {
   gameDay: number;
   lifetimeCreditsEarned: number;
+  lifetimeExpenseFuel?: number;
+  lifetimeExpenseCrewSalaries?: number;
+}
+
+/**
+ * Lifetime financial tracking by category.
+ * Tracks all income and expense flows for comprehensive financial reporting.
+ */
+export interface LifetimeFinancials {
+  // Income categories
+  incomeContracts: number;
+  incomeOreSales: number;
+  incomeBounties: number;
+  incomeEquipmentSales: number;
+  // Expense categories
+  expenseCrewSalaries: number;
+  expenseFuel: number;
+  expenseProvisions: number;
+  expenseCrewHiring: number;
+  expenseEquipment: number;
+  expenseShipEquipment: number;
+  expenseShipPurchases: number;
+  expenseCombatLosses: number;
 }
 
 export interface GameData {
@@ -726,6 +751,8 @@ export interface GameData {
     onCriticalAlert: boolean; // Pause on critical alerts
     onLowFuel: boolean; // Pause when fuel drops below 10%
   };
+  gettingStartedDismissed?: boolean; // Whether the new-player banner has been dismissed
+  financials?: LifetimeFinancials; // Lifetime income and expense tracking by category
 }
 
 /**
@@ -756,4 +783,35 @@ export function getShipCommander(ship: Ship): CrewMember | undefined {
       undefined
     )
   );
+}
+
+/**
+ * Create a fresh LifetimeFinancials record with all categories zeroed.
+ */
+export function createDefaultFinancials(): LifetimeFinancials {
+  return {
+    incomeContracts: 0,
+    incomeOreSales: 0,
+    incomeBounties: 0,
+    incomeEquipmentSales: 0,
+    expenseCrewSalaries: 0,
+    expenseFuel: 0,
+    expenseProvisions: 0,
+    expenseCrewHiring: 0,
+    expenseEquipment: 0,
+    expenseShipEquipment: 0,
+    expenseShipPurchases: 0,
+    expenseCombatLosses: 0,
+  };
+}
+
+/**
+ * Get the financials record from game data, creating a default one if it doesn't exist.
+ * Safe to use for both new and legacy saves.
+ */
+export function getFinancials(gameData: GameData): LifetimeFinancials {
+  if (!gameData.financials) {
+    gameData.financials = createDefaultFinancials();
+  }
+  return gameData.financials;
 }

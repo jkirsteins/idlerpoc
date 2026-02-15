@@ -17,7 +17,7 @@ import {
   snapshotContracts,
   snapshotRoutes,
 } from './catchUpReportBuilder';
-import { getActiveShip } from './models';
+import { getActiveShip, getFinancials } from './models';
 import { createNewGame, createAdditionalShip } from './gameFactory';
 import { saveGame, loadGame, clearGame, importGame } from './storage';
 import { render, type GameState, type RendererCallbacks } from './ui/renderer';
@@ -31,22 +31,15 @@ import { createRefuelDialog, getFuelPricePerKg } from './ui/refuelDialog';
 import { formatFuelMass, calculateFuelPercentage } from './ui/fuelFormatting';
 import { formatCredits } from './formatting';
 import {
-  advanceToNextDayStart,
-  GAME_SECONDS_PER_TICK,
-  TICKS_PER_DAY,
-} from './timeSystem';
-import {
   acceptQuest,
   pauseContract,
   resumeContract,
   abandonContract,
   dockShipAtLocation,
-  initContractExec,
   regenerateQuestsIfNewDay,
 } from './contractExec';
 import { initProvisionsEvents } from './provisionsSystem';
 import { getSkillRank } from './skillRanks';
-import { assignShipToRoute, unassignShipFromRoute } from './routeAssignment';
 import { addLog } from './logSystem';
 import { emit } from './gameEvents';
 import { getCrewEquipmentDefinition } from './crewEquipment';
@@ -60,13 +53,19 @@ import {
 import { sellOre, sellAllOre } from './miningSystem';
 import { assignMiningRoute, cancelMiningRoute } from './miningRoute';
 import { getEquipmentDefinition, canEquipInSlot } from './equipment';
-import { recordDailySnapshot } from './dailyLedger';
 import { spendPoolXpOnItem } from './masterySystem';
 import { initChronicleSystem } from './chronicleSystem';
 import { dismissArc } from './arcDetector';
 import { shareStory } from './ui/storyCard';
 
 const app = document.getElementById('app')!;
+
+/** Debug speed multiplier from ?debugspeed=N query param */
+function getDebugSpeedMultiplier(): number {
+  const param = new URLSearchParams(window.location.search).get('debugspeed');
+  const n = param ? Number(param) : 1;
+  return Number.isFinite(n) && n >= 1 ? n : 1;
+}
 
 /** Show a dismissable banner at the top of the page. */
 function showErrorBanner(message: string): void {
@@ -135,13 +134,14 @@ const FULL_RATE_CATCH_UP_SECONDS = 4 * 3600;
  *   48h → ~30 500 ticks (~64 game-days)
  */
 function computeCatchUpTicks(elapsedSeconds: number, speed: number): number {
+  const effectiveSpeed = speed * getDebugSpeedMultiplier();
   if (elapsedSeconds <= FULL_RATE_CATCH_UP_SECONDS) {
-    return Math.floor(elapsedSeconds * speed);
+    return Math.floor(elapsedSeconds * effectiveSpeed);
   }
-  const fullTicks = FULL_RATE_CATCH_UP_SECONDS * speed;
+  const fullTicks = FULL_RATE_CATCH_UP_SECONDS * effectiveSpeed;
   const extraSeconds = elapsedSeconds - FULL_RATE_CATCH_UP_SECONDS;
   const K = FULL_RATE_CATCH_UP_SECONDS; // controls decay curve
-  const extraTicks = K * Math.log(1 + extraSeconds / K) * speed;
+  const extraTicks = K * Math.log(1 + extraSeconds / K) * effectiveSpeed;
   return Math.floor(fullTicks + extraTicks);
 }
 
@@ -467,11 +467,6 @@ const callbacks: RendererCallbacks = {
 
     dockShipAtLocation(state.gameData, ship, dockLocation);
 
-    // Clear route assignment if manually docking
-    if (ship.routeAssignment) {
-      unassignShipFromRoute(state.gameData, ship);
-    }
-
     saveGame(state.gameData);
     renderApp();
   },
@@ -579,66 +574,6 @@ const callbacks: RendererCallbacks = {
     renderApp();
   },
 
-  onAdvanceDay: () => {
-    if (state.phase !== 'playing') return;
-    const ship = getActiveShip(state.gameData);
-    if (
-      ship.location.status !== 'docked' &&
-      ship.location.status !== 'orbiting'
-    )
-      return;
-    if (ship.activeContract) return;
-
-    // Compute how many ticks are needed to reach the next day boundary.
-    // Using the exact count (rather than a fixed TICKS_PER_DAY) prevents
-    // overshooting when game time isn't aligned to a day boundary.
-    const targetTime = advanceToNextDayStart(state.gameData.gameTime);
-    const ticksNeeded = Math.ceil(
-      (targetTime - state.gameData.gameTime) / GAME_SECONDS_PER_TICK
-    );
-
-    // Always run the full tick loop so ALL ship systems are updated
-    // (oxygen, provisions, medbay healing, gravity, repairs, etc.)
-    for (let i = 0; i < ticksNeeded; i++) {
-      applyTick(state.gameData);
-    }
-
-    // Snap to exact day boundary (avoids rounding from integer tick count)
-    state.gameData.gameTime = targetTime;
-    recordDailySnapshot(state.gameData);
-
-    addLog(
-      state.gameData.log,
-      state.gameData.gameTime,
-      'day_advanced',
-      'Advanced one day'
-    );
-
-    // Regenerate quests & hireable crew for the new day
-    regenerateQuestsIfNewDay(state.gameData);
-
-    // Warn about unpaid crew across all ships
-    for (const s of state.gameData.ships) {
-      for (const crew of s.crew.filter(
-        (c) => c.unpaidTicks > 0 && !c.isCaptain
-      )) {
-        addLog(
-          state.gameData.log,
-          state.gameData.gameTime,
-          'crew_departed',
-          `${crew.name} has unpaid wages (${Math.ceil(crew.unpaidTicks / TICKS_PER_DAY)} days) and will depart if ship leaves port`,
-          s.name
-        );
-      }
-    }
-
-    // Update timestamp so catch-up on reload doesn't replay these ticks
-    state.gameData.lastTickTimestamp = Date.now();
-
-    saveGame(state.gameData);
-    renderApp();
-  },
-
   onDockAtNearestPort: () => {
     if (state.phase !== 'playing') return;
     const ship = getActiveShip(state.gameData);
@@ -738,41 +673,6 @@ const callbacks: RendererCallbacks = {
     renderApp();
   },
 
-  onAssignRoute: (questId) => {
-    if (state.phase !== 'playing') return;
-    const ship = getActiveShip(state.gameData);
-
-    const currentLocation = ship.location.dockedAt;
-    if (!currentLocation) return;
-
-    const locationQuests =
-      state.gameData.availableQuests[currentLocation] || [];
-    const quest = locationQuests.find((q) => q.id === questId);
-    if (!quest) return;
-
-    const result = assignShipToRoute(state.gameData, ship, questId);
-    if (result.success) {
-      // Remove quest from available quests (it's now being automated)
-      const questIndex = locationQuests.indexOf(quest);
-      if (questIndex !== -1) {
-        locationQuests.splice(questIndex, 1);
-      }
-      saveGame(state.gameData);
-      renderApp();
-    } else {
-      console.error('Failed to assign route:', result.error);
-    }
-  },
-
-  onUnassignRoute: () => {
-    if (state.phase !== 'playing') return;
-    const ship = getActiveShip(state.gameData);
-
-    unassignShipFromRoute(state.gameData, ship);
-    saveGame(state.gameData);
-    renderApp();
-  },
-
   onBuyFuel: () => {
     if (state.phase !== 'playing') return;
     const ship = getActiveShip(state.gameData);
@@ -810,6 +710,7 @@ const callbacks: RendererCallbacks = {
 
           // Track fuel costs in metrics
           ship.metrics.fuelCostsPaid += totalCost;
+          getFinancials(state.gameData).expenseFuel += totalCost;
 
           // Log the purchase
           addLog(
@@ -817,7 +718,8 @@ const callbacks: RendererCallbacks = {
             state.gameData.gameTime,
             'refueled',
             `Purchased ${formatFuelMass(fuelKg)} fuel for ${formatCredits(totalCost)}`,
-            ship.name
+            ship.name,
+            { credits: totalCost }
           );
 
           saveGame(state.gameData);
@@ -945,6 +847,7 @@ const callbacks: RendererCallbacks = {
     if (state.gameData.credits < crew.hireCost) return;
 
     state.gameData.credits -= crew.hireCost;
+    getFinancials(state.gameData).expenseCrewHiring += crew.hireCost;
 
     // Set service record timestamps and origin
     crew.hiredAt = state.gameData.gameTime;
@@ -988,6 +891,7 @@ const callbacks: RendererCallbacks = {
     if (state.gameData.credits < equipDef.value) return;
 
     state.gameData.credits -= equipDef.value;
+    getFinancials(state.gameData).expenseEquipment += equipDef.value;
 
     ship.cargo.push({
       id: Math.random().toString(36).substring(2, 11),
@@ -1034,6 +938,7 @@ const callbacks: RendererCallbacks = {
     const sellPrice = Math.floor(equipDef.value * 0.5);
 
     state.gameData.credits += sellPrice;
+    getFinancials(state.gameData).incomeEquipmentSales += sellPrice;
 
     addLog(
       state.gameData.log,
@@ -1093,12 +998,15 @@ const callbacks: RendererCallbacks = {
     }
 
     state.gameData.credits -= netCost;
+    getFinancials(state.gameData).expenseShipEquipment += netCost;
 
     // Install new equipment
     const newEquip = {
       id: Math.random().toString(36).substring(2, 11),
       definitionId: equipmentId,
       degradation: 0,
+      powered: true,
+      powerMode: 'auto' as const,
     };
     ship.equipment.push(newEquip);
 
@@ -1153,6 +1061,7 @@ const callbacks: RendererCallbacks = {
     if (!canAffordResources(state.gameData.ships, shipClass)) return;
 
     state.gameData.credits -= shipClass.price;
+    getFinancials(state.gameData).expenseShipPurchases += shipClass.price;
     deductResourceCost(state.gameData, shipClass);
 
     const stationId = activeShip.location.dockedAt!;
@@ -1177,6 +1086,14 @@ const callbacks: RendererCallbacks = {
   onDismissCatchUp: () => {
     if (state.phase === 'playing') {
       state = { ...state, catchUpReport: undefined };
+      renderApp();
+    }
+  },
+
+  onDismissGettingStarted: () => {
+    if (state.phase === 'playing') {
+      state.gameData.gettingStartedDismissed = true;
+      saveGame(state.gameData);
       renderApp();
     }
   },
@@ -1304,11 +1221,16 @@ const callbacks: RendererCallbacks = {
     renderApp();
   },
 
-  onStartMiningRoute: (sellLocationId: string) => {
+  onStartMiningRoute: (sellLocationId: string, mineLocationId?: string) => {
     if (state.phase !== 'playing') return;
     const ship = getActiveShip(state.gameData);
 
-    const result = assignMiningRoute(state.gameData, ship, sellLocationId);
+    const result = assignMiningRoute(
+      state.gameData,
+      ship,
+      sellLocationId,
+      mineLocationId
+    );
     if (!result.success) {
       console.warn('Mining route failed:', result.error);
       return;
@@ -1376,9 +1298,12 @@ const callbacks: RendererCallbacks = {
 // The only top-level call is init() at the bottom of the file.
 
 function init(): void {
+  if (getDebugSpeedMultiplier() > 1) {
+    console.log(`[DEBUG] Speed multiplier: ${getDebugSpeedMultiplier()}x`);
+  }
+
   // Register cross-module callbacks
   initCombatSystem();
-  initContractExec();
   initProvisionsEvents();
   initChronicleSystem();
 
@@ -1868,7 +1793,11 @@ function startTickSystem(): void {
 
   document.addEventListener('visibilitychange', onVisibilityChange);
   window.addEventListener('pagehide', onPageHide);
-  tickInterval = window.setInterval(processPendingTicks, 1000);
+  const tickDelay =
+    getDebugSpeedMultiplier() > 1
+      ? Math.max(100, Math.floor(1000 / getDebugSpeedMultiplier()))
+      : 1000;
+  tickInterval = window.setInterval(processPendingTicks, tickDelay);
 }
 
 function stopTickSystem(): void {

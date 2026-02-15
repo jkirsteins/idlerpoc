@@ -5,7 +5,7 @@ import type {
   Quest,
   WorldLocation,
 } from './models';
-import { getShipCommander } from './models';
+import { getShipCommander, getFinancials } from './models';
 import { startShipFlight } from './flightPhysics';
 import { addLog } from './logSystem';
 import { formatFuelMass } from './ui/fuelFormatting';
@@ -14,14 +14,15 @@ import { generateAllLocationQuests, resolveQuestForShip } from './questGen';
 import { getDaysSinceEpoch, TICKS_PER_DAY } from './timeSystem';
 import { generateHireableCrewByLocation } from './gameFactory';
 import { awardEventSkillGains, logSkillUps } from './skillProgression';
-import {
-  checkAutoRefuel,
-  autoRestartRouteTrip,
-  setAcceptQuestFn,
-} from './routeAssignment';
 import { handleMiningRouteArrival } from './miningRoute';
 import { emit } from './gameEvents';
 import { getFuelPricePerKg } from './ui/refuelDialog';
+import {
+  getProvisionsSurvivalTicks,
+  autoResupplyProvisions,
+} from './provisionsSystem';
+import { estimateFlightDurationTicks } from './flightPhysics';
+import { getDistanceBetween } from './utils';
 import {
   generateFleetRescueQuests,
   completeRescueDelivery,
@@ -67,13 +68,15 @@ function tryAutoRefuelForLeg(
     ship.fuelKg = ship.maxFuelKg;
     gameData.credits -= fullCost;
     ship.metrics.fuelCostsPaid += fullCost;
+    getFinancials(gameData).expenseFuel += fullCost;
 
     addLog(
       gameData.log,
       gameData.gameTime,
       'refueled',
       `Auto-refueled ${ship.name} at ${location.name}: ${formatFuelMass(fuelNeededKg)} (${formatCredits(fullCost)})`,
-      ship.name
+      ship.name,
+      { credits: fullCost }
     );
     return true;
   }
@@ -178,6 +181,7 @@ function addCredits(gameData: GameData, amount: number, ship?: Ship): number {
   const boosted = Math.round(amount * auraMultiplier * commercePoolMultiplier);
   gameData.credits += boosted;
   gameData.lifetimeCreditsEarned += boosted;
+  getFinancials(gameData).incomeContracts += boosted;
   return boosted;
 }
 
@@ -243,11 +247,6 @@ export function countPilotingMasteryItems(gameData: GameData): number {
 /** Base mastery XP per flight arrival / trip completion. */
 const PILOTING_MASTERY_XP_PER_FLIGHT = 100;
 const COMMERCE_MASTERY_XP_PER_TRIP = 100;
-
-/** Register acceptQuest with routeAssignment to break circular dependency. */
-export function initContractExec(): void {
-  setAcceptQuestFn(acceptQuest);
-}
 
 /**
  * Award piloting route mastery XP to helm crew on flight arrival.
@@ -395,7 +394,7 @@ export function dockShipAtLocation(
 /**
  * Try to refuel and depart for the next contract leg.
  *
- * Gates checked in order: player pause → fuel → helm.
+ * Gates checked in order: player pause → fuel → provisions → helm.
  * On any failure the ship docks at departFrom and the contract pauses.
  * On success the ship is in-flight toward departTo.
  */
@@ -440,6 +439,35 @@ function tryDepartNextLeg(
     checkFirstArrival(gameData, ship, departFrom.id);
     removeUnpaidCrew(gameData, ship);
     return;
+  }
+
+  // Provisions check — ensure crew has enough food for this leg
+  const survivalTicks = getProvisionsSurvivalTicks(ship);
+  if (Number.isFinite(survivalTicks)) {
+    const legDistanceKm = getDistanceBetween(departFrom, departTo);
+    const legFlightTicks = estimateFlightDurationTicks(
+      ship,
+      legDistanceKm,
+      ship.flightProfileBurnFraction
+    );
+    const safetyBufferTicks = TICKS_PER_DAY * 2;
+
+    if (survivalTicks <= legFlightTicks + safetyBufferTicks) {
+      activeContract.paused = true;
+      gameData.isPaused = true;
+      dockShipAtLocation(gameData, ship, departFrom.id);
+      const survivalDays = Math.ceil(survivalTicks / TICKS_PER_DAY);
+      addLog(
+        gameData.log,
+        gameTime,
+        'provisions_warning',
+        `Low provisions at ${departFrom.name} (${survivalDays} days remaining)! Contract "${questTitle}" paused — resupply to continue.`,
+        ship.name
+      );
+      checkFirstArrival(gameData, ship, departFrom.id);
+      removeUnpaidCrew(gameData, ship);
+      return;
+    }
   }
 
   // Try to depart
@@ -497,8 +525,9 @@ export function completeLeg(gameData: GameData, ship: Ship): void {
         ship.location.orbitingAt = destination.id;
         delete ship.location.dockedAt;
         delete ship.activeFlightPlan;
-        ship.engine.state = 'off';
-        ship.engine.warmupProgress = 0;
+        // Engine stays online from flight — orbiting ships need power
+        // for life support (O2 generation). Consistent with manual
+        // undocking which starts engine warmup → online.
       }
 
       addLog(
@@ -522,6 +551,11 @@ export function completeLeg(gameData: GameData, ship: Ship): void {
 
       // Mining route auto-continuation (sell ore, refuel, return to mine)
       handleMiningRouteArrival(gameData, ship);
+
+      // Post-arrival: resupply provisions if still docked at a trade station
+      if (ship.location.dockedAt) {
+        autoResupplyProvisions(gameData, ship, ship.location.dockedAt);
+      }
     }
     return;
   }
@@ -561,18 +595,13 @@ export function completeLeg(gameData: GameData, ship: Ship): void {
       activeContract.creditsEarned += tripEarned;
       ship.metrics.creditsEarned += tripEarned;
 
-      if (ship.routeAssignment) {
-        ship.routeAssignment.totalTripsCompleted++;
-        ship.routeAssignment.creditsEarned += tripEarned;
-        ship.routeAssignment.lastTripCompletedAt = gameTime;
-      }
-
       addLog(
         gameData.log,
         gameTime,
         'payment',
         `Trip ${activeContract.tripsCompleted} complete. Earned ${formatCredits(tripEarned)}.`,
-        ship.name
+        ship.name,
+        { credits: tripEarned }
       );
     }
 
@@ -714,18 +743,13 @@ export function completeLeg(gameData: GameData, ship: Ship): void {
 
     ship.metrics.creditsEarned += tripEarned;
 
-    if (ship.routeAssignment) {
-      ship.routeAssignment.totalTripsCompleted++;
-      ship.routeAssignment.creditsEarned += tripEarned;
-      ship.routeAssignment.lastTripCompletedAt = gameTime;
-    }
-
     addLog(
       gameData.log,
       gameTime,
       'payment',
       `Trip ${activeContract.tripsCompleted} complete. Earned ${formatCredits(tripEarned)}.`,
-      ship.name
+      ship.name,
+      { credits: tripEarned }
     );
   } else {
     let message = `Trip ${activeContract.tripsCompleted}/${quest.tripsRequired === -1 ? '\u221e' : quest.tripsRequired} complete`;
@@ -782,27 +806,25 @@ export function completeLeg(gameData: GameData, ship: Ship): void {
 
     dockShipAtLocation(gameData, ship, arrivalLocation.id);
 
-    const hasRouteAssignment = ship.routeAssignment !== null;
-
     ship.activeContract = null;
 
     checkFirstArrival(gameData, ship, arrivalLocation.id);
     removeUnpaidCrew(gameData, ship);
     regenerateQuestsIfNewDay(gameData);
-
-    if (hasRouteAssignment) {
-      checkAutoRefuel(gameData, ship, arrivalLocation.id);
-
-      if (ship.routeAssignment) {
-        autoRestartRouteTrip(gameData, ship);
-      }
-    }
   } else {
     // More trips needed — dock at waypoint (triggers provisions resupply
     // etc. via ship_docked event), then flip to outbound and try to continue
     activeContract.leg = 'outbound';
     dockShipAtLocation(gameData, ship, originLoc.id);
     tryDepartNextLeg(gameData, ship, originLoc, destLoc, quest.title);
+  }
+
+  // Post-arrival: resupply provisions if still docked at a trade station.
+  // This is a generic safety net — the ship_docked event already fires
+  // auto-resupply, but credits may not have been available at that point
+  // (e.g. ore sale or contract payment hadn't been processed yet).
+  if (ship.location.dockedAt) {
+    autoResupplyProvisions(gameData, ship, ship.location.dockedAt);
   }
 }
 

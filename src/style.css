@@ -6,11 +6,12 @@ body {
   font-family:
     -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu,
     sans-serif;
-  background: #1a1a2e;
+  background: #0a0a12;
   color: #eee;
   margin: 0;
   padding: 20px;
-  min-height: 100vh;
+  height: 100vh;
+  overflow: hidden;
 }
 
 #app {
@@ -21,7 +22,10 @@ body {
 }
 
 .game-container {
-  background: #16213e;
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 40px);
+  background: #0d0d18;
   border-radius: 8px;
   padding: 24px;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
@@ -30,7 +34,64 @@ body {
 }
 
 .game-header {
+  flex-shrink: 0;
   margin-bottom: 20px;
+}
+
+.game-header img {
+  max-height: 80px;
+  width: auto;
+  display: block;
+  margin: 0 auto;
+}
+
+/* Getting Started banner — dismissable new-player prompt */
+.getting-started-banner {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  margin-bottom: 16px;
+  background: #12121e;
+  border: 1px solid #4a9eff;
+  border-radius: 6px;
+}
+
+.getting-started-banner-text {
+  flex: 1;
+  color: #eee;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.getting-started-banner-btn {
+  padding: 6px 14px;
+  background: #4a9eff;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  font-size: 13px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.getting-started-banner-btn:hover {
+  background: #6db3ff;
+}
+
+.getting-started-banner-dismiss {
+  padding: 4px 8px;
+  background: transparent;
+  color: #888;
+  border: none;
+  font-size: 16px;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.getting-started-banner-dismiss:hover {
+  color: #eee;
 }
 
 .persistent-info {
@@ -65,62 +126,6 @@ body {
   margin-bottom: 20px;
 }
 
-/* Global Status Bar (ship header) */
-.global-status-bar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-top: 1rem;
-  padding: 0.75rem;
-  background: rgba(0, 0, 0, 0.3);
-  border-radius: 4px;
-  border: 1px solid #444;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-}
-
-.global-status-stats {
-  display: flex;
-  gap: 2rem;
-  flex-wrap: wrap;
-}
-
-.global-status-actions {
-  display: flex;
-  gap: 0.5rem;
-  align-items: center;
-  flex-wrap: wrap;
-}
-
-.global-status-text {
-  margin-right: 0.5rem;
-  color: #aaa;
-}
-
-.global-status-btn {
-  padding: 0.5rem 1rem;
-}
-
-/* Ledger breakdown (collapsible) */
-.ledger-breakdown {
-  display: flex;
-  gap: 1rem;
-  flex-basis: 100%;
-  padding: 6px 8px;
-  background: rgba(0, 0, 0, 0.2);
-  border-radius: 4px;
-  font-size: 12px;
-  flex-wrap: wrap;
-}
-
-.ledger-item {
-  white-space: nowrap;
-}
-
-.ledger-toggle {
-  min-height: auto !important;
-}
-
 /* Ship Capabilities Grid */
 .ship-capabilities-grid {
   display: grid;
@@ -132,19 +137,25 @@ body {
 .game-content-grid {
   display: grid;
   grid-template-columns: 240px 1fr 240px;
+  grid-template-rows: 100%;
   gap: 20px;
+  flex: 1;
+  min-height: 0;
 }
 
 .main-content {
+  flex: 1;
+  height: 100%;
+  min-height: 0;
   min-width: 0;
-  max-height: calc(100vh - 100px);
   overflow-y: auto;
+  overflow-x: hidden;
 }
 
 /* Sidebar styling */
 .left-sidebar,
 .right-sidebar {
-  background: rgba(15, 52, 96, 0.3);
+  background: rgba(18, 18, 30, 0.5);
   border-radius: 6px;
   padding: 16px;
   max-height: calc(100vh - 100px);
@@ -244,23 +255,23 @@ body {
 h1 {
   margin: 0 0 24px;
   text-align: center;
-  color: #e94560;
+  color: #d4850a;
 }
 
 h2 {
   margin: 0 0 16px;
-  color: #e94560;
+  color: #d4850a;
 }
 
 h3 {
   margin: 0 0 12px;
-  color: #e94560;
+  color: #d4850a;
   font-size: 16px;
 }
 
 /* Buttons */
 button {
-  background: #e94560;
+  background: #d4850a;
   color: white;
   border: none;
   padding: 10px 20px;
@@ -271,15 +282,17 @@ button {
 }
 
 button:hover {
-  background: #d63050;
+  background: #b87008;
 }
 
 button.secondary {
-  background: #0f3460;
+  background: #12121e;
+  border: 1px solid #444;
 }
 
 button.secondary:hover {
   background: #1a4a7a;
+  border-color: #555;
 }
 
 button.danger {
@@ -294,7 +307,7 @@ button.danger:hover {
 button.small-button {
   padding: 4px 8px;
   font-size: 11px;
-  background: #0f3460;
+  background: #12121e;
 }
 
 button.small-button:hover {
@@ -406,7 +419,7 @@ button:active:not(:disabled) {
 .data-table td {
   padding: 12px;
   text-align: left;
-  border-bottom: 1px solid #0f3460;
+  border-bottom: 1px solid #12121e;
 }
 
 .data-table th {
@@ -421,7 +434,14 @@ button:active:not(:disabled) {
 
 /* Wizard */
 .wizard {
-  padding: 10px 0;
+  padding: 20px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  max-height: 100%;
+}
+
+.wizard h2 {
+  margin-bottom: 16px;
 }
 
 .step-indicator {
@@ -443,9 +463,9 @@ button:active:not(:disabled) {
 
 .wizard-step input[type='text'] {
   padding: 10px;
-  border: 1px solid #0f3460;
+  border: 1px solid #444;
   border-radius: 4px;
-  background: #1a1a2e;
+  background: #0a0a12;
   color: #fff;
   font-size: 14px;
   flex: 1;
@@ -453,7 +473,7 @@ button:active:not(:disabled) {
 
 .wizard-step input[type='text']:focus {
   outline: none;
-  border-color: #e94560;
+  border-color: #d4850a;
 }
 
 .input-row {
@@ -465,6 +485,7 @@ button:active:not(:disabled) {
   display: flex;
   justify-content: space-between;
   margin-top: 16px;
+  padding-bottom: 20px;
 }
 
 /* Ship tier sections (wizard step 3) */
@@ -477,12 +498,12 @@ button:active:not(:disabled) {
 }
 
 .ship-tier-title {
-  color: #e94560;
+  color: #d4850a;
   font-size: 14px;
   margin: 0 0 12px 0;
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  border-bottom: 1px solid #0f3460;
+  border-bottom: 1px solid #12121e;
   padding-bottom: 8px;
 }
 
@@ -495,7 +516,7 @@ button:active:not(:disabled) {
 
 .ship-class-option {
   padding: 16px;
-  border: 2px solid #0f3460;
+  border: 2px solid #12121e;
   border-radius: 6px;
   cursor: pointer;
   transition:
@@ -504,12 +525,12 @@ button:active:not(:disabled) {
 }
 
 .ship-class-option:hover:not(.locked) {
-  border-color: #e94560;
+  border-color: #d4850a;
 }
 
 .ship-class-option.selected {
-  border-color: #e94560;
-  background: rgba(233, 69, 96, 0.1);
+  border-color: #d4850a;
+  background: rgba(212, 133, 10, 0.1);
 }
 
 .ship-class-option.locked {
@@ -558,9 +579,9 @@ button:active:not(:disabled) {
 /* Tab Bar */
 .tab-bar {
   display: flex;
-  gap: 8px;
-  margin-bottom: 24px;
-  border-bottom: 2px solid #0f3460;
+  gap: 4px;
+  margin-bottom: 16px;
+  border-bottom: 2px solid #333;
   padding-bottom: 0;
 }
 
@@ -569,23 +590,28 @@ button:active:not(:disabled) {
   color: #888;
   border: none;
   border-bottom: 2px solid transparent;
-  padding: 10px 20px;
+  padding: 10px 16px;
   margin-bottom: -2px;
   cursor: pointer;
   font-size: 14px;
+  white-space: nowrap;
+  border-radius: 4px 4px 0 0;
+  overflow: visible;
   transition:
     color 0.2s,
-    border-color 0.2s;
+    border-color 0.2s,
+    background 0.2s;
 }
 
 .tab-button:hover {
-  color: #e94560;
-  background: transparent;
+  color: #d4850a;
+  background: rgba(212, 133, 10, 0.08);
 }
 
 .tab-button.active {
-  color: #e94560;
-  border-bottom-color: #e94560;
+  color: #d4850a;
+  border-bottom-color: #d4850a;
+  background: rgba(212, 133, 10, 0.05);
 }
 
 /* Ship Tab */
@@ -594,26 +620,11 @@ button:active:not(:disabled) {
 }
 
 .ship-header {
+  display: none;
   margin-bottom: 24px;
   padding-bottom: 16px;
-  border-bottom: 1px solid #0f3460;
-}
-
-.ship-name {
-  margin: 0 0 4px;
-  font-size: 28px;
-}
-
-.ship-class-label {
-  color: #888;
-  font-size: 14px;
-  margin-bottom: 8px;
-}
-
-.captain-label {
-  color: #e94560;
-  font-size: 16px;
-  font-weight: 500;
+  border-bottom: 1px solid #12121e;
+  overflow: hidden;
 }
 
 /* Room Grid */
@@ -626,8 +637,8 @@ button:active:not(:disabled) {
 }
 
 .room-card {
-  background: #1a1a2e;
-  border: 2px solid #0f3460;
+  background: #0a0a12;
+  border: 2px solid #12121e;
   border-radius: 8px;
   padding: 12px;
   transition: border-color 0.2s;
@@ -637,11 +648,11 @@ button:active:not(:disabled) {
 }
 
 .room-card:hover {
-  border-color: #e94560;
+  border-color: #d4850a;
 }
 
 .room-card.room-operational {
-  border-color: #0f3460;
+  border-color: #12121e;
 }
 
 .room-card.room-damaged {
@@ -668,8 +679,8 @@ button:active:not(:disabled) {
 
 .room-power-badge {
   font-size: 10px;
-  background: rgba(233, 69, 96, 0.2);
-  color: #e94560;
+  background: rgba(212, 133, 10, 0.2);
+  color: #d4850a;
   padding: 2px 6px;
   border-radius: 3px;
   font-weight: 500;
@@ -746,7 +757,7 @@ button:active:not(:disabled) {
   width: 100%;
   padding: 6px 10px;
   font-size: 11px;
-  background: #e94560;
+  background: #d4850a;
   color: white;
   border: none;
   border-radius: 4px;
@@ -755,7 +766,7 @@ button:active:not(:disabled) {
 }
 
 .room-action-btn:hover:not(:disabled) {
-  background: #d63050;
+  background: #b87008;
 }
 
 .room-action-btn:disabled {
@@ -767,9 +778,9 @@ button:active:not(:disabled) {
 .crew-select {
   width: 100%;
   padding: 6px;
-  border: 1px solid #0f3460;
+  border: 1px solid #444;
   border-radius: 4px;
-  background: #1a1a2e;
+  background: #0a0a12;
   color: #fff;
   font-size: 11px;
   cursor: pointer;
@@ -777,12 +788,12 @@ button:active:not(:disabled) {
 
 .crew-select:focus {
   outline: none;
-  border-color: #e94560;
+  border-color: #d4850a;
 }
 
 /* Staging Area */
 .staging-area {
-  background: #1a1a2e;
+  background: #0a0a12;
   border-radius: 8px;
   padding: 16px;
   margin-bottom: 16px;
@@ -808,7 +819,7 @@ button:active:not(:disabled) {
   padding: 12px;
   background: rgba(255, 255, 255, 0.03);
   border-radius: 6px;
-  border: 1px solid #0f3460;
+  border: 1px solid #12121e;
 }
 
 .staging-crew-info {
@@ -863,7 +874,7 @@ button:active:not(:disabled) {
 .status-bar {
   display: flex;
   justify-content: space-around;
-  background: #1a1a2e;
+  background: #0a0a12;
   border-radius: 8px;
   padding: 16px;
   margin-bottom: 16px;
@@ -884,7 +895,7 @@ button:active:not(:disabled) {
   display: block;
   font-size: 20px;
   font-weight: 600;
-  color: #e94560;
+  color: #d4850a;
 }
 
 /* Settings Tab */
@@ -893,7 +904,7 @@ button:active:not(:disabled) {
 }
 
 .settings-section {
-  background: #1a1a2e;
+  background: #0a0a12;
   border-radius: 8px;
   padding: 20px;
 }
@@ -910,17 +921,17 @@ button:active:not(:disabled) {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background: #1a1a2e;
+  background: #0a0a12;
   border-radius: 8px;
   padding: 16px;
   margin-bottom: 16px;
-  border: 2px solid #0f3460;
+  border: 2px solid #12121e;
 }
 
 .status-text {
   font-size: 16px;
   font-weight: 600;
-  color: #e94560;
+  color: #d4850a;
 }
 
 .status-action-btn {
@@ -933,7 +944,7 @@ button:active:not(:disabled) {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 12px;
-  background: #1a1a2e;
+  background: #0a0a12;
   border-radius: 8px;
   padding: 16px;
   margin-bottom: 16px;
@@ -977,10 +988,10 @@ button:active:not(:disabled) {
 .progress-bar-track {
   width: 100%;
   height: 20px;
-  background: #1a1a2e;
+  background: #0a0a12;
   border-radius: 4px;
   overflow: hidden;
-  border: 1px solid #0f3460;
+  border: 1px solid #12121e;
 }
 
 .progress-bar-fill {
@@ -997,7 +1008,7 @@ button:active:not(:disabled) {
 }
 
 .bar-danger {
-  background: #e94560;
+  background: #ff6b6b;
 }
 
 .bar-inactive {
@@ -1015,7 +1026,7 @@ button:active:not(:disabled) {
 /* Custom Tooltip */
 .custom-tooltip {
   position: absolute;
-  background: rgba(22, 33, 62, 0.98);
+  background: rgba(13, 13, 24, 0.98);
   border: 2px solid #4a9eff;
   border-radius: 6px;
   padding: 12px 16px;
@@ -1088,10 +1099,10 @@ button:active:not(:disabled) {
 .stat-bar__track {
   position: relative;
   width: 100%;
-  background: #1a1a2e;
+  background: #0a0a12;
   border-radius: 4px;
   overflow: hidden;
-  border: 1px solid #0f3460;
+  border: 1px solid #12121e;
 }
 
 .stat-bar--full .stat-bar__track {
@@ -1118,7 +1129,7 @@ button:active:not(:disabled) {
 
 /* Equipment Section */
 .equipment-section {
-  background: #1a1a2e;
+  background: #0a0a12;
   border-radius: 8px;
   padding: 16px;
   margin-bottom: 16px;
@@ -1137,7 +1148,7 @@ button:active:not(:disabled) {
   padding: 12px;
   background: rgba(255, 255, 255, 0.03);
   border-radius: 6px;
-  border: 1px solid #0f3460;
+  border: 1px solid #12121e;
 }
 
 .equipment-icon {
@@ -1160,7 +1171,7 @@ button:active:not(:disabled) {
 
 .equipment-power {
   font-size: 11px;
-  color: #e94560;
+  color: #d4850a;
   font-weight: 500;
 }
 
@@ -1180,10 +1191,10 @@ button:active:not(:disabled) {
 .degradation-track {
   width: 100%;
   height: 8px;
-  background: #1a1a2e;
+  background: #0a0a12;
   border-radius: 4px;
   overflow: hidden;
-  border: 1px solid #0f3460;
+  border: 1px solid #12121e;
 }
 
 .degradation-fill {
@@ -1197,16 +1208,16 @@ button:active:not(:disabled) {
 }
 
 .degradation-critical {
-  background: #e94560;
+  background: #ff6b6b;
 }
 
 /* Engine Section */
 .engine-section {
-  background: #1a1a2e;
+  background: #0a0a12;
   border-radius: 8px;
   padding: 16px;
   margin-bottom: 16px;
-  border: 2px solid #0f3460;
+  border: 2px solid #12121e;
 }
 
 .engine-info {
@@ -1215,7 +1226,7 @@ button:active:not(:disabled) {
 
 .engine-info h3 {
   margin: 0 0 8px 0;
-  color: #e94560;
+  color: #d4850a;
   font-size: 16px;
 }
 
@@ -1287,7 +1298,7 @@ button:active:not(:disabled) {
 
 /* Navigation View */
 .navigation-view {
-  background: #1a1a2e;
+  background: #0a0a12;
   border-radius: 8px;
   padding: 20px;
 }
@@ -1298,12 +1309,12 @@ button:active:not(:disabled) {
   align-items: center;
   margin-bottom: 20px;
   padding-bottom: 12px;
-  border-bottom: 1px solid #0f3460;
+  border-bottom: 1px solid #12121e;
 }
 
 .nav-header h3 {
   margin: 0;
-  color: #e94560;
+  color: #d4850a;
   font-size: 18px;
 }
 
@@ -1316,22 +1327,65 @@ button:active:not(:disabled) {
   position: relative;
   width: 100%;
   height: 400px;
-  background: #16213e;
+  background: #0d0d18;
   border-radius: 8px;
-  border: 2px solid #0f3460;
+  border: 2px solid #12121e;
   margin-bottom: 20px;
   overflow: hidden;
   touch-action: none;
 }
 
 .nav-map svg {
-  transform-origin: 0 0;
+  /* Ensure crisp SVG rendering without blur */
+  shape-rendering: geometricPrecision;
+  image-rendering: -webkit-optimize-contrast;
+  image-rendering: crisp-edges;
+}
+
+.nav-map-zoom-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  font-size: 18px;
+  font-weight: bold;
+  line-height: 1;
+  background: rgba(15, 52, 96, 0.85);
+  color: #4a9eff;
+  border: 1px solid #4a9eff;
+  border-radius: 4px;
+  cursor: pointer;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.nav-map-zoom-btn:hover:not(:disabled) {
+  background: rgba(74, 158, 255, 0.2);
+}
+
+.nav-map-zoom-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.nav-map-zoom-btn:first-of-type {
+  /* Zoom in button (+) */
+  right: 8px;
+}
+
+.nav-map-zoom-btn:nth-of-type(2) {
+  /* Zoom out button (−) */
+  right: 44px;
 }
 
 .nav-map-reset-zoom {
   position: absolute;
   top: 8px;
-  right: 8px;
+  right: 80px;
   padding: 4px 10px;
   font-size: 11px;
   background: rgba(15, 52, 96, 0.85);
@@ -1406,25 +1460,31 @@ button:active:not(:disabled) {
 .nav-legend {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
 }
 
 .nav-legend h4 {
   margin: 0 0 8px 0;
-  color: #e94560;
+  color: #d4850a;
   font-size: 14px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
 
 .nav-legend-item {
-  padding: 8px 12px;
+  padding: 6px 10px;
   background: rgba(255, 255, 255, 0.03);
   border-radius: 6px;
-  border: 1px solid #0f3460;
+  border: 1px solid #12121e;
   transition:
     border-color 0.2s,
     background 0.2s;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.nav-legend-item:hover {
+  background: rgba(255, 255, 255, 0.05);
 }
 
 .nav-legend-item--selected {
@@ -1436,45 +1496,30 @@ button:active:not(:disabled) {
   opacity: 0.5;
 }
 
-.nav-legend-summary {
-  user-select: none;
-  -webkit-user-select: none;
-}
-
-.nav-legend-summary:hover {
-  opacity: 0.85;
-}
-
-.nav-legend-chevron {
-  font-size: 0.65em;
-  color: #666;
-  transition: transform 0.15s;
-  width: 12px;
-  text-align: center;
-  flex-shrink: 0;
-}
-
 .nav-legend-item strong {
-  color: #e94560;
+  color: #d4850a;
   font-size: 0.95em;
 }
 
-.nav-legend-details {
-  margin-top: 8px;
-  padding-top: 8px;
-  border-top: 1px solid rgba(255, 255, 255, 0.05);
+/* Selection overlay at bottom of orrery map */
+.nav-selection-overlay {
+  position: absolute;
+  bottom: 40px;
+  left: 8px;
+  right: 8px;
+  z-index: 2;
+  pointer-events: none;
 }
 
-.nav-legend-details div {
-  font-size: 12px;
-  color: #888;
-  margin-top: 4px;
-}
-
-.nav-contracts-summary {
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
-  padding-top: 6px;
-  margin-top: 6px;
+.nav-selection-overlay-content {
+  pointer-events: auto;
+  background: rgba(10, 15, 30, 0.92);
+  border: 1px solid #4a9eff;
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-size: 0.85em;
+  max-height: 200px;
+  overflow-y: auto;
 }
 
 .nav-travel-button {
@@ -1483,7 +1528,7 @@ button:active:not(:disabled) {
   padding: 8px 16px;
   font-size: 13px;
   background: #4ecdc4;
-  color: #1a1a2e;
+  color: #0a0a12;
   font-weight: 600;
   border: none;
   border-radius: 4px;
@@ -1495,20 +1540,27 @@ button:active:not(:disabled) {
   background: #3db3aa;
 }
 
-.nav-current-label {
-  margin-top: 8px;
-  padding: 6px 12px;
+.nav-travel-button--compact {
+  width: auto;
+  padding: 4px 12px;
   font-size: 12px;
+  margin-top: 4px;
+}
+
+.nav-current-label {
+  margin-top: 4px;
+  padding: 4px 10px;
+  font-size: 11px;
   font-weight: 600;
-  color: #e94560;
-  border: 2px solid #e94560;
+  color: #d4850a;
+  border: 1px solid #d4850a;
   border-radius: 4px;
   text-align: center;
 }
 
 .nav-travel-disabled-reason {
-  margin-top: 8px;
-  font-size: 12px;
+  margin-top: 4px;
+  font-size: 11px;
   font-style: italic;
   color: #ff6b6b;
   text-align: center;
@@ -1517,7 +1569,7 @@ button:active:not(:disabled) {
 /* Captain Badge */
 .captain-badge {
   display: inline-block;
-  background: #e94560;
+  background: #d4850a;
   color: white;
   font-size: 10px;
   font-weight: 700;
@@ -1579,7 +1631,7 @@ button:disabled:hover {
   border-radius: 4px;
   font-size: 11px;
   margin-bottom: 4px;
-  border: 1px solid rgba(233, 69, 96, 0.3);
+  border: 1px solid rgba(212, 133, 10, 0.3);
 }
 
 .equipment-item-icon {
@@ -1652,7 +1704,7 @@ button:disabled:hover {
 .crew-list-panel h3 {
   margin: 0 0 12px 0;
   font-size: 14px;
-  color: #e94560;
+  color: #d4850a;
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
@@ -1665,8 +1717,8 @@ button:disabled:hover {
 
 .crew-list-item {
   padding: 10px 12px;
-  background: #1a1a2e;
-  border: 2px solid #0f3460;
+  background: #0a0a12;
+  border: 2px solid #12121e;
   border-radius: 6px;
   cursor: pointer;
   transition:
@@ -1675,13 +1727,13 @@ button:disabled:hover {
 }
 
 .crew-list-item:hover {
-  border-color: #e94560;
-  background: rgba(233, 69, 96, 0.05);
+  border-color: #d4850a;
+  background: rgba(212, 133, 10, 0.05);
 }
 
 .crew-list-item.selected {
-  border-color: #e94560;
-  background: rgba(233, 69, 96, 0.1);
+  border-color: #d4850a;
+  background: rgba(212, 133, 10, 0.1);
 }
 
 .crew-list-name {
@@ -1709,18 +1761,21 @@ button:disabled:hover {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 4px;
 }
 
 .crew-detail-header {
-  text-align: center;
-  padding-bottom: 12px;
-  border-bottom: 1px solid #0f3460;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding-bottom: 4px;
+  border-bottom: 1px solid #12121e;
 }
 
 .crew-detail-header h2 {
-  margin: 0 0 4px 0;
-  font-size: 24px;
+  margin: 0;
+  font-size: 16px;
+  white-space: nowrap;
 }
 
 .crew-detail-role {
@@ -1730,10 +1785,10 @@ button:disabled:hover {
 }
 
 .crew-detail-section {
-  background: #1a1a2e;
+  background: #0a0a12;
   border-radius: 8px;
   padding: 16px;
-  border: 1px solid #0f3460;
+  border: 1px solid #12121e;
 }
 
 .crew-detail-section h3 {
@@ -1774,12 +1829,12 @@ button:disabled:hover {
   border-radius: 5px;
   overflow: hidden;
   margin-top: 4px;
-  border: 1px solid #0f3460;
+  border: 1px solid #12121e;
 }
 
 .xp-progress-fill {
   height: 100%;
-  background: linear-gradient(90deg, #e94560, #d63050);
+  background: linear-gradient(90deg, #d4850a, #b87008);
   transition: width 0.3s ease;
 }
 
@@ -1827,6 +1882,14 @@ button:disabled:hover {
   border-radius: 4px;
 }
 
+.skill-block-header:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.skill-block-header:active {
+  background: rgba(255, 255, 255, 0.06);
+}
+
 .skill-label {
   color: #888;
   font-size: 13px;
@@ -1847,7 +1910,7 @@ button:disabled:hover {
 .skill-plus-button {
   padding: 4px 10px;
   font-size: 11px;
-  background: #e94560;
+  background: #d4850a;
   color: white;
   border: none;
   border-radius: 4px;
@@ -1857,7 +1920,7 @@ button:disabled:hover {
 }
 
 .skill-plus-button:hover {
-  background: #d63050;
+  background: #b87008;
 }
 
 .unspent-points {
@@ -1877,7 +1940,7 @@ button:disabled:hover {
   padding: 12px;
   background: rgba(255, 255, 255, 0.03);
   border-radius: 6px;
-  border: 1px solid #0f3460;
+  border: 1px solid #12121e;
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -1908,7 +1971,7 @@ button:disabled:hover {
 .unequip-button {
   padding: 6px 10px;
   font-size: 11px;
-  background: #0f3460;
+  background: #12121e;
   color: white;
   border: none;
   border-radius: 4px;
@@ -1948,7 +2011,7 @@ button:disabled:hover {
   padding: 10px 12px;
   background: rgba(255, 255, 255, 0.03);
   border-radius: 6px;
-  border: 1px solid #0f3460;
+  border: 1px solid #12121e;
   gap: 12px;
 }
 
@@ -1961,7 +2024,7 @@ button:disabled:hover {
 .equip-button {
   padding: 6px 12px;
   font-size: 11px;
-  background: #e94560;
+  background: #d4850a;
   color: white;
   border: none;
   border-radius: 4px;
@@ -1971,7 +2034,7 @@ button:disabled:hover {
 }
 
 .equip-button:hover:not(:disabled) {
-  background: #d63050;
+  background: #b87008;
 }
 
 .equip-button:disabled {
@@ -1990,7 +2053,7 @@ button:disabled:hover {
   font-weight: bold;
   margin-bottom: 12px;
   padding: 8px 12px;
-  background: #0f3460;
+  background: #12121e;
   border-radius: 6px;
   text-align: center;
   color: #4ecdc4;
@@ -2003,7 +2066,7 @@ button:disabled:hover {
 .advance-day-button {
   margin-bottom: 20px;
   background: #4ecdc4;
-  color: #1a1a2e;
+  color: #0a0a12;
 }
 
 .advance-day-button:hover {
@@ -2023,26 +2086,31 @@ button:disabled:hover {
 }
 
 .quest-card {
-  background: #0f3460;
+  background: #12121e;
   border-radius: 8px;
   padding: 16px;
   border: 2px solid transparent;
-  transition: border-color 0.2s;
+  transition: border-color 0.2s ease;
+  cursor: pointer;
 }
 
 .quest-card:not(.disabled):hover {
-  border-color: #e94560;
+  border-color: rgba(212, 133, 10, 0.5);
+}
+
+.quest-card.quest-card-expanded {
+  border-color: #d4850a;
 }
 
 .quest-card.disabled {
   opacity: 0.6;
-  background: #1a2640;
+  background: #12121e;
 }
 
 .quest-title {
   font-size: 18px;
   font-weight: bold;
-  color: #e94560;
+  color: #d4850a;
   margin-bottom: 8px;
 }
 
@@ -2070,7 +2138,7 @@ button:disabled:hover {
 .accept-quest-button {
   width: 100%;
   background: #4ecdc4;
-  color: #1a1a2e;
+  color: #0a0a12;
 }
 
 .accept-quest-button:hover {
@@ -2088,13 +2156,40 @@ button:disabled:hover {
   display: none;
 }
 
+/* Job filter bar (work tab) */
+.job-filter-bar {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+
+/* Quest card collapsible header */
+.quest-card-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  margin-bottom: 8px;
+}
+
+.quest-type-badge {
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: bold;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
 .active-contract,
 .paused-contract {
   padding: 16px 0;
 }
 
 .contract-summary {
-  background: #0f3460;
+  background: #12121e;
   border-radius: 8px;
   padding: 16px;
   margin-bottom: 20px;
@@ -2123,7 +2218,7 @@ button:disabled:hover {
 }
 
 .flight-status {
-  background: #0f3460;
+  background: #12121e;
   border-radius: 8px;
   padding: 16px;
   margin-bottom: 20px;
@@ -2155,19 +2250,19 @@ button:disabled:hover {
 
 .progress-bar .bar {
   height: 20px;
-  background: #1a2640;
+  background: #12121e;
   border-radius: 10px;
   overflow: hidden;
 }
 
 .progress-bar .fill {
   height: 100%;
-  background: linear-gradient(90deg, #4ecdc4 0%, #e94560 100%);
+  background: linear-gradient(90deg, #4ecdc4 0%, #d4850a 100%);
   transition: width 0.3s;
 }
 
 .fuel-gauge {
-  background: #0f3460;
+  background: #12121e;
   border-radius: 8px;
   padding: 16px;
   margin-bottom: 20px;
@@ -2175,7 +2270,7 @@ button:disabled:hover {
 
 .fuel-bar {
   height: 20px;
-  background: #1a2640;
+  background: #12121e;
   border-radius: 10px;
   overflow: hidden;
   margin-top: 8px;
@@ -2302,7 +2397,7 @@ button:disabled:hover {
 
 .action-confirm-btn--primary {
   background: #4ecdc4;
-  color: #1a1a2e;
+  color: #0a0a12;
 }
 
 .action-confirm-btn--primary:hover {
@@ -2311,7 +2406,7 @@ button:disabled:hover {
 
 .action-confirm-btn--caution {
   background: #ffa500;
-  color: #1a1a2e;
+  color: #0a0a12;
 }
 
 .action-confirm-btn--caution:hover {
@@ -2382,7 +2477,7 @@ button:disabled:hover {
 .resume-button {
   flex: 1;
   background: #4ecdc4;
-  color: #1a1a2e;
+  color: #0a0a12;
 }
 
 .dock-button:hover,
@@ -2423,7 +2518,7 @@ button:disabled:hover {
 }
 
 .log-entry {
-  background: #0f3460;
+  background: #12121e;
   border-radius: 6px;
   padding: 12px;
   display: flex;
@@ -2469,7 +2564,7 @@ button:disabled:hover {
 /* Cargo Progress Bar */
 .cargo-progress-bar {
   height: 8px;
-  background: #1a2640;
+  background: #12121e;
   border-radius: 4px;
   overflow: hidden;
   margin-top: 8px;
@@ -2477,7 +2572,7 @@ button:disabled:hover {
 
 .cargo-progress-fill {
   height: 100%;
-  background: linear-gradient(90deg, #4ecdc4 0%, #e94560 80%, #ff6b6b 100%);
+  background: linear-gradient(90deg, #4ecdc4 0%, #d4850a 80%, #ff6b6b 100%);
   transition: width 0.3s;
 }
 
@@ -2503,8 +2598,8 @@ button:disabled:hover {
 }
 
 .threat-badge.threat-danger {
-  background: rgba(233, 69, 96, 0.15);
-  border: 1px solid rgba(233, 69, 96, 0.3);
+  background: rgba(255, 107, 107, 0.15);
+  border: 1px solid rgba(255, 107, 107, 0.3);
 }
 
 .threat-badge.threat-critical {
@@ -2527,7 +2622,7 @@ button:disabled:hover {
 }
 
 .threat-badge.threat-danger .threat-label {
-  color: #e94560;
+  color: #ff6b6b;
 }
 
 .threat-badge.threat-critical .threat-label {
@@ -2586,7 +2681,7 @@ button:disabled:hover {
 }
 
 .regional-status.threat-danger {
-  color: #e94560;
+  color: #ff6b6b;
 }
 
 .regional-status.threat-critical {
@@ -2595,8 +2690,8 @@ button:disabled:hover {
 
 /* Catch-up Report */
 .catchup-report {
-  background: #16213e;
-  border: 2px solid #0f3460;
+  background: #0d0d18;
+  border: 2px solid #12121e;
   border-radius: 8px;
   padding: 24px;
 }
@@ -2605,13 +2700,13 @@ button:disabled:hover {
   text-align: center;
   margin-bottom: 20px;
   padding-bottom: 16px;
-  border-bottom: 1px solid #0f3460;
+  border-bottom: 1px solid #12121e;
 }
 
 .catchup-header h3 {
   margin: 0 0 8px;
   font-size: 20px;
-  color: #e94560;
+  color: #d4850a;
 }
 
 .catchup-duration {
@@ -2627,7 +2722,7 @@ button:disabled:hover {
   padding: 12px;
   background: rgba(255, 255, 255, 0.03);
   border-radius: 6px;
-  border: 1px solid #0f3460;
+  border: 1px solid #12121e;
 }
 
 .catchup-progress-line {
@@ -2654,7 +2749,7 @@ button:disabled:hover {
   background: rgba(255, 255, 255, 0.03);
   border-radius: 6px;
   padding: 12px;
-  border: 1px solid #0f3460;
+  border: 1px solid #12121e;
 }
 
 .catchup-ship-name {
@@ -2675,7 +2770,7 @@ button:disabled:hover {
   background: rgba(255, 255, 255, 0.03);
   border-radius: 6px;
   padding: 12px;
-  border: 1px solid #0f3460;
+  border: 1px solid #12121e;
   margin-bottom: 20px;
   font-size: 13px;
   display: flex;
@@ -2690,7 +2785,7 @@ button:disabled:hover {
   font-size: 14px;
   font-weight: 600;
   background: #4ecdc4;
-  color: #1a1a2e;
+  color: #0a0a12;
   border: none;
   border-radius: 6px;
   cursor: pointer;
@@ -2736,14 +2831,6 @@ button:disabled:hover {
   background: rgba(0, 0, 0, 0.5);
 }
 
-/* Header flight progress bar */
-.header-flight-progress {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  margin-left: 12px;
-}
-
 /* Day progress bar */
 .day-progress-bar {
   width: 100%;
@@ -2770,6 +2857,19 @@ button:disabled:hover {
   margin-bottom: 0.5rem;
 }
 
+.fleet-panel--compact {
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid #444;
+  border-radius: 0;
+  padding: 0 0 12px 0;
+  margin-bottom: 16px;
+}
+
+.fleet-panel--compact .fleet-panel-title {
+  display: none;
+}
+
 .fleet-panel-title {
   font-size: 0.9rem;
   font-weight: bold;
@@ -2786,6 +2886,12 @@ button:disabled:hover {
   cursor: pointer;
   transition: background 0.2s;
   font-size: 0.85rem;
+}
+
+.fleet-row--compact {
+  padding: 6px 8px;
+  align-items: flex-start;
+  min-height: auto;
 }
 
 .fleet-row.active {
@@ -2810,12 +2916,23 @@ button:disabled:hover {
   margin-top: 5px;
 }
 
+.fleet-row--compact .fleet-row-indicator {
+  margin-top: 6px;
+  width: 6px;
+  height: 6px;
+}
+
 .fleet-row-content {
   flex: 1;
   min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
+}
+
+.fleet-row--compact .fleet-row-content {
+  flex-direction: column;
+  gap: 3px;
 }
 
 .fleet-row-top {
@@ -2825,14 +2942,33 @@ button:disabled:hover {
   flex-wrap: wrap;
 }
 
+.fleet-row--compact .fleet-row-top {
+  flex-wrap: nowrap;
+  min-width: 0;
+  justify-content: space-between;
+}
+
 .fleet-row-tier {
   font-size: 0.75rem;
   font-weight: bold;
   opacity: 0.8;
 }
 
+.fleet-row--compact .fleet-row-tier {
+  display: none;
+}
+
 .fleet-row-name {
   font-weight: bold;
+}
+
+.fleet-row--compact .fleet-row-name {
+  font-size: 0.8rem;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .fleet-row-activity {
@@ -2843,24 +2979,65 @@ button:disabled:hover {
   white-space: nowrap;
 }
 
+.fleet-row--compact .fleet-row-top .fleet-row-activity {
+  display: none;
+}
+
+.fleet-row--compact .fleet-row-compact-2 .fleet-row-activity {
+  flex-shrink: 0;
+  font-size: 0.65rem;
+  padding: 1px 5px;
+}
+
+.fleet-row-command {
+  font-size: 0.75em;
+  margin-left: 4px;
+  font-weight: bold;
+}
+
+.fleet-row--compact .fleet-row-command {
+  display: none;
+}
+
 .fleet-row-bottom {
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   color: #aaa;
   font-size: 0.8rem;
+}
+
+.fleet-row--compact .fleet-row-bottom {
+  display: none;
 }
 
 .fleet-row-location {
   flex: 1;
   min-width: 0;
   text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .fleet-row-stat {
   white-space: nowrap;
   text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.fleet-row-stat-fuel {
+  min-width: 105px;
+}
+.fleet-row-stat-crew {
+  min-width: 68px;
+}
+.fleet-row-stat-equip {
+  min-width: 68px;
+}
+.fleet-row-stat-range {
+  min-width: 92px;
 }
 
 .fleet-row-flight {
@@ -2868,7 +3045,8 @@ button:disabled:hover {
   align-items: center;
   gap: 4px;
   width: 100%;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  overflow: hidden;
 }
 
 .fleet-row-minibar {
@@ -2890,6 +3068,58 @@ button:disabled:hover {
 
 .fleet-row-flight-pct {
   font-size: 0.8rem;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* Compact mode: Row 2 (activity + location) */
+.fleet-row-compact-2 {
+  display: none; /* Hidden by default, shown in compact mode */
+  align-items: center;
+  gap: 6px;
+  font-size: 0.7rem;
+  color: #888;
+  flex-wrap: nowrap;
+  min-width: 0;
+}
+
+.fleet-row--compact .fleet-row-compact-2 {
+  display: flex;
+}
+
+/* In full mode, hide compact rows */
+.fleet-row:not(.fleet-row--compact) .fleet-row-compact-2,
+.fleet-row:not(.fleet-row--compact) .fleet-row-compact-3 {
+  display: none !important;
+}
+
+/* Compact mode: Row 3 (progress bar + ETA) */
+.fleet-row-compact-3 {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.65rem;
+  color: #777;
+}
+
+.fleet-row-progress-bar {
+  flex: 1;
+  height: 5px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.fleet-row-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #4a9eff 0%, #4ecdc4 50%, #ffd700 100%);
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+.fleet-row-eta {
+  font-size: 0.65rem;
+  color: #888;
   white-space: nowrap;
   flex-shrink: 0;
 }
@@ -2930,7 +3160,7 @@ button:disabled:hover {
   align-items: center;
   gap: 0.75rem;
   padding: 1rem 1.25rem;
-  background: rgba(22, 33, 62, 0.95);
+  background: rgba(13, 13, 24, 0.95);
   border: 2px solid;
   border-radius: 8px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
@@ -3021,28 +3251,6 @@ button:disabled:hover {
   }
 }
 
-/* Credit Delta Animation */
-@keyframes credit-delta-float {
-  0% {
-    opacity: 0;
-    transform: translateY(0);
-  }
-  10% {
-    opacity: 1;
-  }
-  90% {
-    opacity: 1;
-  }
-  100% {
-    opacity: 0;
-    transform: translateY(-10px);
-  }
-}
-
-.credit-delta {
-  pointer-events: none;
-}
-
 /* Tab Badges */
 .tab-badge {
   position: absolute;
@@ -3070,6 +3278,17 @@ button:disabled:hover {
   }
 }
 
+@keyframes credit-delta-float {
+  0% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+}
+
 @keyframes mining-pulse {
   0%,
   100% {
@@ -3078,19 +3297,6 @@ button:disabled:hover {
   50% {
     opacity: 0.5;
   }
-}
-
-/* Stats Display */
-.stat-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0.5rem 0;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.stat-row:last-child {
-  border-bottom: none;
 }
 
 .stat-label {
@@ -3155,16 +3361,16 @@ button:disabled:hover {
 
 .gamepedia-title {
   margin: 0 0 4px 0;
-  color: #e94560;
+  color: #d4850a;
   font-size: 18px;
 }
 
 .gamepedia-search {
   width: 100%;
   padding: 10px 12px;
-  border: 1px solid #0f3460;
+  border: 1px solid #12121e;
   border-radius: 6px;
-  background: #1a1a2e;
+  background: #0a0a12;
   color: #fff;
   font-size: 14px;
 }
@@ -3247,8 +3453,8 @@ button:disabled:hover {
 }
 
 .gamepedia-topic-item.selected {
-  background: rgba(233, 69, 96, 0.1);
-  border-color: #e94560;
+  background: rgba(212, 133, 10, 0.1);
+  border-color: #d4850a;
 }
 
 .gamepedia-topic-title {
@@ -3273,12 +3479,13 @@ button:disabled:hover {
 /* Main article area */
 .gamepedia-main {
   flex: 1;
-  background: #1a1a2e;
+  background: #0a0a12;
   border-radius: 8px;
   padding: 24px;
   overflow-y: auto;
   max-height: calc(100vh - 200px);
-  border: 1px solid #0f3460;
+  border: 1px solid #12121e;
+  min-width: 0;
 }
 
 .gamepedia-welcome {
@@ -3288,7 +3495,7 @@ button:disabled:hover {
 }
 
 .gamepedia-welcome h2 {
-  color: #e94560;
+  color: #d4850a;
   margin: 0 0 4px 0;
   font-size: 24px;
 }
@@ -3349,7 +3556,7 @@ button:disabled:hover {
 
 /* Article content */
 .gamepedia-article-title {
-  color: #e94560;
+  color: #d4850a;
   margin: 0 0 8px 0;
   font-size: 22px;
 }
@@ -3360,7 +3567,8 @@ button:disabled:hover {
   line-height: 1.5;
   margin: 0 0 20px 0;
   padding-bottom: 16px;
-  border-bottom: 1px solid #0f3460;
+  border-bottom: 1px solid #12121e;
+  overflow-wrap: break-word;
 }
 
 .gamepedia-section-heading {
@@ -3374,6 +3582,7 @@ button:disabled:hover {
   font-size: 14px;
   line-height: 1.6;
   margin: 0 0 10px 0;
+  overflow-wrap: break-word;
 }
 
 /* Tables */
@@ -3382,6 +3591,8 @@ button:disabled:hover {
   border-collapse: collapse;
   margin: 12px 0 20px 0;
   font-size: 13px;
+  display: block;
+  overflow-x: auto;
 }
 
 .gamepedia-table th {
@@ -3390,13 +3601,15 @@ button:disabled:hover {
   background: rgba(74, 158, 255, 0.1);
   color: #4a9eff;
   font-weight: 600;
-  border-bottom: 2px solid #0f3460;
+  border-bottom: 2px solid #12121e;
+  word-break: break-word;
 }
 
 .gamepedia-table td {
   padding: 8px 12px;
   color: #ccc;
   border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  word-break: break-word;
 }
 
 .gamepedia-table tr:hover td {
@@ -3407,7 +3620,7 @@ button:disabled:hover {
 .gamepedia-related {
   margin-top: 32px;
   padding-top: 20px;
-  border-top: 1px solid #0f3460;
+  border-top: 1px solid #12121e;
   font-size: 13px;
   line-height: 1.8;
 }
@@ -3432,6 +3645,11 @@ button:disabled:hover {
   color: #6db3ff;
   text-decoration-color: #6db3ff;
   background: none;
+}
+
+/* Gamepedia mobile header (back button) */
+.gamepedia-mobile-header {
+  display: none; /* Hidden on desktop */
 }
 
 /* ==========================================
@@ -3462,6 +3680,10 @@ button:disabled:hover {
 
   .right-sidebar {
     display: none;
+  }
+
+  .ship-header {
+    display: block;
   }
 }
 
@@ -3687,7 +3909,7 @@ button:disabled:hover {
     bottom: 0;
     width: 280px;
     max-width: 85vw;
-    background: #16213e;
+    background: #0d0d18;
     z-index: 9999;
     transform: translateX(-100%);
     transition: transform 0.3s ease;
@@ -3788,11 +4010,6 @@ button:disabled:hover {
     gap: 1rem;
   }
 
-  /* Ship name smaller */
-  .ship-name {
-    font-size: 22px;
-  }
-
   /* Ship status banner: stack on narrow */
   .ship-status-banner {
     flex-direction: column;
@@ -3842,6 +4059,10 @@ button:disabled:hover {
     background: rgba(255, 255, 255, 0.05);
   }
 
+  .quest-card-header {
+    flex-wrap: wrap;
+  }
+
   .quest-details {
     order: 6;
     margin-top: 8px;
@@ -3871,6 +4092,10 @@ button:disabled:hover {
   .game-header h1 {
     font-size: 22px;
     margin-bottom: 12px;
+  }
+
+  .game-header img {
+    max-height: 60px;
   }
 
   /* Staging crew: stack assign dropdown */
@@ -3912,35 +4137,6 @@ button:disabled:hover {
     flex-direction: column;
   }
 
-  /* Global status bar: stack vertically */
-  .global-status-bar {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 0.75rem;
-  }
-
-  .global-status-stats {
-    gap: 1rem;
-    font-size: 13px;
-  }
-
-  .global-status-actions {
-    flex-wrap: wrap;
-    gap: 0.5rem;
-  }
-
-  .global-status-text {
-    width: 100%;
-    margin-right: 0;
-    margin-bottom: 0.25rem;
-  }
-
-  .global-status-btn {
-    flex: 1;
-    min-width: 0;
-    text-align: center;
-  }
-
   /* Prevent horizontal overflow */
   .game-container {
     overflow-x: hidden;
@@ -3954,9 +4150,6 @@ button:disabled:hover {
   }
 
   /* Ship header text: prevent overflow */
-  .ship-name,
-  .ship-class-label,
-  .captain-label,
   .date-header-global {
     overflow: hidden;
     text-overflow: ellipsis;
@@ -3969,23 +4162,33 @@ button:disabled:hover {
     grid-template-columns: 1fr;
   }
 
-  /* Prevent any child from exceeding viewport */
-  .main-content {
-    min-width: 0;
-    max-height: none;
-    overflow-x: hidden;
-    overflow-y: visible;
-  }
-
   /* Fleet row: location on its own line, stats wrap below */
   .fleet-row-location {
     flex-basis: 100%;
+  }
+
+  .fleet-row-bottom {
+    flex-wrap: wrap;
+  }
+
+  .fleet-row-stat {
+    min-width: 0;
   }
 
   .fleet-row-activity {
     overflow: hidden;
     text-overflow: ellipsis;
     max-width: 60vw;
+  }
+
+  /* Compact fleet rows stay compact at all sizes */
+  .fleet-row--compact .fleet-row-bottom {
+    display: none;
+  }
+
+  .fleet-row--compact .fleet-row-activity {
+    font-size: 0.7rem;
+    max-width: none;
   }
 
   /* Reachability matrix: horizontal scroll on narrow screens */
@@ -3999,14 +4202,21 @@ button:disabled:hover {
     grid-template-columns: 1fr;
   }
 
-  /* Gamepedia: stack sidebar above content */
+  /* Gamepedia: fullscreen overlay on mobile */
   .gamepedia-tab {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    background: #0a0a12;
+    padding: 16px;
     flex-direction: column;
     min-height: auto;
+    overflow-y: auto;
   }
 
   .gamepedia-sidebar {
     width: 100%;
+    flex-shrink: 0;
   }
 
   .gamepedia-topic-list {
@@ -4015,11 +4225,51 @@ button:disabled:hover {
 
   .gamepedia-main {
     max-height: none;
+    flex: 1;
+    overflow-y: auto;
+  }
+
+  /* Show mobile back button */
+  .gamepedia-mobile-header {
+    display: block;
+    margin-bottom: 12px;
+  }
+
+  .gamepedia-back-btn {
+    background: rgba(74, 158, 255, 0.2);
+    border: 1px solid #4a9eff;
+    color: #4a9eff;
+    padding: 10px 14px;
+    font-size: 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    width: 100%;
+    font-weight: 600;
+  }
+
+  .gamepedia-back-btn:hover {
+    background: rgba(74, 158, 255, 0.3);
   }
 }
 
 /* --- Phone: <= 600px --- */
 @media (max-width: 600px) {
+  .getting-started-banner {
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 8px 12px;
+  }
+
+  .getting-started-banner-text {
+    font-size: 13px;
+    flex-basis: calc(100% - 32px);
+  }
+
+  .getting-started-banner-dismiss {
+    order: -1;
+    margin-left: auto;
+  }
+
   /* Reduce body and container padding */
   body {
     padding: 8px;
@@ -4034,6 +4284,10 @@ button:disabled:hover {
   .game-header h1 {
     font-size: 18px;
     margin-bottom: 8px;
+  }
+
+  .game-header img {
+    max-height: 50px;
   }
 
   /* Mobile header bar: tighter */
@@ -4099,14 +4353,20 @@ button:disabled:hover {
     grid-template-columns: 1fr;
   }
 
-  /* Ship name */
-  .ship-name {
-    font-size: 18px;
-  }
-
   /* Nav map: larger on mobile for readability */
   .nav-map {
     height: min(350px, 50vh);
+  }
+
+  /* Selection overlay: full width on mobile */
+  .nav-selection-overlay {
+    bottom: 32px;
+    left: 4px;
+    right: 4px;
+  }
+
+  .nav-selection-overlay-content {
+    max-height: 160px;
   }
 
   /* Quest cards: tighter */
@@ -4177,6 +4437,11 @@ button:disabled:hover {
     gap: 8px;
   }
 
+  /* Wizard: ensure scrollable on mobile */
+  .wizard {
+    padding: 16px;
+  }
+
   /* Catch-up report tighter */
   .catchup-report {
     padding: 16px;
@@ -4212,6 +4477,7 @@ button:disabled:hover {
   .fleet-row-bottom {
     gap: 0.4rem;
     font-size: 0.7rem;
+    flex-wrap: wrap;
   }
 
   .fleet-row-location {
@@ -4220,6 +4486,7 @@ button:disabled:hover {
 
   .fleet-row-stat {
     font-size: 0.65rem;
+    min-width: 0;
   }
 
   .fleet-row-activity {
@@ -4235,6 +4502,20 @@ button:disabled:hover {
   .fleet-row-flight-pct {
     white-space: normal;
     flex-shrink: 1;
+  }
+
+  /* Compact fleet rows stay compact on mobile */
+  .fleet-row--compact {
+    padding: 0.3rem 0.4rem;
+    font-size: 0.75rem;
+  }
+
+  .fleet-row--compact .fleet-row-name {
+    font-size: 0.75rem;
+  }
+
+  .fleet-row--compact .fleet-row-activity {
+    font-size: 0.65rem;
   }
 
   /* Version badge: smaller */
@@ -4296,17 +4577,6 @@ button:disabled:hover {
     gap: 8px;
   }
 
-  /* Global status bar: even more compact */
-  .global-status-stats {
-    gap: 0.75rem;
-    font-size: 12px;
-  }
-
-  .global-status-btn {
-    padding: 0.4rem 0.75rem;
-    font-size: 12px;
-  }
-
   /* Gamepedia: compact on phone */
   .gamepedia-main {
     padding: 16px;
@@ -4336,6 +4606,10 @@ button:disabled:hover {
   .gamepedia-cat-btn {
     padding: 3px 6px;
     font-size: 10px;
+  }
+
+  .gamepedia-topic-list {
+    max-height: 150px;
   }
 
   /* Ensure no horizontal scroll */

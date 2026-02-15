@@ -9,8 +9,14 @@ import {
   MAX_PROVISION_DAYS,
   getEffectiveConsumptionPerCrewPerDay,
 } from './provisionsSystem';
-import { getLocationPosition, solveIntercept } from './orbitalMechanics';
+import {
+  getLocationPosition,
+  solveIntercept,
+  lerpVec2,
+} from './orbitalMechanics';
 import { scanForGravityAssists } from './gravityAssistSystem';
+import { getCrewEquipmentDefinition } from './crewEquipment';
+import { getOreDefinition } from './oreTypes';
 
 /**
  * Flight Physics
@@ -26,24 +32,80 @@ import { scanForGravityAssists } from './gravityAssistSystem';
 const G0 = 9.81; // m/s²
 
 /**
+ * Walk up the orbital parent chain from a location until we find
+ * the body with parentId=null — the cluster owner. For Gateway
+ * (parentId='earth') this returns Earth. For Earth (parentId=null)
+ * this returns Earth itself.
+ */
+export function findClusterOwner(
+  loc: WorldLocation,
+  world: World
+): WorldLocation {
+  let current = loc;
+  while (current.orbital?.parentId) {
+    const parent = world.locations.find(
+      (l) => l.id === current.orbital!.parentId
+    );
+    if (!parent) break;
+    current = parent;
+  }
+  return current;
+}
+
+/**
  * Shared mass constants used across flight physics, quest generation,
  * and fleet analytics. Centralised here to avoid divergent copies.
  */
 export const CREW_MASS_KG = 80; // ~80 kg per crew member
-export const CARGO_ITEM_MASS_KG = 10; // ~10 kg per cargo item (will be refined later)
+
+/**
+ * Calculate the total weight of crew equipment items in the cargo hold,
+ * using each item's actual weight from its definition.
+ */
+export function getCrewEquipmentCargoWeight(ship: Ship): number {
+  let weight = 0;
+  for (const item of ship.cargo) {
+    const def = getCrewEquipmentDefinition(item.definitionId);
+    weight += def.weight;
+  }
+  return weight;
+}
+
+/**
+ * Calculate the current ore cargo weight on a ship.
+ */
+export function getOreCargoWeight(ship: Ship): number {
+  let weight = 0;
+  for (const item of ship.oreCargo) {
+    const ore = getOreDefinition(item.oreId);
+    weight += ore.weightPerUnit * item.quantity;
+  }
+  return weight;
+}
+
+/**
+ * Calculate the total weight of everything in the cargo hold:
+ * crew equipment + ore + provisions.
+ *
+ * This is the single source of truth for cargo hold usage.
+ */
+export function getCargoUsedKg(ship: Ship): number {
+  return (
+    getCrewEquipmentCargoWeight(ship) +
+    getOreCargoWeight(ship) +
+    (ship.provisionsKg || 0)
+  );
+}
 
 /**
  * Calculate the dry mass of a ship — everything except fuel.
- * Includes hull, crew, cargo, and provisions.
+ * Includes hull, crew, and all cargo hold contents (equipment, ore, provisions).
  */
 export function calculateDryMass(ship: Ship): number {
   const shipClass = getShipClass(ship.classId);
   if (!shipClass) return 200000; // fallback for unknown class
   return (
-    shipClass.mass +
-    ship.crew.length * CREW_MASS_KG +
-    ship.cargo.reduce((sum) => sum + CARGO_ITEM_MASS_KG, 0) +
-    (ship.provisionsKg || 0)
+    shipClass.mass + ship.crew.length * CREW_MASS_KG + getCargoUsedKg(ship)
   );
 }
 
@@ -58,25 +120,14 @@ export function calculateFuelTankCapacity(shipClass: ShipClass): number {
 }
 
 /**
- * Calculate available cargo capacity for a ship class.
- * With fuel in dedicated tanks, the full cargoCapacity is available
- * for cargo and provisions. Provisions mass is subtracted separately
- * by calculateShipAvailableCargo() for per-ship calculations.
- */
-export function calculateAvailableCargoCapacity(cargoCapacity: number): number {
-  return cargoCapacity;
-}
-
-/**
  * Calculate available cargo capacity for a specific ship, after subtracting
- * provisions mass from the cargo hold. This is what's actually available
- * for quest cargo.
+ * all current cargo hold contents (provisions, crew equipment, ore).
+ * This is what's actually available for quest cargo.
  */
 export function calculateShipAvailableCargo(ship: Ship): number {
   const shipClass = getShipClass(ship.classId);
   if (!shipClass) return 0;
-  const totalCargo = calculateAvailableCargoCapacity(shipClass.cargoCapacity);
-  return Math.max(0, totalCargo - (ship.provisionsKg || 0));
+  return Math.max(0, shipClass.cargoCapacity - getCargoUsedKg(ship));
 }
 
 /**
@@ -338,6 +389,56 @@ export interface OrbitalFlightOptions {
 }
 
 /**
+ * Estimate flight duration in ticks for a given ship and distance,
+ * without starting a flight. Uses the same burn-coast-burn physics as
+ * initializeFlight() and includes engine warmup time.
+ *
+ * Used by mining route provisions checks to determine if there's enough
+ * food for the return trip.
+ */
+export function estimateFlightDurationTicks(
+  ship: Ship,
+  distanceKm: number,
+  burnFraction: number = 1.0
+): number {
+  const engineDef = getEngineDefinition(ship.engine.definitionId);
+  const shipClass = getShipClass(ship.classId);
+  if (!shipClass) return Infinity;
+
+  const clampedBurnFraction = Math.max(0.1, Math.min(1.0, burnFraction));
+  const currentMass = getCurrentShipMass(ship);
+  const dryMass = calculateDryMass(ship);
+  const thrust = engineDef.thrust;
+  const specificImpulse = getSpecificImpulse(engineDef);
+
+  const availableDeltaV = calculateDeltaV(
+    currentMass,
+    dryMass,
+    specificImpulse
+  );
+  const maxAllocatedDeltaV = Math.min(
+    availableDeltaV * 0.5,
+    0.5 * engineDef.maxDeltaV
+  );
+  const allocatedDeltaV = maxAllocatedDeltaV * clampedBurnFraction;
+
+  const initialAcceleration = thrust / currentMass;
+  const distanceMeters = distanceKm * 1000;
+
+  const { totalTime } = computeFlightTiming(
+    distanceMeters,
+    initialAcceleration,
+    allocatedDeltaV
+  );
+
+  // Convert flight time to ticks and add engine warmup
+  const flightTicks = Math.ceil(totalTime / GAME_SECONDS_PER_TICK);
+  const warmupTicks = Math.ceil(100 / engineDef.warmupRate);
+
+  return flightTicks + warmupTicks;
+}
+
+/**
  * Initialize a new flight from origin to destination.
  * Uses current ship mass (including fuel) for acceleration calculations.
  *
@@ -404,8 +505,28 @@ export function initializeFlight(
     // computes both positions at the same future time. This cancels out
     // common orbital motion for co-orbiting bodies (e.g. LEO station → Earth).
     const originForSolver = orbital.originPos ? undefined : origin;
+    const isRedirect = !!orbital.originPos;
+
+    // For redirects, co-move the free-space origin with the destination's
+    // cluster owner (walk up parentId chain until parentId=null). Without
+    // co-movement, the solver diverges: the fixed heliocentric origin drifts
+    // away as the cluster owner orbits the Sun.
+    let originParentForSolver: WorldLocation | undefined;
+    if (isRedirect) {
+      originParentForSolver = findClusterOwner(destination, orbital.world);
+    }
+
+    // Engine warmup delay: the ship doesn't start flying until warmup completes.
+    // On the tick that warmup finishes, the first advanceFlight also runs,
+    // so the effective delay is (warmupTicks - 1) ticks.
+    // Redirects skip warmup (engine already online).
+    const warmupDelaySeconds = isRedirect
+      ? 0
+      : Math.max(0, Math.ceil(100 / engineDef.warmupRate) - 1) *
+        GAME_SECONDS_PER_TICK;
 
     // Solve intercept: where will the destination be when we arrive?
+    // Include warmup delay so the solver targets the correct future position.
     const interceptResult = solveIntercept(
       flightOriginPos,
       destination,
@@ -416,19 +537,20 @@ export function initializeFlight(
           initialAcceleration,
           allocatedDeltaV
         );
-        return timing.totalTime;
+        return warmupDelaySeconds + timing.totalTime;
       },
       orbital.gameTime,
       orbital.world,
       10,
-      originForSolver
+      { origin: originForSolver, originParent: originParentForSolver }
     );
 
     distanceKm = interceptResult.travelDistanceKm;
     flightInterceptPos = interceptResult.interceptPos;
-    // Use co-moving origin position so originPos and interceptPos share
-    // the same time reference, keeping the interpolated path correct.
-    flightOriginPos = interceptResult.originPosAtArrival;
+    // Keep originPos at launch time (not arrival time). The origin is where
+    // the ship actually departs from. The intercept solver also returns
+    // originPosAtArrival for co-moving reference, but using that places
+    // the origin on the wrong side of the parent body after fast orbits.
     estimatedArrivalGameTime = interceptResult.arrivalGameTime;
   } else {
     // Legacy: use static distance
@@ -500,10 +622,7 @@ export function initializeFlight(
     interceptPos: flightInterceptPos,
     shipPos: flightOriginPos ? { ...flightOriginPos } : undefined,
     estimatedArrivalGameTime,
-    // Set for normal flights (origin is a real body whose position can be
-    // recomputed at any time). Left undefined for redirects where the origin
-    // is a fixed point in space. The caller (redirectShipFlight) clears this.
-    originBodyId: origin.id,
+    departureGameTime: orbital?.gameTime,
     gravityAssists,
   };
 }
@@ -573,9 +692,66 @@ export function redirectShipFlight(
     id: ship.activeFlightPlan?.origin ?? '',
   } as WorldLocation;
 
-  // shipPos is always in current-time coordinates (updated every tick by
-  // updateFlightPosition in gameTick.ts), so we can use it directly.
-  const currentShipPos = ship.activeFlightPlan?.shipPos;
+  // shipPos is computed via heliocentric lerp (originPos→interceptPos), which
+  // diverges from the actual position for intra-cluster flights: originPos and
+  // interceptPos are frozen at departure/arrival times, so the lerp traces the
+  // chord of the parent body's solar orbit rather than a local path between the
+  // two endpoints. To fix this, interpolate in the cluster's local frame and
+  // convert back to heliocentric at the current time.
+  const fp = ship.activeFlightPlan;
+  let currentShipPos = fp?.shipPos;
+
+  if (
+    fp?.originPos &&
+    fp.interceptPos &&
+    fp.departureGameTime != null &&
+    fp.estimatedArrivalGameTime != null &&
+    world &&
+    gameTime != null
+  ) {
+    const progress =
+      fp.totalDistance > 0
+        ? Math.min(1, fp.distanceCovered / fp.totalDistance)
+        : 0;
+
+    // Find the cluster owner (top-level body both endpoints orbit)
+    const destLoc = world.locations.find((l) => l.id === fp.destination);
+    const origLoc = world.locations.find((l) => l.id === fp.origin);
+    const refLoc = destLoc ?? origLoc;
+    if (refLoc) {
+      const clusterOwner = findClusterOwner(refLoc, world);
+      const parentAtDep = getLocationPosition(
+        clusterOwner,
+        fp.departureGameTime,
+        world
+      );
+      const parentAtArr = getLocationPosition(
+        clusterOwner,
+        fp.estimatedArrivalGameTime,
+        world
+      );
+
+      // Convert heliocentric endpoints to local-frame (relative to parent)
+      const originLocal = {
+        x: fp.originPos.x - parentAtDep.x,
+        y: fp.originPos.y - parentAtDep.y,
+      };
+      const interceptLocal = {
+        x: fp.interceptPos.x - parentAtArr.x,
+        y: fp.interceptPos.y - parentAtArr.y,
+      };
+
+      // Interpolate in local frame
+      const shipLocal = lerpVec2(originLocal, interceptLocal, progress);
+
+      // Convert back to heliocentric at CURRENT time
+      const parentNow = getLocationPosition(clusterOwner, gameTime, world);
+      currentShipPos = {
+        x: parentNow.x + shipLocal.x,
+        y: parentNow.y + shipLocal.y,
+      };
+    }
+  }
 
   ship.activeFlightPlan = initializeFlight(
     ship,
@@ -590,9 +766,6 @@ export function redirectShipFlight(
 
   // Override originKm to the exact interpolated position
   ship.activeFlightPlan.originKm = currentKm;
-
-  // Mark as a redirect: origin is a point in space, not a real body
-  ship.activeFlightPlan.originBodyId = undefined;
 
   // Engine is already running — no warmup needed
   if (ship.engine.state !== 'online') {
@@ -748,17 +921,6 @@ export function advanceFlight(flight: FlightState): boolean {
         0.5 * flight.acceleration * timeIntoDecel * timeIntoDecel;
       flight.distanceCovered = accelDistance + coastDistance + decelDistance;
     }
-  }
-
-  // Safety: if distance covered meets or exceeds totalDistance (e.g. after a
-  // course correction reduced totalDistance mid-flight), complete immediately.
-  // This prevents ships from being stuck for the original (stale) totalTime
-  // while crew starves.
-  if (flight.distanceCovered >= flight.totalDistance) {
-    flight.distanceCovered = flight.totalDistance;
-    flight.currentVelocity = 0;
-    flight.phase = 'decelerating';
-    return true;
   }
 
   // 2D ship position (shipPos) is updated externally by updateFlightPosition()

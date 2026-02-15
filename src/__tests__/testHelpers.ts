@@ -71,6 +71,8 @@ export function createTestEquipment(
     id: uid(),
     definitionId: 'life_support',
     degradation: 0,
+    powered: true,
+    powerMode: 'auto',
     ...overrides,
   };
 }
@@ -168,7 +170,6 @@ export function createTestShip(overrides: Partial<Ship> = {}): Ship {
     oreCargo: [],
     miningAccumulator: {},
     activeContract: null,
-    routeAssignment: null,
     miningRoute: null,
     activeFlightPlan: createTestFlight(),
     metrics: {

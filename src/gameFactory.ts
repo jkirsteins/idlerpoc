@@ -11,6 +11,7 @@ import type {
   CrewEquipmentInstance,
   EquipmentSlotDef,
 } from './models';
+import { createDefaultFinancials } from './models';
 import { getShipClass } from './shipClasses';
 import { CURRENT_SAVE_VERSION } from './storage';
 import { generateCrewName } from './names';
@@ -41,6 +42,8 @@ function createEquipmentInstance(definitionId: EquipmentId): EquipmentInstance {
     id: generateId(),
     definitionId,
     degradation: 0,
+    powered: true,
+    powerMode: 'auto',
   };
 }
 
@@ -255,7 +258,6 @@ function createStartingShip(
     oreCargo: [],
     miningAccumulator: {},
     activeContract: null,
-    routeAssignment: null,
     miningRoute: null,
     activeFlightPlan: undefined,
     metrics: {
@@ -321,7 +323,6 @@ export function createAdditionalShip(
     oreCargo: [],
     miningAccumulator: {},
     activeContract: null,
-    routeAssignment: null,
     miningRoute: null,
     activeFlightPlan: undefined,
     metrics: {
@@ -386,5 +387,6 @@ export function createNewGame(
       onCriticalAlert: false,
       onLowFuel: false,
     },
+    financials: createDefaultFinancials(),
   };
 }

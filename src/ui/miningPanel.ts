@@ -35,7 +35,7 @@ import { estimateTripTime } from '../questGen';
 import { getDistanceBetween, canShipAccessLocation } from '../worldGen';
 import { formatCredits, formatMass, formatDistance } from '../formatting';
 export interface MiningPanelCallbacks {
-  onStartMiningRoute: (sellLocationId: string) => void;
+  onStartMiningRoute: (sellLocationId: string, mineLocationId?: string) => void;
   onCancelMiningRoute: () => void;
   onSelectMiningOre: (oreId: string | null) => void;
 }
@@ -359,7 +359,7 @@ export function createMiningPanel(callbacks: MiningPanelCallbacks): {
       r.statusBadge.style.cssText = `${badgeBase} background: rgba(74,158,255,0.15); color: #4a9eff; border: 1px solid #4a9eff;`;
       r.statusBadge.textContent = 'IN TRANSIT';
     } else if (canMineAtAll && remainingKg <= 0) {
-      r.statusBadge.style.cssText = `${badgeBase} background: rgba(233,69,96,0.2); color: #e94560; border: 1px solid #e94560;`;
+      r.statusBadge.style.cssText = `${badgeBase} background: rgba(255,107,107,0.2); color: #ff6b6b; border: 1px solid #ff6b6b;`;
       r.statusBadge.textContent = 'CARGO FULL';
     } else if (isMiningActive) {
       r.statusBadge.style.cssText = `${badgeBase} background: rgba(76,175,80,0.2); color: #4caf50; border: 1px solid #4caf50;`;
@@ -374,12 +374,21 @@ export function createMiningPanel(callbacks: MiningPanelCallbacks): {
 
     // ── Crew nudge ──
     if (!hasEquipment) {
+      const hasMiningBay = ship.rooms.some((r) => r.type === 'mining_bay');
       r.crewNudge.style.display = '';
-      r.crewNudge.style.color = '#e94560';
-      r.crewNudge.style.borderColor = '#e94560';
-      r.crewNudge.style.background = 'rgba(233,69,96,0.1)';
-      r.crewNudge.textContent =
-        'No mining equipment installed. Purchase at a station store.';
+      if (hasMiningBay) {
+        r.crewNudge.style.color = '#e94560';
+        r.crewNudge.style.borderColor = '#e94560';
+        r.crewNudge.style.background = 'rgba(233,69,96,0.1)';
+        r.crewNudge.textContent =
+          'No mining equipment installed. Purchase at a station store.';
+      } else {
+        r.crewNudge.style.color = '#888';
+        r.crewNudge.style.borderColor = '#555';
+        r.crewNudge.style.background = 'rgba(136,136,136,0.1)';
+        r.crewNudge.textContent =
+          'This ship has no mining bay. Upgrade to a Class II vessel to begin mining operations.';
+      }
     } else if (miners.length === 0) {
       r.crewNudge.style.display = '';
       r.crewNudge.style.color = '#ffa500';
@@ -548,7 +557,7 @@ export function createMiningPanel(callbacks: MiningPanelCallbacks): {
     const labelRight = document.createElement('span');
     if (remainingKg <= 0) {
       labelRight.textContent = `${formatMass(oreWeight)} / ${formatMass(maxCargoKg)} \u2014 FULL`;
-      labelRight.style.color = '#e94560';
+      labelRight.style.color = '#ff6b6b';
     } else {
       labelRight.textContent = `${formatMass(oreWeight)} / ${formatMass(maxCargoKg)}`;
       labelRight.style.color = '';
@@ -558,7 +567,7 @@ export function createMiningPanel(callbacks: MiningPanelCallbacks): {
     r.cargoBarLabel.appendChild(labelRight);
 
     const fillColor =
-      cargoPct >= 90 ? '#e94560' : cargoPct >= 70 ? '#ffa500' : '#4caf50';
+      cargoPct >= 90 ? '#ff6b6b' : cargoPct >= 70 ? '#ffa500' : '#4caf50';
     r.cargoBarFill.style.width = `${Math.min(100, cargoPct)}%`;
     r.cargoBarFill.style.backgroundColor = fillColor;
 

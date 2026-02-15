@@ -1,5 +1,5 @@
 import type { GameData, LogEntry, LogEntryType } from '../models';
-import { formatGameDateTime } from '../timeSystem';
+import { formatLogTimestamp } from '../formatting';
 import { MAX_LOG_ENTRIES } from '../logSystem';
 import type { Component } from './component';
 
@@ -19,8 +19,10 @@ export function createLogTab(gameData: GameData): Component {
 
   // --- persistent state ---
   let currentFilter: LogFilter = 'all';
+  let currentShipFilter: string = 'all';
   let lastLogLength = -1;
   let lastFilter: LogFilter | null = null;
+  let lastShipFilter: string | null = null;
   let latestGameData: GameData = gameData;
 
   // --- build DOM once ---
@@ -57,6 +59,23 @@ export function createLogTab(gameData: GameData): Component {
     filterBar.appendChild(btn);
   }
 
+  // Ship filter section separator
+  const shipFilterLabel = document.createElement('span');
+  shipFilterLabel.textContent = '|  Ship:';
+  shipFilterLabel.style.marginLeft = '0.5rem';
+  shipFilterLabel.style.color = '#888';
+  shipFilterLabel.style.display = 'flex';
+  shipFilterLabel.style.alignItems = 'center';
+  shipFilterLabel.style.fontSize = '0.85rem';
+  filterBar.appendChild(shipFilterLabel);
+
+  // Ship filter dropdown and buttons
+  const shipFilterContainer = document.createElement('div');
+  shipFilterContainer.style.display = 'flex';
+  shipFilterContainer.style.gap = '0.5rem';
+  shipFilterContainer.style.flexWrap = 'wrap';
+  const shipFilterButtons: Record<string, HTMLButtonElement> = {};
+
   container.appendChild(filterBar);
 
   // Scrollable log list (created once so scroll position persists)
@@ -66,10 +85,77 @@ export function createLogTab(gameData: GameData): Component {
 
   // --- helpers ---
 
+  function getUniqueShips(gd: GameData): string[] {
+    const shipNames = new Set<string>();
+    for (const entry of gd.log) {
+      if (entry.shipName) {
+        shipNames.add(entry.shipName);
+      }
+    }
+    return Array.from(shipNames).sort();
+  }
+
   function syncFilterButtons() {
     for (const f of FILTERS) {
       filterButtons[f].className =
         f === currentFilter ? 'filter-btn active' : 'filter-btn';
+    }
+  }
+
+  function syncShipFilterButtons() {
+    for (const shipName in shipFilterButtons) {
+      shipFilterButtons[shipName].className =
+        shipName === currentShipFilter ? 'filter-btn active' : 'filter-btn';
+    }
+    // Sync "All Ships" button
+    const allShipsBtn = shipFilterButtons['all'];
+    if (allShipsBtn) {
+      allShipsBtn.className =
+        currentShipFilter === 'all' ? 'filter-btn active' : 'filter-btn';
+    }
+  }
+
+  function recreateShipFilterButtons(gd: GameData) {
+    // Clear old buttons
+    for (const shipName in shipFilterButtons) {
+      shipFilterButtons[shipName].remove();
+    }
+    shipFilterContainer.innerHTML = '';
+    Object.keys(shipFilterButtons).forEach(
+      (key) => delete shipFilterButtons[key]
+    );
+
+    // Create "All Ships" button
+    const allBtn = document.createElement('button');
+    allBtn.className =
+      currentShipFilter === 'all' ? 'filter-btn active' : 'filter-btn';
+    allBtn.textContent = 'All Ships';
+    allBtn.style.padding = '0.4rem 0.8rem';
+    allBtn.style.fontSize = '0.85rem';
+    allBtn.addEventListener('click', () => {
+      currentShipFilter = 'all';
+      syncShipFilterButtons();
+      updateLogDisplay(latestGameData);
+    });
+    shipFilterButtons['all'] = allBtn;
+    shipFilterContainer.appendChild(allBtn);
+
+    // Create ship-specific buttons
+    const ships = getUniqueShips(gd);
+    for (const ship of ships) {
+      const btn = document.createElement('button');
+      btn.className =
+        ship === currentShipFilter ? 'filter-btn active' : 'filter-btn';
+      btn.textContent = ship;
+      btn.style.padding = '0.4rem 0.8rem';
+      btn.style.fontSize = '0.85rem';
+      btn.addEventListener('click', () => {
+        currentShipFilter = ship;
+        syncShipFilterButtons();
+        updateLogDisplay(latestGameData);
+      });
+      shipFilterButtons[ship] = btn;
+      shipFilterContainer.appendChild(btn);
     }
   }
 
@@ -113,7 +199,14 @@ export function createLogTab(gameData: GameData): Component {
     const reversedLog = [...gd.log].reverse();
     const filteredSet = new Set(
       reversedLog
-        .filter((entry) => matchesFilter(entry.type, currentFilter))
+        .filter((entry) =>
+          matchesFilter(
+            entry.type,
+            currentFilter,
+            entry.shipName,
+            currentShipFilter
+          )
+        )
         .map((_, i) => gd.log.length - 1 - i)
     );
 
@@ -131,7 +224,12 @@ export function createLogTab(gameData: GameData): Component {
       noLogsMsg.textContent = 'No events yet.';
       noLogsMsg.style.display = '';
     } else if (visibleCount === 0) {
-      noLogsMsg.textContent = `No ${currentFilter} events.`;
+      let filterDesc =
+        currentFilter === 'all' ? 'events' : `${currentFilter} events`;
+      if (currentShipFilter !== 'all') {
+        filterDesc += ` from ${currentShipFilter}`;
+      }
+      noLogsMsg.textContent = `No ${filterDesc}.`;
       noLogsMsg.style.display = '';
     } else {
       noLogsMsg.style.display = 'none';
@@ -146,28 +244,58 @@ export function createLogTab(gameData: GameData): Component {
   function update(gameData: GameData) {
     latestGameData = gameData;
 
+    // Recreate ship filter buttons if ships changed
+    const currentShips = getUniqueShips(gameData);
+    const existingShipButtons = Object.keys(shipFilterButtons).filter(
+      (k) => k !== 'all'
+    );
+    const shipsChanged =
+      currentShips.length !== existingShipButtons.length ||
+      !currentShips.every((s) => shipFilterButtons[s]);
+
+    if (shipsChanged) {
+      recreateShipFilterButtons(gameData);
+    }
+
     // Shallow-compare: log is append-only, so length is sufficient.
     // Also re-render when the active filter changes (driven by button click).
-    if (gameData.log.length === lastLogLength && currentFilter === lastFilter) {
+    if (
+      gameData.log.length === lastLogLength &&
+      currentFilter === lastFilter &&
+      currentShipFilter === lastShipFilter
+    ) {
       return;
     }
     lastLogLength = gameData.log.length;
     lastFilter = currentFilter;
+    lastShipFilter = currentShipFilter;
 
     updateLogDisplay(gameData);
   }
 
   // Initial render
   update(gameData);
+  filterBar.appendChild(shipFilterContainer);
 
   return { el: container, update };
 }
 
 /**
- * Check if a log entry type matches the current filter.
+ * Check if a log entry matches both type and ship filters.
  */
-function matchesFilter(type: LogEntryType, filter: LogFilter): boolean {
-  if (filter === 'all') return true;
+function matchesFilter(
+  type: LogEntryType,
+  typeFilter: LogFilter,
+  shipName: string | undefined,
+  shipFilter: string
+): boolean {
+  // Check ship filter first
+  if (shipFilter !== 'all' && shipName !== shipFilter) {
+    return false;
+  }
+
+  // Check type filter
+  if (typeFilter === 'all') return true;
 
   const combatTypes: LogEntryType[] = [
     'encounter_evaded',
@@ -203,7 +331,7 @@ function matchesFilter(type: LogEntryType, filter: LogFilter): boolean {
     'crew_role_change',
   ];
 
-  switch (filter) {
+  switch (typeFilter) {
     case 'combat':
       return combatTypes.includes(type);
     case 'financial':
@@ -223,7 +351,7 @@ function renderLogEntry(entry: LogEntry): HTMLElement {
 
   const timestamp = document.createElement('span');
   timestamp.className = 'log-timestamp';
-  timestamp.textContent = formatGameDateTime(entry.gameTime);
+  timestamp.textContent = formatLogTimestamp(entry.realTime, entry.gameTime);
   entryDiv.appendChild(timestamp);
 
   if (entry.shipName) {

@@ -6,6 +6,7 @@ import type {
   EncounterOutcome,
   LogEntryType,
 } from './models';
+import { getFinancials } from './models';
 import { getShipClass } from './shipClasses';
 import { getCrewEquipmentDefinition } from './crewEquipment';
 import { getShipPositionKm } from './encounterSystem';
@@ -169,9 +170,9 @@ export function attemptEvasion(ship: Ship): {
     COMBAT_CONSTANTS.EVASION_VELOCITY_CAP
   );
 
-  // Nav scanner bonus
+  // Nav scanner bonus (only when powered)
   const navScanner = ship.equipment.find(
-    (eq) => eq.definitionId === 'nav_scanner'
+    (eq) => eq.definitionId === 'nav_scanner' && eq.powered
   );
   const scannerBonus = navScanner ? COMBAT_CONSTANTS.EVASION_SCANNER_BONUS : 0;
 
@@ -251,9 +252,9 @@ export function attemptNegotiation(ship: Ship): {
 export function calculateDefenseScore(ship: Ship): number {
   let defenseScore = 0;
 
-  // 1. Point Defense equipment
+  // 1. Point Defense equipment (only when powered)
   const pdEquipment = ship.equipment.find(
-    (eq) => eq.definitionId === 'point_defense'
+    (eq) => eq.definitionId === 'point_defense' && eq.powered
   );
   if (pdEquipment) {
     const pdEffectiveness = 1 - pdEquipment.degradation / 200;
@@ -298,26 +299,26 @@ export function calculateDefenseScore(ship: Ship): number {
     defenseScore += crewCombat;
   }
 
-  // 3. Point Defense Laser (lightweight PD without station bonus)
+  // 3. Point Defense Laser (lightweight PD without station bonus, only when powered)
   const pdLaser = ship.equipment.find(
-    (eq) => eq.definitionId === 'point_defense_laser'
+    (eq) => eq.definitionId === 'point_defense_laser' && eq.powered
   );
   if (pdLaser) {
     const laserEffectiveness = 1 - pdLaser.degradation / 200;
     defenseScore += COMBAT_CONSTANTS.PD_LASER_BASE_SCORE * laserEffectiveness;
   }
 
-  // 4. Deflector Shield passive defense
+  // 4. Deflector Shield passive defense (only when powered)
   const deflector = ship.equipment.find(
-    (eq) => eq.definitionId === 'deflector_shield'
+    (eq) => eq.definitionId === 'deflector_shield' && eq.powered
   );
   if (deflector) {
     defenseScore += COMBAT_CONSTANTS.DEFLECTOR_BONUS;
   }
 
-  // 5. Micro Deflector passive defense
+  // 5. Micro Deflector passive defense (only when powered)
   const microDeflector = ship.equipment.find(
-    (eq) => eq.definitionId === 'micro_deflector'
+    (eq) => eq.definitionId === 'micro_deflector' && eq.powered
   );
   if (microDeflector) {
     defenseScore += COMBAT_CONSTANTS.MICRO_DEFLECTOR_BONUS;
@@ -394,6 +395,7 @@ export function applyEncounterOutcome(
       gameData.encounterStats.negotiated++;
       if (result.creditsLost && result.creditsLost > 0) {
         gameData.credits = Math.max(0, gameData.credits - result.creditsLost);
+        getFinancials(gameData).expenseCombatLosses += result.creditsLost;
       }
       break;
 
@@ -415,6 +417,7 @@ export function applyEncounterOutcome(
       if (result.creditsGained && result.creditsGained > 0) {
         gameData.credits += result.creditsGained;
         gameData.lifetimeCreditsEarned += result.creditsGained;
+        getFinancials(gameData).incomeBounties += result.creditsGained;
       }
       break;
 
@@ -463,6 +466,7 @@ export function applyEncounterOutcome(
       // Credits stolen
       if (result.creditsLost && result.creditsLost > 0) {
         gameData.credits = Math.max(0, gameData.credits - result.creditsLost);
+        getFinancials(gameData).expenseCombatLosses += result.creditsLost;
       }
       // Equipment degradation on ALL ship equipment
       if (result.equipmentDegraded) {

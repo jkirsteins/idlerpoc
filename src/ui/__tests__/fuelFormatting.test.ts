@@ -92,8 +92,8 @@ describe('fuelFormatting', () => {
 
   describe('getFuelColorHex', () => {
     it('should return red for low fuel', () => {
-      expect(getFuelColorHex(0)).toBe('#e94560');
-      expect(getFuelColorHex(20)).toBe('#e94560');
+      expect(getFuelColorHex(0)).toBe('#ff6b6b');
+      expect(getFuelColorHex(20)).toBe('#ff6b6b');
     });
 
     it('should return yellow for medium fuel', () => {
@@ -138,7 +138,7 @@ describe('fuelFormatting', () => {
 
       expect(calculateFuelPercentage(currentFuel, maxFuel)).toBe(15);
       expect(getFuelColorClass(15)).toBe('bar-danger');
-      expect(getFuelColorHex(15)).toBe('#e94560');
+      expect(getFuelColorHex(15)).toBe('#ff6b6b');
     });
 
     it('should handle Station Keeper smaller fuel tank', () => {

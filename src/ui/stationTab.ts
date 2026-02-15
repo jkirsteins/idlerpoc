@@ -322,6 +322,12 @@ export function createStationTab(
 
   const oreRowMap = new Map<string, OreRowRefs>();
 
+  // Hint shown when docked at a trade location but no ore in cargo
+  const oreEmptyHint = document.createElement('div');
+  oreEmptyHint.style.cssText =
+    'font-size: 0.85rem; color: #888; padding: 0.25rem 0;';
+  oreSection.appendChild(oreEmptyHint);
+
   dockedContent.appendChild(oreSection);
 
   // ═══════════════════════════════════════════════════════════
@@ -1186,9 +1192,28 @@ export function createStationTab(
     // Ore section
     const hasTrade = location.services.includes('trade');
     const hasOre = ship.oreCargo.length > 0;
-    oreSection.style.display = hasTrade && hasOre ? '' : 'none';
-    if (hasTrade && hasOre) {
+    if (!hasTrade) {
+      oreSection.style.display = 'none';
+    } else if (hasOre) {
+      oreSection.style.display = '';
+      oreSection.style.opacity = '';
+      sellAllBtn.style.display = '';
+      orePriceInfo.style.display = '';
+      oreItemsContainer.style.display = '';
+      oreEmptyHint.style.display = 'none';
       updateOreSection(ship, location);
+    } else {
+      // Trade available but no ore — show dimmed with hint
+      oreSection.style.display = '';
+      oreSection.style.opacity = '0.5';
+      sellAllBtn.style.display = 'none';
+      orePriceInfo.style.display = 'none';
+      oreItemsContainer.style.display = 'none';
+      oreEmptyHint.style.display = '';
+      const hasMiningBay = ship.rooms.some((r) => r.type === 'mining_bay');
+      oreEmptyHint.textContent = hasMiningBay
+        ? 'No ore in cargo. Mine ore at asteroid belts or install mining equipment to begin extraction.'
+        : 'No ore in cargo. Upgrade to a Class II ship with a mining bay to mine ore.';
     }
 
     // Shop section

@@ -6,6 +6,19 @@ E.g. space ship range is derived from engines generating thrust, consuming fuel,
 
 Similarly, all game updates need to happen in some central "update tick" method. All systems need to be updated with every tick.
 
+# Design Goals Compliance
+
+Every new feature or mechanic must pass these checks from `DESIGN_GOALS.md` before implementation:
+
+1. **Emergent, not arbitrary.** Does the feature derive its values from simulation systems? If you're adding a flat "+X%" bonus that doesn't trace to physics, crew, or equipment — redesign it.
+2. **Idle-first.** Does it respect absence? No energy gates, no punishment for being offline, no advantage that requires constant attention to maintain.
+3. **Show the mountain, hide the details.** If the feature is gated behind progression, its _existence_ should be visible (dimmed, with unlock condition), but its deep mechanics should stay hidden until active. New players should see what's ahead without being forced to process it.
+4. **Clarity over realism.** Every derived value needs a tooltip breakdown. If you can't explain why a number is what it is in a tooltip, the system is too opaque.
+5. **Within scope.** Check the v1 scope guardrails in DESIGN_GOALS.md before adding new content types (ship classes, locations, skills, ores, encounter types).
+6. **Serves the loop.** Does this feature plug into the active loop (5-8 min decisions), the passive loop (idle progression), or the expansion loop (long-term goals)? If it doesn't serve any loop, it probably doesn't belong.
+
+When in doubt, consult DESIGN_GOALS.md for the full design philosophy.
+
 # UI Component Architecture
 
 UI components follow a **mount-once / update-on-tick** pattern (see `src/ui/component.ts`):
@@ -38,9 +51,53 @@ When creating new tab views or adding content to existing tabs:
 - **Test at all three breakpoints** (desktop >1200px, tablet ≤1200px, mobile ≤900px) to verify no content overflows its container.
 - **Never set a fixed pixel height** on scrollable containers — always use viewport-relative units (`calc(100vh - ...)`) so the layout adapts to screen size.
 
+## Preventing Vertical Layout Shifts
+
+**Components must not expand vertically in unpredictable ways when values update.** Vertical instability causes jarring scroll jumps, especially during auto-update loops in an idle game. Design layouts that are naturally stable rather than trying to contain instability with magic numbers.
+
+When designing metric displays, status sections, or info panels:
+
+- **Prefer horizontal single-row layouts** (status bar style) over multi-row grids. A single flex row with `flex-wrap: wrap` is more stable than `auto-fit` grids that change column counts.
+- **Use `white-space: nowrap` extensively.** Every text element that could wrap (labels, values, units) should be `nowrap` to prevent unexpected line breaks.
+- **Avoid multi-line secondary text.** Breakdowns like "Crew: X | Fuel: Y | Repairs: Z" can wrap when values grow. Move detailed breakdowns to tooltips or separate expandable sections.
+- **Never use `minHeight` as a band-aid.** Reserving vertical space with magic numbers is fragile — it breaks when values exceed the reserved space or wastes space when values are small. Fix the root cause (wrapping text, variable column counts) instead.
+- **Trim data, don't reserve space for it.** Show fewer metrics in the primary display. Use abbreviated formats (`1.2M` instead of `1,234,567`). Hide secondary data in tooltips. A compact, stable layout is better than a comprehensive, jumpy one.
+- **Avoid `auto-fit` grids for metric displays.** When screen width changes or values grow, `auto-fit` can change column count (4 columns → 3 columns → 2 columns), causing the grid to gain rows and expand vertically. Use fixed column counts or horizontal flex layouts instead.
+- **Test with extreme values.** Check how the layout behaves when values are 0, in the millions, or negative. Ensure no value causes wrapping or column reflow.
+
+Example of a **stable** metric display:
+
+```typescript
+// Single-row flex layout, each metric is one nowrap line
+section.style.display = 'flex';
+section.style.gap = '1.5rem';
+section.style.flexWrap = 'wrap'; // Wraps entire metrics, not individual words
+section.style.alignItems = 'center';
+
+metric.innerHTML = `
+  <span style="white-space: nowrap;">Label:</span>
+  <span style="white-space: nowrap; font-weight: bold;">${value}</span>
+`;
+```
+
+Example of an **unstable** metric display (avoid):
+
+```typescript
+// Multi-row grid with auto-fit, multi-line text, minHeight band-aid
+grid.style.display = 'grid';
+grid.style.gridTemplateColumns = 'repeat(auto-fit, minmax(180px, 1fr))'; // ❌ Column count changes
+grid.style.minHeight = '140px'; // ❌ Magic number band-aid
+
+metric.innerHTML = `
+  <div>Label</div>
+  <div>${value}</div>
+  <div>Breakdown: ${a} | ${b} | ${c}</div> <!-- ❌ Can wrap -->
+`;
+```
+
 # UI Discoverability
 
-**Always show UI indicators, never conditionally hide them.** Every game system that has a UI indicator (status bars, gauges, panels) must be rendered at all times, even when the system is inactive or the current ship/equipment doesn't engage with it. Hidden controls hide the existence of features from players. Showing an indicator in a "neutral" or "N/A" state encourages players to explore how to interact with systems they haven't encountered yet. Use disabled/dimmed/zero states instead of removing elements from the DOM.
+**Show the mountain, hide the details.** Every game system should be _visible_ to the player even before it's active — but only at the level of "this exists and here's how to unlock it." Show system names, locked states with unlock requirements, and dimmed/zero-state indicators. Hide deep stat breakdowns, detailed panels, and failure mechanics until the system is active for the player. This creates anticipation without overwhelm. Use disabled/dimmed/zero states and brief unlock hints (e.g. "Requires Class III ship") instead of removing elements from the DOM.
 
 # Value Display Formatting
 
@@ -117,11 +174,41 @@ Key architectural rules:
 - **The event bus** (`src/gameEvents.ts`) is the integration point. Chronicle-worthy events are emitted from game systems and consumed by `src/chronicleSystem.ts`. New chronicle-worthy events should emit via the event bus, not hook into `addLog()`.
 - **All new fields** (personality, chronicle, relationships, stories) are optional on existing types — no save migration needed.
 
+# Automated Safety Gates (Soft-Lock Prevention)
+
+**Any automated action that could strand, damage, or kill the player's crew must include a pre-departure safety check.** Automated systems (trade routes, mining routes, contracts) must verify viability before committing to an action that could put the ship or crew at risk.
+
+Required safety gates before automated departures:
+
+| Gate           | Check                                                          | On failure                            |
+| -------------- | -------------------------------------------------------------- | ------------------------------------- |
+| **Fuel**       | Can the ship afford a full refuel?                             | Pause contract/route, auto-pause game |
+| **Provisions** | Will provisions last through the flight + 2-day safety buffer? | Pause contract/route, auto-pause game |
+| **Helm**       | Is the helm manned?                                            | Pause contract/route, stay docked     |
+
+Gate order matters: player pause → fuel → provisions → helm. Each gate returns early with appropriate logging if it fails.
+
+When adding new automated actions or new resource systems:
+
+- **Always add a viability check** before the ship departs. Use `estimateFlightDurationTicks()` to predict travel time and compare against resource survival ticks.
+- **Pause, don't cancel.** Soft-lock the route/contract so the player can fix the issue (buy fuel, resupply provisions, assign helm crew) and resume. Cancelling loses route state and frustrates players.
+- **Auto-pause the game** for critical resource failures (fuel, provisions) so the player notices during idle play. Helm-unmanned is less critical (player may be reassigning crew).
+- **Log a clear warning** with the resource name, remaining quantity, and what to do: `"Low provisions at {location} ({N} days remaining)! Contract paused — resupply to continue."`
+- **Mining routes use early departure** instead of pausing: when provisions are low, the ship auto-returns to the sell station to resupply, even if cargo isn't full. This preserves the idle loop without player intervention.
+
+Implementation references:
+
+- Contract/trade route gates: `tryDepartNextLeg()` in `src/contractExec.ts`
+- Mining route provisions return: `checkMiningRouteProvisionsReturn()` in `src/miningRoute.ts`
+- Flight time estimation: `estimateFlightDurationTicks()` in `src/flightPhysics.ts`
+- Provisions survival: `getProvisionsSurvivalTicks()` in `src/provisionsSystem.ts`
+
 # Additional rules
 
 - Consult README for project scope before starting work. See if any other markdown files (\*.md pattern, in root and in docs/ folder) might be relevant. If so, read them.
 - Always consider WORLDRULES.md for our game world constraints. Apply these to any game design decisions.
 - Consult `docs/ux-guidelines.md` for UX design principles (color palette, interaction patterns, idle game UX, information hierarchy). Implementation patterns stay in CLAUDE.md; design decisions live there.
+- Consult `docs/orrery-map.md` before modifying the orrery map, flight trajectories, ship position interpolation, or redirect logic. It documents the coordinate systems, the frozen trajectory model, and the heliocentric lerp pitfall that causes bugs in intra-cluster flights.
 - Update README to reflect project goals/scope before commits.
 - README: high-level only. Infer architecture from code; detailed docs go in docs/.
 - Commit messages: concise, no "Claude Code" mentions.

@@ -1,4 +1,4 @@
-import type { GameData, Room, JobSlot } from '../models';
+import type { GameData, Room, JobSlot, EquipmentPowerMode } from '../models';
 import { getActiveShip } from '../models';
 import { getShipClass } from '../shipClasses';
 import { getRoomDefinition } from '../rooms';
@@ -12,34 +12,45 @@ import {
   getEffectiveRadiationShielding,
   getEffectiveHeatDissipation,
 } from '../equipment';
+import { canSetPowerModeOn } from '../powerManagement';
+import { getPowerRuleDescription } from '../powerPriorities';
 import { calculateRepairPoints } from '../crewRoles';
 import { calculateDefenseScore } from '../combatSystem';
 import { getCommandBonusBreakdown } from '../captainBonus';
 import { getEngineDefinition } from '../engines';
 import { createNavigationView } from './navigationView';
 import { getGravitySource } from '../gravitySystem';
-import {
-  calculateAvailableCargoCapacity,
-  computeMaxRange,
-} from '../flightPhysics';
-import { getOreCargoWeight } from '../miningSystem';
+import { computeMaxRange, getCargoUsedKg } from '../flightPhysics';
 import { getOreDefinition } from '../oreTypes';
 import {
   formatDualTime,
   GAME_SECONDS_PER_TICK,
   TICKS_PER_DAY,
 } from '../timeSystem';
-import { formatLargeNumber, getRangeLabel, formatMass } from '../formatting';
+import {
+  formatLargeNumber,
+  getRangeLabel,
+  formatMass,
+  formatCredits,
+} from '../formatting';
 import {
   getMaxProvisionsKg,
   getProvisionsSurvivalDays,
 } from '../provisionsSystem';
+import { getShipPerformance } from '../fleetAnalytics';
 
 /** Ticks per game hour (used to convert per-tick rates to per-hour for display) */
 const TICKS_PER_HOUR = TICKS_PER_DAY / 24;
 import { renderStatBar } from './components/statBar';
 import { attachTooltip, formatPowerTooltip } from './components/tooltip';
 import type { Component } from './component';
+import {
+  formatRangeTooltip,
+  formatAccelerationTooltip,
+  formatEquipmentSlotsTooltip,
+  formatShipMassTooltip,
+  formatCrewCountTooltip,
+} from './shipStatsTooltips';
 import {
   formatFuelMass,
   calculateFuelPercentage,
@@ -196,6 +207,9 @@ export function createShipTab(
   // ── Ship content container (everything except nav) ──
   const shipContent = document.createElement('div');
 
+  // ── Profitability section slot ──
+  const profitabilitySlot = document.createElement('div');
+
   // ── Stat bar slots (leaf helpers, re-rendered via slot pattern) ──
   const fuelBarSlot = document.createElement('div');
   const provisionsBarSlot = document.createElement('div');
@@ -254,6 +268,7 @@ export function createShipTab(
 
   // Assemble ship content
   shipContent.append(
+    profitabilitySlot,
     fuelBarSlot,
     provisionsBarSlot,
     powerBarSlot,
@@ -585,19 +600,14 @@ export function createShipTab(
     // Cargo section
     if (refs.cargoCapacity && refs.cargoFill) {
       const shipClass = getShipClass(ship.classId);
-      const maxCapacity = shipClass
-        ? Math.floor(calculateAvailableCargoCapacity(shipClass.cargoCapacity))
-        : 0;
-      const equipmentWeight = ship.cargo.length * 100;
-      const oreWeight = getOreCargoWeight(ship);
-      const provisionsWeight = ship.provisionsKg || 0;
-      const currentCargo = equipmentWeight + oreWeight + provisionsWeight;
+      const maxCapacity = shipClass ? shipClass.cargoCapacity : 0;
+      const currentCargo = getCargoUsedKg(ship);
       const cargoPercent =
         maxCapacity > 0 ? (currentCargo / maxCapacity) * 100 : 0;
       refs.cargoCapacity.textContent = `Cargo: ${formatMass(currentCargo)} / ${formatMass(maxCapacity)}`;
       refs.cargoFill.style.width = `${Math.min(100, cargoPercent)}%`;
       refs.cargoFill.style.backgroundColor =
-        cargoPercent >= 90 ? '#e94560' : cargoPercent >= 70 ? '#ffa500' : '';
+        cargoPercent >= 90 ? '#ff6b6b' : cargoPercent >= 70 ? '#ffa500' : '';
     }
 
     // Ore cargo breakdown
@@ -939,6 +949,11 @@ export function createShipTab(
       }
     }
 
+    // ── Profitability section (leaf helper via slot) ──
+    if (profitabilitySlot.firstChild)
+      profitabilitySlot.removeChild(profitabilitySlot.firstChild);
+    profitabilitySlot.appendChild(renderProfitabilitySection(gameData));
+
     // ── Stat bars (leaf helpers via slot divs) ──
     if (fuelBarSlot.firstChild) fuelBarSlot.removeChild(fuelBarSlot.firstChild);
     fuelBarSlot.appendChild(renderFuelBar(gameData));
@@ -1082,6 +1097,95 @@ export function createShipTab(
 }
 
 // ── Status bars (fuel, power, radiation, heat, containment) ──────
+
+/**
+ * Render per-ship profitability metrics section
+ * Compact single-row layout to prevent vertical expansion
+ */
+function renderProfitabilitySection(gameData: GameData): HTMLElement {
+  const ship = getActiveShip(gameData);
+  const performance = getShipPerformance(ship);
+
+  const section = document.createElement('div');
+  section.className = 'profitability-section';
+  section.style.padding = '0.5rem 0.75rem';
+  section.style.marginBottom = '1rem';
+  section.style.background = 'rgba(0, 0, 0, 0.3)';
+  section.style.border = '1px solid #444';
+  section.style.borderRadius = '4px';
+  section.style.display = 'flex';
+  section.style.alignItems = 'center';
+  section.style.gap = '1.5rem';
+  section.style.flexWrap = 'wrap';
+  section.style.fontSize = '0.85rem';
+
+  // Title
+  const title = document.createElement('div');
+  title.textContent = '📊 Profitability:';
+  title.style.fontWeight = 'bold';
+  title.style.color = '#4a9eff';
+  title.style.whiteSpace = 'nowrap';
+  section.appendChild(title);
+
+  // Net Profit (most important metric)
+  const profitColor = performance.netProfit >= 0 ? '#4ade80' : '#ff4444';
+  const profitSign = performance.netProfit >= 0 ? '+' : '';
+  const profitMargin =
+    ship.metrics.creditsEarned > 0
+      ? (performance.netProfit / ship.metrics.creditsEarned) * 100
+      : 0;
+  const profitDiv = document.createElement('div');
+  profitDiv.style.display = 'flex';
+  profitDiv.style.gap = '0.35rem';
+  profitDiv.style.alignItems = 'baseline';
+  profitDiv.innerHTML = `
+    <span style="color: #888; white-space: nowrap;">Net:</span>
+    <span style="color: ${profitColor}; font-weight: bold; white-space: nowrap;">
+      ${profitSign}${formatCredits(performance.netProfit)}
+    </span>
+    <span style="color: #666; font-size: 0.8rem; white-space: nowrap;">
+      (${profitSign}${profitMargin.toFixed(0)}%)
+    </span>
+  `;
+  section.appendChild(profitDiv);
+
+  // Efficiency
+  const effDiv = document.createElement('div');
+  effDiv.style.display = 'flex';
+  effDiv.style.gap = '0.35rem';
+  effDiv.style.alignItems = 'baseline';
+  effDiv.innerHTML = `
+    <span style="color: #888; white-space: nowrap;">Rate:</span>
+    <span style="font-weight: bold; white-space: nowrap;">
+      ${formatCredits(Math.round(performance.creditsPerDay))}/day
+    </span>
+  `;
+  section.appendChild(effDiv);
+
+  // Uptime
+  const uptimeDiv = document.createElement('div');
+  uptimeDiv.style.display = 'flex';
+  uptimeDiv.style.gap = '0.35rem';
+  uptimeDiv.style.alignItems = 'baseline';
+  uptimeDiv.innerHTML = `
+    <span style="color: #888; white-space: nowrap;">Uptime:</span>
+    <span style="white-space: nowrap;">${performance.uptime.toFixed(0)}%</span>
+  `;
+  section.appendChild(uptimeDiv);
+
+  // Contracts
+  const contractsDiv = document.createElement('div');
+  contractsDiv.style.display = 'flex';
+  contractsDiv.style.gap = '0.35rem';
+  contractsDiv.style.alignItems = 'baseline';
+  contractsDiv.innerHTML = `
+    <span style="color: #888; white-space: nowrap;">Contracts:</span>
+    <span style="white-space: nowrap;">${ship.metrics.contractsCompleted}</span>
+  `;
+  section.appendChild(contractsDiv);
+
+  return section;
+}
 
 function renderFuelBar(gameData: GameData): HTMLElement {
   const ship = getActiveShip(gameData);
@@ -1648,13 +1752,20 @@ function renderShipStatsPanel(gameData: GameData): HTMLElement {
   const rangeLabel = getRangeLabel(maxRangeKm);
   const rangeDiv = document.createElement('div');
   rangeDiv.innerHTML = `<span style="color: #888;">Max Range:</span> <span style="color: #4ade80; font-weight: bold;">${formatLargeNumber(maxRangeKm)} km</span><br><span style="font-size: 0.75rem; color: #aaa;">(${rangeLabel})</span>`;
-  rangeDiv.title = `Derived from: Engine (${engineDef.name}) + Ship Mass (${(shipClass.mass / 1000).toFixed(0)}t) + Consumables`;
+  attachTooltip(rangeDiv, {
+    content: formatRangeTooltip(engineDef, shipClass, maxRangeKm),
+    followMouse: false,
+  });
   statsGrid.appendChild(rangeDiv);
 
   const acceleration = engineDef.thrust / shipClass.mass;
   const accelerationG = acceleration / 9.81;
   const accelDiv = document.createElement('div');
   accelDiv.innerHTML = `<span style="color: #888;">Max Accel:</span> <span style="color: #4ade80;">${accelerationG.toFixed(4)}g</span><br><span style="font-size: 0.75rem; color: #aaa;">(${engineDef.thrust.toLocaleString()} N)</span>`;
+  attachTooltip(accelDiv, {
+    content: formatAccelerationTooltip(engineDef, shipClass.mass),
+    followMouse: false,
+  });
   statsGrid.appendChild(accelDiv);
 
   const maxSlots = shipClass.equipmentSlotDefs.length;
@@ -1667,6 +1778,10 @@ function renderShipStatsPanel(gameData: GameData): HTMLElement {
   ).length;
   const slotsDiv = document.createElement('div');
   slotsDiv.innerHTML = `<span style="color: #888;">Equipment Slots:</span> <span style="color: #4ade80;">${usedSlots}/${maxSlots}</span><br><span style="font-size: 0.75rem; color: #aaa;">${standardSlots} Standard, ${structuralSlots} Structural</span>`;
+  attachTooltip(slotsDiv, {
+    content: formatEquipmentSlotsTooltip(ship, standardSlots, structuralSlots),
+    followMouse: false,
+  });
   statsGrid.appendChild(slotsDiv);
 
   const tierDiv = document.createElement('div');
@@ -1676,10 +1791,18 @@ function renderShipStatsPanel(gameData: GameData): HTMLElement {
 
   const massDiv = document.createElement('div');
   massDiv.innerHTML = `<span style="color: #888;">Ship Mass:</span> <span style="color: #aaa;">${(shipClass.mass / 1000).toFixed(0)} tons</span>`;
+  attachTooltip(massDiv, {
+    content: formatShipMassTooltip(ship, shipClass),
+    followMouse: false,
+  });
   statsGrid.appendChild(massDiv);
 
   const crewDiv = document.createElement('div');
   crewDiv.innerHTML = `<span style="color: #888;">Crew:</span> <span style="color: #aaa;">${ship.crew.length}/${shipClass.maxCrew}</span>`;
+  attachTooltip(crewDiv, {
+    content: formatCrewCountTooltip(ship, shipClass),
+    followMouse: false,
+  });
   statsGrid.appendChild(crewDiv);
 
   // Defense readiness derived from equipment, crew, and mass
@@ -2007,6 +2130,9 @@ function renderEquipmentSection(gameData: GameData): HTMLElement {
 
     const item = document.createElement('div');
     item.className = 'equipment-item';
+    if (!equipment.powered) {
+      item.style.opacity = '0.6';
+    }
 
     const icon = document.createElement('div');
     icon.className = 'equipment-icon';
@@ -2021,6 +2147,16 @@ function renderEquipmentSection(gameData: GameData): HTMLElement {
     nameRow.style.display = 'flex';
     nameRow.style.alignItems = 'center';
     nameRow.style.gap = '0.4em';
+
+    // Power indicator dot
+    const powerDot = document.createElement('span');
+    powerDot.style.display = 'inline-block';
+    powerDot.style.width = '8px';
+    powerDot.style.height = '8px';
+    powerDot.style.borderRadius = '50%';
+    powerDot.style.flexShrink = '0';
+    powerDot.style.backgroundColor = equipment.powered ? '#4caf50' : '#666';
+    nameRow.appendChild(powerDot);
 
     const nameText = document.createElement('span');
     nameText.textContent = equipDef.name;
@@ -2043,10 +2179,88 @@ function renderEquipmentSection(gameData: GameData): HTMLElement {
 
     info.appendChild(nameRow);
 
-    const power = document.createElement('div');
+    // Power draw + mode toggle row
+    const powerRow = document.createElement('div');
+    powerRow.style.display = 'flex';
+    powerRow.style.alignItems = 'center';
+    powerRow.style.gap = '0.5em';
+    powerRow.style.marginTop = '0.15em';
+
+    const power = document.createElement('span');
     power.className = 'equipment-power';
     power.textContent = `${equipDef.powerDraw} kW`;
-    info.appendChild(power);
+    powerRow.appendChild(power);
+
+    // 3-state power mode toggle: Off / Auto / On
+    const modeToggle = document.createElement('div');
+    modeToggle.style.display = 'inline-flex';
+    modeToggle.style.borderRadius = '3px';
+    modeToggle.style.overflow = 'hidden';
+    modeToggle.style.border = '1px solid rgba(255,255,255,0.15)';
+    modeToggle.style.fontSize = '0.7em';
+    modeToggle.style.marginLeft = 'auto';
+
+    const modes: { label: string; value: EquipmentPowerMode }[] = [
+      { label: 'Off', value: 'off' },
+      { label: 'Auto', value: 'auto' },
+      { label: 'On', value: 'on' },
+    ];
+
+    for (const mode of modes) {
+      const btn = document.createElement('button');
+      btn.textContent = mode.label;
+      btn.style.border = 'none';
+      btn.style.padding = '2px 6px';
+      btn.style.cursor = 'pointer';
+      btn.style.fontSize = 'inherit';
+      btn.style.minWidth = '32px';
+
+      if (equipment.powerMode === mode.value) {
+        btn.style.background =
+          mode.value === 'off'
+            ? '#666'
+            : mode.value === 'auto'
+              ? '#0f3460'
+              : '#2e7d32';
+        btn.style.color = '#eee';
+        btn.style.fontWeight = 'bold';
+      } else {
+        btn.style.background = 'rgba(0,0,0,0.3)';
+        btn.style.color = '#888';
+      }
+
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (mode.value === 'on') {
+          const check = canSetPowerModeOn(ship, gameData, equipment.id);
+          if (!check.allowed) {
+            // Brief visual feedback — flash the button red
+            btn.style.background = '#8b0000';
+            btn.title = check.reason ?? 'Insufficient power';
+            setTimeout(() => {
+              btn.style.background = 'rgba(0,0,0,0.3)';
+            }, 600);
+            return;
+          }
+        }
+        equipment.powerMode = mode.value;
+      });
+
+      modeToggle.appendChild(btn);
+    }
+
+    // Tooltip showing the AI rule description
+    const ruleDesc = getPowerRuleDescription(equipment.definitionId);
+    const modeLabel =
+      equipment.powerMode === 'auto'
+        ? `Auto: ${ruleDesc}`
+        : equipment.powerMode === 'on'
+          ? 'Forced on (manual)'
+          : 'Forced off (manual)';
+    attachTooltip(modeToggle, { content: modeLabel, followMouse: false });
+
+    powerRow.appendChild(modeToggle);
+    info.appendChild(powerRow);
 
     item.appendChild(info);
 

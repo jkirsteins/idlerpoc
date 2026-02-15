@@ -51,14 +51,6 @@ export const ROOM_DEFINITIONS: RoomDefinition[] = [
     alwaysPowered: false,
   },
   {
-    type: 'quarters',
-    name: 'Quarters',
-    description: 'Crew sleeping quarters.',
-    icon: '\u{1F6CF}\uFE0F', // bed
-    powerDraw: 2,
-    alwaysPowered: true,
-  },
-  {
     type: 'reactor_room',
     name: 'Reactor Room',
     description:

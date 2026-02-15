@@ -9,14 +9,13 @@ import { createShipTab } from './shipTab';
 import { createCrewTab } from './crewTab';
 import { createWorkTab } from './workTab';
 import { createFleetTab } from './fleetTab';
+import { createFinancesTab } from './financesTab';
 import { createLogTab } from './logTab';
 import { createSettingsTab } from './settingsTab';
 import { createGamepediaTab } from './gamepediaTab';
 import { createStoriesTab } from './storiesTab';
 import { createStationTab } from './stationTab';
-import { createFleetPanel } from './fleetPanel';
 import { createNavigationView } from './navigationView';
-import { formatGameDate, GAME_SECONDS_PER_DAY } from '../timeSystem';
 import { formatCredits } from '../formatting';
 import { calculateDailyLedger } from '../dailyLedger';
 import {
@@ -47,7 +46,11 @@ export function createTabbedView(
   showNavigation: boolean,
   callbacks: TabbedViewCallbacks,
   selectedCrewId?: string
-): Component & { updateView(state: TabbedViewState): void } {
+): Component & {
+  tabBar: HTMLElement;
+  updateView(state: TabbedViewState): void;
+  navigateGamepediaTo(articleId: string): void;
+} {
   // Reset module-level state on (re-)mount to prevent stale data across game resets
   previousCredits = null;
   creditDeltaTimeout = null;
@@ -56,66 +59,50 @@ export function createTabbedView(
   const container = document.createElement('div');
   container.className = 'tabbed-view';
 
-  // Stable sub-areas so header/tabbar/content don't destroy each other
+  // Stable sub-areas so header/content don't destroy each other
   const headerArea = document.createElement('div');
-  const tabBarArea = document.createElement('div');
   const tabContentArea = document.createElement('div');
-  container.append(headerArea, tabBarArea, tabContentArea);
+  container.append(headerArea, tabContentArea);
 
   let currentTab = activeTab;
   let currentShowNav = showNavigation;
   let currentSelectedCrewId = selectedCrewId;
+  let previousTab: PlayingTab = activeTab !== 'guide' ? activeTab : 'ship';
 
   // ── Mount-once header elements ─────────────────────────────────────
   const headerEl = document.createElement('div');
   headerEl.className = 'ship-header';
   headerArea.appendChild(headerEl);
 
-  // Date display with day progress bar
-  const dateHeader = document.createElement('div');
-  dateHeader.className = 'date-header-global';
+  // Ship identity line (name + class + captain in single compact row)
+  const shipIdentityLine = document.createElement('div');
+  shipIdentityLine.className = 'ship-identity-line';
+  shipIdentityLine.style.display = 'flex';
+  shipIdentityLine.style.alignItems = 'center';
+  shipIdentityLine.style.gap = '12px';
+  shipIdentityLine.style.flexWrap = 'wrap';
+  shipIdentityLine.style.marginBottom = '0.75rem';
 
-  const dateText = document.createElement('span');
-  dateHeader.appendChild(dateText);
+  const shipNameEl = document.createElement('div');
+  shipNameEl.className = 'ship-name-compact';
+  shipNameEl.style.fontSize = '18px';
+  shipNameEl.style.fontWeight = 'bold';
+  shipNameEl.style.color = '#d4850a';
+  shipIdentityLine.appendChild(shipNameEl);
 
-  const dayProgressBar = document.createElement('div');
-  dayProgressBar.className = 'day-progress-bar';
-  dayProgressBar.style.width = '100%';
-  dayProgressBar.style.height = '4px';
-  dayProgressBar.style.background = 'rgba(255, 255, 255, 0.1)';
-  dayProgressBar.style.borderRadius = '2px';
-  dayProgressBar.style.marginTop = '4px';
-  dayProgressBar.style.overflow = 'hidden';
-
-  const dayProgressFill = document.createElement('div');
-  dayProgressFill.className = 'day-progress-fill';
-  dayProgressFill.style.height = '100%';
-  dayProgressFill.style.background = '#4a9eff';
-  dayProgressFill.style.borderRadius = '2px';
-  dayProgressBar.appendChild(dayProgressFill);
-
-  dateHeader.appendChild(dayProgressBar);
-  headerEl.appendChild(dateHeader);
-
-  // Fleet panel slot (visible only when >1 ships)
-  const fleetPanelSlot = document.createElement('div');
-  headerEl.appendChild(fleetPanelSlot);
-  let fleetPanelComponent: Component | null = null;
-
-  // Ship name
-  const shipNameEl = document.createElement('h2');
-  shipNameEl.className = 'ship-name';
-  headerEl.appendChild(shipNameEl);
-
-  // Ship class label
   const shipClassEl = document.createElement('div');
-  shipClassEl.className = 'ship-class-label';
-  headerEl.appendChild(shipClassEl);
+  shipClassEl.className = 'ship-class-compact';
+  shipClassEl.style.fontSize = '13px';
+  shipClassEl.style.color = '#888';
+  shipIdentityLine.appendChild(shipClassEl);
 
-  // Captain label
   const captainEl = document.createElement('div');
-  captainEl.className = 'captain-label';
-  headerEl.appendChild(captainEl);
+  captainEl.className = 'captain-compact';
+  captainEl.style.fontSize = '13px';
+  captainEl.style.color = '#aaa';
+  shipIdentityLine.appendChild(captainEl);
+
+  headerEl.appendChild(shipIdentityLine);
 
   // ── Mount-once global status bar ───────────────────────────────────
   const statusBar = document.createElement('div');
@@ -306,14 +293,6 @@ export function createTabbedView(
   refuelBtn.addEventListener('click', () => callbacks.onBuyFuel());
   actionsDiv.appendChild(refuelBtn);
 
-  // Advance Day button (created once, toggled display)
-  const advanceDayBtn = document.createElement('button');
-  advanceDayBtn.textContent = '\u23ED Advance Day';
-  advanceDayBtn.className = 'global-status-btn';
-  advanceDayBtn.style.display = 'none';
-  advanceDayBtn.addEventListener('click', () => callbacks.onAdvanceDay());
-  actionsDiv.appendChild(advanceDayBtn);
-
   statusBar.appendChild(actionsDiv);
 
   // ── Keep-alive tab components ──────────────────────────────────────
@@ -334,6 +313,7 @@ export function createTabbedView(
     { label: 'Work', tab: 'work' },
     { label: 'Nav', tab: 'nav' },
     { label: 'Fleet', tab: 'fleet' },
+    { label: 'Finances', tab: 'finances' },
     { label: 'Log', tab: 'log' },
     { label: 'Stories', tab: 'stories' },
     { label: 'Guide', tab: 'guide' },
@@ -363,9 +343,19 @@ export function createTabbedView(
     button.addEventListener('click', () => callbacks.onTabChange(def.tab));
     tabBarEl.appendChild(button);
     tabButtonRefs.push({ button, badge, tab: def.tab });
-  }
 
-  tabBarArea.appendChild(tabBarEl);
+    // Insert visual separator after Nav tab (between ship-dependent and global tabs)
+    if (def.tab === 'nav') {
+      const separator = document.createElement('div');
+      separator.className = 'tab-separator';
+      separator.style.width = '1px';
+      separator.style.height = '20px';
+      separator.style.background = '#444';
+      separator.style.alignSelf = 'center';
+      separator.style.margin = '0 4px';
+      tabBarEl.appendChild(separator);
+    }
+  }
 
   function updateTabBar(gameData: GameData) {
     const unreadCount = Math.max(0, gameData.log.length - lastViewedLogCount);
@@ -420,8 +410,6 @@ export function createTabbedView(
       case 'work':
         return createWorkTab(gameData, {
           onAcceptQuest: callbacks.onAcceptQuest,
-          onAssignRoute: callbacks.onAssignRoute,
-          onUnassignRoute: callbacks.onUnassignRoute,
           onDockAtNearestPort: callbacks.onDockAtNearestPort,
           onCancelPause: callbacks.onCancelPause,
           onRequestAbandon: callbacks.onRequestAbandon,
@@ -446,6 +434,8 @@ export function createTabbedView(
             callbacks.onTabChange('nav');
           },
         });
+      case 'finances':
+        return createFinancesTab(gameData);
       case 'log':
         return createLogTab(gameData);
       case 'stories':
@@ -454,7 +444,9 @@ export function createTabbedView(
           onShareStory: callbacks.onShareStory ?? (() => {}),
         });
       case 'guide':
-        return createGamepediaTab(gameData);
+        return createGamepediaTab(gameData, undefined, () => {
+          callbacks.onTabChange(previousTab);
+        });
       case 'settings':
         return createSettingsTab(gameData, callbacks);
       default:
@@ -479,53 +471,30 @@ export function createTabbedView(
   function updateHeader(gameData: GameData) {
     const ship = getActiveShip(gameData);
 
-    // Date display
-    const dateStr = formatGameDate(gameData.gameTime);
-    if (dateText.textContent !== dateStr) {
-      dateText.textContent = dateStr;
-    }
-
-    // Day progress bar
-    const dayProgress =
-      ((gameData.gameTime % GAME_SECONDS_PER_DAY) / GAME_SECONDS_PER_DAY) * 100;
-    dayProgressFill.style.width = `${dayProgress}%`;
-
-    // Fleet panel (always visible per UI discoverability rule)
-    if (!fleetPanelComponent) {
-      fleetPanelComponent = createFleetPanel(gameData, {
-        onSelectShip: callbacks.onSelectShip,
-      });
-      fleetPanelSlot.appendChild(fleetPanelComponent.el);
-    } else {
-      fleetPanelComponent.update(gameData);
-    }
-
-    // Ship name
+    // Ship identity line (name + class + captain)
     if (shipNameEl.textContent !== ship.name) {
       shipNameEl.textContent = ship.name;
     }
 
-    // Ship class
     const shipClass = getShipClass(ship.classId);
-    const classText = `Class: ${shipClass?.name ?? ship.classId}`;
+    const classText = shipClass?.name ?? ship.classId;
     if (shipClassEl.textContent !== classText) {
       shipClassEl.textContent = classText;
     }
 
-    // Captain
     const captain = ship.crew.find((c) => c.isCaptain);
     if (captain) {
-      const captainText = `Captain ${captain.name}`;
+      const captainText = `⚓ ${captain.name}`;
       if (captainEl.textContent !== captainText) {
         captainEl.textContent = captainText;
       }
       captainEl.style.opacity = '';
     } else {
-      const noCaptainText = 'No Captain';
+      const noCaptainText = '⚓ No Captain';
       if (captainEl.textContent !== noCaptainText) {
         captainEl.textContent = noCaptainText;
       }
-      captainEl.style.opacity = '0.4';
+      captainEl.style.opacity = '0.5';
     }
 
     // ── Global status bar update ───────────────────────────────────
@@ -597,22 +566,37 @@ export function createTabbedView(
       ledger.totalExpensePerDay > 0 || ledger.incomePerDay > 0 ? '' : '0.4';
 
     // Ledger breakdown items (updated even when collapsed, cheap text updates)
-    const incText = `Income: ${formatCredits(Math.round(ledger.incomePerDay))}/day`;
+    const incText =
+      ledger.incomeDays > 0
+        ? `Income: ${formatCredits(Math.round(ledger.incomePerDay))}/day`
+        : 'Income: collecting data\u2026';
     if (ledgerIncomeSpan.textContent !== incText) {
       ledgerIncomeSpan.textContent = incText;
-      ledgerIncomeSpan.style.color = '#4ade80';
+      ledgerIncomeSpan.style.color = ledger.incomeDays > 0 ? '#4ade80' : '#666';
     }
-    const crewCostText = `Crew: -${formatCredits(Math.round(ledger.crewCostPerDay))}/day`;
+
+    const crewCostText =
+      ledger.expenseDays > 0
+        ? `Crew: -${formatCredits(Math.round(ledger.crewCostPerDay))}/day`
+        : 'Crew: collecting data\u2026';
     if (ledgerCrewSpan.textContent !== crewCostText) {
       ledgerCrewSpan.textContent = crewCostText;
       ledgerCrewSpan.style.color =
-        ledger.crewCostPerDay > 0 ? '#ffa500' : '#888';
+        ledger.expenseDays > 0 && ledger.crewCostPerDay > 0
+          ? '#ffa500'
+          : '#666';
     }
-    const fuelCostText = `Fuel: -${formatCredits(Math.round(ledger.fuelCostPerDay))}/day`;
+
+    const fuelCostText =
+      ledger.expenseDays > 0
+        ? `Fuel: -${formatCredits(Math.round(ledger.fuelCostPerDay))}/day`
+        : 'Fuel: collecting data\u2026';
     if (ledgerFuelSpan.textContent !== fuelCostText) {
       ledgerFuelSpan.textContent = fuelCostText;
       ledgerFuelSpan.style.color =
-        ledger.fuelCostPerDay > 0 ? '#ffa500' : '#888';
+        ledger.expenseDays > 0 && ledger.fuelCostPerDay > 0
+          ? '#ffa500'
+          : '#666';
     }
 
     // ── Status text ──────────────────────────────────────────────────
@@ -672,7 +656,7 @@ export function createTabbedView(
           threatLabel.style.display = '';
           const colors: Record<string, string> = {
             caution: '#ffc107',
-            danger: '#e94560',
+            danger: '#ff6b6b',
             critical: '#ff6b6b',
           };
           threatLabel.style.color = colors[threatLevelValue] || '#aaa';
@@ -733,13 +717,6 @@ export function createTabbedView(
       }
     }
     refuelBtn.style.display = showRefuel ? '' : 'none';
-
-    // Advance Day button (only when docked or orbiting with no contract)
-    const canAdvanceDay =
-      (ship.location.status === 'docked' ||
-        ship.location.status === 'orbiting') &&
-      !ship.activeContract;
-    advanceDayBtn.style.display = canAdvanceDay ? '' : 'none';
   }
 
   // ── Main update function ───────────────────────────────────────────
@@ -785,14 +762,27 @@ export function createTabbedView(
 
   return {
     el: container,
+    tabBar: tabBarEl,
     update(gameData: GameData) {
       update(gameData);
     },
     updateView(state: TabbedViewState) {
+      // Track previous tab before switching to guide
+      if (state.activeTab === 'guide' && currentTab !== 'guide') {
+        previousTab = currentTab;
+      }
       currentTab = state.activeTab;
       currentShowNav = state.showNavigation;
       currentSelectedCrewId = state.selectedCrewId;
       update(state.gameData);
+    },
+    navigateGamepediaTo(articleId: string) {
+      const component = tabComponents.get('guide') as
+        | (Component & { navigateTo?: (id: string) => void })
+        | undefined;
+      if (component?.navigateTo) {
+        component.navigateTo(articleId);
+      }
     },
   };
 }

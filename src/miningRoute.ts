@@ -1,18 +1,26 @@
 import type { GameData, Ship, MiningRoute } from './models';
-import { startShipFlight } from './flightPhysics';
+import { getFinancials } from './models';
+import { startShipFlight, estimateFlightDurationTicks } from './flightPhysics';
 import { sellAllOre } from './miningSystem';
 import { getRemainingOreCapacity, getOreCargoWeight } from './miningSystem';
 import { addLog } from './logSystem';
-import { formatMiningRouteName } from './utils';
+import { formatMiningRouteName, getDistanceBetween } from './utils';
 import { getFuelPricePerKg } from './fuelPricing';
 import { formatFuelMass, calculateFuelPercentage } from './ui/fuelFormatting';
 import { formatCredits, formatMass } from './formatting';
+import {
+  getProvisionsSurvivalTicks,
+  getProvisionsSurvivalDays,
+  autoResupplyProvisions,
+} from './provisionsSystem';
+import { TICKS_PER_DAY } from './timeSystem';
 
 /**
  * Mining Route System
  *
  * Automates the mine → sell → return loop so mining is fully idle-compatible.
- * Initiated from the mining panel while orbiting a mine-enabled location.
+ * Can be initiated from a mine location (immediate mining) or from any station
+ * with a reachable mine (ship auto-flies to mine first).
  *
  * Route phases:
  *   mining   → cargo full triggers auto-flight to sell station
@@ -23,27 +31,23 @@ import { formatCredits, formatMass } from './formatting';
 // ─── Route Setup ────────────────────────────────────────────────
 
 /**
- * Start an automated mining route from the current mine location.
- * Ship must be orbiting a mine-enabled location.
+ * Start an automated mining route.
+ *
+ * When `mineLocationId` is omitted, the ship must be orbiting a mine-enabled
+ * location (existing behavior — mining begins immediately).
+ *
+ * When `mineLocationId` is provided, the ship can be at any docked/orbiting
+ * location and will auto-fly to the mine as the first step of the route.
  */
 export function assignMiningRoute(
   gameData: GameData,
   ship: Ship,
-  sellLocationId: string
+  sellLocationId: string,
+  mineLocationId?: string
 ): { success: boolean; error?: string } {
-  // Must be orbiting
-  if (ship.location.status !== 'orbiting' || !ship.location.orbitingAt) {
-    return { success: false, error: 'Ship must be orbiting a mining location' };
-  }
-
-  const mineLocation = gameData.world.locations.find(
-    (l) => l.id === ship.location.orbitingAt
-  );
-  if (!mineLocation || !mineLocation.services.includes('mine')) {
-    return {
-      success: false,
-      error: 'Current location does not support mining',
-    };
+  // Must not have an active contract
+  if (ship.activeContract) {
+    return { success: false, error: 'Ship has an active contract' };
   }
 
   // Validate sell location exists and has trade service
@@ -57,12 +61,87 @@ export function assignMiningRoute(
     };
   }
 
-  // Must not have an active contract or freight route
-  if (ship.activeContract) {
-    return { success: false, error: 'Ship has an active contract' };
+  // ── Remote start: mine location explicitly specified ──
+  if (mineLocationId) {
+    const currentLocId = ship.location.dockedAt || ship.location.orbitingAt;
+    if (!currentLocId) {
+      return {
+        success: false,
+        error: 'Ship must be docked or orbiting a station',
+      };
+    }
+
+    const mineLocation = gameData.world.locations.find(
+      (l) => l.id === mineLocationId
+    );
+    if (!mineLocation || !mineLocation.services.includes('mine')) {
+      return {
+        success: false,
+        error: 'Selected location does not support mining',
+      };
+    }
+
+    const currentLocation = gameData.world.locations.find(
+      (l) => l.id === currentLocId
+    );
+    if (!currentLocation) {
+      return { success: false, error: 'Current location not found' };
+    }
+
+    ship.miningRoute = {
+      mineLocationId: mineLocation.id,
+      sellLocationId,
+      status: 'returning',
+      totalTrips: 0,
+      totalCreditsEarned: 0,
+      assignedAt: gameData.gameTime,
+    };
+
+    // Initiate flight to the mine (orbit on arrival)
+    const departed = startShipFlight(
+      ship,
+      currentLocation,
+      mineLocation,
+      false,
+      ship.flightProfileBurnFraction,
+      gameData.gameTime,
+      gameData.world
+    );
+
+    if (!departed) {
+      addLog(
+        gameData.log,
+        gameData.gameTime,
+        'mining_route',
+        `Mining route established but helm unmanned — assign crew to helm to depart to ${mineLocation.name}`,
+        ship.name
+      );
+    } else {
+      addLog(
+        gameData.log,
+        gameData.gameTime,
+        'mining_route',
+        `Mining route established: departing to ${mineLocation.name}, sell at ${sellLocation.name}`,
+        ship.name
+      );
+    }
+
+    return { success: true };
   }
-  if (ship.routeAssignment) {
-    return { success: false, error: 'Ship is assigned to a freight route' };
+
+  // ── Local start: ship already at the mine ──
+  if (ship.location.status !== 'orbiting' || !ship.location.orbitingAt) {
+    return { success: false, error: 'Ship must be orbiting a mining location' };
+  }
+
+  const mineLocation = gameData.world.locations.find(
+    (l) => l.id === ship.location.orbitingAt
+  );
+  if (!mineLocation || !mineLocation.services.includes('mine')) {
+    return {
+      success: false,
+      error: 'Current location does not support mining',
+    };
   }
 
   ship.miningRoute = {
@@ -185,6 +264,83 @@ export function checkMiningRouteDeparture(
   return true;
 }
 
+// ─── Provisions Check: Auto-Return Before Starvation ────────────
+
+/** Safety buffer: depart early enough to arrive with this many days of food remaining. */
+const PROVISIONS_SAFETY_BUFFER_DAYS = 2;
+
+/**
+ * Called every tick during the mining phase.
+ * If remaining provisions won't last through the return trip + safety buffer,
+ * auto-depart to the sell station to resupply.
+ * Returns true if a departure was initiated.
+ */
+export function checkMiningRouteProvisionsReturn(
+  gameData: GameData,
+  ship: Ship
+): boolean {
+  const route = ship.miningRoute;
+  if (!route || route.status !== 'mining') return false;
+
+  const mineLocation = gameData.world.locations.find(
+    (l) => l.id === route.mineLocationId
+  );
+  const sellLocation = gameData.world.locations.find(
+    (l) => l.id === route.sellLocationId
+  );
+  if (!mineLocation || !sellLocation) return false;
+
+  const survivalTicks = getProvisionsSurvivalTicks(ship);
+  // Don't trigger if provisions are infinite (no crew)
+  if (!Number.isFinite(survivalTicks)) return false;
+
+  const distanceKm = getDistanceBetween(mineLocation, sellLocation);
+  const returnFlightTicks = estimateFlightDurationTicks(
+    ship,
+    distanceKm,
+    ship.flightProfileBurnFraction
+  );
+  const safetyBufferTicks = TICKS_PER_DAY * PROVISIONS_SAFETY_BUFFER_DAYS;
+
+  // Enough provisions — keep mining
+  if (survivalTicks > returnFlightTicks + safetyBufferTicks) return false;
+
+  // Try to start flight to sell station for resupply
+  const departed = startShipFlight(
+    ship,
+    mineLocation,
+    sellLocation,
+    true, // dock on arrival for auto-sell and provisions resupply
+    ship.flightProfileBurnFraction,
+    gameData.gameTime,
+    gameData.world
+  );
+
+  if (!departed) {
+    addLog(
+      gameData.log,
+      gameData.gameTime,
+      'mining_route',
+      `Mining route alert: provisions critical but helm unmanned. Assign crew to helm.`,
+      ship.name
+    );
+    return false;
+  }
+
+  route.status = 'selling';
+  const daysRemaining = Math.ceil(getProvisionsSurvivalDays(ship));
+
+  addLog(
+    gameData.log,
+    gameData.gameTime,
+    'mining_route',
+    `Low provisions (${daysRemaining} days remaining) — departing to ${sellLocation.name} to resupply`,
+    ship.name
+  );
+
+  return true;
+}
+
 // ─── Arrival Handling ───────────────────────────────────────────
 
 /**
@@ -248,6 +404,12 @@ function handleSellArrival(
   if (sellLocation.services.includes('refuel')) {
     autoRefuelForMiningRoute(gameData, ship, sellLocation);
   }
+
+  // Resupply provisions with post-sale credits.
+  // The ship_docked event fired BEFORE ore was sold (credits may have
+  // been insufficient). This explicit call ensures provisions are
+  // topped up now that revenue is available.
+  autoResupplyProvisions(gameData, ship, sellLocation.id);
 
   // Depart back to mine (orbit on arrival)
   const departed = startShipFlight(
@@ -335,6 +497,40 @@ export function retryMiningRouteDeparture(
     return handleSellArrival(gameData, ship, route);
   }
 
+  // Stalled initial departure to mine (remote start, helm was unmanned)
+  if (route.status === 'returning') {
+    const atLocation = ship.location.dockedAt || ship.location.orbitingAt;
+    if (atLocation && atLocation !== route.mineLocationId) {
+      const currentLoc = gameData.world.locations.find(
+        (l) => l.id === atLocation
+      );
+      const mineLoc = gameData.world.locations.find(
+        (l) => l.id === route.mineLocationId
+      );
+      if (currentLoc && mineLoc) {
+        const departed = startShipFlight(
+          ship,
+          currentLoc,
+          mineLoc,
+          false,
+          ship.flightProfileBurnFraction,
+          gameData.gameTime,
+          gameData.world
+        );
+        if (departed) {
+          addLog(
+            gameData.log,
+            gameData.gameTime,
+            'mining_route',
+            `Departing to ${mineLoc.name} to begin mining operations`,
+            ship.name
+          );
+        }
+        return departed;
+      }
+    }
+  }
+
   return false;
 }
 
@@ -356,13 +552,15 @@ function autoRefuelForMiningRoute(
     ship.fuelKg = ship.maxFuelKg;
     gameData.credits -= fuelCost;
     ship.metrics.fuelCostsPaid += fuelCost;
+    getFinancials(gameData).expenseFuel += fuelCost;
 
     addLog(
       gameData.log,
       gameData.gameTime,
       'refueled',
       `Auto-refueled ${ship.name} at ${location.name}: ${formatFuelMass(fuelNeededKg)} (${formatCredits(fuelCost)})`,
-      ship.name
+      ship.name,
+      { credits: fuelCost }
     );
   } else {
     // Not enough credits — end mining route

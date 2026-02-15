@@ -27,7 +27,8 @@ import {
   getMaxProvisionsKg,
   getProvisionsSurvivalDays,
 } from '../provisionsSystem';
-import { formatMass } from '../formatting';
+import { formatMass, formatCredits } from '../formatting';
+import { attachDynamicTooltip, type TooltipHandle } from './components/tooltip';
 import { formatGameDate } from '../timeSystem';
 import { calculateDailyLedger } from '../dailyLedger';
 import type { PlayingTab } from './types';
@@ -73,9 +74,6 @@ export interface RendererCallbacks {
   onEquipItem: (crewId: string, itemId: string) => void;
   onUnequipItem: (crewId: string, itemId: string) => void;
   onAcceptQuest: (questId: string) => void;
-  onAssignRoute: (questId: string) => void;
-  onUnassignRoute: () => void;
-  onAdvanceDay: () => void;
   onTogglePause?: () => void;
   onSetSpeed?: (speed: 1 | 2 | 5) => void;
   onAutoPauseSettingChange?: (
@@ -116,6 +114,7 @@ export interface RendererCallbacks {
     itemId: string
   ) => void;
   onDismissCatchUp: () => void;
+  onDismissGettingStarted: () => void;
   onImportState?: (json: string) => void;
   onDismissStory?: (arcId: string) => void;
   onShareStory?: (arcId: string) => void;
@@ -132,12 +131,14 @@ interface MountedPlayingLayout {
   drawerOverlay: HTMLElement;
   mobileDrawer: HTMLElement;
   drawerSidebar: Component;
+  tabBar: HTMLElement;
   contentGrid: HTMLElement;
   leftSidebar: Component;
   mainContent: HTMLElement;
   tabbedView: ReturnType<typeof createTabbedView>;
   toastArea: HTMLElement;
   rightSidebar: Component;
+  gettingStartedBanner: HTMLElement;
   hasCatchUpReport: boolean;
   catchUpProgressText?: HTMLElement;
   catchUpProgressFill?: HTMLElement;
@@ -213,7 +214,12 @@ export function render(
   const titleHeader = document.createElement('div');
   titleHeader.className = 'game-header';
   const title = document.createElement('h1');
-  title.textContent = 'Starship Commander';
+  const logoImg = document.createElement('img');
+  logoImg.src = '/logo.png';
+  logoImg.alt = 'The Long Haul: 2247';
+  logoImg.style.maxHeight = '80px';
+  logoImg.style.width = 'auto';
+  title.appendChild(logoImg);
   titleHeader.appendChild(title);
   wrapper.appendChild(titleHeader);
 
@@ -283,10 +289,10 @@ function mountPlayingLayout(
     onToggleNavigation: callbacks.onToggleNavigation,
     onUndock: callbacks.onUndock,
     onDock: callbacks.onDockAtNearestPort,
-    onAdvanceDay: callbacks.onAdvanceDay,
     onTogglePause: callbacks.onTogglePause,
     onSetSpeed: callbacks.onSetSpeed,
     onTabChange: callbacks.onTabChange,
+    onSelectShip: callbacks.onSelectShip,
   };
 
   // Mobile header bar (mount-once component)
@@ -337,9 +343,47 @@ function mountPlayingLayout(
       mobileDrawerOpen = false;
       callbacks.onTabChange(tab);
     },
+    onSelectShip: (shipId: string) => {
+      mobileDrawerOpen = false;
+      callbacks.onSelectShip(shipId);
+    },
   });
   mobileDrawer.appendChild(drawerSidebar.el);
   wrapper.appendChild(mobileDrawer);
+
+  // Getting Started banner (dismissable, first-time players only)
+  const gettingStartedBanner = document.createElement('div');
+  gettingStartedBanner.className = 'getting-started-banner';
+  if (state.gameData.gettingStartedDismissed) {
+    gettingStartedBanner.style.display = 'none';
+  }
+
+  const bannerText = document.createElement('span');
+  bannerText.className = 'getting-started-banner-text';
+  bannerText.textContent =
+    'New to The Long Haul: 2247? Read the Getting Started guide to learn the basics.';
+  gettingStartedBanner.appendChild(bannerText);
+
+  const bannerReadBtn = document.createElement('button');
+  bannerReadBtn.className = 'getting-started-banner-btn';
+  bannerReadBtn.textContent = 'Read Guide';
+  bannerReadBtn.addEventListener('click', () => {
+    callbacks.onTabChange('guide');
+    mounted?.tabbedView.navigateGamepediaTo('getting-started');
+    callbacks.onDismissGettingStarted();
+  });
+  gettingStartedBanner.appendChild(bannerReadBtn);
+
+  const bannerDismissBtn = document.createElement('button');
+  bannerDismissBtn.className = 'getting-started-banner-dismiss';
+  bannerDismissBtn.textContent = '\u2715';
+  bannerDismissBtn.title = 'Dismiss';
+  bannerDismissBtn.addEventListener('click', () => {
+    callbacks.onDismissGettingStarted();
+  });
+  gettingStartedBanner.appendChild(bannerDismissBtn);
+
+  wrapper.appendChild(gettingStartedBanner);
 
   // Content grid (3-column: left sidebar | main | right sidebar)
   const contentGrid = document.createElement('div');
@@ -372,9 +416,6 @@ function mountPlayingLayout(
       onEquipItem: callbacks.onEquipItem,
       onUnequipItem: callbacks.onUnequipItem,
       onAcceptQuest: callbacks.onAcceptQuest,
-      onAssignRoute: callbacks.onAssignRoute,
-      onUnassignRoute: callbacks.onUnassignRoute,
-      onAdvanceDay: callbacks.onAdvanceDay,
       onDockAtNearestPort: callbacks.onDockAtNearestPort,
       onCancelPause: callbacks.onCancelPause,
       onRequestAbandon: callbacks.onRequestAbandon,
@@ -417,6 +458,7 @@ function mountPlayingLayout(
   const rightSidebar = createRightSidebar(state.gameData);
   contentGrid.appendChild(rightSidebar.el);
 
+  wrapper.appendChild(tabbedView.tabBar);
   wrapper.appendChild(contentGrid);
 
   return {
@@ -426,12 +468,14 @@ function mountPlayingLayout(
     drawerOverlay,
     mobileDrawer,
     drawerSidebar,
+    tabBar: tabbedView.tabBar,
     contentGrid,
     leftSidebar,
     mainContent,
     tabbedView,
     toastArea,
     rightSidebar,
+    gettingStartedBanner,
     hasCatchUpReport: false,
   };
 }
@@ -470,6 +514,12 @@ function updatePlayingLayout(
 
   // Right sidebar
   layout.rightSidebar.update(state.gameData);
+
+  // Getting Started banner — hide once dismissed
+  layout.gettingStartedBanner.style.display = state.gameData
+    .gettingStartedDismissed
+    ? 'none'
+    : '';
 }
 
 // ── Helpers ────────────────────────────────────────────────────────
@@ -483,7 +533,9 @@ function makePlaceholderMounted(
   const dummy = document.createElement('div');
   const dummyComp: Component = { el: dummy, update() {} };
   const dummyTabbed = Object.assign(dummyComp, {
+    tabBar: dummy,
     updateView(_s: TabbedViewState) {},
+    navigateGamepediaTo(_articleId: string) {},
   });
   return {
     container,
@@ -492,12 +544,14 @@ function makePlaceholderMounted(
     drawerOverlay: dummy,
     mobileDrawer: dummy,
     drawerSidebar: dummyComp,
+    tabBar: dummy,
     contentGrid: dummy,
     leftSidebar: dummyComp,
     mainContent: dummy,
     tabbedView: dummyTabbed,
     toastArea: dummy,
     rightSidebar: dummyComp,
+    gettingStartedBanner: dummy,
     hasCatchUpReport: true,
   };
 }
@@ -541,6 +595,10 @@ function createMobileHeaderBar(
   creditsStat.appendChild(document.createTextNode(' '));
   creditsStat.appendChild(creditsValueSpan);
   creditsStat.appendChild(creditsRateSpan);
+  const creditRateTooltipHandle: TooltipHandle = attachDynamicTooltip(
+    creditsRateSpan,
+    ''
+  );
   bar.appendChild(creditsStat);
 
   // Fuel stat
@@ -630,6 +688,42 @@ function createMobileHeaderBar(
       creditsRateSpan.style.display = 'none';
     }
 
+    // Credit rate tooltip breakdown
+    {
+      const parts: string[] = [];
+      if (ledger.incomeDays > 0) {
+        parts.push(
+          `<div><span class="custom-tooltip-label">Income:</span> <span class="custom-tooltip-value" style="color:#4caf50">+${formatCredits(Math.round(ledger.incomePerDay))}/day</span></div>`
+        );
+      } else {
+        parts.push(
+          `<div><span class="custom-tooltip-label">Income:</span> <span class="custom-tooltip-value" style="color:#666">collecting data\u2026</span></div>`
+        );
+      }
+      parts.push(
+        `<div><span class="custom-tooltip-label">Crew salaries:</span> <span class="custom-tooltip-value" style="color:#ff6b6b">-${formatCredits(Math.round(ledger.crewCostPerDay))}/day</span></div>`
+      );
+      if (ledger.fuelCostPerDay > 0) {
+        parts.push(
+          `<div><span class="custom-tooltip-label">Fuel costs:</span> <span class="custom-tooltip-value" style="color:#ff6b6b">-${formatCredits(Math.round(ledger.fuelCostPerDay))}/day</span></div>`
+        );
+      }
+      const netRounded = Math.round(ledger.netPerDay);
+      const netSign = netRounded >= 0 ? '+' : '';
+      const netColor = netRounded >= 0 ? '#4ade80' : '#ff4444';
+      parts.push('<hr style="border-color:#444;margin:4px 0">');
+      parts.push(
+        `<div><span class="custom-tooltip-label">Net:</span> <span class="custom-tooltip-value" style="color:${netColor}">${netSign}${formatCredits(netRounded)}/day</span></div>`
+      );
+      if (ledger.runwayDays !== null) {
+        const runwayColor = ledger.runwayDays < 3 ? '#ff4444' : '#ffa500';
+        parts.push(
+          `<div><span class="custom-tooltip-label">Runway:</span> <span class="custom-tooltip-value" style="color:${runwayColor}">${ledger.runwayDays.toFixed(1)} days</span></div>`
+        );
+      }
+      creditRateTooltipHandle.updateContent(parts.join(''));
+    }
+
     // Fuel
     const fuelPct = calculateFuelPercentage(ship.fuelKg, ship.maxFuelKg);
     const fuelColor = getFuelColorHex(fuelPct);
@@ -639,7 +733,7 @@ function createMobileHeaderBar(
     // Fuel status text (color is not the sole indicator per UX guidelines)
     if (fuelPct < 15) {
       fuelStatusSpan.textContent = ' CRITICAL';
-      fuelStatusSpan.style.color = '#e94560';
+      fuelStatusSpan.style.color = '#ff6b6b';
       fuelStatusSpan.style.display = '';
     } else if (fuelPct < 25) {
       fuelStatusSpan.textContent = ' LOW';

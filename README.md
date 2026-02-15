@@ -1,4 +1,4 @@
-# Starship Commander
+# The Long Haul: 2247
 
 A browser-based sci-fi spaceship captain game inspired by Firefly and the Gap Cycle. Create your captain, name your ship, and manage your crew across the stars.
 
@@ -58,7 +58,7 @@ npm run dev
   - Mastery pool bonuses at 10/25/50/95% full: XP boost, yield bonus, wear reduction, double-drop chance
   - Sell ore at any station with trade service — prices vary by location type and commerce skill
   - **Cargo progress bar**: visual fill level with mining rate, ETA to fill, and color-coded thresholds
-  - **Auto-sell mining routes**: set up idle-friendly mine→sell→return loop; destination picker shows profitability estimates (cr/hr) per station accounting for fill time and round-trip travel
+  - **Auto-sell mining routes**: set up idle-friendly mine→sell→return loop from any station — start at a mine or pick a reachable mine from a non-mining station and your ship auto-flies there; destination picker shows profitability estimates (cr/hr) per station accounting for fill time and round-trip travel; provisions-aware auto-return departs early to resupply when food runs low
   - Route stats show trips, earnings, status, and average cr/hr
   - Active mining feedback: pulsing indicator when mining, status badges (MINING / IN TRANSIT / CARGO FULL / DOCKED / IDLE)
   - 8 mining locations from cislunar space (Graveyard Drift, Tycho Colony) through the Belt (The Crucible, Ceres) to Jupiter, with progressively valuable ores rewarding outward expansion
@@ -128,7 +128,8 @@ npm run dev
   - Provisions bar on Ship tab, left sidebar, and mobile header shows current supply and days remaining
   - Auto-resupply when docked at trade stations (targets 30 days of supplies)
   - Pricing scales with distance from Earth (0.50 cr/kg inner system → 1.25 cr/kg outer)
-  - Starvation health damage when provisions run out — crew can die
+  - Gradual starvation when provisions run out — crew lose health over 7 game days and become less efficient as health drops (sqrt curve: 50% HP → 71% efficiency)
+  - Health-based efficiency applies to all damage sources (starvation, radiation, combat, oxygen) — affects mining yield, skill training, and repair speed
   - Provisions mass competes with available cargo capacity, creating meaningful tradeoffs
   - Quest cards warn when provisions are insufficient for the round trip
 - **Crew Death**:
@@ -168,6 +169,7 @@ npm run dev
   - Encounter cooldown prevents rapid consecutive encounters per ship
 - **Emergent Storytelling**: Dwarf Fortress-inspired narrative system that passively observes gameplay events and detects story arcs (survivor, rags-to-riches, cursed ship, battle brothers, etc.). Crew personalities with 10 trait types provide light mechanical effects and color narrative text. Stories are shareable via clipboard text or PNG image export. See the Stories tab and `docs/emergent-storytelling.md`
 - **Event Log**: Rolling log of the most recent 200 events (departures, arrivals, payments, contract completions, encounters); older entries pruned automatically
+- **Power Management**: Automated priority-based power allocation managed by the helm pilot. Equipment has three power modes (Off/Auto/On) — in Auto mode, the ship AI powers equipment contextually (shields during flight, mining gear at mines, life support always). When power is constrained, lower-priority equipment is shed first. Pilot skill provides up to +10% effective power budget
 - **Resource Tracking**: Monitor credits, fuel, oxygen, crew count, and power consumption
 - **Daily Ledger**: Fleet-wide financial overview with 7-day rolling income average, projected crew/fuel expenses per day, net income rate, and runway indicator. Appears in header bar, left sidebar, and Fleet Performance Dashboard
 - **Equipment Trading**: Buy and sell crew equipment at stations with trade services (50% sell value)
@@ -178,7 +180,7 @@ npm run dev
 - **Save Data Migration**: Versioned save format with automatic migration pipeline — existing saves upgrade gracefully when the data shape changes (see `docs/save-migration.md`)
 - **Game Data Catalogs**:
   - 9 engine types (chemical, nuclear fission, fusion, advanced fusion) with thrust and delta-v specifications
-  - 18 ship equipment types with category labels (life support, shielding, thermal, defense, navigation, structural, gravity systems)
+  - 20 ship equipment types with category labels (life support, shielding, thermal, defense, navigation, structural, gravity systems) and automated power management
   - 9 room types (bridge, engine room, reactor room, point defense station, etc.)
   - 3 factions (Terran Alliance, Free Traders Guild, Kreth Collective)
   - 15 crew equipment items (weapons, tools, accessories, armor, gravity countermeasures, 6 mining equipment tiers)

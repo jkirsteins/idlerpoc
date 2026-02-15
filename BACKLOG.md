@@ -115,9 +115,39 @@ Current ship equipment (20 items) is dominated by mandatory survival systems. "F
 - **Event Gain Scaling**: Scale flat event gains inversely to rank bracket to prevent high-level spikiness (combat +3.0 is huge at skill 95).
 - **Stronger Match Bonus**: Consider increasing SKILL_MATCH_MULTIPLIER from 1.5x to 3x to make crew assignment more impactful.
 
+## Mastery System Design Rework
+
+**Priority:** Design Spike (post-v1)
+
+**Problem:** Current mastery bonuses use flat +X% modifiers that violate "emergent systems" design principle (DESIGN_GOALS.md). Examples:
+
+- Route mastery: -25% fuel, -25% travel time (rewrites physics)
+- Ore mastery: +40% yield (disconnected from equipment/geology)
+- Trade mastery: +20% payment (arbitrary economic modifier)
+- Pool checkpoints: +5% fuel efficiency, +10% evasion, -5% salary
+
+**Direction for rework:**
+
+- Route mastery → tighter delta-v safety margins (reduce 50% buffer), better burn-coast-burn timing
+- Ore mastery → better vein detection (interact with equipment extraction rate)
+- Trade mastery → location-specific price tier unlocks
+- Repair mastery → reduced failure rate or better repair quality
+- Evasion pool → better sensor integration (interact with scanner equipment)
+- Salary pool → market reputation discount (interact with location economy)
+
+**Keep:** +5% mastery XP pool checkpoints (meta-progression, doesn't affect simulation)
+
+**Scope:** Touches masterySystem.ts, gameTick.ts (6 consumption points), miningSystem.ts (3 points), contractExec.ts (1 point), plus UI.
+
+**Reference:** Design goals audit report, Part C
+
 ## EVA System
 
 - **EVA (Extra-Vehicular Activity)**: Crew EVA system for outside-the-ship operations. Would enable hand-mining of specific asteroid targets, ship hull inspection/repair, cargo transfer between ships, and salvage operations. Requires EVA suit crew equipment, airlock room type, and EVA skill or EVA-related piloting checks. Could tie into mining (artisanal hand-mining of rare samples) and repair (hull patch jobs) gameplay loops.
+
+## Segmented Flight Re-Planning
+
+- **Mass-dependent trajectory updates**: When mass changes during flight affect acceleration significantly (e.g. large fuel burn on long voyages), re-plan the remaining trajectory from the ship's current position — similar to how `redirectShipFlight` already handles destination changes. Each segment gets its own frozen trajectory (originPos, interceptPos, totalTime); the visualization draws the segment chain. This replaces the removed `applyCourseCorrection` system which patched individual fields without maintaining internal consistency.
 
 ## Deferred Spatial Model Features
 
@@ -161,6 +191,12 @@ Remaining follow-up:
 - **Story Arc Completion**: Track when an arc's conditions are no longer met (e.g., survivor dies) and mark it as complete with an epilogue.
 - **Seasonal/Timed Arcs**: Detect patterns tied to game time milestones (e.g., "first year anniversary" for long-serving crew).
 - **Player-Written Annotations**: Allow players to add their own notes/captions to detected story arcs.
+
+## Deferred Provisions & Efficiency Features
+
+- **Visual Efficiency Indicator**: Show health-based work efficiency multiplier on crew cards (e.g., "Efficiency: 71%"). Currently efficiency is applied behind the scenes but not surfaced to players directly.
+- ~~**Provisions-Aware Freight Routes**~~: **DONE** — All automated departures (contracts, trade routes, mining routes) now check provisions before departing. Contract legs pause if provisions won't last through the flight + 2-day buffer. Mining routes auto-return to sell station early. See `tryDepartNextLeg()` in `contractExec.ts` and `checkMiningRouteProvisionsReturn()` in `miningRoute.ts`.
+- **Starvation Morale Impact**: Starvation could also affect crew morale (field exists but is unused). Would create cascading effects: no food → low morale → desertions.
 
 ## Other Known Gaps
 

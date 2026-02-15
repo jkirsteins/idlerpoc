@@ -3,7 +3,6 @@ import { getCommandCommerceBonus } from './captainBonus';
 import { getShipClass } from './shipClasses';
 import { getDistanceBetween, canShipAccessLocation } from './worldGen';
 import {
-  calculateAvailableCargoCapacity,
   calculateShipAvailableCargo,
   calculateDeltaV,
   calculateDryMass,
@@ -229,12 +228,6 @@ function calculateCrewSkillBonus(ship: Ship): number {
   for (const crew of getCrewForJobType(ship, 'scanner')) {
     const pointsAbove50 = Math.max(0, crew.skills.piloting - 50);
     bonus += pointsAbove50 * 0.002;
-  }
-
-  // Drive ops crew: piloting bonus
-  for (const crew of getCrewForJobType(ship, 'drive_ops')) {
-    const pointsAbove50 = Math.max(0, crew.skills.piloting - 50);
-    bonus += pointsAbove50 * 0.001;
   }
 
   // Helm crew: piloting bonus
@@ -580,9 +573,7 @@ export function calculateTradeRouteCargo(
   _origin: WorldLocation
 ): number {
   const shipClass = getShipClass(ship.classId);
-  return shipClass
-    ? Math.floor(calculateAvailableCargoCapacity(shipClass.cargoCapacity) * 0.8)
-    : 1000;
+  return shipClass ? Math.floor(shipClass.cargoCapacity * 0.8) : 1000;
 }
 
 /**
@@ -736,9 +727,7 @@ export function resolveQuestForShip(
   if (quest.cargoFraction == null) return quest;
 
   const shipClass = getShipClass(ship.classId);
-  const availableCargo = shipClass
-    ? calculateAvailableCargoCapacity(shipClass.cargoCapacity)
-    : 1000;
+  const availableCargo = shipClass ? shipClass.cargoCapacity : 1000;
   const maxCargo = Math.floor(availableCargo * 0.8);
   const cargoRequired =
     quest.cargoFraction > 0
@@ -932,17 +921,6 @@ export function canAcceptQuest(
       canAccept: false,
       reason: `Insufficient fuel for trip (need ${formatFuelMass(resolved.estimatedFuelPerTrip)}, have ${formatFuelMass(ship.fuelKg)})`,
     };
-  }
-
-  // For passenger quests, check crew capacity
-  if (quest.type === 'passenger') {
-    const quartersRoom = ship.rooms.find((r) => r.type === 'quarters');
-    if (!quartersRoom) {
-      return {
-        canAccept: false,
-        reason: 'No passenger quarters available',
-      };
-    }
   }
 
   // ── Soft warnings (don't block acceptance) ──────────────────────
