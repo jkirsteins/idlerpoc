@@ -1,7 +1,11 @@
 // Game Factory - Create new swarm games
 
 import type { GameData, Swarm } from './models/swarmTypes';
-import { generateTRAPPIST1System, getStartingZone } from './trappist1Data';
+import {
+  generateTRAPPIST1System,
+  getStartingZone,
+  normalizePlanetsFromSave,
+} from './trappist1Data';
 import { createQueen, createLogEntry } from './swarmSystem';
 
 // ============================================================================
@@ -55,7 +59,6 @@ export function createNewGame(): GameData {
     ],
 
     isPaused: false,
-    timeSpeed: 1,
   };
 
   return gameData;
@@ -84,6 +87,8 @@ export function loadGame(saveData: string): GameData | null {
       console.error('Invalid save data');
       return null;
     }
+
+    parsed.planets = normalizePlanetsFromSave(parsed.planets);
 
     return parsed;
   } catch (error) {

@@ -4,7 +4,7 @@ import './style.css';
 import type { GameData } from './models/swarmTypes';
 import { createNewGame, loadGame, saveGame } from './gameFactory';
 import { applyTick, processCatchUp } from './gameTickSwarm';
-import { render } from './ui/renderer';
+import { render, type Renderer } from './ui/renderer';
 
 const app = document.getElementById('app')!;
 
@@ -12,6 +12,14 @@ const app = document.getElementById('app')!;
 let gameData: GameData | null = null;
 let tickInterval: number | null = null;
 let isPaused = false;
+let renderer: Renderer | null = null;
+
+/** Debug speed multiplier from ?debugspeed=N query param */
+function getDebugSpeedMultiplier(): number {
+  const param = new URLSearchParams(window.location.search).get('debugspeed');
+  const n = param ? Number(param) : 1;
+  return Number.isFinite(n) && n >= 1 ? n : 1;
+}
 
 // ============================================================================
 // INITIALIZATION
@@ -37,8 +45,8 @@ function init(): void {
     console.log('Starting new game');
   }
 
-  // Initial render
-  renderGame();
+  // Initial render (mount once)
+  renderer = renderGame();
 
   // Start tick loop
   startTickLoop();
@@ -57,24 +65,34 @@ function init(): void {
 function startTickLoop(): void {
   if (tickInterval) return;
 
+  const debugSpeed = getDebugSpeedMultiplier();
+  const tickIntervalMs = 1000 / debugSpeed;
+
   tickInterval = window.setInterval(() => {
     if (!isPaused && gameData) {
-      const result = applyTick(gameData, Date.now());
+      // Process debugSpeed ticks per interval
+      const ticksToProcess = debugSpeed;
 
-      // Log significant events
-      if (result.logEntries.length > 0) {
-        // Events logged to gameData.log automatically
+      for (let i = 0; i < ticksToProcess; i++) {
+        const result = applyTick(gameData, Date.now());
+
+        // Log significant events
+        if (result.logEntries.length > 0) {
+          // Events logged to gameData.log automatically
+        }
       }
 
-      // Save periodically (every 30 seconds)
+      // Save periodically (every 30 seconds, adjusted for debug speed)
       if (gameData.gameTime % 30 === 0) {
         saveCurrentGame();
       }
 
-      // Render
-      renderGame();
+      // Update UI in-place (no full re-render)
+      if (renderer) {
+        renderer.update(gameData);
+      }
     }
-  }, 1000); // 1 tick per second
+  }, tickIntervalMs);
 }
 
 // ============================================================================
@@ -96,7 +114,10 @@ function handleVisibilityChange(): void {
       console.log('Catch-up processed:', result);
     }
 
-    renderGame();
+    // Update UI
+    if (renderer) {
+      renderer.update(gameData);
+    }
   }
 }
 
@@ -115,12 +136,13 @@ function saveCurrentGame(): void {
 // RENDERING
 // ============================================================================
 
-function renderGame(): void {
-  if (!gameData) return;
+function renderGame(): Renderer {
+  if (!gameData) {
+    throw new Error('No game data');
+  }
 
-  render(app, gameData, {
+  return render(app, gameData, {
     onTogglePause,
-    onSetTimeSpeed,
     onSetQueenDirective,
     onToggleEggProduction,
     onExportSave,
@@ -137,13 +159,6 @@ function onTogglePause(): void {
   isPaused = !isPaused;
   if (gameData) {
     gameData.isPaused = isPaused;
-  }
-  renderGame();
-}
-
-function onSetTimeSpeed(speed: 1 | 2 | 5): void {
-  if (gameData) {
-    gameData.timeSpeed = speed;
   }
 }
 
@@ -175,7 +190,11 @@ function onImportSave(saveData: string): boolean {
   if (loaded) {
     gameData = loaded;
     saveCurrentGame();
-    renderGame();
+    // Re-render on import
+    if (renderer) {
+      renderer.destroy();
+    }
+    renderer = renderGame();
     return true;
   }
   return false;
@@ -185,7 +204,11 @@ function onResetGame(): void {
   if (confirm('Start a new game? All progress will be lost.')) {
     localStorage.removeItem('swarmSave');
     gameData = createNewGame();
-    renderGame();
+    // Re-render on reset
+    if (renderer) {
+      renderer.destroy();
+    }
+    renderer = renderGame();
   }
 }
 

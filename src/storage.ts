@@ -77,8 +77,9 @@ const migrations: Record<number, MigrationFn> = {
     if (data.isPaused === undefined) {
       data.isPaused = false;
     }
-    if (data.timeSpeed === undefined) {
-      data.timeSpeed = 1;
+    // Remove deprecated timeSpeed field if present
+    if (data.timeSpeed !== undefined) {
+      delete data.timeSpeed;
     }
     if (!data.autoPauseSettings) {
       data.autoPauseSettings = {

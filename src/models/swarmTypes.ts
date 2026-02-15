@@ -86,6 +86,7 @@ export interface Worker {
 
   // Zone assignment
   assignedZoneId?: string;
+  currentZoneId?: string; // Where worker is currently located
 }
 
 // ============================================================================
@@ -146,6 +147,10 @@ export type ZoneState =
   | 'harvesting'
   | 'saturated';
 
+export type TerrainType = 'soil' | 'liquid' | 'ice';
+export type TemperatureZone = 'hot' | 'warm' | 'temperate' | 'cold' | 'frozen';
+export type AtmosphereState = 'thick' | 'thin' | 'none';
+
 export interface Zone {
   id: string;
   name: string;
@@ -172,6 +177,20 @@ export interface Zone {
   // Workers
   assignedWorkers: string[]; // Worker IDs
 
+  // Spatial - Hex grid coordinates (axial)
+  hexQ: number;
+  hexR: number;
+  hexS: number; // = -q-r
+
+  // Environment - derived from temperature calculation
+  terrainType: TerrainType;
+  temperatureZone: TemperatureZone;
+  temperatureKelvin: number;
+  atmosphere: AtmosphereState;
+
+  // Connectivity - neighbor zone IDs
+  neighborIds: string[];
+
   // Bounds for procedural naming
   continentIndex: number;
   regionIndex: number;
@@ -192,8 +211,14 @@ export interface Planet {
   id: string;
   name: string;
   trappistId: string; // b, c, d, e, f, g, h
-  distanceAU: number; // From star
+  distanceAU: number; // Semi-major axis in AU
   orbitalPeriod: number; // Earth days
+  eccentricity: number; // Orbital eccentricity (0 = circular)
+  initialAngleRad: number; // Starting angle at gameTime=0
+
+  // Time: rotation period in Earth hours (tidally locked = orbital period)
+  // Stored as ticks per local day for the UI
+  dayLengthTicks: number;
 
   // State
   discovered: boolean; // Always true for all 7
@@ -203,8 +228,9 @@ export interface Planet {
   zones: Zone[];
   moons: Moon[];
 
-  // Visual position (simplified for v1)
-  angle: number; // Current orbital angle
+  // Position (updated each tick by orbital mechanics)
+  x: number; // km from star center
+  y: number; // km from star center
 }
 
 // ============================================================================
@@ -275,7 +301,6 @@ export interface GameData {
 
   // Settings
   isPaused: boolean;
-  timeSpeed: 1 | 2 | 5;
 }
 
 // ============================================================================

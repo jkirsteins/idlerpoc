@@ -1,5 +1,3 @@
-import type { GameData } from '../models';
-
 /**
  * A UI component whose container element stays in the DOM across tick
  * updates.  Parents hold a reference to the component and call
@@ -24,7 +22,7 @@ import type { GameData } from '../models';
  *     child and append new one instead of replaceChildren().
  *   - The container element itself is never replaced.
  */
-export interface Component {
+export interface Component<T = unknown> {
   readonly el: HTMLElement;
-  update(gameData: GameData): void;
+  update(gameData: T): void;
 }
