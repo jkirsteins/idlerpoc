@@ -1,7 +1,7 @@
 // TRAPPIST-1 Swarm Idle - Main Entry Point
 
 import './style.css';
-import type { GameData } from './models/swarmTypes';
+import { SWARM_CONSTANTS, type GameData } from './models/swarmTypes';
 import { createNewGame, loadGame, saveGame } from './gameFactory';
 import { applyTick } from './gameTickSwarm';
 import { render, type Renderer } from './ui/renderer';
@@ -52,6 +52,7 @@ function getDebugSpeedMultiplier(): number {
 }
 
 function computeCatchUpTicks(elapsedSeconds: number): number {
+  if (!Number.isFinite(elapsedSeconds) || elapsedSeconds <= 0) return 0;
   const debugSpeed = getDebugSpeedMultiplier();
   if (elapsedSeconds <= FULL_RATE_CATCH_UP_SECONDS) {
     return Math.floor(elapsedSeconds * debugSpeed);
@@ -203,7 +204,7 @@ function createCatchUpOverlay(totalTicks: number): CatchUpOverlay {
   track.appendChild(fill);
 
   const label = document.createElement('div');
-  label.textContent = `0 / ${totalTicks} seconds`;
+  label.textContent = `0.0h / ${(totalTicks / SWARM_CONSTANTS.TICKS_PER_HOUR).toFixed(1)}h in-game`;
   label.style.cssText =
     'margin-top: 0.5rem; font-size: 0.82rem; color: #9da7cc;';
 
@@ -218,9 +219,16 @@ function createCatchUpOverlay(totalTicks: number): CatchUpOverlay {
 
 function updateCatchUpOverlay(processed: number, total: number): void {
   if (!catchUpOverlay) return;
+  if (!Number.isFinite(processed) || !Number.isFinite(total) || total <= 0) {
+    catchUpOverlay.fill.style.width = '100%';
+    catchUpOverlay.label.textContent = 'Finalizing replay...';
+    return;
+  }
   const pct = total > 0 ? Math.min(100, (processed / total) * 100) : 100;
+  const processedHours = processed / SWARM_CONSTANTS.TICKS_PER_HOUR;
+  const totalHours = total / SWARM_CONSTANTS.TICKS_PER_HOUR;
   catchUpOverlay.fill.style.width = `${pct.toFixed(1)}%`;
-  catchUpOverlay.label.textContent = `${processed.toLocaleString()} / ${total.toLocaleString()} seconds (${pct.toFixed(1)}%)`;
+  catchUpOverlay.label.textContent = `${processedHours.toFixed(1)}h / ${totalHours.toFixed(1)}h in-game (${pct.toFixed(1)}%)`;
 }
 
 function removeCatchUpOverlay(): void {
@@ -236,6 +244,9 @@ function showCatchUpSummary(
 ): void {
   if (elapsedSeconds < CATCH_UP_SUMMARY_THRESHOLD_SECONDS) return;
 
+  const replayedHours = totalTicks / SWARM_CONSTANTS.TICKS_PER_HOUR;
+  const replayedDays = replayedHours / 24;
+
   const modal = document.createElement('div');
   modal.style.cssText =
     'position: fixed; inset: 0; background: rgba(0,0,0,0.72); z-index: 1201; display: flex; align-items: center; justify-content: center;';
@@ -246,7 +257,7 @@ function showCatchUpSummary(
   card.innerHTML = `
     <h3 style="margin: 0 0 0.75rem 0; color: #00e5ff;">While you were away...</h3>
     <div style="font-size: 0.9rem; line-height: 1.6; color: #c6cee9;">
-      <div>Replayed: ${totalTicks.toLocaleString()} in-game seconds</div>
+      <div>Replayed: ${replayedHours.toFixed(1)}h in-game (${replayedDays.toFixed(1)} days)</div>
       <div>Elapsed: ${Math.floor(elapsedSeconds / 3600)}h ${Math.floor((elapsedSeconds % 3600) / 60)}m</div>
       <div>Events logged: ${totals.logEntries.toLocaleString()}</div>
       <div>Workers hatched: ${totals.workersHatched.toLocaleString()}</div>
@@ -269,14 +280,17 @@ function showCatchUpSummary(
 function startCatchUp(elapsedSeconds: number): void {
   if (!gameData || isPaused || isCatchUpRunning) return;
 
-  const totalTicks = computeCatchUpTicks(elapsedSeconds);
+  const safeElapsedSeconds = Number.isFinite(elapsedSeconds)
+    ? Math.max(0, Math.floor(elapsedSeconds))
+    : 0;
+  const totalTicks = computeCatchUpTicks(safeElapsedSeconds);
   if (totalTicks <= 0) return;
 
   isCatchUpRunning = true;
   activeCatchUp = {
     totalTicks,
     processedTicks: 0,
-    elapsedSeconds,
+    elapsedSeconds: safeElapsedSeconds,
     totals: {
       workersHatched: 0,
       workersDied: 0,
@@ -295,8 +309,40 @@ function startCatchUp(elapsedSeconds: number): void {
       return;
     }
 
+    if (
+      !Number.isFinite(activeCatchUp.totalTicks) ||
+      !Number.isFinite(activeCatchUp.processedTicks) ||
+      activeCatchUp.totalTicks <= 0
+    ) {
+      activeCatchUp = null;
+      isCatchUpRunning = false;
+      removeCatchUpOverlay();
+      return;
+    }
+
     const remaining = activeCatchUp.totalTicks - activeCatchUp.processedTicks;
+    if (!Number.isFinite(remaining) || remaining <= 0) {
+      const finished = activeCatchUp;
+      activeCatchUp = null;
+      isCatchUpRunning = false;
+      removeCatchUpOverlay();
+      saveCurrentGame();
+      showCatchUpSummary(
+        finished.totalTicks,
+        finished.elapsedSeconds,
+        finished.totals
+      );
+      return;
+    }
+
     const batchTicks = Math.min(CATCH_UP_BATCH_SIZE, remaining);
+    if (!Number.isFinite(batchTicks) || batchTicks <= 0) {
+      activeCatchUp = null;
+      isCatchUpRunning = false;
+      removeCatchUpOverlay();
+      saveCurrentGame();
+      return;
+    }
 
     const result = applyTick(gameData, Date.now(), batchTicks);
     activeCatchUp.processedTicks += batchTicks;
