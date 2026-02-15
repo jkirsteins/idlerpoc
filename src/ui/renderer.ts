@@ -64,7 +64,7 @@ export function render(
   layout.className = 'swarm-layout';
   layout.style.cssText = `
     display: grid;
-    grid-template-columns: 280px 1fr 320px;
+    grid-template-columns: 280px 1fr 50%;
     grid-template-rows: auto 1fr auto;
     grid-template-areas:
       'header header header'
@@ -768,12 +768,22 @@ function createRightSidebar(gameData: GameData): Component {
   // Create orrery component
   const orreryCallbacks: OrreryCallbacks = {
     onPlanetSelect: (planetId: string) => {
-      selectedPlanetId = planetId;
-      switchToLocalView(planetId);
+      const planet = gameData.planets.find((p) => p.id === planetId);
+      if (planet?.accessible) {
+        selectedPlanetId = planetId;
+        switchToLocalView(planetId);
+      } else {
+        // Show locked view or alert
+        console.log('Planet is locked:', planetId);
+      }
     },
     onPlanetFocus: (planetId: string) => {
-      // Click on planet in header buttons or on orrery → zoom to local view
-      switchToLocalView(planetId);
+      const planet = gameData.planets.find((p) => p.id === planetId);
+      if (planet?.accessible) {
+        switchToLocalView(planetId);
+      } else {
+        console.log('Planet is locked:', planetId);
+      }
     },
   };
 
@@ -799,6 +809,13 @@ function createRightSidebar(gameData: GameData): Component {
   const planetMapCallbacks: PlanetMapCallbacks = {
     onZoneSelect: (zoneId: string) => {
       console.log('Selected zone:', zoneId);
+    },
+    onBackToLocal: () => {
+      if (selectedPlanetId) {
+        switchToLocalView(selectedPlanetId);
+      } else {
+        switchToSystemView();
+      }
     },
     onBackToSystem: () => {
       switchToSystemView();

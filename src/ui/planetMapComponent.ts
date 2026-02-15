@@ -5,11 +5,13 @@
 
 import type { GameData, Zone } from '../models/swarmTypes';
 import type { Component } from './component';
+import { setupMapZoomPan, type MapZoomPanControls } from './mapZoomPan';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
 export interface PlanetMapCallbacks {
   onZoneSelect?: (zoneId: string) => void;
+  onBackToLocal?: () => void;
   onBackToSystem?: () => void;
   getPlanetId?: () => string | null;
 }
@@ -133,6 +135,10 @@ export function createPlanetMapComponent(
     font-size: 0.85rem;
   `;
   backBtn.onclick = () => {
+    if (callbacks.onBackToLocal) {
+      callbacks.onBackToLocal();
+      return;
+    }
     if (callbacks.onBackToSystem) callbacks.onBackToSystem();
   };
   header.appendChild(backBtn);
@@ -159,21 +165,19 @@ export function createPlanetMapComponent(
   mapContainer.style.cssText = `
     flex: 1;
     min-height: 200px;
-    overflow: auto;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    overflow: hidden;
     position: relative;
   `;
 
   // SVG for hex grid
   const svg = document.createElementNS(SVG_NS, 'svg');
-  const gridSize = 600;
-  svg.setAttribute('width', String(gridSize));
-  svg.setAttribute('height', String(gridSize));
+  // Larger world-space view to allow meaningful zoom-out on dense zone maps.
+  const mapViewSize = 1600;
+  svg.setAttribute('width', '100%');
+  svg.setAttribute('height', '100%');
   svg.setAttribute(
     'viewBox',
-    `${-gridSize / 2} ${-gridSize / 2} ${gridSize} ${gridSize}`
+    `${-mapViewSize / 2} ${-mapViewSize / 2} ${mapViewSize} ${mapViewSize}`
   );
   svg.style.cssText = 'display: block;';
 
@@ -196,6 +200,51 @@ export function createPlanetMapComponent(
 
   mapContainer.appendChild(svg);
   el.appendChild(mapContainer);
+
+  const zoomControls: MapZoomPanControls = setupMapZoomPan(svg, mapContainer, {
+    initialViewBox: {
+      x: -mapViewSize / 2,
+      y: -mapViewSize / 2,
+      width: mapViewSize,
+      height: mapViewSize,
+    },
+    startZoom: 1,
+    minZoom: 1,
+    maxZoom: 10,
+  });
+  const styleZoomBtn = (btn: HTMLButtonElement) => {
+    btn.style.cssText = `
+      position: absolute;
+      background: rgba(20, 20, 30, 0.9);
+      border: 1px solid #444;
+      color: #fff;
+      width: 28px;
+      height: 28px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 1rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 10;
+    `;
+  };
+  styleZoomBtn(zoomControls.zoomInBtn);
+  styleZoomBtn(zoomControls.zoomOutBtn);
+  zoomControls.zoomInBtn.style.right = '10px';
+  zoomControls.zoomInBtn.style.top = '10px';
+  zoomControls.zoomOutBtn.style.right = '10px';
+  zoomControls.zoomOutBtn.style.top = '45px';
+  zoomControls.resetBtn.className = 'nav-map-reset-zoom';
+  zoomControls.resetBtn.style.cssText = `
+    position: absolute;
+    left: 10px;
+    bottom: 10px;
+    top: auto;
+    right: auto;
+    width: auto;
+    height: auto;
+  `;
 
   // Legend
   const legend = document.createElement('div');
@@ -282,11 +331,20 @@ export function createPlanetMapComponent(
         // Update header
         planetName.textContent = planet.name;
 
+        let minX = Infinity;
+        let maxX = -Infinity;
+        let minY = Infinity;
+        let maxY = -Infinity;
+
         // Build hex grid for each zone
         for (let i = 0; i < planet.zones.length; i++) {
           const zone = planet.zones[i];
           const safeHex = getSafeZoneHex(zone, i, planet.zones.length);
           const { x, y } = hexToPixel(safeHex.q, safeHex.r);
+          minX = Math.min(minX, x - HEX_SIZE);
+          maxX = Math.max(maxX, x + HEX_SIZE);
+          minY = Math.min(minY, y - HEX_SIZE);
+          maxY = Math.max(maxY, y + HEX_SIZE);
 
           // Create hex group
           const hexGroup = document.createElementNS(SVG_NS, 'g');
@@ -380,17 +438,34 @@ export function createPlanetMapComponent(
         ).length;
         zoneCount.textContent = `${conquered}/${planet.zones.length} zones`;
 
-        // Center view on a relevant zone
-        const centerZone = findCenterZone(planet.zones);
-        if (centerZone) {
-          const centerHex = getSafeZoneHex(
-            centerZone.zone,
-            centerZone.index,
-            planet.zones.length
+        // Fit and center view on planet zone bounds
+        if (
+          Number.isFinite(minX) &&
+          Number.isFinite(maxX) &&
+          Number.isFinite(minY) &&
+          Number.isFinite(maxY)
+        ) {
+          const padding = HEX_SIZE * 2;
+          const spanX = Math.max(1, maxX - minX + padding * 2);
+          const spanY = Math.max(1, maxY - minY + padding * 2);
+          const centerX = (minX + maxX) / 2;
+          const centerY = (minY + maxY) / 2;
+          const fitZoom = Math.max(
+            1,
+            Math.min(10, Math.min(mapViewSize / spanX, mapViewSize / spanY))
           );
-          const center = hexToPixel(centerHex.q, centerHex.r);
-          const viewBox = `${-center.x - 100} ${-center.y - 100} ${gridSize} ${gridSize}`;
-          svg.setAttribute('viewBox', viewBox);
+          zoomControls.zoomTo(centerX, centerY, fitZoom, false);
+        } else {
+          const centerZone = findCenterZone(planet.zones);
+          if (centerZone) {
+            const centerHex = getSafeZoneHex(
+              centerZone.zone,
+              centerZone.index,
+              planet.zones.length
+            );
+            const center = hexToPixel(centerHex.q, centerHex.r);
+            zoomControls.zoomTo(center.x, center.y, 1, false);
+          }
         }
       }
 

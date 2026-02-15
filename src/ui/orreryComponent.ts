@@ -43,8 +43,7 @@ function createPlanetMarker(
   planet: Planet,
   callbacks: OrreryCallbacks,
   planetGroup: SVGGElement,
-  orbitGroup: SVGGElement,
-  isHome: boolean
+  orbitGroup: SVGGElement
 ): PlanetMarker {
   // Create orbit path (elliptical)
   const orbitPath = createOrbitPath(planet);
@@ -64,13 +63,10 @@ function createPlanetMarker(
 
   // Create planet dot (hex shape)
   const dot = document.createElementNS(SVG_NS, 'path');
-  dot.setAttribute('d', createHexPath(svgX, svgY, isHome ? 5 : 4));
+  dot.setAttribute('d', createHexPath(svgX, svgY, 4));
   dot.setAttribute('fill', getPlanetColor(planet.trappistId));
-  dot.setAttribute(
-    'stroke',
-    isHome ? '#00e5ff' : planet.accessible ? '#0f3460' : '#333'
-  );
-  dot.setAttribute('stroke-width', isHome ? '2' : '1');
+  dot.setAttribute('stroke', planet.accessible ? '#00e5ff' : '#333');
+  dot.setAttribute('stroke-width', planet.accessible ? '2' : '1');
   dot.style.cursor = 'pointer';
   planetGroup.appendChild(dot);
 
@@ -102,15 +98,12 @@ function createPlanetMarker(
 
   // Hover effect
   hitArea.addEventListener('mouseenter', () => {
-    dot.setAttribute('stroke', '#00e5ff');
+    dot.setAttribute('stroke', planet.accessible ? '#00e5ff' : '#666');
     dot.setAttribute('stroke-width', '2');
   });
   hitArea.addEventListener('mouseleave', () => {
-    dot.setAttribute(
-      'stroke',
-      isHome ? '#00e5ff' : planet.accessible ? '#0f3460' : '#333'
-    );
-    dot.setAttribute('stroke-width', isHome ? '2' : '1');
+    dot.setAttribute('stroke', planet.accessible ? '#00e5ff' : '#333');
+    dot.setAttribute('stroke-width', planet.accessible ? '2' : '1');
   });
 
   planetGroup.appendChild(hitArea);
@@ -254,8 +247,10 @@ export function createOrreryComponent(
   svg.style.display = 'block';
   mapContainer.appendChild(svg);
 
-  // Set up zoom/pan controls
-  const zoomControls: MapZoomPanControls = setupMapZoomPan(svg, mapContainer);
+  // Set up zoom/pan controls with 2x default zoom
+  const zoomControls: MapZoomPanControls = setupMapZoomPan(svg, mapContainer, {
+    startZoom: 2,
+  });
 
   // Style zoom buttons
   const styleZoomBtn = (btn: HTMLButtonElement) => {
@@ -327,13 +322,11 @@ export function createOrreryComponent(
 
   // Create markers for each planet
   for (const planet of gameData.planets) {
-    const isHome = planet.id === gameData.homePlanetId;
     const marker = createPlanetMarker(
       planet,
       callbacks,
       planetGroup,
-      orbitGroup,
-      isHome
+      orbitGroup
     );
     markers.set(planet.id, marker);
   }
@@ -383,13 +376,10 @@ export function createOrreryComponent(
           marker.label.setAttribute('fill', '#555');
         }
 
-        // Highlight home planet
-        const isHome = planet.id === gameData.homePlanetId;
-        marker.dot.setAttribute(
-          'stroke',
-          isHome ? '#00e5ff' : planet.accessible ? '#0f3460' : '#333'
-        );
-        marker.dot.setAttribute('stroke-width', isHome ? '2' : '1');
+        // Highlight accessible planets
+        const isAccessible = planet.accessible;
+        marker.dot.setAttribute('stroke', isAccessible ? '#00e5ff' : '#333');
+        marker.dot.setAttribute('stroke-width', isAccessible ? '2' : '1');
       }
     },
   };

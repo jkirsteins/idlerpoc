@@ -121,7 +121,9 @@ export function createPlanetLocalComponent(
   svg.style.display = 'block';
   mapContainer.appendChild(svg);
 
-  const zoomControls: MapZoomPanControls = setupMapZoomPan(svg, mapContainer);
+  const zoomControls: MapZoomPanControls = setupMapZoomPan(svg, mapContainer, {
+    startZoom: 2,
+  });
 
   const styleZoomBtn = (btn: HTMLButtonElement) => {
     btn.style.cssText = `
