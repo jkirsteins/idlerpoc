@@ -1,7 +1,6 @@
 import type {
   GameData,
   WorldLocation,
-  Quest,
   Ship,
   Vec2,
   FlightState,
@@ -13,15 +12,12 @@ import {
   getUnreachableReason,
   getDistanceBetween,
 } from '../worldGen';
-import { formatDistance, formatCredits } from '../formatting';
-import { getGravityDegradationLevel } from '../gravitySystem';
+import { formatDistance } from '../formatting';
 import {
   getShipPositionKm,
   estimateRouteRisk,
   getThreatLevel,
-  getThreatNarrative,
 } from '../encounterSystem';
-import { renderThreatBadge } from './threatBadge';
 import { getShipClass } from '../shipClasses';
 import { initializeFlight } from '../flightPhysics';
 import { calculateTripFuelKg } from '../questGen';
@@ -33,11 +29,7 @@ import {
   updateFlightProfileControl,
 } from './flightProfileControl';
 import { setupMapZoomPan, type MapZoomPanControls } from './mapZoomPan';
-import {
-  computeLaunchWindow,
-  getLocationPosition,
-  type AlignmentQuality,
-} from '../orbitalMechanics';
+import { getLocationPosition } from '../orbitalMechanics';
 import {
   orbitalRadiusToSvg,
   projectToSvg,
@@ -53,56 +45,6 @@ const NAV_SERVICE_LABELS: Record<string, { icon: string; label: string }> = {
   hire: { icon: '\uD83D\uDC64', label: 'Hire' },
   mine: { icon: '\u26CF\uFE0F', label: 'Mine' },
 };
-
-const QUEST_TYPE_ICONS: Record<string, string> = {
-  delivery: '\uD83D\uDCE6',
-  passenger: '\uD83D\uDC65',
-  freight: '\uD83D\uDE9A',
-  trade_route: '\uD83D\uDD04',
-  rescue: '\uD83C\uDD98',
-};
-
-interface NavContractInfo {
-  quest: Quest;
-  relationship: 'from here' | 'to here';
-  isActive: boolean;
-}
-
-function getContractsForLocation(
-  locationId: string,
-  gameData: GameData,
-  ship: Ship
-): NavContractInfo[] {
-  const result: NavContractInfo[] = [];
-
-  // Active contract
-  if (ship.activeContract) {
-    const q = ship.activeContract.quest;
-    if (q.origin === locationId) {
-      result.push({ quest: q, relationship: 'from here', isActive: true });
-    } else if (q.destination === locationId) {
-      result.push({ quest: q, relationship: 'to here', isActive: true });
-    }
-  }
-
-  // Available contracts originating from this location
-  const fromHere = gameData.availableQuests[locationId] || [];
-  for (const q of fromHere) {
-    result.push({ quest: q, relationship: 'from here', isActive: false });
-  }
-
-  // Available contracts destined for this location (from other origins)
-  for (const [originId, quests] of Object.entries(gameData.availableQuests)) {
-    if (originId === locationId) continue;
-    for (const q of quests) {
-      if (q.destination === locationId) {
-        result.push({ quest: q, relationship: 'to here', isActive: false });
-      }
-    }
-  }
-
-  return result;
-}
 
 export interface NavigationViewCallbacks {
   onToggleNavigation: () => void;
@@ -192,37 +134,42 @@ interface FlightLineRefs {
   shipDot: SVGCircleElement;
 }
 
-/** Get alignment badge color */
-function alignmentColor(alignment: AlignmentQuality): string {
-  switch (alignment) {
-    case 'excellent':
-      return '#4caf50';
-    case 'good':
-      return '#8bc34a';
-    case 'moderate':
-      return '#ffc107';
-    case 'poor':
-      return '#f44336';
+/**
+ * Build an SVG path string for an elliptical orbit.
+ * Samples 72 points along the orbit and projects each through the provided
+ * radius-to-SVG mapping function, so the path matches the log-scale
+ * projection used for dot positions.
+ */
+function buildOrbitPath(
+  semiMajorAxis: number,
+  eccentricity: number,
+  radiusToSvg: (km: number) => number
+): string {
+  const N = 72; // every 5°
+  const parts: string[] = [];
+  for (let i = 0; i <= N; i++) {
+    const theta = (2 * Math.PI * i) / N;
+    const r =
+      eccentricity === 0
+        ? semiMajorAxis
+        : (semiMajorAxis * (1 - eccentricity * eccentricity)) /
+          (1 + eccentricity * Math.cos(theta));
+    const svgR = radiusToSvg(r);
+    const x = svgR * Math.cos(theta);
+    const y = svgR * Math.sin(theta);
+    parts.push(`${i === 0 ? 'M' : 'L'}${x.toFixed(2)},${y.toFixed(2)}`);
   }
+  parts.push('Z');
+  return parts.join(' ');
 }
 
-/** Per-location refs for the legend item */
+/** Per-location refs for the legend item (compact card — no accordion) */
 interface LegendItemRefs {
   item: HTMLElement;
-  summary: HTMLElement; // always-visible accordion header
-  summaryDist: HTMLElement; // compact distance in summary
-  chevron: HTMLElement; // expand/collapse indicator
-  details: HTMLElement; // collapsible detail section
   name: HTMLElement;
+  distance: HTMLElement; // distance text (right-aligned in header row)
   badgesContainer: HTMLElement;
-  distance: HTMLElement;
-  alignmentLine: HTMLElement; // launch window alignment badge
-  gravAssistLine: HTMLElement; // gravity assist preview
   travelInfo: HTMLElement;
-  description: HTMLElement;
-  riskLine: HTMLElement;
-  gravityWarning: HTMLElement;
-  contractsContainer: HTMLElement;
   // Action area — all possible children, toggled via display
   currentBadge: HTMLElement;
   destBadge: HTMLElement;
@@ -302,7 +249,6 @@ interface UpdateCtx {
   isInFlight: boolean;
   flightDestinationId: string | null;
   currentLocationId: string | null;
-  degradedCrew: { zeroGExposure: number }[];
   estimateRefs: {
     el: HTMLElement;
     origin: WorldLocation;
@@ -311,7 +257,7 @@ interface UpdateCtx {
   onStartTrip?: (destinationId: string) => void;
 }
 
-/** Update legend item — shared between overview and focus modes */
+/** Update legend item — compact card with distance, travel info, action */
 function updateLegendItem(
   location: WorldLocation,
   legendRefs: LegendItemRefs,
@@ -325,7 +271,6 @@ function updateLegendItem(
     isInFlight,
     flightDestinationId,
     currentLocationId,
-    degradedCrew,
   } = ctx;
   const reachable = isLocationReachable(ship, location, virtualOrigin);
   const isCurrent = location.id === currentLocationId;
@@ -334,53 +279,15 @@ function updateLegendItem(
 
   legendRefs.item.classList.toggle('unreachable', !reachable);
 
+  // Distance text
   const distanceFromCurrent = getDistanceBetween(virtualOrigin, location);
   const distText =
-    distanceFromCurrent < 0.5
-      ? 'Current Location'
-      : `Distance: ${formatDistance(distanceFromCurrent)}`;
+    distanceFromCurrent < 0.5 ? '\u2302' : formatDistance(distanceFromCurrent);
   if (legendRefs.distance.textContent !== distText) {
     legendRefs.distance.textContent = distText;
   }
-  const summaryDistText =
-    distanceFromCurrent < 0.5 ? '\u2302' : formatDistance(distanceFromCurrent);
-  if (legendRefs.summaryDist.textContent !== summaryDistText) {
-    legendRefs.summaryDist.textContent = summaryDistText;
-  }
 
-  if (isOtherDestination && virtualOrigin.orbital && location.orbital) {
-    const window = computeLaunchWindow(
-      virtualOrigin,
-      location,
-      gd.gameTime,
-      gd.world
-    );
-    if (window) {
-      const distRange = window.maxDistanceKm - window.minDistanceKm;
-      const rangeRatio = distRange / Math.max(window.minDistanceKm, 1);
-      if (rangeRatio > 0.1) {
-        const color = alignmentColor(window.alignment);
-        const label =
-          window.alignment.charAt(0).toUpperCase() + window.alignment.slice(1);
-        let alignText = `Alignment: <span style="color:${color};font-weight:600">${label}</span>`;
-        if (window.alignment !== 'excellent' && window.nextOptimalInDays > 1) {
-          const nextOptDays = Math.round(window.nextOptimalInDays);
-          alignText += ` | Next optimal: ${formatDualTime(nextOptDays * 86400)}`;
-        }
-        if (legendRefs.alignmentLine.innerHTML !== alignText) {
-          legendRefs.alignmentLine.innerHTML = alignText;
-        }
-        legendRefs.alignmentLine.style.display = '';
-      } else {
-        legendRefs.alignmentLine.style.display = 'none';
-      }
-    } else {
-      legendRefs.alignmentLine.style.display = 'none';
-    }
-  } else {
-    legendRefs.alignmentLine.style.display = 'none';
-  }
-
+  // Travel info (time + fuel) — compact card shows only basic estimate
   if (isOtherDestination) {
     const shipClass = getShipClass(ship.classId);
     if (shipClass) {
@@ -400,7 +307,7 @@ function updateLegendItem(
           distanceKm,
           ship.flightProfileBurnFraction
         );
-        const infoText = `\u23F1 Travel Time: ${travelTime} | \u26FD Fuel Cost: ~${formatFuelMass(fuelCostKg)}`;
+        const infoText = `\u23F1 ${travelTime} | \u26FD ~${formatFuelMass(fuelCostKg)}`;
         if (legendRefs.travelInfo.textContent !== infoText) {
           legendRefs.travelInfo.textContent = infoText;
         }
@@ -410,137 +317,17 @@ function updateLegendItem(
           origin: virtualOrigin,
           destination: location,
         });
-
-        const assists = flight.gravityAssists;
-        if (assists && assists.length > 0) {
-          const bodyNames = assists
-            .map((a) => {
-              const pct = (a.approachProgress * 100).toFixed(0);
-              return `${a.bodyName} (at ${pct}%)`;
-            })
-            .join(', ');
-          const assistText = `Gravity assist: ${bodyNames}`;
-          if (legendRefs.gravAssistLine.textContent !== assistText) {
-            legendRefs.gravAssistLine.textContent = assistText;
-          }
-          legendRefs.gravAssistLine.style.display = '';
-        } else {
-          legendRefs.gravAssistLine.style.display = 'none';
-        }
       } catch {
         legendRefs.travelInfo.style.display = 'none';
-        legendRefs.gravAssistLine.style.display = 'none';
       }
     } else {
       legendRefs.travelInfo.style.display = 'none';
-      legendRefs.gravAssistLine.style.display = 'none';
     }
   } else {
     legendRefs.travelInfo.style.display = 'none';
-    legendRefs.gravAssistLine.style.display = 'none';
   }
 
-  if (isOtherDestination) {
-    const routeRisk = estimateRouteRisk(
-      virtualOrigin,
-      location,
-      ship,
-      gd.world
-    );
-    const threatLevel = getThreatLevel(routeRisk);
-    const narrative = getThreatNarrative(threatLevel);
-    const currentThreatAttr =
-      legendRefs.riskLine.getAttribute('data-threat-cache');
-    const newThreatKey = `${threatLevel}:${narrative}`;
-    if (currentThreatAttr !== newThreatKey) {
-      while (legendRefs.riskLine.firstChild) {
-        legendRefs.riskLine.removeChild(legendRefs.riskLine.firstChild);
-      }
-      legendRefs.riskLine.appendChild(
-        renderThreatBadge(threatLevel, narrative)
-      );
-      legendRefs.riskLine.setAttribute('data-threat-cache', newThreatKey);
-    }
-    legendRefs.riskLine.style.display = '';
-  } else {
-    legendRefs.riskLine.style.display = 'none';
-  }
-
-  if (degradedCrew.length > 0 && isOtherDestination) {
-    const warnText = `\u26A0\uFE0F ${degradedCrew.length} crew member${degradedCrew.length > 1 ? 's' : ''} with zero-g atrophy`;
-    if (legendRefs.gravityWarning.textContent !== warnText) {
-      legendRefs.gravityWarning.textContent = warnText;
-    }
-    legendRefs.gravityWarning.style.display = '';
-  } else {
-    legendRefs.gravityWarning.style.display = 'none';
-  }
-
-  const contracts = getContractsForLocation(location.id, gd, ship);
-  if (contracts.length > 0) {
-    legendRefs.contractsContainer.style.display = '';
-    const contractKey = contracts
-      .map((c) => `${c.quest.id}:${c.isActive}:${c.relationship}`)
-      .join('|');
-    const prevKey = legendRefs.contractsContainer.getAttribute(
-      'data-contracts-cache'
-    );
-    if (contractKey !== prevKey) {
-      while (legendRefs.contractsContainer.firstChild) {
-        legendRefs.contractsContainer.removeChild(
-          legendRefs.contractsContainer.firstChild
-        );
-      }
-      const cHeader = document.createElement('div');
-      cHeader.style.cssText =
-        'font-size: 0.8em; color: #4a9eff; margin-bottom: 4px; font-weight: 600;';
-      cHeader.textContent = 'Contracts:';
-      legendRefs.contractsContainer.appendChild(cHeader);
-      for (const info of contracts) {
-        const line = document.createElement('div');
-        line.style.cssText =
-          'font-size: 0.8em; color: #ccc; padding: 2px 0; display: flex; align-items: center; gap: 4px;';
-        const icon = QUEST_TYPE_ICONS[info.quest.type] || '\u2753';
-        const iconSpan = document.createElement('span');
-        iconSpan.textContent = icon;
-        line.appendChild(iconSpan);
-        const titleSpan = document.createElement('span');
-        titleSpan.style.cssText =
-          'flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;';
-        titleSpan.textContent = info.quest.title;
-        line.appendChild(titleSpan);
-        const paySpan = document.createElement('span');
-        paySpan.style.cssText =
-          'color: #4ade80; white-space: nowrap; font-size: 0.85em;';
-        const totalPay =
-          info.quest.paymentPerTrip > 0
-            ? info.quest.paymentPerTrip
-            : info.quest.paymentOnCompletion;
-        paySpan.textContent = formatCredits(totalPay);
-        line.appendChild(paySpan);
-        if (info.isActive) {
-          const badge = document.createElement('span');
-          badge.style.cssText =
-            'font-size: 0.7em; padding: 1px 4px; border-radius: 3px; background: #4a9eff; color: #fff; font-weight: 700;';
-          badge.textContent = 'ACTIVE';
-          line.appendChild(badge);
-        } else {
-          const relSpan = document.createElement('span');
-          relSpan.style.cssText = 'font-size: 0.7em; color: #888;';
-          relSpan.textContent = info.relationship;
-          line.appendChild(relSpan);
-        }
-        legendRefs.contractsContainer.appendChild(line);
-      }
-      legendRefs.contractsContainer.setAttribute(
-        'data-contracts-cache',
-        contractKey
-      );
-    }
-  } else {
-    legendRefs.contractsContainer.style.display = 'none';
-  }
-
+  // Action area — toggle visibility
   legendRefs.currentBadge.style.display = 'none';
   legendRefs.destBadge.style.display = 'none';
   legendRefs.statusText.style.display = 'none';
@@ -565,9 +352,7 @@ function updateLegendItem(
     }
     legendRefs.statusText.style.display = '';
   } else if (reachable && ctx.onStartTrip) {
-    const btnText = isInFlight
-      ? `Redirect to ${location.name}`
-      : `Travel to ${location.name}`;
+    const btnText = isInFlight ? `Redirect to ${location.name}` : `Fly`;
     if (legendRefs.travelButton.textContent !== btnText) {
       legendRefs.travelButton.textContent = btnText;
     }
@@ -688,7 +473,7 @@ function showMarker(refs: MarkerRefs): void {
   refs.hitArea.style.display = '';
 }
 
-/** Create legend item DOM — returns the created element refs */
+/** Create legend item DOM — compact flat card (no accordion) */
 function createLegendItemDom(
   location: WorldLocation,
   onSelect: () => void,
@@ -696,33 +481,27 @@ function createLegendItemDom(
 ): LegendItemRefs {
   const item = document.createElement('div');
   item.className = 'nav-legend-item';
+  item.style.cursor = 'pointer';
 
-  const summary = document.createElement('div');
-  summary.className = 'nav-legend-summary';
-  summary.style.cursor = 'pointer';
-
-  const summaryTop = document.createElement('div');
-  summaryTop.style.cssText = 'display: flex; align-items: center; gap: 6px;';
-
-  const chevron = document.createElement('span');
-  chevron.className = 'nav-legend-chevron';
-  chevron.textContent = '\u25B6';
-  summaryTop.appendChild(chevron);
+  // Header row: name + distance
+  const headerRow = document.createElement('div');
+  headerRow.style.cssText = 'display: flex; align-items: center; gap: 6px;';
 
   const name = document.createElement('strong');
   name.textContent = location.name;
-  summaryTop.appendChild(name);
+  headerRow.appendChild(name);
 
-  const summaryDist = document.createElement('span');
-  summaryDist.style.cssText =
-    'margin-left: auto; font-size: 0.8em; color: #888;';
-  summaryTop.appendChild(summaryDist);
+  const distance = document.createElement('span');
+  distance.style.cssText =
+    'margin-left: auto; font-size: 0.8em; color: #888; white-space: nowrap;';
+  headerRow.appendChild(distance);
 
-  summary.appendChild(summaryTop);
+  item.appendChild(headerRow);
 
+  // Service badges row
   const badgesContainer = document.createElement('div');
   badgesContainer.style.cssText =
-    'display: flex; gap: 4px; flex-wrap: wrap; margin: 3px 0 0 18px;';
+    'display: flex; gap: 4px; flex-wrap: wrap; margin-top: 3px;';
   if (location.services.length > 0) {
     for (const svc of location.services) {
       const info = NAV_SERVICE_LABELS[svc];
@@ -734,109 +513,56 @@ function createLegendItemDom(
       badgesContainer.appendChild(badge);
     }
   }
-  summary.appendChild(badgesContainer);
+  item.appendChild(badgesContainer);
 
-  item.appendChild(summary);
-
-  summary.addEventListener('click', onSelect);
-
-  const details = document.createElement('div');
-  details.className = 'nav-legend-details';
-  details.style.display = 'none';
-
-  const distance = document.createElement('div');
-  details.appendChild(distance);
-
-  const alignmentLine = document.createElement('div');
-  alignmentLine.style.fontSize = '0.85em';
-  alignmentLine.style.marginTop = '0.15rem';
-  alignmentLine.style.display = 'none';
-  details.appendChild(alignmentLine);
-
-  const gravAssistLine = document.createElement('div');
-  gravAssistLine.style.cssText =
-    'font-size: 0.85em; margin-top: 0.15rem; color: #ffc107; display: none;';
-  details.appendChild(gravAssistLine);
-
+  // Travel info (time + fuel cost)
   const travelInfo = document.createElement('div');
-  travelInfo.style.fontSize = '0.85em';
-  travelInfo.style.color = '#4ade80';
-  travelInfo.style.marginTop = '0.25rem';
-  travelInfo.style.display = 'none';
-  details.appendChild(travelInfo);
+  travelInfo.style.cssText =
+    'font-size: 0.8em; color: #4ade80; margin-top: 4px; white-space: nowrap; display: none;';
+  item.appendChild(travelInfo);
 
-  const description = document.createElement('div');
-  description.textContent = location.description;
-  description.style.fontSize = '0.9em';
-  description.style.color = '#aaa';
-  details.appendChild(description);
-
-  const contractsContainer = document.createElement('div');
-  contractsContainer.className = 'nav-contracts-summary';
-  contractsContainer.style.display = 'none';
-  details.appendChild(contractsContainer);
-
-  const riskLine = document.createElement('div');
-  riskLine.style.marginTop = '6px';
-  riskLine.style.display = 'none';
-  details.appendChild(riskLine);
-
-  const gravityWarning = document.createElement('div');
-  gravityWarning.style.fontSize = '0.85em';
-  gravityWarning.style.color = '#fbbf24';
-  gravityWarning.style.marginTop = '0.25rem';
-  gravityWarning.style.display = 'none';
-  details.appendChild(gravityWarning);
-
+  // Action area
   const currentBadge = document.createElement('div');
   currentBadge.className = 'nav-current-label';
+  currentBadge.style.cssText = 'margin-top: 4px; display: none;';
   currentBadge.textContent = 'Current Location';
-  currentBadge.style.display = 'none';
-  details.appendChild(currentBadge);
+  item.appendChild(currentBadge);
 
   const destBadge = document.createElement('div');
   destBadge.className = 'nav-current-label';
+  destBadge.style.cssText = 'margin-top: 4px; display: none;';
   destBadge.textContent = 'Destination';
-  destBadge.style.display = 'none';
-  details.appendChild(destBadge);
+  item.appendChild(destBadge);
 
   const statusText = document.createElement('div');
   statusText.className = 'nav-travel-disabled-reason';
-  statusText.style.display = 'none';
-  details.appendChild(statusText);
+  statusText.style.cssText = 'margin-top: 4px; display: none;';
+  item.appendChild(statusText);
 
   const travelButton = document.createElement('button');
-  travelButton.className = 'nav-travel-button';
+  travelButton.className = 'nav-travel-button nav-travel-button--compact';
   travelButton.style.display = 'none';
   travelButton.addEventListener('click', (e) => {
     e.stopPropagation();
     onTravel();
   });
-  details.appendChild(travelButton);
+  item.appendChild(travelButton);
 
   const unreachableReason = document.createElement('div');
   unreachableReason.className = 'nav-travel-disabled-reason';
-  unreachableReason.style.display = 'none';
-  details.appendChild(unreachableReason);
+  unreachableReason.style.cssText =
+    'margin-top: 4px; font-size: 0.75em; display: none;';
+  item.appendChild(unreachableReason);
 
-  item.appendChild(details);
+  // Clicking card selects in orrery
+  item.addEventListener('click', onSelect);
 
   return {
     item,
-    summary,
-    summaryDist,
-    chevron,
-    details,
     name,
-    badgesContainer,
     distance,
-    alignmentLine,
-    gravAssistLine,
+    badgesContainer,
     travelInfo,
-    description,
-    contractsContainer,
-    riskLine,
-    gravityWarning,
     currentBadge,
     destBadge,
     statusText,
@@ -921,6 +647,159 @@ function resolveFlightEndpoints(
   return { originSvg, destSvg };
 }
 
+/** Per-overlay refs for the selection detail panel */
+interface SelectionOverlayRefs {
+  wrapper: HTMLElement;
+  content: HTMLElement;
+  headerName: HTMLElement;
+  closeBtn: HTMLElement;
+  infoRow: HTMLElement;
+  overlayActionButton: HTMLButtonElement;
+}
+
+/** Create the selection overlay DOM — appended to orrery map area */
+function createSelectionOverlay(onClose: () => void): SelectionOverlayRefs {
+  const wrapper = document.createElement('div');
+  wrapper.className = 'nav-selection-overlay';
+
+  const content = document.createElement('div');
+  content.className = 'nav-selection-overlay-content';
+  content.style.display = 'none';
+
+  // Single row: name | distance | button | X
+  const headerRow = document.createElement('div');
+  headerRow.style.cssText = 'display: flex; align-items: center; gap: 8px;';
+
+  const headerName = document.createElement('strong');
+  headerName.style.cssText =
+    'color: #d4850a; font-size: 0.95em; white-space: nowrap;';
+  headerRow.appendChild(headerName);
+
+  const infoRow = document.createElement('span');
+  infoRow.style.cssText = 'font-size: 0.8em; color: #aaa; white-space: nowrap;';
+  headerRow.appendChild(infoRow);
+
+  const overlayActionButton = document.createElement('button');
+  overlayActionButton.className =
+    'nav-travel-button nav-travel-button--compact';
+  overlayActionButton.style.cssText = 'margin-left: auto; white-space: nowrap;';
+  headerRow.appendChild(overlayActionButton);
+
+  const closeBtn = document.createElement('button');
+  closeBtn.style.cssText =
+    'background: none; border: none; color: #888; cursor: pointer; font-size: 14px; padding: 0 2px; line-height: 1; flex-shrink: 0;';
+  closeBtn.textContent = '\u2715';
+  closeBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    onClose();
+  });
+  headerRow.appendChild(closeBtn);
+  content.appendChild(headerRow);
+
+  wrapper.appendChild(content);
+  return {
+    wrapper,
+    content,
+    headerName,
+    closeBtn,
+    infoRow,
+    overlayActionButton,
+  };
+}
+
+/** Update overlay content for the selected location */
+function updateSelectionOverlay(
+  overlay: SelectionOverlayRefs,
+  selectedLocationId: string | null,
+  ctx: UpdateCtx
+): void {
+  if (!selectedLocationId) {
+    overlay.content.style.display = 'none';
+    return;
+  }
+
+  const location = ctx.gd.world.locations.find(
+    (l) => l.id === selectedLocationId
+  );
+  if (!location) {
+    overlay.content.style.display = 'none';
+    return;
+  }
+
+  overlay.content.style.display = '';
+
+  const {
+    ship,
+    virtualOrigin,
+    canStartTrips,
+    isInFlight,
+    flightDestinationId,
+    currentLocationId,
+  } = ctx;
+  const reachable = isLocationReachable(ship, location, virtualOrigin);
+  const isCurrent = location.id === currentLocationId;
+  const isFlightDest = location.id === flightDestinationId;
+
+  // Header name
+  if (overlay.headerName.textContent !== location.name) {
+    overlay.headerName.textContent = location.name;
+  }
+
+  // Info row: distance only
+  const distanceFromCurrent = getDistanceBetween(virtualOrigin, location);
+  const distText =
+    distanceFromCurrent < 0.5
+      ? 'Current Location'
+      : formatDistance(distanceFromCurrent);
+  if (overlay.infoRow.textContent !== distText) {
+    overlay.infoRow.textContent = distText;
+  }
+
+  // Action button — always visible, greyed out when not actionable
+  const btn = overlay.overlayActionButton;
+  if (isCurrent) {
+    btn.textContent = 'Current location';
+    btn.disabled = true;
+    btn.title = '';
+    btn.onclick = null;
+  } else if (isFlightDest) {
+    btn.textContent = 'En route';
+    btn.disabled = true;
+    btn.title = '';
+    btn.onclick = null;
+  } else if (!canStartTrips) {
+    let reason: string;
+    if (ship.activeContract) {
+      reason = 'Contract in progress';
+    } else if (ship.miningRoute) {
+      reason = 'Mining route active';
+    } else {
+      reason = 'Unavailable';
+    }
+    btn.textContent = reason;
+    btn.disabled = true;
+    btn.title = '';
+    btn.onclick = null;
+  } else if (reachable && ctx.onStartTrip) {
+    btn.textContent = isInFlight ? 'Redirect here' : 'Fly';
+    btn.disabled = false;
+    btn.title = '';
+    const startTrip = ctx.onStartTrip;
+    const locId = location.id;
+    btn.onclick = (e) => {
+      e.stopPropagation();
+      startTrip(locId);
+    };
+  } else {
+    const reason =
+      getUnreachableReason(ship, location, virtualOrigin) || 'Unreachable';
+    btn.textContent = reason;
+    btn.disabled = true;
+    btn.title = '';
+    btn.onclick = null;
+  }
+}
+
 export function createNavigationView(
   gameData: GameData,
   callbacks: NavigationViewCallbacks
@@ -931,8 +810,9 @@ export function createNavigationView(
   // Persistent flight profile slider — created once
   const profileControl = createFlightProfileControl(gameData);
 
-  // Track latest gameData for handlers that close over it
+  // Track latest gameData and UpdateCtx for handlers that close over them
   let latestGameData = gameData;
+  let latestCtx: UpdateCtx | null = null;
 
   // Selection state — links map dots to legend cards
   let selectedLocationId: string | null = null;
@@ -981,7 +861,7 @@ export function createNavigationView(
           distanceKm,
           ship.flightProfileBurnFraction
         );
-        ref.el.textContent = `\u23F1 Travel Time: ${travelTime} | \u26FD Fuel Cost: ~${formatFuelMass(fuelCostKg)}`;
+        ref.el.textContent = `\u23F1 ${travelTime} | \u26FD ~${formatFuelMass(fuelCostKg)}`;
       } catch {
         // skip if estimate fails
       }
@@ -1024,20 +904,20 @@ export function createNavigationView(
   ringLayer.setAttribute('class', 'orrery-rings');
   svg.appendChild(ringLayer);
 
-  // Orbit rings — one per unique Sun-orbiting radius (overview mode)
-  const overviewOrbitRings: SVGCircleElement[] = [];
-  const sunOrbitRadii = new Set<number>();
+  // Orbit rings — one per unique Sun-orbiting (radius, eccentricity) pair
+  const overviewOrbitRings: SVGPathElement[] = [];
+  const sunOrbits = new Map<string, { a: number; e: number }>();
   for (const loc of gameData.world.locations) {
     if (loc.orbital && !loc.orbital.parentId) {
-      sunOrbitRadii.add(loc.orbital.orbitalRadiusKm);
+      const a = loc.orbital.orbitalRadiusKm;
+      const e = loc.orbital.eccentricity ?? 0;
+      const key = `${a}:${e}`;
+      if (!sunOrbits.has(key)) sunOrbits.set(key, { a, e });
     }
   }
-  for (const radiusKm of sunOrbitRadii) {
-    const r = orbitalRadiusToSvg(radiusKm);
-    const ring = document.createElementNS(SVG_NS, 'circle');
-    ring.setAttribute('cx', '0');
-    ring.setAttribute('cy', '0');
-    ring.setAttribute('r', String(r));
+  for (const { a, e } of sunOrbits.values()) {
+    const ring = document.createElementNS(SVG_NS, 'path');
+    ring.setAttribute('d', buildOrbitPath(a, e, orbitalRadiusToSvg));
     ring.setAttribute('fill', 'none');
     ring.setAttribute('stroke', 'rgba(15, 52, 96, 0.5)');
     ring.setAttribute('stroke-width', '0.5');
@@ -1048,12 +928,10 @@ export function createNavigationView(
 
   // Focus-mode local orbit ring pool (max 8, hidden by default)
   const MAX_LOCAL_RINGS = 8;
-  const localRings: SVGCircleElement[] = [];
+  const localRings: SVGPathElement[] = [];
   for (let i = 0; i < MAX_LOCAL_RINGS; i++) {
-    const ring = document.createElementNS(SVG_NS, 'circle');
-    ring.setAttribute('cx', '0');
-    ring.setAttribute('cy', '0');
-    ring.setAttribute('r', '0');
+    const ring = document.createElementNS(SVG_NS, 'path');
+    ring.setAttribute('d', '');
     ring.setAttribute('fill', 'none');
     ring.setAttribute('stroke', 'rgba(74, 158, 255, 0.3)');
     ring.setAttribute('stroke-width', '0.5');
@@ -1128,7 +1006,7 @@ export function createNavigationView(
 
   const flightRefs: FlightLineRefs = { line: flightLine, shipDot };
 
-  // Current-location pulsing ring (visual prominence)
+  // Current-location pulsing ring — animation 'from'/'to' set dynamically from dot size
   const currentRing = document.createElementNS(SVG_NS, 'circle');
   currentRing.setAttribute('fill', 'none');
   currentRing.setAttribute('stroke', '#dc2626');
@@ -1150,23 +1028,21 @@ export function createNavigationView(
   currentRing.appendChild(currentRingOpacAnim);
   flightLayer.appendChild(currentRing);
 
-  // Destination glow ring (steady)
+  // Destination glow ring (steady) — radius set dynamically from dot size
   const destRing = document.createElementNS(SVG_NS, 'circle');
   destRing.setAttribute('fill', 'none');
   destRing.setAttribute('stroke', '#4a9eff');
   destRing.setAttribute('stroke-width', '1.5');
   destRing.setAttribute('stroke-opacity', '0.6');
-  destRing.setAttribute('r', '10');
   destRing.style.display = 'none';
   flightLayer.appendChild(destRing);
 
-  // Selection highlight ring
+  // Selection highlight ring — radius set dynamically from dot size
   const selectionRing = document.createElementNS(SVG_NS, 'circle');
   selectionRing.setAttribute('fill', 'none');
   selectionRing.setAttribute('stroke', '#4a9eff');
   selectionRing.setAttribute('stroke-width', '2');
   selectionRing.setAttribute('stroke-opacity', '0.8');
-  selectionRing.setAttribute('r', '12');
   selectionRing.style.display = 'none';
   flightLayer.appendChild(selectionRing);
 
@@ -1200,96 +1076,13 @@ export function createNavigationView(
     assistMarkers.push({ halo, diamond });
   }
 
-  // SVG tooltip (single reusable group, positioned on hover/select)
-  const tooltipGroup = document.createElementNS(SVG_NS, 'g');
-  tooltipGroup.style.display = 'none';
-  tooltipGroup.style.pointerEvents = 'none';
-  const tooltipBg = document.createElementNS(SVG_NS, 'rect');
-  tooltipBg.setAttribute('rx', '3');
-  tooltipBg.setAttribute('ry', '3');
-  tooltipBg.setAttribute('fill', 'rgba(10, 15, 30, 0.92)');
-  tooltipBg.setAttribute('stroke', '#4a9eff');
-  tooltipBg.setAttribute('stroke-width', '0.5');
-  tooltipGroup.appendChild(tooltipBg);
-  const tooltipName = document.createElementNS(SVG_NS, 'text');
-  tooltipName.setAttribute('fill', '#fff');
-  tooltipName.setAttribute('font-size', '6');
-  tooltipName.setAttribute('font-weight', '600');
-  tooltipGroup.appendChild(tooltipName);
-  const tooltipDist = document.createElementNS(SVG_NS, 'text');
-  tooltipDist.setAttribute('fill', '#aaa');
-  tooltipDist.setAttribute('font-size', '5');
-  tooltipGroup.appendChild(tooltipDist);
-  const tooltipServices = document.createElementNS(SVG_NS, 'text');
-  tooltipServices.setAttribute('fill', '#888');
-  tooltipServices.setAttribute('font-size', '4.5');
-  tooltipGroup.appendChild(tooltipServices);
-  svg.appendChild(tooltipGroup);
-
-  /** Position and show the SVG tooltip near a dot */
-  function showTooltip(locId: string, svgPos: { x: number; y: number }): void {
-    const loc = latestGameData.world.locations.find((l) => l.id === locId);
-    if (!loc) return;
-
-    const ship = getActiveShip(latestGameData);
-    const curLocId = ship.location.dockedAt || ship.location.orbitingAt || null;
-    const curKm = getShipPositionKm(ship, latestGameData.world);
-    const virtualOrigin: WorldLocation = curLocId
-      ? latestGameData.world.locations.find((l) => l.id === curLocId)!
-      : ({
-          id: '__current_position__',
-          name: 'Current Position',
-          type: 'orbital' as const,
-          description: '',
-          distanceFromEarth: curKm,
-          x: 0,
-          y: 0,
-          services: [] as WorldLocation['services'],
-          size: 0,
-          pilotingRequirement: 0,
-        } as WorldLocation);
-
-    const dist = getDistanceBetween(virtualOrigin, loc);
-    const distText = dist < 0.5 ? 'Current Location' : formatDistance(dist);
-
-    tooltipName.textContent = loc.name;
-    tooltipDist.textContent = distText;
-    const svcText = loc.services
-      .map((s) => NAV_SERVICE_LABELS[s]?.icon)
-      .filter(Boolean)
-      .join(' ');
-    tooltipServices.textContent = svcText || '';
-
-    // Position: flip based on quadrant
-    const lineCount = svcText ? 3 : 2;
-    const boxW = Math.max(loc.name.length * 4, distText.length * 3.5) + 12;
-    const boxH = lineCount * 8 + 6;
-
-    const above = svgPos.y > 0;
-    const leftSide = svgPos.x > 0;
-    const tx = leftSide ? svgPos.x - boxW - 5 : svgPos.x + 5;
-    const ty = above ? svgPos.y - boxH - 5 : svgPos.y + 15;
-
-    tooltipGroup.setAttribute('transform', `translate(${tx}, ${ty})`);
-    tooltipBg.setAttribute('width', String(boxW));
-    tooltipBg.setAttribute('height', String(boxH));
-    tooltipName.setAttribute('x', '6');
-    tooltipName.setAttribute('y', '10');
-    tooltipDist.setAttribute('x', '6');
-    tooltipDist.setAttribute('y', '20');
-    if (svcText) {
-      tooltipServices.setAttribute('x', '6');
-      tooltipServices.setAttribute('y', '29');
-    }
-
-    tooltipGroup.style.display = '';
-  }
-
-  function hideTooltip(): void {
-    tooltipGroup.style.display = 'none';
-  }
-
   mapArea.appendChild(svg);
+
+  const selectionOverlay = createSelectionOverlay(() => {
+    selectedLocationId = null;
+    applySelection();
+  });
+  mapArea.appendChild(selectionOverlay.wrapper);
 
   // Zoom/pan gesture handling (pinch, drag, wheel)
   const zoomControls: MapZoomPanControls = setupMapZoomPan(svg, mapArea);
@@ -1412,7 +1205,7 @@ export function createNavigationView(
       }
     });
 
-    // Hover feedback on desktop
+    // Hover feedback on desktop (dot stroke highlight only)
     hitArea.addEventListener('mouseenter', () => {
       const ship = getActiveShip(latestGameData);
       const currentLocId =
@@ -1429,18 +1222,8 @@ export function createNavigationView(
         dot.setAttribute('stroke', '#4a9eff');
         dot.setAttribute('stroke-width', '1');
       }
-      const svgPos = cachedSvgPositions.get(location.id) ?? { x: 0, y: 0 };
-      showTooltip(location.id, svgPos);
     });
-    hitArea.addEventListener('mouseleave', () => {
-      // Don't reset stroke - let the update tick handle it
-      // This prevents flickering between hover blue and destination red
-      if (selectedLocationId !== location.id) {
-        hideTooltip();
-      }
-      // When selectedLocationId === location.id, keep tooltip visible
-      // so that tap-to-select on mobile shows the tooltip persistently
-    });
+    // mouseleave: stroke reset handled by update tick
 
     markerMap.set(location.id, {
       dot,
@@ -1450,10 +1233,22 @@ export function createNavigationView(
       clusterIndicator,
     });
 
-    // --- Legend item (accordion: summary always visible, details toggled) ---
+    // --- Legend item (compact card) ---
     const legendItem = createLegendItemDom(
       location,
       () => {
+        // If this is a cluster child and we're in overview, switch to focus mode
+        if (
+          orreryMode.type === 'overview' &&
+          clusterMemberIds.has(location.id)
+        ) {
+          const parentId = location.orbital?.parentId;
+          if (parentId && clusterParentIds.has(parentId)) {
+            selectedLocationId = location.id;
+            switchToFocus(parentId);
+            return;
+          }
+        }
         selectedLocationId = location.id;
         applySelection();
       },
@@ -1465,7 +1260,7 @@ export function createNavigationView(
     legendMap.set(location.id, legendItem);
   }
 
-  /** Apply selection state — highlight map dot + scroll/expand legend card */
+  /** Apply selection state — highlight map dot + update overlay + highlight legend card */
   function applySelection(): void {
     // Update SVG selection ring position using cached positions
     if (selectedLocationId) {
@@ -1473,28 +1268,26 @@ export function createNavigationView(
       if (pos) {
         selectionRing.setAttribute('cx', String(pos.x));
         selectionRing.setAttribute('cy', String(pos.y));
+        selectionRing.setAttribute('r', String(pos.dotR + 5));
         selectionRing.style.display = '';
-        showTooltip(selectedLocationId, pos);
       }
     } else {
       selectionRing.style.display = 'none';
-      hideTooltip();
     }
 
-    // Toggle accordion: expand selected, collapse others
+    // Toggle selected class on legend cards (no accordion — just highlight)
     for (const [locId, refs] of legendMap) {
-      const isSelected = locId === selectedLocationId;
-      refs.item.classList.toggle('nav-legend-item--selected', isSelected);
-      refs.details.style.display = isSelected ? '' : 'none';
-      refs.chevron.textContent = isSelected ? '\u25BC' : '\u25B6';
+      refs.item.classList.toggle(
+        'nav-legend-item--selected',
+        locId === selectedLocationId
+      );
     }
 
-    // Scroll selected legend item into view
-    if (selectedLocationId) {
-      const refs = legendMap.get(selectedLocationId);
-      if (refs) {
-        refs.item.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-      }
+    // Immediately update overlay (don't wait for next tick)
+    if (latestCtx) {
+      updateSelectionOverlay(selectionOverlay, selectedLocationId, latestCtx);
+    } else if (!selectedLocationId) {
+      selectionOverlay.content.style.display = 'none';
     }
   }
 
@@ -1762,11 +1555,6 @@ export function createNavigationView(
       profileSlot.style.display = 'none';
     }
 
-    // Gravity-degraded crew (computed once)
-    const degradedCrew = ship.crew.filter(
-      (c) => getGravityDegradationLevel(c.zeroGExposure) !== 'none'
-    );
-
     const ctx: UpdateCtx = {
       gd: gameData,
       ship,
@@ -1775,16 +1563,21 @@ export function createNavigationView(
       isInFlight,
       flightDestinationId,
       currentLocationId,
-      degradedCrew,
       estimateRefs,
       onStartTrip: callbacks.onStartTrip,
     };
+
+    // Store ctx for immediate overlay updates in applySelection()
+    latestCtx = ctx;
 
     if (orreryMode.type === 'overview') {
       updateOverview(ctx);
     } else {
       updateFocus(ctx, orreryMode.parentId);
     }
+
+    // Update selection overlay every tick (distances/alignment change with orbits)
+    updateSelectionOverlay(selectionOverlay, selectedLocationId, ctx);
   }
 
   /** Update in Overview mode — solar system view, clusters collapsed */
@@ -1851,6 +1644,8 @@ export function createNavigationView(
       if (pos) {
         currentRing.setAttribute('cx', String(pos.x));
         currentRing.setAttribute('cy', String(pos.y));
+        currentRingAnim.setAttribute('from', String(pos.dotR + 2));
+        currentRingAnim.setAttribute('to', String(pos.dotR + 12));
         currentRing.style.display = '';
       } else {
         currentRing.style.display = 'none';
@@ -1870,6 +1665,7 @@ export function createNavigationView(
       if (pos) {
         destRing.setAttribute('cx', String(pos.x));
         destRing.setAttribute('cy', String(pos.y));
+        destRing.setAttribute('r', String(pos.dotR + 4));
         destRing.style.display = '';
       } else {
         destRing.style.display = 'none';
@@ -1888,6 +1684,7 @@ export function createNavigationView(
       if (pos) {
         selectionRing.setAttribute('cx', String(pos.x));
         selectionRing.setAttribute('cy', String(pos.y));
+        selectionRing.setAttribute('r', String(pos.dotR + 5));
         selectionRing.style.display = '';
       } else {
         selectionRing.style.display = 'none';
@@ -1905,9 +1702,10 @@ export function createNavigationView(
       const isChild = clusterMemberIds.has(location.id);
 
       if (isChild) {
-        // Hide cluster children in overview
+        // Hide cluster children markers in overview, but keep legend visible
         hideMarker(refs);
-        legendRefs.item.style.display = 'none';
+        legendRefs.item.style.display = '';
+        updateLegendItem(location, legendRefs, ctx);
         continue;
       }
 
@@ -1995,12 +1793,23 @@ export function createNavigationView(
     const logMin = Math.log10(Math.min(...radii));
     const logMax = Math.log10(Math.max(...radii));
 
-    // Configure local orbit rings
-    const uniqueRadii = [...new Set(radii)].sort((a, b) => a - b);
+    // Configure local orbit rings — unique (radius, eccentricity) pairs
+    const localOrbitMap = new Map<string, { a: number; e: number }>();
+    for (const c of children) {
+      const a = c.orbital!.orbitalRadiusKm;
+      const e = c.orbital!.eccentricity ?? 0;
+      const key = `${a}:${e}`;
+      if (!localOrbitMap.has(key)) localOrbitMap.set(key, { a, e });
+    }
+    const localOrbits = [...localOrbitMap.values()].sort((a, b) => a.a - b.a);
+    const localLogMin = logMin;
+    const localLogMax = logMax;
     for (let i = 0; i < MAX_LOCAL_RINGS; i++) {
-      if (i < uniqueRadii.length) {
-        const r = localOrbitalRadiusToSvg(uniqueRadii[i], logMin, logMax);
-        localRings[i].setAttribute('r', String(r));
+      if (i < localOrbits.length) {
+        const { a, e } = localOrbits[i];
+        const toSvg = (r: number) =>
+          localOrbitalRadiusToSvg(r, localLogMin, localLogMax);
+        localRings[i].setAttribute('d', buildOrbitPath(a, e, toSvg));
         localRings[i].style.display = '';
       } else {
         localRings[i].style.display = 'none';
@@ -2051,6 +1860,8 @@ export function createNavigationView(
       if (pos) {
         currentRing.setAttribute('cx', String(pos.x));
         currentRing.setAttribute('cy', String(pos.y));
+        currentRingAnim.setAttribute('from', String(pos.dotR + 2));
+        currentRingAnim.setAttribute('to', String(pos.dotR + 12));
         currentRing.style.display = '';
       } else {
         currentRing.style.display = 'none';
@@ -2069,6 +1880,7 @@ export function createNavigationView(
       if (pos) {
         destRing.setAttribute('cx', String(pos.x));
         destRing.setAttribute('cy', String(pos.y));
+        destRing.setAttribute('r', String(pos.dotR + 4));
         destRing.style.display = '';
       } else {
         destRing.style.display = 'none';
@@ -2083,6 +1895,7 @@ export function createNavigationView(
       if (pos) {
         selectionRing.setAttribute('cx', String(pos.x));
         selectionRing.setAttribute('cy', String(pos.y));
+        selectionRing.setAttribute('r', String(pos.dotR + 5));
         selectionRing.style.display = '';
       } else {
         selectionRing.style.display = 'none';

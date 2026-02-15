@@ -1460,7 +1460,7 @@ button:active:not(:disabled) {
 .nav-legend {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
 }
 
 .nav-legend h4 {
@@ -1472,13 +1472,19 @@ button:active:not(:disabled) {
 }
 
 .nav-legend-item {
-  padding: 8px 12px;
+  padding: 6px 10px;
   background: rgba(255, 255, 255, 0.03);
   border-radius: 6px;
   border: 1px solid #12121e;
   transition:
     border-color 0.2s,
     background 0.2s;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.nav-legend-item:hover {
+  background: rgba(255, 255, 255, 0.05);
 }
 
 .nav-legend-item--selected {
@@ -1490,45 +1496,30 @@ button:active:not(:disabled) {
   opacity: 0.5;
 }
 
-.nav-legend-summary {
-  user-select: none;
-  -webkit-user-select: none;
-}
-
-.nav-legend-summary:hover {
-  opacity: 0.85;
-}
-
-.nav-legend-chevron {
-  font-size: 0.65em;
-  color: #666;
-  transition: transform 0.15s;
-  width: 12px;
-  text-align: center;
-  flex-shrink: 0;
-}
-
 .nav-legend-item strong {
   color: #d4850a;
   font-size: 0.95em;
 }
 
-.nav-legend-details {
-  margin-top: 8px;
-  padding-top: 8px;
-  border-top: 1px solid rgba(255, 255, 255, 0.05);
+/* Selection overlay at bottom of orrery map */
+.nav-selection-overlay {
+  position: absolute;
+  bottom: 40px;
+  left: 8px;
+  right: 8px;
+  z-index: 2;
+  pointer-events: none;
 }
 
-.nav-legend-details div {
-  font-size: 12px;
-  color: #888;
-  margin-top: 4px;
-}
-
-.nav-contracts-summary {
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
-  padding-top: 6px;
-  margin-top: 6px;
+.nav-selection-overlay-content {
+  pointer-events: auto;
+  background: rgba(10, 15, 30, 0.92);
+  border: 1px solid #4a9eff;
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-size: 0.85em;
+  max-height: 200px;
+  overflow-y: auto;
 }
 
 .nav-travel-button {
@@ -1549,20 +1540,27 @@ button:active:not(:disabled) {
   background: #3db3aa;
 }
 
-.nav-current-label {
-  margin-top: 8px;
-  padding: 6px 12px;
+.nav-travel-button--compact {
+  width: auto;
+  padding: 4px 12px;
   font-size: 12px;
+  margin-top: 4px;
+}
+
+.nav-current-label {
+  margin-top: 4px;
+  padding: 4px 10px;
+  font-size: 11px;
   font-weight: 600;
   color: #d4850a;
-  border: 2px solid #d4850a;
+  border: 1px solid #d4850a;
   border-radius: 4px;
   text-align: center;
 }
 
 .nav-travel-disabled-reason {
-  margin-top: 8px;
-  font-size: 12px;
+  margin-top: 4px;
+  font-size: 11px;
   font-style: italic;
   color: #ff6b6b;
   text-align: center;
@@ -4358,6 +4356,17 @@ button:disabled:hover {
   /* Nav map: larger on mobile for readability */
   .nav-map {
     height: min(350px, 50vh);
+  }
+
+  /* Selection overlay: full width on mobile */
+  .nav-selection-overlay {
+    bottom: 32px;
+    left: 4px;
+    right: 4px;
+  }
+
+  .nav-selection-overlay-content {
+    max-height: 160px;
   }
 
   /* Quest cards: tighter */

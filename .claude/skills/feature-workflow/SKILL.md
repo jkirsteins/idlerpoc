@@ -181,6 +181,14 @@ See `references/quality-gates.md` for common failure patterns and solutions.
 
 ### Phase 6: Merge (conditional)
 
+**IMPORTANT**: If using git worktrees, the merge must be executed from the worktree that owns the `main` branch, NOT from the feature branch worktree.
+
+To switch to the main worktree before merging:
+
+```bash
+cd "$(git worktree list | grep '\[main\]' | awk '{print $1}')"
+```
+
 1. If user confirms merge:
 
    ```bash

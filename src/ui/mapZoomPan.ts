@@ -39,10 +39,13 @@ export function setupMapZoomPan(
   container: HTMLElement
 ): MapZoomPanControls {
   // ViewBox state (in SVG coordinate space)
-  let viewBoxX = INITIAL_VB_X;
-  let viewBoxY = INITIAL_VB_Y;
-  let viewBoxWidth = INITIAL_VB_WIDTH;
-  let viewBoxHeight = INITIAL_VB_HEIGHT;
+  // Start at zoom level 4 centered on origin
+  const START_ZOOM = 4;
+  const startSize = INITIAL_VB_WIDTH / START_ZOOM; // 100
+  let viewBoxX = -startSize / 2;
+  let viewBoxY = -startSize / 2;
+  let viewBoxWidth = startSize;
+  let viewBoxHeight = startSize;
 
   /** Get current zoom level (1x = default, 10x = max zoomed in) */
   function getCurrentZoom(): number {
@@ -323,7 +326,8 @@ export function setupMapZoomPan(
   );
 
   svg.addEventListener('pointerdown', (e: PointerEvent) => {
-    svg.setPointerCapture(e.pointerId);
+    // Don't capture immediately — defer until drag threshold is exceeded
+    // so that taps/clicks propagate normally to child elements (hitAreas).
     pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
 
     if (pointers.size === 1) {
@@ -335,6 +339,8 @@ export function setupMapZoomPan(
       };
       wasDragging = false;
     } else if (pointers.size === 2) {
+      // Pinch always captures immediately
+      svg.setPointerCapture(e.pointerId);
       dragStart = null;
       pinchStartDist = getPointerDistance();
       pinchStartWidth = viewBoxWidth;
@@ -353,6 +359,10 @@ export function setupMapZoomPan(
       const dy = e.clientY - dragStart.y;
       const dist = Math.sqrt(dx * dx + dy * dy);
       if (dist > DRAG_THRESHOLD) {
+        if (!wasDragging) {
+          // Capture pointer once drag begins so pan continues outside SVG bounds
+          svg.setPointerCapture(e.pointerId);
+        }
         wasDragging = true;
       }
       if (wasDragging) {
