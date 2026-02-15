@@ -150,6 +150,22 @@ export type ZoneState =
 export type TerrainType = 'soil' | 'liquid' | 'ice';
 export type TemperatureZone = 'hot' | 'warm' | 'temperate' | 'cold' | 'frozen';
 export type AtmosphereState = 'thick' | 'thin' | 'none';
+export type InsolationBand = 'light' | 'terminator' | 'dark';
+export type ZoneBiome =
+  | 'sunscorch'
+  | 'temperate-basin'
+  | 'twilight-marsh'
+  | 'night-ice'
+  | 'mineral-ridge'
+  | 'barren-plain';
+
+export interface ZoneAtmosphereGases {
+  n2: number;
+  co2: number;
+  o2: number;
+  ch4: number;
+  inert: number;
+}
 
 export interface Zone {
   id: string;
@@ -187,6 +203,11 @@ export interface Zone {
   temperatureZone: TemperatureZone;
   temperatureKelvin: number;
   atmosphere: AtmosphereState;
+  insolationBand: InsolationBand;
+  biome: ZoneBiome;
+  hasMineralVein: boolean;
+  atmosphericMass: number;
+  atmosphericGases: ZoneAtmosphereGases;
 
   // Connectivity - neighbor zone IDs
   neighborIds: string[];

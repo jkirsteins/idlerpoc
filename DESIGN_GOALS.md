@@ -16,6 +16,7 @@ This is **not** a traditional RTS and not a clicker. It is a systems-driven swar
 - Swarm performance derives from biological constraints: neural capacity, metabolism, logistics.
 - Population emerges from homeostatic equilibrium, not hard caps.
 - All numbers must trace back to simulation layers.
+- Planet-level environment metrics (pressure, atmosphere composition, viability) derive from zone simulation, never static planet constants.
 
 ---
 
@@ -142,6 +143,16 @@ Workers carry physical biomass:
 - Must gather, transport, unload
 - Creates spatial gameplay (future)
 - Cargo limits create throughput constraints
+
+### Planetary Metabolism Must Be Layered
+
+Planet simulation follows bottom-up aggregation:
+
+- Zone fields (insolation, terrain, moisture, mineralization, atmosphere)
+- Zone contributions aggregate into planet-level metrics
+- UI surfaces the aggregate with breakdowns
+
+If a planet stat cannot be traced to zone-level causes, redesign the system.
 
 ---
 

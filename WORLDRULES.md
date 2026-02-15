@@ -145,6 +145,8 @@ Each planet divided hierarchically:
 - **Planet** → 6 Continents → 8 Regions each → 8 Zones each
 - **Total**: 384 zones per planet
 
+Zones are generated as contiguous organic hex blobs with clustered biomes. Biomes are not assigned per-cell randomly; local environmental fields and neighbor smoothing produce coherent patches (for example, adjacent water basins, mineral-rich ridges, and dark-side frozen bands).
+
 ### Zone States
 
 1. **Unexplored**: Grayed out, no information
@@ -161,6 +163,33 @@ Each zone has intrinsic biomass rate:
 - **Surface Lichen**: Base photosynthetic growth
 - Varies by zone (0.1 to 2.0 food per tick potential)
 - Depletes slightly as harvested (recovers over time)
+
+### Insolation Bands (Tidally Locked Worlds)
+
+Every zone belongs to one insolation band:
+
+- `light`: Permanent day side receiving direct stellar flux
+- `terminator`: Day/night boundary with moderate gradients
+- `dark`: Permanent night side with minimal direct flux
+
+Insolation is a first-order input for zone temperature, terrain, atmospheric retention, and biomass potential.
+
+### Planetary Atmospheric Metabolism
+
+Planet atmosphere is emergent from zone-level contributions.
+
+Each zone provides:
+
+- Atmospheric mass contribution
+- Gas fractions (`N2`, `CO2`, `O2`, `CH4`, inert gases)
+
+Planet values are derived, never hardcoded:
+
+- `planetAtmosphericMass = sum(zone.atmosphericMass)`
+- Planet composition is the mass-weighted average of zone gas fractions
+- Planet pressure is derived from total atmospheric mass
+
+As zones are converted and managed by the swarm, the aggregate atmosphere shifts organically. Terraforming is therefore a simulation outcome, not a scripted milestone.
 
 ### Predators (v2)
 

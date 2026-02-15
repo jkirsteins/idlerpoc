@@ -1,6 +1,14 @@
 // TRAPPIST-1 Planet Data and Generation
 
-import type { Planet, Zone, Moon } from './models/swarmTypes';
+import type {
+  Planet,
+  Zone,
+  Moon,
+  AtmosphereState,
+  InsolationBand,
+  ZoneAtmosphereGases,
+  ZoneBiome,
+} from './models/swarmTypes';
 import { generateZoneName } from './models/swarmTypes';
 
 // Planet definitions with real characteristics
@@ -150,28 +158,11 @@ const DEFAULT_ZONE_CONFIG: ZoneGridConfig = {
   hexSize: 20,
 };
 
-// Temperature ranges in Kelvin for each zone (reference for tweaking)
-const TEMP_RANGES = {
-  hot: { min: 350, max: 500 }, // Day side
-  warm: { min: 280, max: 350 }, // Near terminator
-  temperate: { min: 250, max: 280 }, // Terminator line
-  cold: { min: 150, max: 250 }, // Night side
-  frozen: { min: 50, max: 150 }, // Polar night / cold trap
-};
-void TEMP_RANGES; // Reference for future tweaking
-
 // Atmosphere thresholds (based on temperature)
 const ATMOSPHERE_THRESHOLDS = {
   thick: 250, // Above this: thick atmosphere
   thin: 150, // Above this: thin atmosphere
   none: 150, // Below this: no atmosphere (cold trap)
-};
-
-// Terrain generation weights
-const TERRAIN_WEIGHTS = {
-  soil: 0.7,
-  liquid: 0.15,
-  ice: 0.15,
 };
 
 // ============================================================================
@@ -219,26 +210,73 @@ function getHexDistance(
 }
 void getHexDistance; // Reserved for future pathfinding
 
+function toCoordKey(q: number, r: number): string {
+  return `${q},${r}`;
+}
+
+function fromCoordKey(key: string): { q: number; r: number } {
+  const [qStr, rStr] = key.split(',');
+  return { q: Number(qStr), r: Number(rStr) };
+}
+
+function coordinateNoise(q: number, r: number, seed: number): number {
+  let hash = (q * 374761393 + r * 668265263 + seed * 362437) | 0;
+  hash = (hash ^ (hash >>> 13)) * 1274126177;
+  hash ^= hash >>> 16;
+  return (hash >>> 0) / 4294967295;
+}
+
+function smoothField(
+  positions: Array<{ q: number; r: number }>,
+  valueByKey: Map<string, number>,
+  passes: number
+): Map<string, number> {
+  let current = valueByKey;
+
+  for (let pass = 0; pass < passes; pass++) {
+    const next = new Map<string, number>();
+
+    for (const position of positions) {
+      const key = toCoordKey(position.q, position.r);
+      let total = current.get(key) ?? 0;
+      let count = 1;
+
+      for (const neighbor of getHexNeighbors(position.q, position.r)) {
+        const neighborKey = toCoordKey(neighbor.q, neighbor.r);
+        const neighborValue = current.get(neighborKey);
+        if (neighborValue === undefined) continue;
+        total += neighborValue;
+        count++;
+      }
+
+      next.set(key, total / count);
+    }
+
+    current = next;
+  }
+
+  return current;
+}
+
 // ============================================================================
 // ZONE GENERATION
 // ============================================================================
 
+function getInsolationBand(normalizedQ: number): InsolationBand {
+  if (normalizedQ <= -0.33) return 'light';
+  if (normalizedQ >= 0.33) return 'dark';
+  return 'terminator';
+}
+
 function calculateTemperature(
-  q: number,
-  cols: number,
+  insolationBand: InsolationBand,
+  latitudeNormalized: number,
   planetDef: PlanetDefinition,
   rng: () => number
 ): {
-  temperatureZone: 'hot' | 'warm' | 'temperate' | 'cold' | 'frozen';
+  temperatureZone: Zone['temperatureZone'];
   tempKelvin: number;
 } {
-  // Calculate position relative to star-facing side (assumed q=0 is facing star)
-  // On tidally locked planet, position determines temperature
-
-  // Normalize q to -1 to 1 (star-facing to anti-star-facing)
-  const normalizedQ = (q - cols / 2) / (cols / 2);
-
-  // Base temperature from stellar irradiation (closer planets are hotter)
   const baseTempByDistance: Record<string, number> = {
     b: 450,
     c: 380,
@@ -250,71 +288,410 @@ function calculateTemperature(
   };
   const baseTemp = baseTempByDistance[planetDef.trappistId] ?? 250;
 
-  // Apply position-based temperature variation
-  let tempKelvin: number;
+  const latitudeCooling = 1 - Math.min(1, Math.abs(latitudeNormalized));
+  let tempKelvin = baseTemp;
 
-  if (normalizedQ < -0.6) {
-    // Day side (facing star)
-    tempKelvin = baseTemp + rng() * 50;
-    return { temperatureZone: 'hot', tempKelvin };
-  } else if (normalizedQ < -0.2) {
-    // Warm region
-    tempKelvin = baseTemp - 50 + rng() * 40;
-    return { temperatureZone: 'warm', tempKelvin };
-  } else if (normalizedQ < 0.2) {
-    // Temperate (terminator line - day/night boundary)
-    tempKelvin = baseTemp - 100 + rng() * 30;
-    return { temperatureZone: 'temperate', tempKelvin };
-  } else if (normalizedQ < 0.6) {
-    // Cold (night side)
-    tempKelvin = Math.max(50, baseTemp - 150 + rng() * 50);
-    return { temperatureZone: 'cold', tempKelvin };
+  if (insolationBand === 'light') {
+    tempKelvin += 65;
+  } else if (insolationBand === 'terminator') {
+    tempKelvin -= 15;
   } else {
-    // Frozen (anti-star side / polar night)
-    tempKelvin = 50 + rng() * 80;
-    return { temperatureZone: 'frozen', tempKelvin };
+    tempKelvin -= 95;
   }
+
+  tempKelvin += latitudeCooling * 30;
+  tempKelvin += (rng() - 0.5) * 25;
+
+  if (tempKelvin >= 340) return { temperatureZone: 'hot', tempKelvin };
+  if (tempKelvin >= 285) return { temperatureZone: 'warm', tempKelvin };
+  if (tempKelvin >= 240) return { temperatureZone: 'temperate', tempKelvin };
+  if (tempKelvin >= 160) return { temperatureZone: 'cold', tempKelvin };
+  return { temperatureZone: 'frozen', tempKelvin };
 }
 
-function deriveAtmosphere(
-  temperatureKelvin: number
-): 'thick' | 'thin' | 'none' {
+function deriveAtmosphere(temperatureKelvin: number): AtmosphereState {
   if (temperatureKelvin >= ATMOSPHERE_THRESHOLDS.thick) return 'thick';
   if (temperatureKelvin >= ATMOSPHERE_THRESHOLDS.thin) return 'thin';
   return 'none';
 }
 
+function chooseBiome(
+  insolationBand: InsolationBand,
+  temperatureZone: Zone['temperatureZone'],
+  moisture: number,
+  mineral: number
+): ZoneBiome {
+  if (mineral > 0.77) return 'mineral-ridge';
+  if (insolationBand === 'light' && temperatureZone === 'hot') {
+    return 'sunscorch';
+  }
+  if (
+    insolationBand === 'dark' &&
+    (temperatureZone === 'cold' || temperatureZone === 'frozen')
+  ) {
+    return 'night-ice';
+  }
+  if (moisture > 0.62 && insolationBand !== 'light') return 'twilight-marsh';
+  if (moisture > 0.5) return 'temperate-basin';
+  return 'barren-plain';
+}
+
 function selectTerrain(
-  temperatureZone: 'hot' | 'warm' | 'temperate' | 'cold' | 'frozen',
-  atmosphere: 'thick' | 'thin' | 'none',
+  biome: ZoneBiome,
+  temperatureZone: Zone['temperatureZone'],
+  moisture: number,
   rng: () => number
-): 'soil' | 'liquid' | 'ice' {
+): Zone['terrainType'] {
   const roll = rng();
 
-  if (temperatureZone === 'frozen' || temperatureZone === 'cold') {
-    // High chance of ice
-    if (roll < 0.4) return 'ice';
-    if (roll < 0.8) return 'soil';
-    return 'liquid';
-  }
-
-  if (temperatureZone === 'hot' && atmosphere === 'none') {
-    // Hot + no atmosphere = all liquid boiled off
+  if (biome === 'night-ice') return roll < 0.82 ? 'ice' : 'soil';
+  if (biome === 'sunscorch') return roll < 0.9 ? 'soil' : 'ice';
+  if (biome === 'twilight-marsh') {
+    if (roll < 0.52) return 'liquid';
     if (roll < 0.9) return 'soil';
     return 'ice';
   }
-
-  if (temperatureZone === 'temperate' || temperatureZone === 'warm') {
-    // Temperate zones can have liquid water
-    if (atmosphere === 'thick' && roll < 0.25) return 'liquid';
-    if (roll < 0.8) return 'soil';
+  if (biome === 'temperate-basin') {
+    if (roll < 0.32) return 'liquid';
+    if (roll < 0.88) return 'soil';
     return 'ice';
   }
 
-  // Default: mostly soil
-  if (roll < TERRAIN_WEIGHTS.soil) return 'soil';
-  if (roll < TERRAIN_WEIGHTS.soil + TERRAIN_WEIGHTS.liquid) return 'liquid';
-  return 'ice';
+  if (temperatureZone === 'frozen') return 'ice';
+  if (moisture > 0.7 && roll < 0.35) return 'liquid';
+  return roll < 0.82 ? 'soil' : 'ice';
+}
+
+function normalizeGasFractions(
+  gases: ZoneAtmosphereGases
+): ZoneAtmosphereGases {
+  const raw = {
+    n2: Math.max(0, gases.n2),
+    co2: Math.max(0, gases.co2),
+    o2: Math.max(0, gases.o2),
+    ch4: Math.max(0, gases.ch4),
+    inert: Math.max(0, gases.inert),
+  };
+
+  const total = raw.n2 + raw.co2 + raw.o2 + raw.ch4 + raw.inert;
+  if (total <= 0) {
+    return { n2: 1, co2: 0, o2: 0, ch4: 0, inert: 0 };
+  }
+
+  return {
+    n2: raw.n2 / total,
+    co2: raw.co2 / total,
+    o2: raw.o2 / total,
+    ch4: raw.ch4 / total,
+    inert: raw.inert / total,
+  };
+}
+
+function createAtmosphericGases(
+  planetDef: PlanetDefinition,
+  insolationBand: InsolationBand,
+  terrainType: Zone['terrainType'],
+  biome: ZoneBiome,
+  rng: () => number
+): ZoneAtmosphereGases {
+  const planetProfiles: Record<string, ZoneAtmosphereGases> = {
+    b: { n2: 0.62, co2: 0.28, o2: 0.02, ch4: 0.02, inert: 0.06 },
+    c: { n2: 0.66, co2: 0.2, o2: 0.03, ch4: 0.04, inert: 0.07 },
+    d: { n2: 0.71, co2: 0.16, o2: 0.04, ch4: 0.03, inert: 0.06 },
+    e: { n2: 0.74, co2: 0.1, o2: 0.07, ch4: 0.03, inert: 0.06 },
+    f: { n2: 0.72, co2: 0.13, o2: 0.05, ch4: 0.03, inert: 0.07 },
+    g: { n2: 0.7, co2: 0.15, o2: 0.04, ch4: 0.03, inert: 0.08 },
+    h: { n2: 0.67, co2: 0.17, o2: 0.03, ch4: 0.05, inert: 0.08 },
+  };
+
+  const profile = planetProfiles[planetDef.trappistId] ?? {
+    n2: 0.72,
+    co2: 0.13,
+    o2: 0.05,
+    ch4: 0.03,
+    inert: 0.07,
+  };
+
+  const gases: ZoneAtmosphereGases = { ...profile };
+
+  if (insolationBand === 'light') {
+    gases.co2 += 0.02;
+    gases.ch4 -= 0.015;
+    gases.o2 += 0.01;
+  } else if (insolationBand === 'dark') {
+    gases.ch4 += 0.03;
+    gases.o2 -= 0.015;
+  }
+
+  if (terrainType === 'liquid') gases.o2 += 0.01;
+  if (biome === 'mineral-ridge') gases.inert += 0.02;
+  if (biome === 'night-ice') gases.co2 += 0.01;
+
+  gases.co2 += (rng() - 0.5) * 0.01;
+  gases.ch4 += (rng() - 0.5) * 0.008;
+  gases.o2 += (rng() - 0.5) * 0.006;
+
+  return normalizeGasFractions(gases);
+}
+
+function estimateAtmosphericMass(
+  planetDef: PlanetDefinition,
+  temperatureKelvin: number,
+  atmosphere: AtmosphereState,
+  insolationBand: InsolationBand,
+  terrainType: Zone['terrainType'],
+  rng: () => number
+): number {
+  const baseByPlanet: Record<string, number> = {
+    b: 0.7,
+    c: 0.85,
+    d: 1,
+    e: 1.2,
+    f: 1.1,
+    g: 0.95,
+    h: 0.8,
+  };
+  let mass = baseByPlanet[planetDef.trappistId] ?? 1;
+
+  if (atmosphere === 'thick') mass *= 1.1;
+  else if (atmosphere === 'thin') mass *= 0.85;
+  else mass *= 0.3;
+
+  if (insolationBand === 'light') mass *= 0.95;
+  if (insolationBand === 'dark') mass *= 1.05;
+  if (terrainType === 'liquid') mass *= 1.08;
+  if (temperatureKelvin < 130) mass *= 0.75;
+
+  mass *= 0.9 + rng() * 0.2;
+  return Math.max(0.05, mass);
+}
+
+function connectedComponentFrom(
+  startKey: string,
+  selected: Set<string>
+): Set<string> {
+  const visited = new Set<string>();
+  const stack = [startKey];
+
+  while (stack.length > 0) {
+    const key = stack.pop();
+    if (!key || visited.has(key) || !selected.has(key)) continue;
+    visited.add(key);
+
+    const { q, r } = fromCoordKey(key);
+    for (const neighbor of getHexNeighbors(q, r)) {
+      const neighborKey = toCoordKey(neighbor.q, neighbor.r);
+      if (!visited.has(neighborKey) && selected.has(neighborKey)) {
+        stack.push(neighborKey);
+      }
+    }
+  }
+
+  return visited;
+}
+
+function largestConnectedComponent(selected: Set<string>): Set<string> {
+  const unvisited = new Set(selected);
+  let largest = new Set<string>();
+
+  for (const key of selected) {
+    if (!unvisited.has(key)) continue;
+
+    const component = connectedComponentFrom(key, selected);
+    for (const entry of component) unvisited.delete(entry);
+
+    if (component.size > largest.size) {
+      largest = component;
+    }
+  }
+
+  return largest;
+}
+
+function countSelectedNeighbors(key: string, selected: Set<string>): number {
+  const { q, r } = fromCoordKey(key);
+  let count = 0;
+  for (const neighbor of getHexNeighbors(q, r)) {
+    if (selected.has(toCoordKey(neighbor.q, neighbor.r))) count++;
+  }
+  return count;
+}
+
+function canRemoveWithoutDisconnect(
+  key: string,
+  selected: Set<string>
+): boolean {
+  if (!selected.has(key)) return false;
+  if (selected.size <= 1) return false;
+
+  const copy = new Set(selected);
+  copy.delete(key);
+  const remaining = copy.values().next().value;
+  if (typeof remaining !== 'string') return false;
+
+  const component = connectedComponentFrom(remaining, copy);
+  return component.size === copy.size;
+}
+
+function generateOrganicHexBlob(
+  targetCount: number,
+  rng: () => number
+): Array<{ q: number; r: number; s: number }> {
+  const canvasRadius = Math.max(18, Math.ceil(Math.sqrt(targetCount) * 1.9));
+
+  const lobeCenters = Array.from({ length: 4 }, () => {
+    const angle = rng() * Math.PI * 2;
+    const dist = canvasRadius * (0.25 + rng() * 0.55);
+    return {
+      q: Math.cos(angle) * dist,
+      r: Math.sin(angle) * dist,
+      sigma: canvasRadius * (0.28 + rng() * 0.18),
+      weight: 0.75 + rng() * 0.5,
+    };
+  });
+
+  const scoreByKey = new Map<string, number>();
+  const candidates: string[] = [];
+
+  for (let q = -canvasRadius; q <= canvasRadius; q++) {
+    for (let r = -canvasRadius; r <= canvasRadius; r++) {
+      const s = -q - r;
+      const dist = Math.max(Math.abs(q), Math.abs(r), Math.abs(s));
+      if (dist > canvasRadius) continue;
+
+      const warpQ =
+        (coordinateNoise(q, r, 907) - 0.5) * 6 +
+        (coordinateNoise(q * 2, r * 2, 941) - 0.5) * 2.5;
+      const warpR =
+        (coordinateNoise(q, r, 1031) - 0.5) * 6 +
+        (coordinateNoise(q * 2, r * 2, 1117) - 0.5) * 2.5;
+
+      const low = coordinateNoise(
+        Math.floor((q + warpQ) * 0.32),
+        Math.floor((r + warpR) * 0.32),
+        1301
+      );
+      const mid = coordinateNoise(
+        Math.floor((q + warpQ) * 0.75),
+        Math.floor((r + warpR) * 0.75),
+        1459
+      );
+      const ridge = 1 - Math.abs(mid * 2 - 1);
+      const jag = coordinateNoise(q * 3, r * 3, 1597);
+
+      let lobeInfluence = 0;
+      for (const lobe of lobeCenters) {
+        const dq = q - lobe.q;
+        const dr = r - lobe.r;
+        const d2 = dq * dq + dr * dr;
+        const influence = Math.exp(-d2 / (2 * lobe.sigma * lobe.sigma));
+        lobeInfluence = Math.max(lobeInfluence, influence * lobe.weight);
+      }
+
+      const distNorm = dist / canvasRadius;
+      const radialPenalty = Math.pow(distNorm, 1.6) * 0.72;
+
+      const score =
+        low * 0.62 +
+        ridge * 0.2 +
+        lobeInfluence * 0.46 +
+        jag * 0.08 -
+        radialPenalty;
+
+      const key = toCoordKey(q, r);
+      scoreByKey.set(key, score);
+      candidates.push(key);
+    }
+  }
+
+  candidates.sort(
+    (a, b) => (scoreByKey.get(b) ?? 0) - (scoreByKey.get(a) ?? 0)
+  );
+
+  const preselectCount = Math.min(
+    candidates.length,
+    Math.max(targetCount + 80, Math.floor(targetCount * 1.5))
+  );
+  let selected = new Set(candidates.slice(0, preselectCount));
+  selected = largestConnectedComponent(selected);
+
+  for (let pass = 0; pass < 3; pass++) {
+    const removable = [...selected].filter(
+      (key) => countSelectedNeighbors(key, selected) <= 3
+    );
+    removable.sort(
+      (a, b) => (scoreByKey.get(a) ?? 0) - (scoreByKey.get(b) ?? 0)
+    );
+
+    const removals = Math.min(
+      Math.floor(targetCount * 0.08),
+      Math.max(0, selected.size - targetCount)
+    );
+    let removed = 0;
+
+    for (const key of removable) {
+      if (removed >= removals) break;
+      if (!canRemoveWithoutDisconnect(key, selected)) continue;
+      selected.delete(key);
+      removed++;
+    }
+  }
+
+  while (selected.size < targetCount) {
+    const frontier = new Map<string, number>();
+
+    for (const key of selected) {
+      const { q, r } = fromCoordKey(key);
+      for (const neighbor of getHexNeighbors(q, r)) {
+        const neighborKey = toCoordKey(neighbor.q, neighbor.r);
+        if (selected.has(neighborKey) || !scoreByKey.has(neighborKey)) continue;
+        const neighborCount = countSelectedNeighbors(neighborKey, selected);
+        const edgeBias = 0.35 - Math.abs(neighborCount - 2) * 0.16;
+        const candidateScore = (scoreByKey.get(neighborKey) ?? 0) + edgeBias;
+        const existing = frontier.get(neighborKey);
+        if (existing === undefined || candidateScore > existing) {
+          frontier.set(neighborKey, candidateScore);
+        }
+      }
+    }
+
+    const options = [...frontier.entries()].sort((a, b) => b[1] - a[1]);
+    if (options.length === 0) break;
+
+    const topSlice = options.slice(0, Math.min(8, options.length));
+    const weightedTotal = topSlice.reduce(
+      (sum, [, weight]) => sum + Math.max(0.0001, weight + 1),
+      0
+    );
+    let roll = rng() * weightedTotal;
+    let selectedKey = topSlice[0][0];
+    for (const [key, weight] of topSlice) {
+      roll -= Math.max(0.0001, weight + 1);
+      if (roll <= 0) {
+        selectedKey = key;
+        break;
+      }
+    }
+
+    selected.add(selectedKey);
+  }
+
+  if (selected.size > targetCount) {
+    const removable = [...selected]
+      .filter((key) => countSelectedNeighbors(key, selected) <= 4)
+      .sort((a, b) => (scoreByKey.get(a) ?? 0) - (scoreByKey.get(b) ?? 0));
+
+    for (const key of removable) {
+      if (selected.size <= targetCount) break;
+      if (!canRemoveWithoutDisconnect(key, selected)) continue;
+      selected.delete(key);
+    }
+  }
+
+  return [...selected].map((key) => {
+    const { q, r } = fromCoordKey(key);
+    return { q, r, s: -q - r };
+  });
 }
 
 // Simple seeded random number generator
@@ -333,43 +710,91 @@ function generateZones(planetDef: PlanetDefinition): Zone[] {
     planetDef.id.charCodeAt(0) * 1000 + planetDef.id.length
   );
 
-  const { cols } = config;
+  const hexPositions = generateOrganicHexBlob(config.totalZones, rng);
+  const minQ = Math.min(...hexPositions.map((hex) => hex.q));
+  const maxQ = Math.max(...hexPositions.map((hex) => hex.q));
+  const minR = Math.min(...hexPositions.map((hex) => hex.r));
+  const maxR = Math.max(...hexPositions.map((hex) => hex.r));
+  const midQ = (minQ + maxQ) / 2;
+  const spanQ = Math.max(1, (maxQ - minQ) / 2);
+  const midR = (minR + maxR) / 2;
+  const spanR = Math.max(1, (maxR - minR) / 2);
 
-  // Generate hex grid positions - circular layout
-  const hexPositions: Array<{ q: number; r: number; s: number }> = [];
+  const fieldPositions = hexPositions.map((hex) => ({ q: hex.q, r: hex.r }));
+  const moistureRaw = new Map<string, number>();
+  const mineralRaw = new Map<string, number>();
 
-  // Use radius based on roughly maintaining zone count (~300-400)
-  const radius = 10;
+  for (const hex of hexPositions) {
+    const key = toCoordKey(hex.q, hex.r);
+    const moisture =
+      0.65 * coordinateNoise(hex.q, hex.r, 11 + planetDef.id.length) +
+      0.35 *
+        coordinateNoise(
+          Math.floor(hex.q * 0.5),
+          Math.floor(hex.r * 0.5),
+          29 + planetDef.id.charCodeAt(0)
+        );
+    const mineralBase =
+      0.5 * coordinateNoise(hex.q, hex.r, 73 + planetDef.id.length) +
+      0.5 *
+        coordinateNoise(
+          Math.floor(hex.q * 0.35),
+          Math.floor(hex.r * 0.35),
+          131 + planetDef.id.charCodeAt(0)
+        );
+    const mineralRidged = 1 - Math.abs(mineralBase * 2 - 1);
 
-  // Create hex grid in a circle using axial distance
-  for (let q = -radius; q <= radius; q++) {
-    for (let r = -radius; r <= radius; r++) {
-      const s = -q - r;
-      const dist = Math.max(Math.abs(q), Math.abs(r), Math.abs(s));
-      if (dist <= radius) {
-        hexPositions.push({ q, r, s });
-      }
-    }
+    moistureRaw.set(key, moisture);
+    mineralRaw.set(key, mineralRidged);
   }
 
-  // Shuffle hex positions for more organic distribution
-  for (let i = hexPositions.length - 1; i > 0; i--) {
-    const j = Math.floor(rng() * (i + 1));
-    [hexPositions[i], hexPositions[j]] = [hexPositions[j], hexPositions[i]];
-  }
+  const moistureField = smoothField(fieldPositions, moistureRaw, 2);
+  const mineralField = smoothField(fieldPositions, mineralRaw, 2);
 
   // Create zone for each hex position
   for (const hex of hexPositions) {
-    // Calculate temperature based on position relative to star-facing side
+    const normalizedQ = (hex.q - midQ) / spanQ;
+    const latitudeNormalized = (hex.r - midR) / spanR;
+    const insolationSignal =
+      normalizedQ +
+      latitudeNormalized * 0.08 +
+      (coordinateNoise(hex.q, hex.r, 1709 + planetDef.id.charCodeAt(0)) - 0.5) *
+        0.22;
+    const insolationBand = getInsolationBand(insolationSignal);
     const { temperatureZone, tempKelvin } = calculateTemperature(
-      hex.q,
-      cols,
+      insolationBand,
+      latitudeNormalized,
       planetDef,
       rng
     );
 
+    const moisture = moistureField.get(toCoordKey(hex.q, hex.r)) ?? 0.5;
+    const mineral = mineralField.get(toCoordKey(hex.q, hex.r)) ?? 0.5;
+    const biome = chooseBiome(
+      insolationBand,
+      temperatureZone,
+      moisture,
+      mineral
+    );
+
     const atmosphere = deriveAtmosphere(tempKelvin);
-    const terrainType = selectTerrain(temperatureZone, atmosphere, rng);
+    const terrainType = selectTerrain(biome, temperatureZone, moisture, rng);
+    const atmosphericMass = estimateAtmosphericMass(
+      planetDef,
+      tempKelvin,
+      atmosphere,
+      insolationBand,
+      terrainType,
+      rng
+    );
+    const atmosphericGases = createAtmosphericGases(
+      planetDef,
+      insolationBand,
+      terrainType,
+      biome,
+      rng
+    );
+    const hasMineralVein = mineral > 0.72;
 
     // Calculate biomass rate based on environment
     let biomassRate = planetDef.baseBiomassRate;
@@ -384,6 +809,11 @@ function generateZones(planetDef: PlanetDefinition): Zone[] {
     if (terrainType === 'liquid') biomassRate *= 1.3;
     else if (terrainType === 'ice') biomassRate *= 0.5;
 
+    if (biome === 'twilight-marsh') biomassRate *= 1.2;
+    if (biome === 'sunscorch') biomassRate *= 0.75;
+    if (biome === 'night-ice') biomassRate *= 0.6;
+    if (biome === 'mineral-ridge') biomassRate *= 0.9;
+
     // Atmosphere bonus
     if (atmosphere === 'thick') biomassRate *= 1.2;
     else if (atmosphere === 'thin') biomassRate *= 0.8;
@@ -397,6 +827,7 @@ function generateZones(planetDef: PlanetDefinition): Zone[] {
     if (temperatureZone === 'hot') predatorStrength *= 1.3;
     else if (temperatureZone === 'frozen') predatorStrength *= 0.7;
     if (terrainType === 'liquid') predatorStrength *= 1.2;
+    if (hasMineralVein) predatorStrength *= 1.1;
     predatorStrength = Math.floor(predatorStrength * (0.8 + rng() * 0.4));
 
     const zoneId = zones.length;
@@ -428,6 +859,11 @@ function generateZones(planetDef: PlanetDefinition): Zone[] {
       temperatureZone,
       temperatureKelvin: Math.round(tempKelvin),
       atmosphere,
+      insolationBand,
+      biome,
+      hasMineralVein,
+      atmosphericMass,
+      atmosphericGases,
 
       // Neighbors (filled after all zones created)
       neighborIds: [],
@@ -441,15 +877,17 @@ function generateZones(planetDef: PlanetDefinition): Zone[] {
 
   // Fill in neighbor connections
   const zoneMap = new Map<string, Zone>();
+  const zoneByCoord = new Map<string, Zone>();
   for (const zone of zones) {
     zoneMap.set(zone.id, zone);
+    zoneByCoord.set(toCoordKey(zone.hexQ, zone.hexR), zone);
   }
+  void zoneMap;
 
   for (const zone of zones) {
     const neighbors = getHexNeighbors(zone.hexQ, zone.hexR);
     for (const n of neighbors) {
-      // Find zone at this hex position
-      const neighbor = zones.find((z) => z.hexQ === n.q && z.hexR === n.r);
+      const neighbor = zoneByCoord.get(toCoordKey(n.q, n.r));
       if (neighbor) {
         zone.neighborIds.push(neighbor.id);
       }
@@ -662,6 +1100,50 @@ function stringArrayOr(value: unknown, fallback: string[]): string[] {
   return filtered.length > 0 ? filtered : fallback;
 }
 
+function insolationBandOr(
+  value: unknown,
+  fallback: InsolationBand
+): InsolationBand {
+  return value === 'light' || value === 'terminator' || value === 'dark'
+    ? value
+    : fallback;
+}
+
+function biomeOr(value: unknown, fallback: ZoneBiome): ZoneBiome {
+  return value === 'sunscorch' ||
+    value === 'temperate-basin' ||
+    value === 'twilight-marsh' ||
+    value === 'night-ice' ||
+    value === 'mineral-ridge' ||
+    value === 'barren-plain'
+    ? value
+    : fallback;
+}
+
+function gasFractionsOr(
+  value: unknown,
+  fallback: ZoneAtmosphereGases
+): ZoneAtmosphereGases {
+  if (!value || typeof value !== 'object') return fallback;
+  const maybe = value as Partial<ZoneAtmosphereGases>;
+  if (
+    !isFiniteNumber(maybe.n2) ||
+    !isFiniteNumber(maybe.co2) ||
+    !isFiniteNumber(maybe.o2) ||
+    !isFiniteNumber(maybe.ch4) ||
+    !isFiniteNumber(maybe.inert)
+  ) {
+    return fallback;
+  }
+  return normalizeGasFractions({
+    n2: maybe.n2,
+    co2: maybe.co2,
+    o2: maybe.o2,
+    ch4: maybe.ch4,
+    inert: maybe.inert,
+  });
+}
+
 function normalizeZoneFromTemplate(
   loadedZone: Zone | undefined,
   templateZone: Zone
@@ -685,6 +1167,23 @@ function normalizeZoneFromTemplate(
     biomassAvailable: finiteOr(
       loadedZone.biomassAvailable,
       templateZone.biomassAvailable
+    ),
+    atmosphericMass: finiteOr(
+      loadedZone.atmosphericMass,
+      templateZone.atmosphericMass
+    ),
+    insolationBand: insolationBandOr(
+      loadedZone.insolationBand,
+      templateZone.insolationBand
+    ),
+    biome: biomeOr(loadedZone.biome, templateZone.biome),
+    hasMineralVein:
+      typeof loadedZone.hasMineralVein === 'boolean'
+        ? loadedZone.hasMineralVein
+        : templateZone.hasMineralVein,
+    atmosphericGases: gasFractionsOr(
+      loadedZone.atmosphericGases,
+      templateZone.atmosphericGases
     ),
     neighborIds: stringArrayOr(
       loadedZone.neighborIds,

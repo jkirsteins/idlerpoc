@@ -28,6 +28,11 @@ export interface MapZoomPanControls {
   zoomOutBtn: HTMLButtonElement;
   /** Animate to center the given SVG coordinate at the given zoom level. */
   zoomTo(svgX: number, svgY: number, zoom: number, animate?: boolean): void;
+  /** Update the world bounds used for clamping and reset. */
+  setViewBounds(
+    bounds: { x: number; y: number; width: number; height: number },
+    options?: { resetToFit?: boolean }
+  ): void;
 }
 
 export interface MapZoomPanOptions {
@@ -56,7 +61,7 @@ export function setupMapZoomPan(
   }
   const minZoom = options.minZoom ?? MIN_ZOOM;
   const maxZoom = options.maxZoom ?? MAX_ZOOM;
-  const initialViewBox = options.initialViewBox ?? {
+  let initialViewBox = options.initialViewBox ?? {
     x: INITIAL_VB_X,
     y: INITIAL_VB_Y,
     width: INITIAL_VB_WIDTH,
@@ -82,6 +87,24 @@ export function setupMapZoomPan(
   let viewBoxY = initialCenterY - startHeight / 2;
   let viewBoxWidth = startWidth;
   let viewBoxHeight = startHeight;
+
+  function getDefaultViewBox(): {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  } {
+    const centerX = initialViewBox.x + initialViewBox.width / 2;
+    const centerY = initialViewBox.y + initialViewBox.height / 2;
+    const width = initialViewBox.width / startZoom;
+    const height = initialViewBox.height / startZoom;
+    return {
+      x: centerX - width / 2,
+      y: centerY - height / 2,
+      width,
+      height,
+    };
+  }
 
   /** Get current zoom level (1x = default, 10x = max zoomed in) */
   function getCurrentZoom(): number {
@@ -136,11 +159,13 @@ export function setupMapZoomPan(
    * Update button states based on current viewBox.
    */
   function updateUIState(): void {
+    const defaultView = getDefaultViewBox();
+    const epsilon = 0.0001;
     const isDefault =
-      viewBoxX === initialViewBox.x &&
-      viewBoxY === initialViewBox.y &&
-      viewBoxWidth === initialViewBox.width &&
-      viewBoxHeight === initialViewBox.height;
+      Math.abs(viewBoxX - defaultView.x) < epsilon &&
+      Math.abs(viewBoxY - defaultView.y) < epsilon &&
+      Math.abs(viewBoxWidth - defaultView.width) < epsilon &&
+      Math.abs(viewBoxHeight - defaultView.height) < epsilon;
     resetBtn.style.display = isDefault ? 'none' : '';
     zoomInBtn.disabled = getCurrentZoom() >= maxZoom;
     zoomOutBtn.disabled = getCurrentZoom() <= minZoom;
@@ -272,19 +297,14 @@ export function setupMapZoomPan(
     requestAnimationFrame(animate);
   }
 
-  // Default view (respects startZoom)
-  const defaultViewBoxWidth = initialViewBox.width / startZoom;
-  const defaultViewBoxHeight = initialViewBox.height / startZoom;
-  const defaultViewBoxX = initialCenterX - defaultViewBoxWidth / 2;
-  const defaultViewBoxY = initialCenterY - defaultViewBoxHeight / 2;
-
   resetBtn.addEventListener('click', (e) => {
     e.stopPropagation();
+    const defaultView = getDefaultViewBox();
     animateViewBoxTo(
-      defaultViewBoxX,
-      defaultViewBoxY,
-      defaultViewBoxWidth,
-      defaultViewBoxHeight
+      defaultView.x,
+      defaultView.y,
+      defaultView.width,
+      defaultView.height
     );
   });
 
@@ -333,6 +353,38 @@ export function setupMapZoomPan(
       viewBoxHeight = targetHeight;
       applyViewBox();
     }
+  }
+
+  function setViewBounds(
+    bounds: { x: number; y: number; width: number; height: number },
+    options: { resetToFit?: boolean } = {}
+  ): void {
+    const nextBounds = {
+      x: bounds.x,
+      y: bounds.y,
+      width: Math.max(1, bounds.width),
+      height: Math.max(1, bounds.height),
+    };
+
+    const currentZoom = getCurrentZoom();
+    const centerX = viewBoxX + viewBoxWidth / 2;
+    const centerY = viewBoxY + viewBoxHeight / 2;
+    initialViewBox = nextBounds;
+
+    if (options.resetToFit ?? false) {
+      const defaultView = getDefaultViewBox();
+      viewBoxX = defaultView.x;
+      viewBoxY = defaultView.y;
+      viewBoxWidth = defaultView.width;
+      viewBoxHeight = defaultView.height;
+    } else {
+      viewBoxWidth = initialViewBox.width / currentZoom;
+      viewBoxHeight = initialViewBox.height / currentZoom;
+      viewBoxX = centerX - viewBoxWidth / 2;
+      viewBoxY = centerY - viewBoxHeight / 2;
+    }
+
+    applyViewBox();
   }
 
   // --- Pointer tracking state ---
@@ -535,5 +587,5 @@ export function setupMapZoomPan(
     maxZoom,
   });
 
-  return { resetBtn, zoomInBtn, zoomOutBtn, zoomTo };
+  return { resetBtn, zoomInBtn, zoomOutBtn, zoomTo, setViewBounds };
 }

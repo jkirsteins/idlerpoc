@@ -3,6 +3,12 @@
 
 import type { GameData } from '../models/swarmTypes';
 import { calculateSwarmAggregates } from '../swarmSystem';
+import {
+  formatAtmosphericMass,
+  formatPercentage,
+  formatPressureIndex,
+} from '../formatting';
+import { derivePlanetAtmosphere } from '../planetAtmosphere';
 import type { Component } from './component';
 import { createOrreryComponent, type OrreryCallbacks } from './orreryComponent';
 import {
@@ -27,7 +33,7 @@ export interface RendererCallbacks {
   onResetGame: () => void;
 }
 
-export type TabId = 'swarm' | 'planet' | 'system' | 'log';
+export type TabId = 'swarm' | 'planet' | 'system' | 'log' | 'settings';
 
 interface RendererState {
   activeTab: TabId;
@@ -98,6 +104,57 @@ export function render(
   layout.appendChild(footer.el);
 
   container.appendChild(layout);
+
+  if (typeof window !== 'undefined') {
+    window.swarmCallbacks = {
+      setQueenDirective: callbacks.onSetQueenDirective,
+      toggleEggProduction: callbacks.onToggleEggProduction,
+      saveGame: () => {
+        const saveData = callbacks.onExportSave();
+        if (!saveData) return;
+        const blob = new Blob([saveData], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `swarm-save-${new Date().toISOString().slice(0, 10)}.json`;
+        link.click();
+        URL.revokeObjectURL(url);
+      },
+      loadGame: () => {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = '.json,application/json';
+        input.addEventListener('change', () => {
+          const file = input.files?.[0];
+          if (!file) return;
+          const reader = new FileReader();
+          reader.onload = () => {
+            const content =
+              typeof reader.result === 'string' ? reader.result : '';
+            if (!content) {
+              alert('Failed to read save file.');
+              return;
+            }
+
+            if (
+              confirm(
+                'Load this save file and replace current progress? This cannot be undone.'
+              )
+            ) {
+              if (callbacks.onImportSave(content)) {
+                alert('Save loaded successfully!');
+              } else {
+                alert('Invalid save file!');
+              }
+            }
+          };
+          reader.readAsText(file);
+        });
+        input.click();
+      },
+      resetGame: callbacks.onResetGame,
+    };
+  }
 
   // Store reference for updates
   const update = (gd: GameData) => {
@@ -409,6 +466,7 @@ function createMainPanel(
     { id: 'planet', label: 'Planet' },
     { id: 'system', label: 'System' },
     { id: 'log', label: 'Log' },
+    { id: 'settings', label: 'Settings' },
   ];
 
   for (const { id, label } of tabs) {
@@ -507,9 +565,39 @@ function getTabContent(
       return createSystemTabContent(gameData);
     case 'log':
       return createLogTabContent(gameData);
+    case 'settings':
+      return createSettingsTabContent();
     default:
       return '';
   }
+}
+
+function createSettingsTabContent(): string {
+  return `
+    <div style="max-width: 560px;">
+      <h2 style="color: var(--accent-cyan, #00e5ff); margin-bottom: 1rem;">Settings</h2>
+      <div style="background: var(--bg-panel, #12121a); padding: 1rem; border-radius: 8px; display: flex; flex-direction: column; gap: 0.75rem;">
+        <button
+          onclick="window.swarmCallbacks?.saveGame()"
+          style="padding: 0.75rem; background: #2a2a3a; color: #fff; border: none; border-radius: 4px; cursor: pointer;"
+        >
+          Download Save
+        </button>
+        <button
+          onclick="window.swarmCallbacks?.loadGame()"
+          style="padding: 0.75rem; background: #2a2a3a; color: #fff; border: none; border-radius: 4px; cursor: pointer;"
+        >
+          Upload Save
+        </button>
+        <button
+          onclick="window.swarmCallbacks?.resetGame()"
+          style="padding: 0.75rem; background: #5c1a1a; color: #ff9b9b; border: none; border-radius: 4px; cursor: pointer;"
+        >
+          Reset Game
+        </button>
+      </div>
+    </div>
+  `;
 }
 
 function createSwarmTabContent(
@@ -601,10 +689,68 @@ function createPlanetTabContent(gameData: GameData): string {
   );
   if (!homePlanet) return '<div>No planet found</div>';
 
+  const atmosphere = derivePlanetAtmosphere(homePlanet);
+
   const conqueredZones = homePlanet.zones.filter(
     (z) => z.state === 'harvesting' || z.state === 'saturated'
   ).length;
   const totalZones = homePlanet.zones.length;
+
+  const composition = atmosphere.composition;
+  const compositionMass = atmosphere.compositionMass;
+  const topGas = [
+    { label: 'N2', value: composition.n2 },
+    { label: 'CO2', value: composition.co2 },
+    { label: 'O2', value: composition.o2 },
+    { label: 'CH4', value: composition.ch4 },
+    { label: 'Inert', value: composition.inert },
+  ]
+    .sort((a, b) => b.value - a.value)
+    .slice(0, 3)
+    .map((gas) => `${gas.label} ${formatPercentage(gas.value)}`)
+    .join(' | ');
+
+  const bandLines = atmosphere.bandSummaries
+    .map((band) => {
+      const bandLabel =
+        band.band === 'light'
+          ? 'Light'
+          : band.band === 'terminator'
+            ? 'Terminator'
+            : 'Dark';
+      return `${bandLabel}: ${band.zones} zones • ${formatAtmosphericMass(
+        band.totalMass
+      )} total (${formatPercentage(band.massShare)}) • ${formatAtmosphericMass(
+        band.averageMass
+      )}/zone • ${band.dominantAtmosphere}`;
+    })
+    .join('<br/>');
+
+  const gasBreakdown = [
+    { label: 'N2', pct: composition.n2, mass: compositionMass.n2 },
+    { label: 'CO2', pct: composition.co2, mass: compositionMass.co2 },
+    { label: 'O2', pct: composition.o2, mass: compositionMass.o2 },
+    { label: 'CH4', pct: composition.ch4, mass: compositionMass.ch4 },
+    { label: 'Inert', pct: composition.inert, mass: compositionMass.inert },
+  ]
+    .sort((a, b) => b.mass - a.mass)
+    .map(
+      (gas) =>
+        `<div style="white-space: nowrap;">${gas.label}: ${formatPercentage(gas.pct)} • ${formatAtmosphericMass(gas.mass)}</div>`
+    )
+    .join('');
+
+  const topZoneLines = atmosphere.topContributors
+    .map((zone, index) => {
+      const bandLabel =
+        zone.band === 'light'
+          ? 'Light'
+          : zone.band === 'terminator'
+            ? 'Terminator'
+            : 'Dark';
+      return `<div style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${index + 1}. ${zone.zoneName} • ${formatAtmosphericMass(zone.mass)} (${formatPercentage(zone.massShare)}) • ${bandLabel} • ${zone.biome}</div>`;
+    })
+    .join('');
 
   return `
     <div>
@@ -616,6 +762,25 @@ function createPlanetTabContent(gameData: GameData): string {
         <div>Zones conquered: ${conqueredZones} / ${totalZones}</div>
         <div style="margin-top: 0.5rem; font-size: 0.85rem; color: var(--text-secondary, #888);">
           Planet visualization available in the System tab
+        </div>
+      </div>
+      <div style="background: var(--bg-panel, #12121a); padding: 1rem; border-radius: 8px; margin-top: 1rem;">
+        <div style="font-weight: 600; margin-bottom: 0.5rem; color: var(--accent-cyan, #00e5ff);">Atmosphere (Derived from Zones)</div>
+        <div style="display: flex; gap: 1rem; flex-wrap: wrap; align-items: center;">
+          <span style="white-space: nowrap;">Mass: ${formatAtmosphericMass(atmosphere.totalMass)}</span>
+          <span style="white-space: nowrap;">Pressure Index: ${formatPressureIndex(atmosphere.pressureIndex)}</span>
+          <span style="white-space: nowrap;">Dominant Gases: ${topGas}</span>
+        </div>
+        <div style="margin-top: 0.6rem; font-size: 0.85rem; color: var(--text-secondary, #888); line-height: 1.5;">${bandLines}</div>
+        <div style="margin-top: 0.75rem; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.75rem; min-width: 0;">
+          <div style="background: rgba(0,0,0,0.18); border: 1px solid var(--border-color, #2a2a3a); border-radius: 6px; padding: 0.6rem; min-width: 0;">
+            <div style="font-size: 0.78rem; color: var(--text-secondary, #888); margin-bottom: 0.35rem;">Gas Mass Contribution</div>
+            <div style="display: flex; flex-direction: column; gap: 0.2rem; font-size: 0.82rem;">${gasBreakdown}</div>
+          </div>
+          <div style="background: rgba(0,0,0,0.18); border: 1px solid var(--border-color, #2a2a3a); border-radius: 6px; padding: 0.6rem; min-width: 0;">
+            <div style="font-size: 0.78rem; color: var(--text-secondary, #888); margin-bottom: 0.35rem;">Top Zone Contributors</div>
+            <div style="display: flex; flex-direction: column; gap: 0.2rem; font-size: 0.82rem;">${topZoneLines}</div>
+          </div>
         </div>
       </div>
     </div>
@@ -1054,6 +1219,9 @@ declare global {
     swarmCallbacks?: {
       setQueenDirective: (directive: 'gather_biomass' | 'idle') => void;
       toggleEggProduction: (enabled: boolean) => void;
+      saveGame: () => void;
+      loadGame: () => void;
+      resetGame: () => void;
     };
   }
 }

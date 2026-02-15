@@ -54,6 +54,20 @@ export function formatMass(kg: number): string {
   return `${Math.round(kg).toLocaleString()} kg`;
 }
 
+// ── Atmosphere ───────────────────────────────────────────────────
+
+export function formatAtmosphericMass(units: number): string {
+  return `${formatLargeNumber(units)} atm-u`;
+}
+
+export function formatPressureIndex(index: number): string {
+  return `${index.toFixed(2)} P`;
+}
+
+export function formatPercentage(value: number, decimals = 1): string {
+  return `${(value * 100).toFixed(decimals)}%`;
+}
+
 // ── Log Timestamps ──────────────────────────────────────
 
 /**

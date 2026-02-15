@@ -16,6 +16,17 @@ describe('normalizePlanetsFromSave', () => {
     asimov.zones[0].hexQ = undefined as unknown as number;
     asimov.zones[0].hexR = undefined as unknown as number;
     asimov.zones[0].hexS = undefined as unknown as number;
+    asimov.zones[0].insolationBand = undefined as unknown as
+      | 'light'
+      | 'terminator'
+      | 'dark';
+    asimov.zones[0].atmosphericGases = undefined as unknown as {
+      n2: number;
+      co2: number;
+      o2: number;
+      ch4: number;
+      inert: number;
+    };
 
     const normalized = normalizePlanetsFromSave(broken);
     const normalizedAsimov = normalized.find(
@@ -26,6 +37,8 @@ describe('normalizePlanetsFromSave', () => {
     expect(Number.isFinite(normalizedAsimov!.zones[0].hexQ)).toBe(true);
     expect(Number.isFinite(normalizedAsimov!.zones[0].hexR)).toBe(true);
     expect(Number.isFinite(normalizedAsimov!.zones[0].hexS)).toBe(true);
+    expect(normalizedAsimov!.zones[0].insolationBand).toBeTruthy();
+    expect(normalizedAsimov!.zones[0].atmosphericGases).toBeTruthy();
   });
 
   it('preserves player progression zone fields while normalizing structure', () => {
