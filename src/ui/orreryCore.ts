@@ -9,13 +9,15 @@
  * SVG element creation, and label deconfliction algorithms.
  */
 
-import type { WorldLocation } from '../models';
+import type { WorldLocation, World } from '../models';
 import {
   orbitalRadiusToSvg as _orbitalRadiusToSvg,
   projectToSvg as _projectToSvg,
   localOrbitalRadiusToSvg as _localOrbitalRadiusToSvg,
   projectToSvgLocal as _projectToSvgLocal,
 } from './mapProjection';
+import { getLocationPosition } from '../orbitalMechanics';
+import { getLocationTypeTemplate } from '../spaceLocations';
 
 // SVG namespace
 const SVG_NS = 'http://www.w3.org/2000/svg';
@@ -540,4 +542,193 @@ export function showMarker(refs: MarkerRefs): void {
   refs.dot.style.display = '';
   refs.label.style.display = '';
   refs.hitArea.style.display = '';
+}
+
+// ─── Mode Update Functions ───────────────────────────────────────
+
+export interface OrreryModeState {
+  type: 'overview' | 'focus';
+  parentId?: string;
+}
+
+export interface LocationRenderInfo {
+  id: string;
+  svgPos: { x: number; y: number };
+  dotR: number;
+  visible: boolean;
+  isFocusParent: boolean;
+}
+
+/**
+ * Compute location render info for current orrery mode.
+ * Returns positions, visibility, and focus parent flag for all locations.
+ * This is the single source of truth for mode-specific rendering logic.
+ */
+export function computeLocationRenderInfo(
+  locations: WorldLocation[],
+  clusterData: {
+    parentIds: Set<string>;
+    memberIds: Set<string>;
+    childrenMap: Map<string, string[]>;
+  },
+  mode: OrreryModeState,
+  gameTime: number,
+  world: World
+): LocationRenderInfo[] {
+  const result: LocationRenderInfo[] = [];
+
+  if (mode.type === 'overview') {
+    // Overview mode: project from Sun, hide cluster children
+    for (const loc of locations) {
+      const pos = getLocationPosition(loc, gameTime, world);
+      const svgPos = projectToSvg(pos.x, pos.y);
+      const isChild = clusterData.memberIds.has(loc.id);
+      const dotR = loc.type === 'planet' ? 5 : isChild ? 2.5 : 3.5;
+
+      result.push({
+        id: loc.id,
+        svgPos,
+        dotR,
+        visible: !isChild, // Hide cluster children in overview
+        isFocusParent: false,
+      });
+    }
+  } else {
+    // Focus mode: project children from parent, show only cluster members
+    const parentLoc = locations.find((l) => l.id === mode.parentId);
+    if (!parentLoc) return [];
+
+    const childIds = clusterData.childrenMap.get(mode.parentId!) || [];
+    const children = childIds
+      .map((id) => locations.find((l) => l.id === id))
+      .filter((l): l is WorldLocation => l !== undefined);
+
+    // Compute local log bounds for cluster
+    const radii = children.map((c) => c.orbital!.orbitalRadiusKm);
+    const logMin = Math.log10(Math.min(...radii));
+    const logMax = Math.log10(Math.max(...radii));
+
+    const parentPos = getLocationPosition(parentLoc, gameTime, world);
+
+    for (const loc of locations) {
+      const isParent = loc.id === mode.parentId;
+      const isChild = childIds.includes(loc.id);
+
+      if (!isParent && !isChild) {
+        // Non-cluster location: hide in focus mode
+        result.push({
+          id: loc.id,
+          svgPos: { x: 0, y: 0 },
+          dotR: 0,
+          visible: false,
+          isFocusParent: false,
+        });
+        continue;
+      }
+
+      if (isParent) {
+        // Parent: will be rendered at (0,0) using focusParentDot
+        result.push({
+          id: loc.id,
+          svgPos: { x: 0, y: 0 },
+          dotR: 8,
+          visible: true,
+          isFocusParent: true,
+        });
+        continue;
+      }
+
+      // Child: project using local coordinates
+      const satPos = getLocationPosition(loc, gameTime, world);
+      const svgPos = projectToSvgLocal(parentPos, satPos, logMin, logMax);
+      const dotR = 3.5;
+
+      result.push({
+        id: loc.id,
+        svgPos,
+        dotR,
+        visible: true,
+        isFocusParent: false,
+      });
+    }
+  }
+
+  return result;
+}
+
+/**
+ * Update orrery UI elements for current mode.
+ * Handles showing/hiding overview vs focus elements (sun, rings, parent dot).
+ */
+export function updateOrreryModeUI(
+  orreryRefs: OrreryRefs,
+  mode: OrreryModeState,
+  locations: WorldLocation[],
+  clusterData: {
+    parentIds: Set<string>;
+    memberIds: Set<string>;
+    childrenMap: Map<string, string[]>;
+  }
+): void {
+  if (mode.type === 'overview') {
+    // Show overview UI
+    orreryRefs.sunDot.style.display = '';
+    orreryRefs.sunLabel.style.display = '';
+    for (const ring of orreryRefs.overviewRings) ring.style.display = '';
+
+    // Hide focus UI
+    orreryRefs.focusParentDot.style.display = 'none';
+    orreryRefs.focusParentLabel.style.display = 'none';
+    for (const ring of orreryRefs.localRings) ring.style.display = 'none';
+  } else {
+    // Hide overview UI
+    orreryRefs.sunDot.style.display = 'none';
+    orreryRefs.sunLabel.style.display = 'none';
+    for (const ring of orreryRefs.overviewRings) ring.style.display = 'none';
+
+    // Show focus UI
+    const parentLoc = locations.find((l) => l.id === mode.parentId);
+    if (!parentLoc) return;
+
+    orreryRefs.focusParentDot.style.display = '';
+    orreryRefs.focusParentDot.setAttribute(
+      'fill',
+      getLocationTypeTemplate(parentLoc.type).color ?? '#4fc3f7'
+    );
+    orreryRefs.focusParentDot.setAttribute('stroke', '#fff');
+    orreryRefs.focusParentDot.setAttribute('stroke-width', '1');
+    orreryRefs.focusParentLabel.style.display = '';
+    orreryRefs.focusParentLabel.textContent = parentLoc.name;
+
+    // Configure local orbit rings
+    const childIds = clusterData.childrenMap.get(mode.parentId!) || [];
+    const children = childIds
+      .map((id) => locations.find((l) => l.id === id))
+      .filter((l): l is WorldLocation => l !== undefined);
+
+    const radii = children.map((c) => c.orbital!.orbitalRadiusKm);
+    const logMin = Math.log10(Math.min(...radii));
+    const logMax = Math.log10(Math.max(...radii));
+
+    // Unique (radius, eccentricity) pairs for orbit rings
+    const localOrbitMap = new Map<string, { a: number; e: number }>();
+    for (const c of children) {
+      const a = c.orbital!.orbitalRadiusKm;
+      const e = c.orbital!.eccentricity ?? 0;
+      const key = `${a}:${e}`;
+      if (!localOrbitMap.has(key)) localOrbitMap.set(key, { a, e });
+    }
+    const localOrbits = [...localOrbitMap.values()].sort((a, b) => a.a - b.a);
+
+    for (let i = 0; i < orreryRefs.localRings.length; i++) {
+      if (i < localOrbits.length) {
+        const { a, e } = localOrbits[i];
+        const toSvg = (r: number) => localOrbitalRadiusToSvg(r, logMin, logMax);
+        orreryRefs.localRings[i].setAttribute('d', buildOrbitPath(a, e, toSvg));
+        orreryRefs.localRings[i].style.display = '';
+      } else {
+        orreryRefs.localRings[i].style.display = 'none';
+      }
+    }
+  }
 }
