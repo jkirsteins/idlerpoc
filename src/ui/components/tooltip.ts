@@ -26,6 +26,33 @@ function ensureTouchDismiss(): void {
   );
 }
 
+// Register a document-level mouse dismiss listener (once) as safety net for stuck tooltips
+let mouseDismissRegistered = false;
+function ensureMouseDismiss(): void {
+  if (mouseDismissRegistered) return;
+  mouseDismissRegistered = true;
+
+  document.addEventListener(
+    'mousemove',
+    (e: MouseEvent) => {
+      if (!activeTooltip || !activeTrigger) return;
+
+      const target = e.target as Node;
+
+      // Keep visible if cursor is over tooltip or trigger
+      if (activeTooltip.contains(target) || activeTrigger.contains(target)) {
+        return;
+      }
+
+      // Cursor is outside both - dismiss
+      activeTooltip.classList.remove('visible');
+      activeTooltip = null;
+      activeTrigger = null;
+    },
+    { passive: true }
+  );
+}
+
 export function attachTooltip(
   element: HTMLElement,
   options: TooltipOptions
@@ -116,6 +143,7 @@ export function attachTooltip(
     'touchstart',
     () => {
       ensureTouchDismiss();
+      ensureMouseDismiss();
 
       if (tooltip.classList.contains('visible')) {
         // Tap again to dismiss
@@ -263,6 +291,7 @@ export function attachDynamicTooltip(
     'touchstart',
     () => {
       ensureTouchDismiss();
+      ensureMouseDismiss();
 
       if (tooltip.classList.contains('visible')) {
         // Tap again to dismiss
