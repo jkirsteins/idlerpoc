@@ -1,500 +1,175 @@
-# World Rules: Spaceship Classes & Power Systems
+# World Rules: TRAPPIST-1 Swarm Biology
 
-## Implementation References
+## The TRAPPIST-1 System
 
-**For specific ship models, engines, rooms, equipment, and gameplay systems, see the code:**
+Located 40 light-years from Earth, TRAPPIST-1 is an ultra-cool red dwarf star hosting seven Earth-sized rocky planets. All seven planets orbit closer to their star than Mercury orbits our Sun, creating a compact, interconnected system.
 
-- Ship models: `src/shipClasses.ts`
-- Engines: `src/engines.ts`
-- Room types: `src/rooms.ts`
-- Ship equipment: `src/equipment.ts`
-- Crew equipment: `src/crewEquipment.ts`
-- Crew roles: `src/crewRoles.ts`
-- Factions: `src/factions.ts`
-- Space locations: `src/spaceLocations.ts`
-- Level system: `src/levelSystem.ts`
+### Planet Characteristics
 
----
+| Planet           | Distance (AU) | Character | Conditions                                 |
+| ---------------- | ------------- | --------- | ------------------------------------------ |
+| **Roche** (b)    | 0.011         | Scorched  | Tidally locked, hellscape, 1000+°C dayside |
+| **Pinter** (c)   | 0.015         | Hot       | Potential thin atmosphere, extreme heat    |
+| **Tarter** (d)   | 0.021         | Warm      | Warm edge of habitable zone                |
+| **Asimov** (e)   | 0.028         | Temperate | **Most Earth-like, starting location**     |
+| **Heinlein** (f) | 0.037         | Cold      | Potential water ice, frozen surface        |
+| **Clarke** (g)   | 0.045         | Icy       | Thick ice shell, subsurface ocean possible |
+| **Lewis** (h)    | 0.063         | Frozen    | Outer edge, deep freeze                    |
 
-## Ship Classification by Operational Range
+_Planet names honor science fiction authors and SETI scientists._
 
-### Class I: Orbital Maintenance Vessels (OMV)
+### Planetary Composition
 
-**Range**: 0-2,000 km (LEO operations)
-**Typical Missions**: Station resupply, orbital repairs, satellite servicing
-**Travel Time**: Minutes to hours
+All TRAPPIST-1 planets share remarkably similar densities — about 8% less dense than Earth. This suggests they contain:
 
-**Constraints**:
+- Similar ratios of rock-forming elements
+- Less iron than Earth (or iron bound with oxygen)
+- More low-density materials (water, oxygen)
+- Silicate-rich crusts (SiO₂ predominant)
 
-- Cannot escape Earth's gravity well without external assistance
-- Limited delta-v budget (typically 500-2,000 m/s)
-- No planetary transfer capability
-- Designed for frequent short burns, not sustained acceleration
-
-### Class II: Inner System Vessels (ISV)
-
-**Range**: Earth-Moon, Earth-Mars orbit, Asteroid Belt operations
-**Typical Missions**: Mining operations, lunar/asteroid resource extraction, satellite deployment
-**Travel Time**: Days to weeks
-
-**Constraints**:
-
-- Can achieve escape velocity from Earth (11.2 km/s minimum)
-- Limited sustained acceleration (weeks, not months)
-- Effective range: ~3 AU from departure point
-- Requires orbital mechanics planning (Hohmann transfers, gravity assists)
-
-### Class III: Interplanetary Vessels (IPV)
-
-**Range**: Inner to outer solar system
-**Typical Missions**: Planetary trade, long-range exploration, colony support
-**Travel Time**: Weeks to months
-
-**Constraints**:
-
-- Sustained acceleration capability for weeks/months
-- Can reach outer planets (Jupiter, Saturn) within human-tolerable timeframes
-- Effective range: Entire solar system
-- Requires significant fuel/reaction mass for brachistochrone trajectories
-
-### Class IV: Deep System Cruisers (DSC)
-
-**Range**: Entire solar system at high speed
-**Typical Missions**: Rapid transit, military operations, pre-gap acceleration
-**Travel Time**: Days (inner system), weeks (outer system)
-
-**Constraints**:
-
-- G-forces threaten crew survival
-- Extreme thermal/radiation output
-- Requires anti-g countermeasures (drugs, immersion pods)
-- Military-origin technology restricts availability and increases cost
-- Sustained multi-g acceleration possible but biologically limited
-- The engine can push far harder than crew can survive
-
-### Class V: Gap-Capable Vessels (GCV)
-
-**Range**: Interstellar distances
-**Typical Missions**: Interstellar trade, exploration, military operations
-**Travel Time**: Days to weeks (including gap transit)
-
-**Constraints**:
-
-- Requires Class IV-grade conventional drive to reach gap insertion velocity
-- Requires minimum entry velocity (0.3c) to engage gap drive
-- Gap field unstable; requires precise navigation
-- Gap drive range: 1-50 light-years per insertion (dependent on power and stability)
-- Course drift and navigational errors increase with distance
-- Cannot engage gap drive within strong gravity wells (>0.01g)
-- Requires substantial conventional drive for acceleration to gap threshold
+**For v1:** Only Asimov is accessible. Others visible on system map but require future mutations to reach.
 
 ---
 
-## Power Systems & Capabilities
+## Swarm Biology
 
-### 1. Chemical Propulsion
+### The Queen
 
-**Applications**: Class I only
-**Acceleration**: 0.001-0.01g
-**Thrust Duration**: Minutes to hours
-**Delta-v Budget**: 500-2,000 m/s
-**Typical Thrust**: 1,500 N (RS-44 Bipropellant on 50t vessel = 0.003g)
+The queen is the neural center of the swarm:
 
-**Advantages**:
+- **Immobile**: Embedded underground for safety
+- **Immortal**: Cannot die from age (but can starve)
+- **Neural Hub**: Coordinates all workers via pheromone/chemical signals
+- **Reproductive Engine**: Converts energy into eggs
+- **Metabolic Core**: Consumes biomass constantly to survive
 
-- Simple, proven technology
-- High thrust-to-weight ratio
-- Minimal infrastructure
+**Base Neural Capacity**: 20 workers
 
-**Limitations**:
+- Beyond this, coordination efficiency drops as ratio^4
+- Creates natural homeostatic limit without hard cap
 
-- Extremely limited delta-v
-- Cannot sustain acceleration
-- Requires refueling for extended operations
-- Reaction mass = fuel (both burned together)
+### Workers
 
----
+Workers are the swarm's hands and sensors:
 
-### 2. Nuclear Fission (Thermal Rockets)
+- **Autonomous**: Self-maintain via cargo system
+- **Controlled**: Receive orders from queen via command queue
+- **Mortal**: Die from starvation or age (health degradation)
+- **Skilled**: Improve at foraging through practice
 
-**Applications**: Class I-II
-**Acceleration**: 0.001-0.005g sustained
-**Thrust Duration**: Days to weeks
-**Delta-v Budget**: 10,000-50,000 m/s
-**Specific Impulse**: 800-1,000 seconds
-**Reaction Mass Ratio**: 3:1 (3 kg propellant per 1 kg payload for typical mission)
+**Lifecycle**:
 
-**Typical Thrust Values**:
+1. **Egg** (10 ticks): Queen lays using energy
+2. **Incubation** (30 ticks): Develops in protected chamber
+3. **Maturation** (15 ticks): Larval stage, minimal activity
+4. **Worker** (275 ticks lifespan): Gathers biomass, follows orders
 
-- NTR-200 Mk1: 4,000 N (0.002g on 200t Wayfarer)
-- NTR-450 Mk2: 10,000 N (available as upgrade)
-- NTR-800 Heavy: 20,000 N (0.004g on 500t Dreadnought)
+**Cargo System**:
 
-**Advantages**:
+- Workers carry physical biomass (max 10 units)
+- Must gather → transport → unload to queen
+- Self-consume from cargo for metabolism (0.1/tick)
+- Starvation if cargo empty and no queen access
 
-- High specific impulse vs. chemical
-- Proven technology base
-- Long operational lifetime
+**States**:
 
-**Limitations**:
+- `self_maintenance`: Consuming from personal cargo
+- `gathering`: Filling cargo from zone
+- `idle_empty`: No orders, empty cargo
+- `idle_cargo_full`: Queen full, can't unload
 
-- Low thrust limits acceleration
-- Radiation shielding adds mass
-- Cannot achieve outer system in reasonable timeframes
-- Requires separate reaction mass (typically liquid hydrogen)
+### Energy Flow
 
----
+```
+Biomass (Surface Lichen) → Worker Cargo → Queen → Eggs → Workers
+```
 
-### 3. Fusion Drives (D-He3 or D-D reactors)
+**Conversion**: 1 Biomass = 1 Energy (v1)
 
-**Applications**: Class II-III
-**Acceleration**: 0.01-0.1g sustained
-**Thrust Duration**: Weeks to months
-**Delta-v Budget**: 100,000-500,000 m/s
-**Specific Impulse**: 10,000-100,000 seconds
-**Reaction Mass Ratio**: 0.5:1 to 1:1 (fuel serves as both energy and propellant)
+**Metabolic Costs**:
 
-**Advantages**:
-
-- High sustained acceleration
-- Efficient fuel usage
-- Can achieve brachistochrone trajectories to outer planets
-- Reduced reaction mass requirements
-
-**Limitations**:
-
-- Complex reactor containment required
-- He3 fuel requires lunar/gas giant mining infrastructure
-- Still bound by relativistic constraints (cannot approach c)
-- Minimum reactor size limits smallest vessel class
-- Requires weeks/months for long transits
+- Worker self-maintenance: 0.1 energy/tick
+- Queen survival: 0.5 energy/tick
+- Egg production: 10 energy per egg
 
 ---
 
-### 4. Advanced Fusion Drives
+## Neural Capacity & Homeostasis
 
-**Applications**: Class III-IV
-**Acceleration**: 0.5-10g+ sustained
-**Thrust Duration**: Days to weeks
-**Delta-v Budget**: 500,000-1,000,000 m/s
-**Specific Impulse**: 100,000-500,000 seconds
+### Coordination Efficiency
 
-**Advantages**:
+Swarm efficiency depends on neural saturation:
 
-- Solar system traversal in days not months
-- Enables gap insertion velocity (0.3c achievable)
-- Military-proven technology
-- Can sustain extreme acceleration
+```
+if (workers <= capacity):
+    efficiency = 100%
+else:
+    efficiency = 100% / (ratio^4)
+```
 
-**Limitations**:
+**Example**:
 
-- Extreme waste heat requires massive thermal management
-- Radiation output requires heavy shielding
-- G-forces require crew countermeasures (drugs, immersion pods)
-- Military provenance means expensive and restricted
-- The engine can push far harder than the crew can survive
-- Human biology is the limiting factor, not engineering
+- 20 workers / 20 capacity = 100% efficiency
+- 40 workers / 20 capacity = 6.25% efficiency
+- 80 workers / 20 capacity = 0.39% efficiency
 
----
+### Metabolic Equilibrium
 
-### 5. Solar Sails / Photon Drives
+Population stabilizes when:
 
-**Applications**: Class I-II (supplemental only)
-**Acceleration**: 0.00001-0.0001g
-**Thrust Duration**: Continuous (while in sunlight)
-**Delta-v Budget**: Unlimited (time-dependent)
-**Reaction Mass**: None required
+```
+(Production × Efficiency) = (Worker Upkeep + Queen Cost + Egg Cost)
+```
 
-**Advantages**:
+**If deficit**: Workers starve (k = 0.5 coefficient)
+**If surplus**: Workers multiply via eggs
 
-- No reaction mass required
-- Free acceleration in sunlight
-- Ideal for long-duration, low-priority cargo
+This creates automatic equilibrium without hard caps.
 
-**Limitations**:
+### Recycling
 
-- Extremely low acceleration
-- Ineffective beyond ~2 AU from sun
-- Cannot maneuver rapidly
-- Vulnerable to damage
-- Useless for time-sensitive missions
+Dead workers are recycled:
+
+- 70% of biomass cost recovered
+- Returns to available biomass pool
+- Creates nutrient cycling loop
 
 ---
 
-### 6. Gap Drives (FTL)
+## Zone Ecology
 
-**Applications**: Class IV exclusively
-**Acceleration**: N/A (translation through gap field)
-**Effective Transit Time**: Hours to days (subjective)
-**Range per Insertion**: 1-50 light-years
-**Entry Velocity Required**: >0.3c
-**Reaction Mass**: N/A for gap transit (but requires fusion drive to reach 0.3c)
+### Zone Structure
 
-**Mechanics** (Gap Cycle Inspired):
+Each planet divided hierarchically:
 
-- Gap drive creates a controlled rupture in normal space
-- Ship "falls through" into gap space where distance metrics differ
-- Transit is not instantaneous; crew experiences several hours to days
-- Navigational precision degrades with distance
-- Successful insertion requires:
-  - Velocity >0.3c (achieved via conventional fusion/antimatter drives)
-  - Distance >100 AU from stellar gravity wells
-  - Precise vector alignment (±0.01° tolerance)
+- **Planet** → 6 Continents → 8 Regions each → 8 Zones each
+- **Total**: 384 zones per planet
 
-**Hazards & Limitations**:
+### Zone States
 
-- **Gap Sickness**: Psychological effects on crew during transit; 5-10% experience severe disorientation
-- **Navigation Drift**: 1-3% positional error per 10 LY traveled; requires course corrections
-- **Gap Instability**: 0.5% chance of catastrophic field collapse per insertion
-- **Entry Failure**: If ship velocity drops below 0.28c during insertion sequence, gap field fails catastrophically
-- **Gravity Well Restriction**: Cannot engage within 100 AU of stars >0.5 solar masses
-- **Power Requirements**: Massive capacitor banks required; 24-48 hour recharge cycle between jumps
-- **Drive Wear**: Each insertion degrades gap field generator; requires maintenance every 20-30 jumps
+1. **Unexplored**: Grayed out, no information
+2. **Exploring**: Workers mapping territory
+3. **Combating**: Fighting native predators (v2)
+4. **Converting**: Establishing swarm presence
+5. **Harvesting**: Active biomass extraction
+6. **Saturated**: Maximum extraction reached
 
-**Range Brackets**:
+### Biomass Availability
 
-- Short Jump (1-5 LY): High precision, 0.1% drift, lower power
-- Medium Jump (5-20 LY): Standard operations, 1% drift
-- Long Jump (20-50 LY): Risky, 3-5% drift, requires extensive pre-jump calculations
-- Ultra-Long Jumps (>50 LY): Experimental, 10%+ drift, high failure rate
+Each zone has intrinsic biomass rate:
 
----
+- **Surface Lichen**: Base photosynthetic growth
+- Varies by zone (0.1 to 2.0 food per tick potential)
+- Depletes slightly as harvested (recovers over time)
 
-## Operational Hazards
+### Predators (v2)
 
-### Radiation Exposure
+Native organisms resist swarm expansion:
 
-All drives above chemical emit radiation proportional to their power output:
-
-- **Fission drives**: Mild radiation; manageable on short flights, cumulative on long ones
-- **Fusion drives**: Significant radiation requiring dedicated shielding equipment
-- **Advanced fusion**: Extreme radiation requiring heavy shielding
-
-Unshielded crew suffer progressive health degradation. Medical care can slow but not prevent this. Shielding equipment consumes equipment slots and power — a direct tax on ship capability.
-
-### Waste Heat
-
-Fusion and advanced fusion drives produce enormous waste heat that must be radiated away:
-
-- Ships require thermal management equipment (radiator arrays, active coolant systems)
-- Insufficient thermal management causes accelerated degradation of all ship equipment
-- Thermal management equipment itself degrades under load, creating potential cascade failures
-
-### Debris Hazards
-
-At sustained high velocity, even micro-debris is lethal kinetic energy:
-
-- Ships operating under thrust require point defense systems to destroy or deflect debris in their path
-- Point defense effectiveness depends on crew skill (gunner) and detection equipment (scanners)
-- Debris density varies by region — asteroid belts are far more dangerous than open space
-- Magnetic deflectors handle micro-particles; point defense handles larger debris. Both are needed.
-
-### Reactor Containment
-
-Fusion reactors require active containment management:
-
-- Containment equipment degrades during operation; failure leads to radiation spikes far exceeding normal output
-- Reactor monitoring requires dedicated crew (engineers) in a separate reactor room
-- An unstaffed or poorly-staffed reactor is a ticking time bomb
-
-### G-Force Exposure (Class IV+)
-
-Advanced fusion drives can accelerate far harder than the human body can tolerate:
-
-- Sustained acceleration above ~2g causes progressive health damage without countermeasures
-- **Countermeasures**: anti-g drugs (crew consumable with side effects), full-immersion crash pods (ship equipment), physical fitness (crew strength skill)
-- Anti-g drugs enable higher tolerance but cause temporary personality/cognitive side effects
-- The captain must balance transit speed against crew survival — faster is not always better
-
-### Cascading Failures
-
-On fusion-class vessels and above, ship systems are deeply interdependent:
-
-- A single equipment failure can cascade: degraded containment → radiation spike → crew health drop → unstaffed stations → further degradation
-- Crew management and repair prioritization become critical survival skills
-- This is the fundamental difference from Class I/II operations: on a torch ship, neglect kills
-
----
-
-## Navigation Planning
-
-Higher-class vessels require increasingly careful route planning. Navigation is not trivial — it is a core crew competency.
-
-### Route Planning
-
-Before departure, crew plot a course. Quality depends on navigator skill and equipment:
-
-- Route quality affects debris encounter frequency, fuel efficiency, and hazard warning time
-- Poor navigation wastes fuel on course corrections and leaves the ship vulnerable to debris
-- Excellent navigation avoids hazard-dense regions and optimizes fuel consumption
-
-### Gravity Assist Corridors
-
-When a ship's trajectory passes near a massive body during transit, the crew can attempt a gravity assist for fuel savings. Detection uses proximity checks against the body's orbital position at each point along the flight path.
-
-**Eligible Bodies & Influence Zones (gameplay-tuned):**
-
-| Body    | Mass (kg) | Influence Zone | Typical Savings |
-| ------- | --------- | -------------- | --------------- |
-| Jupiter | 1.898e27  | ~75M km        | 5-10% fuel      |
-| Earth   | 5.972e24  | ~3M km         | 3-7% fuel       |
-| Mars    | 6.417e23  | ~3M km         | 2-5% fuel       |
-| Moon    | 7.342e22  | ~200K km       | 1-3% fuel       |
-| Ceres   | 9.393e20  | ~200K km       | 1-2% fuel       |
-
-**Expected Frequency (with current gameplay thresholds):**
-
-- Interplanetary routes (Earth→Mars, Earth→Belt): ~30-50% of flights detect at least one assist, depending on orbital alignment
-- Jupiter routes: Nearly always detect Jupiter assist (huge influence zone)
-- Short cislunar flights (Gateway→Forge): Moon assist possible ~20-30% of the time
-- Very short orbital hops (Gateway→Meridian): Rarely trigger any assists
-
-**Note**: Current thresholds are deliberately expanded beyond physical Hill sphere values for gameplay purposes. These are backlogged for tightening once the mechanic is established.
-
-**Failure Penalty**: Failed assists cost ~1-2% of trip fuel in correction burns. Closer approaches carry larger penalties on failure, creating risk/reward tension for low-skill crews.
-
-### Regional Hazard Density
-
-Space is not uniformly empty:
-
-- Asteroid belts, debris fields, and high-traffic zones present varying hazard levels
-- Route planning quality determines how effectively the ship avoids high-density regions
-- Long journeys through hazardous regions accumulate risk even with good navigation
-
-### Gap Navigation (Class V)
-
-Gap insertion requires precise pre-jump calculations:
-
-- Navigator skill directly affects positional accuracy after gap transit
-- Poor navigation increases drift, potentially stranding the ship far from intended destination
-- Navigation failure during insertion increases the probability of catastrophic gap field collapse
-
----
-
-## Crew Consumables
-
-Crew consumables are single-use items carried in cargo and used during operations:
-
-- **Anti-g drugs ("Compress")**: Increases crew g-force tolerance temporarily. Side effects include reduced social capability and focus. Limited supply per journey creates resource tension.
-- Future consumables may include medical supplies, rations, repair materials
-
----
-
-## Ship Equipment Categories
-
-Ship equipment now spans multiple categories beyond life support:
-
-- **Life Support**: Atmosphere, air quality
-- **Shielding**: Radiation protection
-- **Thermal**: Heat dissipation and management
-- **Defense**: Point defense, debris deflection
-- **Navigation**: Hazard detection and scanning
-- **Structural**: Reactor containment, acceleration compensation
-
-Higher-class ships require more equipment categories to operate safely, consuming more equipment slots. This creates a natural "equipment tax" — a torch ship must dedicate most of its slots to survival systems before any optional upgrades.
-
----
-
-## World Geography
-
-### Realistic Placement & 2D Orbital Mechanics
-
-All locations correspond to real solar system bodies, Lagrange points, or plausible orbital zones. Bodies follow 2D orbital paths — planets and belt stations orbit the Sun, while near-Earth locations (Gateway Station, Meridian Depot, Forge Station, Graveyard Drift, Tycho Colony) orbit Earth in a hierarchical model. Freeport Station and The Scatter orbit the Sun at near-Earth distances (S-E L2 and NEA cluster respectively).
-
-Orbits use Keplerian mechanics with eccentricity for outer bodies (Mars e=0.0934, Jupiter e=0.0489, belt objects e=0.05–0.08). Earth satellites use circular orbits. Positions are recomputed every game tick, so distances between any two locations change continuously as bodies move along their orbital paths.
-
-Earth-to-Mars distance varies from ~55M km (close approach) to ~400M km (opposition). This creates launch windows — optimal departure periods when destinations are well-aligned. Ships use intercept trajectories, aiming at where the destination will be at arrival, not where it is at departure. Mid-flight course corrections adjust the intercept point periodically to account for orbital drift on long flights.
-
-Examples of orbital radii (semi-major axes): Gateway Station at LEO (400 km from Earth), Meridian Depot at GEO (35,786 km), Forge Station at Earth-Moon L1 (326,000 km), Tycho Colony on the lunar surface (384,400 km), Freeport Station at S-E L2 (~151M km from Sun), Mars at 1.52 AU (~228M km), Jupiter at 5.2 AU (~779M km).
-
-### Progressive Mining Value
-
-Ore availability and effective value increase with distance from Earth. Expanding outward is always rewarded:
-
-- **Cislunar** (Graveyard Drift, Tycho Colony): Basic and mid-tier ores — max effective value ~60 cr (Titanium)
-- **Near-Earth extended** (The Scatter): Mid-tier ores — Titanium, Platinum, Iron (M-type NEA cluster)
-- **Mars / Inner Belt** (Mars, Vesta Station): Trade hub gateways with supplementary mining
-- **Mid-Belt** (The Crucible): First access to Platinum (120 cr) — dense metallic asteroid swarm
-- **Outer Belt** (Ceres Station): Platinum, Rare Earth, Water Ice hub
-- **Jupiter** (Jupiter Station): Endgame resources — Helium-3 (250 cr), Exotic Matter (500 cr)
-
-### Science-Based Resources
-
-Ore distribution reflects real planetary science:
-
-- **Lunar ilmenite** → Titanium (Tycho Colony)
-- **KREEP basalt** → Rare Earth Elements (Tycho Colony)
-- **Polar crater ice** → Water Ice (Tycho, Mars, Vesta, Ceres)
-- **Metallic asteroid cores** → Platinum (The Scatter, The Crucible, Ceres — M-type asteroids from protoplanetary differentiation)
-- **Gas giant atmospheric scooping** → Helium-3 (Jupiter Station)
-- **Magnetosphere anomalies** → Exotic Matter (Jupiter Station)
-- **Captured minimoons** → Iron, Titanium, Platinum (The Scatter — M-type NEA cluster with platinum group metals)
-
-### Yield Multipliers
-
-Locations can have reduced yield for specific ores, reflecting real-world concentration differences. The `yieldMultiplier` field on `LocationOre` defaults to 1.0 and is applied exactly once as a final multiplier in the extraction chain. Example: lunar regolith Helium-3 at 0.1x yield (Tycho Colony) vs industrial atmospheric scooping at 1.0x (Jupiter Station). The auto-select system uses `baseValue × yieldMultiplier` to rank ores, preventing dilute ores from being auto-selected over more profitable alternatives.
-
----
-
-## Design Philosophy
-
-This ruleset balances:
-
-1. **Realistic Physics**: Acceleration, delta-v, travel times based on actual physics
-2. **Gap Cycle Inspiration**: FTL with meaningful constraints, risks, and limitations
-3. **Gameplay Depth**: Different ship classes serve different purposes; trade-offs matter
-4. **Economic Pressure**: Faster ≠ better if it bankrupts you
-5. **Strategic Choices**: No "best" ship - context-dependent decisions
-6. **Emergent Systems**: Game values should emerge from interacting systems rather than being hardcoded. Ship range is derived from engine capability × ship mass × mission endurance (from cargo capacity, crew count, and room bonuses). When systems interact, gameplay depth emerges without hand-tuning.
-
-The gap drive is powerful but not a magic solution—it requires extensive conventional acceleration, careful planning, carries real risks, degrades with use, and costs a fortune. Most cargo still moves on slow Class III ships because the economics don't support gap transit for bulk goods.
-
-### Range as Emergent Property
-
-Ship maximum range is not a fixed value but emerges from the interaction of multiple systems:
-
-- **Engine thrust & ship mass** → acceleration
-- **Engine maxDeltaV** → fuel budget for cruise velocity
-- **Dedicated fuel tank** → each ship class has a `fuelCapacity` (kg) sized for its intended routes, independent of cargo
-- **Provisions** → tracked as `ship.provisionsKg`, consumed at 15 kg/crew/day base (reduced by life support recycling to ~5 kg effective)
-- **Crew count** → consumption rate scales with crew size
-
-Fuel tanks are sized per ship class to support their labeled operational range at moderate orbital alignment with reserve margin. Cargo capacity is fully available for trade goods, mined ore, and provisions — fuel does not compete with cargo.
-
-Mission endurance constrains range: even with abundant fuel, a ship can only go as far as its provisions allow. A slow ship with low thrust CAN travel far if it has enough supplies and time. A fast ship with many crew burns through provisions quickly, limiting effective range despite powerful engines.
-
-This creates natural trade-offs: Class I ships are slow AND supply-limited, making them truly orbital-only. Class II ships can reach Mars slowly but require long journey times. Class III torch ships have high acceleration but large crews, balancing range through different constraints.
-
----
-
-## Gameplay Implications
-
-### Resource Management
-
-- **Fuel Costs**: Chemical (1x) < Fission (3x) < Fusion D-D (10x) < Fusion D-He3 (30x) < Gap Drive
-- Operating a fusion-class vessel is inherently expensive; every burn is a financial decision
-- Fuel availability and cost at different stations creates route planning incentives
-- **Reaction Mass**: Even fusion drives need propellant; resupply stations critical
-- **Maintenance**: Gap drives require expensive, specialized service
-- **Time vs. Cost**: Faster ships cost exponentially more to operate
-
-### Operational Constraints by Class
-
-**Class I**: Orbit-bound operations only, stranded without refueling, short-duration missions, cannot leave Earth's gravity well
-
-**Class II**: Weeks to reach Moon or Mars, months to reach Belt, cannot reach outer planets in career timeframe, requires refueling at destination
-
-**Class III**: Entire solar system accessible in months, expensive fuel costs limit profit margins, no interstellar capability
-
-**Class IV**: Interstellar capable but weeks of acceleration required, perfect conditions needed (gravity well distance), huge costs and risks, drive degradation is depleting resource, gap sickness affects crew morale
-
-### Strategic Choices
-
-- **Route Planning**: Can you afford gap drive? Is time worth the risk?
-- **Fuel Economics**: He3 expensive; chemical cheap but limited
-- **Maintenance Timing**: When to service gap drive? (30-jump limit)
-- **Risk Management**: Gap drive 0.8% failure rate - insure or gamble?
-- **Crew Welfare**: Gap sickness, radiation exposure, mission duration limits
+- Strength 1-2000+ scale
+- Must be defeated to harvest zone
+- Auto-resolved combat (workers vs. predators)
+- Defeated zones become harvestable
 
 ---
 
@@ -502,273 +177,166 @@ This creates natural trade-offs: Class I ships are slow AND supply-limited, maki
 
 **Game Time Progression**:
 
-- 1 tick = 1 real second = 3 game minutes (180 game seconds)
+- 1 tick = 1 real second = 3 game minutes (180 seconds)
 - 1 game day = 480 ticks (~8 real minutes)
 - 1 game month (30 days) = 14,400 ticks (~4 real hours)
 
-**Epoch**: 2247-01-01 00:00 (gameTime = 0)
+**Pacing**:
 
-**Time Advancement**:
-
-- Time advances automatically each tick (180 game seconds per tick)
-- Game auto-pauses on arrival at a destination (configurable in settings)
-- Players can manually advance time by one day when docked (with no active contract); salaries are still deducted
-- Quests regenerate when advancing the day
-
-**Pacing (idle-game layered clocks)**:
-
-- Short routes (Earth→Meridian): ~5-8 real minutes (short clock — active players)
-- Medium routes (Earth→Forge): ~1.5-2.7 real hours (medium clock — check-in-later players)
-- Long routes (Earth→Mars): hours (long clock — set-and-forget players)
-- Flight times are calculated using burn-coast-burn physics (see implementation)
+- First worker: ~1 minute IRL
+- Population equilibrium: ~30 minutes IRL
+- Planet conquest: Hours to days
 
 ---
 
-## Crew Economics & Salaries
+## Command Queue System
 
-### Salary System
+### Hierarchy
 
-Crew members require regular payment for their services. Salaries are deducted every tick (3 game minutes). Salaries accrue during both flight and docked time advancement (manual day advance).
+```
+Player (sets high-level directive)
+    ↓
+Queen (generates orders)
+    ↓
+Command Queue
+    ↓
+Workers (pull and execute)
+```
 
-**Base Salary Rates (credits per tick):**
+### Queen Directives (v1)
 
-| Role    | Base/Tick | Base/Day (480 ticks) | Role Justification                       |
-| ------- | --------- | -------------------- | ---------------------------------------- |
-| Captain | 0         | 0                    | Owner-operator, earns from ship profits  |
-| Pilot   | 0.1       | 48                   | Essential bridge crew, flight operations |
-| Miner   | 0.1       | 48                   | Resource extraction specialist           |
-| Trader  | 0.1       | 48                   | Trade and commerce specialist            |
+**"Gather Biomass"**:
 
-**Salary Multiplier:** Salary scales dynamically with a crew member's current skills (polynomial: `1.0 + 0.5 × (totalSkill/10)^1.6`, capped at 10×). Actual salary = base × multiplier. Green recruits cost the base rate; as they train, their wages rise. The multiplier is capped at 10× (480 cr/day) to prevent runaway costs at very high skill totals. Quest and trade route payments auto-scale with crew costs through the cost-floor system, so contracts always remain profitable.
+- Generate "gather_biomass" orders
+- Assign to highest-skilled available workers
+- Workers fill cargo, return to queen
 
-**Economic Pressure:**
+**"Idle"**:
 
-A 4-person crew of green recruits costs **0.3 credits/tick** or **144 credits/day**. A crew of veterans can cost **500+ cr/day**. This creates constant economic pressure to:
+- Generate "idle" orders
+- Workers self-maintain then wait
+- Conserves energy
 
-- Accept profitable contracts
-- Minimize idle flight time
-- Balance crew size against operational costs
-- Plan efficient routes to reduce flight duration
+### Order Assignment
 
-**Payment Failures:**
+Queen evaluates every 10 ticks:
 
-- Salaries are deducted from ship credits every tick
-- If credits reach zero, crew members become "unpaid"
-- Unpaid crew will leave the ship once docked at a station
-- Captain never leaves (owner of the ship)
-- Multiple missed payments = multiple crew departures
+1. Rank available workers by foraging skill
+2. Fill gathering orders with highest-skilled first
+3. Assign idle to remaining workers
+4. Re-evaluate on directive change
 
-**Strategic Implications:**
+### Worker Decision Loop
 
-- Larger crews provide operational advantages but increase costs exponentially
-- Long-duration flights without contracts are financially risky
-- Emergency docking may result in crew losses if credits are depleted
-- Standing freight contracts provide steady income to cover crew costs
+Each tick:
 
-### Crew Hiring
-
-When docked at stations with **'hire'** service (Earth, Forge Station, Freeport Station, Mars), players can recruit additional crew members. These are the four locations in the world with the hire service.
-
-**Candidate Generation:**
-
-- Daily candidate roster scales with station size (1 to `location.size` candidates when available)
-- Daily "empty market" chance: ~10% at major hubs (size 5), ~50% at remote outposts (size 1)
-- Candidates refresh daily (same trigger as quest regeneration)
-- Larger stations attract slightly better candidates on average (quality bonus scales with `locationSize`)
-
-**Archetype System:**
-
-Each candidate has a role archetype (Pilot, Miner, or Trader) that shapes their skill distribution:
-
-- **Pilot**: High piloting, moderate commerce, minimal mining
-- **Miner**: High mining, moderate piloting, minimal commerce
-- **Trader**: High commerce, moderate piloting, minimal mining
-
-A quality roll (squared random distribution) determines overall skill magnitude:
-
-- ~50% of candidates are green recruits (primary skill 0-9)
-- ~20% are seasoned (primary 9-18)
-- ~16% are veterans (primary 18-26)
-- ~13% are elite specialists (primary 26-35)
-
-**Hire Cost Formula:** **Base Cost (500 cr) + 20 × totalSkill^1.8** (polynomial)
-
-- Green recruit (0-5 skill points): 500-830 cr
-- Seasoned crew (10-15 skill points): 1,800-3,100 cr
-- Veteran (25-35 skill points): 7,000-13,500 cr
-- Elite specialist (40-50 skill points): 16,000-24,000 cr
-
-These costs are tuned against trip income: a green recruit costs a fraction of one trip's profit, while an elite specialist costs several trips. This creates meaningful hiring decisions at every stage of the game.
-
-**Salary Scaling:**
-
-Crew salary scales dynamically with current skills — as crew train, their wages rise:
-
-- Formula: `1.0 + 0.5 × (totalSkill / 10)^1.6` (polynomial, capped at 10×)
-- Green recruit: 1.0× (48 cr/day)
-- Seasoned (15 skill total): ~2.0× (~95 cr/day)
-- Veteran (30 skill total): ~3.9× (~186 cr/day)
-- Elite (45 skill total): ~6.9× (~333 cr/day)
-- Cap: 10× (480 cr/day) — prevents runaway costs at very high skill totals
-- Training crew increases their wage over time, creating ongoing economic pressure
-
-**Strategic Considerations:**
-
-- Cheap recruits start affordable but grow more expensive as they train
-- Pre-skilled veterans provide immediate capability at higher initial ongoing cost
-- Training crew is still cost-effective (a trained recruit's salary approaches but never exceeds the cap)
-- Quest and trade route payments scale with crew costs via the cost-floor system
-- Mining income (fixed ore values) does not scale — high crew costs push players toward higher-value ores
-- Crew diversity (multiple roles) enables more operational flexibility
-- Larger crews increase operational costs but reduce single-crew dependency
-- Crew departures due to unpaid wages can force emergency hiring
-
-### Equipment Shop
-
-At stations with **'trade'** service (Earth, Forge Station, Freeport Station, Mars), players can buy and sell crew equipment.
-
-**Buy Equipment:**
-
-- All crew equipment types available at full retail value
-- Equipment values range from 450 cr (wrist terminal) to 3,500 cr (assault rifle)
-- Purchased items go to ship cargo hold
-- Must have sufficient credits to purchase
-
-**Sell Equipment:**
-
-- Sell equipped items or cargo items for 50% of retail value
-- Useful for liquidating excess equipment or outdated gear
-- Crew can unequip items before sale
-
-**Available Equipment Categories:**
-
-- **Weapons**: Sidearms (800 cr), Assault Rifles (3,500 cr)
-- **Tools**: Toolkits (1,200 cr), Medkits (1,500 cr), Scanners (2,000 cr)
-- **Accessories**: Rebreathers (600 cr), Wrist Terminals (450 cr)
-- **Armor**: Ballistic Vests (2,200 cr)
+1. Self-maintenance (consume 0.1 from cargo)
+2. If starving: emergency gather (ignore orders)
+3. If cargo < max and order = gather: gather food
+4. If cargo >= max: attempt unload to queen
+5. If queen full: idle with cargo full
 
 ---
 
-## Crew Skills & Role System
+## Skill System
 
-### Core Principle
+### Foraging
 
-**Roles are derived from skills, not assigned.** A crew member's role is determined by their highest skill, representing their primary expertise and natural inclination. This creates a dynamic crew where members can transition roles as they develop.
+**Global Skill**: 0-100 progression
 
----
+- Governs base gathering rate
+- Diminishing returns curve
 
-## Gravity & Zero-G Physiology
+**Mastery Item**: Surface Lichen
 
-### Natural Gravity Sources
+- 0-99 mastery per food type
+- Governs energy yield efficiency
+- XP gained per food gathered
 
-Most locations in space provide negligible gravity. Crew on extended voyages face progressive physical degradation from zero-g exposure.
+**Skill Effects**:
 
-**Ship-Based Gravity Solutions:**
+- Level 25: Can see food quality
+- Level 50: Gather from adjacent zones
+- Level 75: Auto-prioritize rich zones
+- Level 99: +50% all food yields
 
-- **Rotating Habitats**: Large military ships (Dreadnought, Leviathan) have rotating sections providing ~0.3-0.5g spin gravity. Completely prevents zero-g exposure.
-- **Centrifuge Pods**: Installable modules for smaller ships. Provides ~0.3g spin gravity via rotating crew quarters. Requires structural equipment slot.
-- **Thrust Gravity**: Fusion drives (Class III) produce measurable thrust gravity during burns (0.01-0.1g). Reduces but doesn't eliminate exposure.
+### Mastery Bonuses (Per Food Type)
 
-### Zero-G Exposure Mechanics
-
-Crew accumulate zero-g exposure during flight time. Effects are cumulative and progressive:
-
-**Thresholds** (measured in days):
-
-- **Safe**: < 14 days — No effects
-- **Minor**: 14-60 days — Strength -7.5%
-- **Moderate**: 60-180 days — Strength -17.5%
-- **Severe**: 180-365 days — Strength -35%
-- **Critical**: > 365 days — Strength -60%
-
-**Exposure Rate Modifiers:**
-
-- Rotating habitat or centrifuge: **0% accumulation** (full protection)
-- Thrust gravity during burns: **Reduced by thrust g-force** (fusion drives: ~10% reduction at 0.1g)
-- Exercise module (ship equipment): **50% reduction** in accumulation rate
-- G-Seat harness (crew equipment): **30% reduction** per crew member equipped
-
-**Example**: A 60-day trip on a fusion ship with exercise module and g-seats:
-
-- Base exposure: 60 days
-- Thrust reduction (10% of burn time): ~54 days effective
-- Exercise module (50%): ~27 days effective
-- G-seat (30%): ~19 days effective
-- Result: Minor atrophy threshold (14d) crossed, but moderate threshold (60d) avoided
-
-### Recovery Mechanics
-
-When docked at planetary or lunar locations, crew slowly recover from zero-g exposure:
-
-- **Recovery rate**: 0.5x accumulation rate (slower than degradation)
-- **Time to full recovery**: ~2x the exposure time
-- Recovery happens continuously while docked
-- No recovery during flight or at zero-g stations
-
-**Strategic Implications:**
-
-- Long-haul fusion ships need gravity solutions or suffer combat penalties
-- Shorter trips can skip gravity equipment if planned carefully
-- Rest stops at planetary stations allow partial recovery
-- Crew rotation strategies can manage long-term exposure
-
-### Equipment Slots & Compatibility
-
-Ships have two slot types:
-
-- **Standard Slots**: Accept all equipment (life support, shielding, thermal, etc.)
-- **Structural Slots**: Accept both standard equipment AND large structural items (centrifuges)
-
-**Ship Slot Configurations**:
-
-- Class I/II ships: Mostly standard slots (0-1 structural)
-- Class III ships: More structural slots for centrifuges and heavy equipment
-
-This creates equipment trade-offs: installing a centrifuge uses a structural slot that could hold other critical equipment.
+- Level 25: +10% energy yield
+- Level 50: +25% energy yield
+- Level 75: +50% energy yield
+- Level 99: +100% energy yield
 
 ---
 
-### Skill-to-Role Mapping
+## Daily Summaries
 
-Every skill maps to a role archetype. The current implementation uses 4 skills:
+Every game day (480 ticks), generate summary:
 
-| Skill        | Role     | Description                                                                         |
-| ------------ | -------- | ----------------------------------------------------------------------------------- |
-| **Piloting** | Pilot    | Ship handling, helm control, combat defense. Handles ship operations during flight. |
-| **Mining**   | Miner    | Resource extraction, ore processing, equipment operation.                           |
-| **Commerce** | Trader   | Trade negotiations, route optimization, economic bonuses.                           |
-| **Repairs**  | Engineer | Equipment maintenance, ship repairs, reactor monitoring.                            |
+```
+Day 42 Summary:
+• 12 workers hatched
+• 3 workers died (starvation)
+• Population: 45 workers (120% neural load)
+• Net energy: +156
+```
 
-**Future skills** (designed but not yet implemented): Astrogation, Strength, Charisma, Loyalty. See `skillRanks.ts` for design notes.
+Queen deaths highlighted:
 
-### Special Cases
+```
+Day 67 Summary:
+• 8 workers died (starvation)
+• 1 QUEEN died (starvation)
+• ⚠️ CRITICAL: Swarm collapse imminent
+```
 
-**Captain**: Always the player character, regardless of skill distribution. The captain leads through position, not necessarily superior skills. The captain can transfer between ships in the fleet — when absent, the crew member with the highest commerce skill acts as commanding officer for trade bonuses.
+---
 
-**Role Assignment**: When generating or leveling crew:
+## Future Expansion (Backlog)
 
-1. Calculate highest skill
-2. Assign role based on that skill
-3. If tie, prioritize: Piloting > Mining > Commerce > Repairs
-4. Captain is always assigned manually (player character)
+### Multi-Queen
 
-### Initial Stat Distribution
+- Each queen controls own worker pool
+- Separate command queues
+- Queens coordinate via higher-level brain structures
 
-The captain starts at zero skills. Hired crew arrive with archetype-weighted starting skills set by a quality roll at generation time (see Crew Hiring section). Further progression comes from job slot training and event-based gains during gameplay.
+### Interplanetary Travel
 
-### Skill Caps & Growth
+- Spore launch mutations
+- Moon waypoints
+- Atmospheric entry adaptations
+- Planet-specific resources
 
-- Skills scale 0-99 with 10 named ranks (Untrained → Master)
-- Training is passive via job slot assignment with diminishing returns
-- Specialization available at skill 50: +50% training in chosen skill, -25% in others
-- Commerce: trained by captain/first officer completing trade routes, improves pay and fuel pricing
-- Piloting skill gates ship class access (Class II: 25, Class III: 50, Class IV: 75, Class V: 95)
-- Crew can shift roles by developing different skills (though rare)
-- See `src/skillProgression.ts` and `src/masterySystem.ts` for implementation
+### Structures
 
-### Implementation Requirements
+- Synaptic nodes (neural capacity)
+- Brood chambers (egg production)
+- Energy membranes (passive generation)
 
-1. All crew (except captain) have roles deduced from skills
-2. Skill values determine effectiveness in role-specific tasks
-3. UI displays role based on current highest skill
-4. Role changes dynamically if skill distribution shifts
+### Advanced Foods
+
+- Underground biomass
+- Fauna hunting (combat)
+- Thermal vent organisms
+- Crystal-silicate flora
+
+### Combat
+
+- Predator clearing
+- Native organism harvesting
+- Zone defense
+- Combat-specialized workers
+
+---
+
+## Design Philosophy
+
+This ruleset balances:
+
+1. **Biological Plausibility**: Energy, metabolism, neural limits
+2. **Emergent Complexity**: Population finds own equilibrium
+3. **Idle Respect**: No constant attention required
+4. **Strategic Depth**: Skill assignment, efficiency optimization
+5. **Progressive Disclosure**: Simple start, deep mastery
+
+The swarm is not an army. It is a metabolism.

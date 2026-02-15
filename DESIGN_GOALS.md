@@ -1,70 +1,65 @@
-# Project Design Guidance Report
+# TRAPPIST-1 Swarm Idle - Design Goals
 
-## The Long Haul: 2247
+## Vision Statement
 
----
+Create a browser-first idle/incremental game where the player embodies a biological hive mind swarm expanding across the TRAPPIST-1 system. The swarm grows from a single queen into a planetary organism that replaces native ecosystems through biologically plausible, emergent systems.
 
-# 1. Vision Statement
-
-Create a browser-first idle/incremental game set in a hard sci-fi solar system where:
-
-- All numbers emerge from interacting systems.
-- Player absence is always respected and rewarded.
-- Depth exists for system thinkers, but onboarding remains approachable.
-- The experience feels like "spreadsheet optimization in space" with narrative flavor.
-
-This is **not** a traditional space sim and not a clicker.
-It is a systems-driven fleet management idle game.
+This is **not** a traditional RTS and not a clicker. It is a systems-driven swarm metabolism idle game.
 
 ---
 
-# 2. Design Pillars (Non-Negotiable)
+## Design Pillars (Non-Negotiable)
 
-## 1. Emergent Systems > Arbitrary Scaling
+### 1. Emergent Systems > Arbitrary Scaling
 
 - No meaningless +10% upgrades.
-- Ship performance derives from physics + crew + equipment.
-- Economy derives from distance, risk, and infrastructure.
-- Combat derives from mass, thrust, crew skills, and decision types.
-
-If a number exists, it must trace back to a simulation layer.
+- Swarm performance derives from biological constraints: neural capacity, metabolism, logistics.
+- Population emerges from homeostatic equilibrium, not hard caps.
+- All numbers must trace back to simulation layers.
 
 ---
 
-## 2. Idle-First Respect
+### 2. Idle-First Respect
 
 - No energy systems.
 - No punishments for being offline.
 - Offline simulation must be deterministic and fair.
-- Returning players receive a readable "mission report," not raw logs.
+- Returning players receive readable summaries, not raw logs.
 
 Absence is part of the gameplay loop.
 
 ---
 
-## 3. Gradual Cognitive Load
+### 3. Homeostatic Population Control
 
-**Show the mountain, hide the details.**
+Population equilibrium must emerge automatically from system mechanics:
 
-Locked/future systems appear as aspirational goals with clear unlock conditions:
-
-- "Class II Ships — Unlock at Piloting 20"
-- "Radiation Exposure — Active beyond Mars orbit"
-- "Fleet Coordination — Unlock at 2 ships"
-
-This creates anticipation, goal clarity, and progress tension without overload.
-
-**What to show:** System names, unlock requirements, the promise of depth ahead.
-
-**What to hide:** Exact formulas, failure mechanics, deep stat breakdowns, detailed UI panels — until the system is active for the player.
-
-Natural gating through piloting skill requirements, credit thresholds, and ship class capabilities is preferred over explicit tutorial unlock sequences.
+- **Neural bandwidth limits efficiency** (coordination constraint)
+- **Metabolic throughput limits survival** (energy constraint)
+- Workers beyond capacity become inefficient, creating deficits that cause starvation
+- This produces automatic equilibrium without hard caps
 
 ---
 
-## 4. Clarity Over Realism
+### 4. Gradual Cognitive Load
 
-We simulate physics, but we do not simulate confusion.
+**Show the mountain, hide the details.**
+
+Locked/future systems appear as aspirational goals:
+
+- "Planetary Expansion — Unlock at 100 Workers"
+- "Interplanetary Travel — Requires Spore Launch Mutation"
+- "System Brain — Unlock multi-queen coordination"
+
+**What to show:** System names, unlock requirements, the promise of depth ahead.
+
+**What to hide:** Exact formulas, failure mechanics, deep stat breakdowns — until the system is active.
+
+---
+
+### 5. Clarity Over Realism
+
+We simulate biology, but we do not simulate confusion.
 
 Every derived stat must have:
 
@@ -74,7 +69,7 @@ Every derived stat must have:
 
 ---
 
-# 3. Target Player Profile
+## Target Player Profile
 
 Primary player:
 
@@ -89,119 +84,89 @@ We optimize for:
 - Long-term retention
 - Systems mastery
 - Community discussion
-- Steam-positive-review type players
-
-We are not targeting casual mobile idle players.
 
 ---
 
-# 4. Core Gameplay Loop (Finalized Structure)
+## Core Gameplay Loop (Finalized Structure)
 
 ### Active Loop (5–8 min)
 
-1. Review mission reports
-2. Adjust routes
-3. Assign crew
-4. Upgrade equipment
-5. Accept higher-risk contracts
+1. Review daily swarm summaries
+2. Check worker distribution and efficiency
+3. Toggle queen directives (gather/idle)
+4. Enable/disable egg production
+5. Plan expansion into new zones
 
 ### Passive Loop (Offline / Background)
 
-1. Ships run routes
-2. Skills gain XP
-3. Ores accumulate
-4. Trade cycles generate profit
-5. Random encounters resolve
+1. Workers gather biomass autonomously
+2. Queen lays eggs when enabled
+3. Population finds equilibrium via starvation/birth
+4. Skills improve through activity
+5. Zones become saturated
 
 ### Expansion Loop (Long-Term)
 
-1. Unlock new ship class
-2. Expand to new orbital band
-3. Introduce new resource
-4. Increase fleet size
-5. Unlock new mastery branch
+1. Conquer all zones on home planet
+2. Unlock interplanetary mutations
+3. Establish queens on new planets
+4. Build system-spanning swarm intelligence
 
 ---
 
-# 5. System Architecture Principles
+## System Architecture Principles
 
-## Ship Performance Must Be Emergent
+### Population Must Be Emergent
 
-Ship performance must derive from physics simulation, not flat stats:
+Swarm size emerges from biological constraints:
 
-- Range = f(engine thrust, fuel capacity, total mass, crew consumption, provisions)
-- Travel Time = f(delta-v required, thrust-to-mass ratio, skill modifiers)
+- Neural capacity = f(queens, synaptic nodes)
+- Efficiency = f(worker count / neural capacity)
+- Starvation deaths = f(energy deficit, worker upkeep)
+- Equilibrium emerges naturally
 
-Formulas must be deterministic, scale smoothly across ship classes, and avoid exponential runaway early.
+### Skills Must Be Few and Deep
 
----
+Use few skills with meaningful progression:
 
-## Skills Must Be Few and Deep
+- Foraging (0-100): Governs biomass gathering
+- Each skill has item mastery (0-99 per food type)
+- Diminishing returns curve
+- No arbitrary caps
 
-Use few skills with meaningful progression and diminishing returns:
+### Cargo-Based Logistics
 
-- Each skill: 0–100 progression with diminishing returns curve
-- Specialization unlocks at higher tiers
-- Mastery bonuses layered on top
+Workers carry physical biomass:
 
-Skill scaling must feel meaningful at every tier without trivializing earlier ships.
-
----
-
-## Mastery Enhances Efficiency, Never Rewrites Physics
-
-Mastery bonuses must not break simulation integrity:
-
-- Per-item mastery (routes, ores, equipment)
-- Skill XP progression
-- Global mastery checkpoints
-
-Mastery should enhance efficiency (time, consumption, success rates), not rewrite physics constraints.
+- Not instant resource transfer
+- Must gather, transport, unload
+- Creates spatial gameplay (future)
+- Cargo limits create throughput constraints
 
 ---
 
-## Survival Complexity Introduced Through Natural Gating
+## UX Principles
 
-Do not enable all survival systems at start. Use ship class requirements to gate complexity:
-
-- Fuel, provisions, repairs always active
-- Advanced systems (radiation, zero-g degradation, reactor heat) unlock with higher-tier ships or deeper-space destinations
-
-Each system must have clear UI feedback, predictable failure modes, and no hidden math.
-
----
-
-# 6. UX Principles
-
-## Every Derived Number Needs:
+### Every Derived Number Needs:
 
 - Hover breakdown
 - Visual causal mapping
 - Red/green impact indicators
 - Change preview before confirmation
 
----
-
-## Reports Must Be Narrative
+### Reports Must Be Narrative
 
 When returning from idle:
 
-Bad:
+**Good:**
 
-> +1245 credits
+> Day 42 Summary:
+> • 12 workers hatched
+> • 3 workers died (starvation)
+> • Population: 45 workers at 120% neural load
+> • Net energy: +156
 
-Good:
-
-> 3 successful cargo runs to Mars
-> 1 radiation storm encountered
-> Chief Engineer gained Repairs (41 → 43)
-> Net profit: 1,245 credits
-
-Reports are emotional reinforcement.
-
----
-
-## Progressive Disclosure Reduces Spreadsheet Fatigue
+### Progressive Disclosure
 
 - Use grouping and progressive disclosure.
 - Hide advanced math behind expandable panels or tooltips.
@@ -210,142 +175,58 @@ Reports are emotional reinforcement.
 
 ---
 
-# 7. v1 Scope Guardrails
+## v1 Scope Guardrails
 
-To ship within a reasonable timeframe, the initial version targets:
+### Content Limits
 
-## Content Limits
+- 1 planet (Asimov/TRAPPIST-1e) fully playable
+- 6 other planets visible but inaccessible
+- 1 queen
+- 1 food type (Surface Lichen)
+- 1 skill (Foraging)
+- 384 zones (all in "grayed out" state except starting zone)
+- No combat
+- No structures
+- No interplanetary travel
 
-- 5 ship classes max
-- 13 locations max
-- 4 skills only
-- 9 ores max
-- 6 encounter types max
-- No procedural galaxy expansion
+### What We Prove in v1
 
-Do not expand beyond Jupiter in v1.
-
-Future expansion can extend to Saturn+, but v1 must prove the core loop first.
-
----
-
-# 8. Platform Strategy
-
-Primary: Browser
-Secondary: Steam wrapper
-
-Browser version:
-
-- Free
-- Polished demo
-- Cloud saves optional
-
-Steam version:
-
-- Premium
-- Expanded features
-- Better UI polish
-- Achievements
-- Potential mod support
-
-Do not rely solely on browser distribution for revenue viability.
+- Core biomass gathering loop
+- Homeostatic population equilibrium
+- Command queue system
+- Neural capacity constraints
+- Skill progression with mastery
 
 ---
 
-# 9. Monetization Philosophy
-
-Allowed:
-
-- Premium one-time purchase
-- Cosmetic ship skins
-- Supporter tier
-
-Not Allowed:
-
-- Energy systems
-- Loot boxes
-- Paid power boosts
-- Ads
-
-Long-term trust > short-term monetization.
-
----
-
-# 10. Risk Mitigation
-
-## Complexity Risk
-
-Solution:
-
-- Progressive system unlocking
-- Simplified default UI mode
-- Clear tooltips
-
-## Player Churn Risk
-
-Solution:
-
-- Meaningful early ship upgrade
-- First major unlock within 30 minutes
-- Visible long-term goal (Jupiter expansion)
-
-## Balance Risk
-
-Solution:
-
-- Internal telemetry
-- Early closed testing in incremental communities
-- Economy modeling before launch
-
----
-
-# 11. Core Differentiation to Protect
-
-If scope cuts are required:
-
-Cut:
-
-- Advanced encounter variety
-- Extra ores
-- Secondary mechanics
-
-Do NOT cut:
-
-- Emergent system identity
-- Mastery depth
-- Fleet expansion fantasy
-- Solar-system progression arc
-
----
-
-# 12. Definition of Success (Design)
+## Definition of Success
 
 We succeed if:
 
-- Players discuss optimization strategies.
-- The community debates optimal trade routes.
-- Steam reviews mention "deep systems."
+- Players discuss optimal population sizes.
+- The community debates efficiency vs. growth.
+- Reviews mention "emergent systems."
 - The game supports 100+ hour players.
 
 We fail if:
 
 - It feels like a generic idle clicker.
-- Systems feel arbitrary.
-- Physics is invisible.
+- Population feels arbitrarily capped.
+- Biology is invisible.
 - Complexity overwhelms onboarding.
 
 ---
 
-# 13. Final Directive
+## Final Directive
 
 This game must feel like:
 
-> A serious, systems-driven management sim
+> A serious, systems-driven biological simulation
 > That happens to play itself while you're away.
 
 Every design and engineering decision should reinforce:
 
-- Respect
-- Clarity
+- Emergence
+- Homeostasis
 - Depth
 - Coherent simulation
