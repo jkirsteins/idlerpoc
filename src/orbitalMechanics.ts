@@ -216,18 +216,38 @@ export function solveIntercept(
   gameTime: number,
   world: World,
   maxIterations: number = 10,
-  origin?: WorldLocation
+  opts?: { origin?: WorldLocation; originParent?: WorldLocation }
 ): {
   interceptPos: Vec2;
   originPosAtArrival: Vec2;
   travelDistanceKm: number;
   arrivalGameTime: number;
 } {
+  // For free-space origins (redirects), compute the offset from the parent
+  // body at launch time so we can co-move the origin with the parent during
+  // iteration. This prevents solver divergence when both origin and
+  // destination orbit the same parent (e.g. ship near Earth → Gateway).
+  let originOffset: Vec2 | undefined;
+  if (!opts?.origin && opts?.originParent) {
+    const parentPos = getLocationPosition(opts?.originParent, gameTime, world);
+    originOffset = {
+      x: originPos.x - parentPos.x,
+      y: originPos.y - parentPos.y,
+    };
+  }
+
+  function getOriginAt(t: number): Vec2 {
+    if (opts?.origin) return getLocationPosition(opts.origin, t, world);
+    if (opts?.originParent && originOffset) {
+      const pp = getLocationPosition(opts?.originParent, t, world);
+      return { x: pp.x + originOffset.x, y: pp.y + originOffset.y };
+    }
+    return originPos;
+  }
+
   // Initial guess: both positions at current gameTime
   let interceptPos = getLocationPosition(destination, gameTime, world);
-  let currentOriginPos = origin
-    ? getLocationPosition(origin, gameTime, world)
-    : originPos;
+  let currentOriginPos = getOriginAt(gameTime);
   let travelDistanceKm = euclideanDistance(currentOriginPos, interceptPos);
   let travelTimeSec = estimateTravelTime(travelDistanceKm);
   let arrivalGameTime = gameTime + travelTimeSec;
@@ -240,9 +260,7 @@ export function solveIntercept(
     );
     // Compute origin position at the same arrival time so that
     // co-orbiting bodies' shared motion cancels out.
-    const newOriginPos = origin
-      ? getLocationPosition(origin, arrivalGameTime, world)
-      : originPos;
+    const newOriginPos = getOriginAt(arrivalGameTime);
     const newDistance = euclideanDistance(newOriginPos, newInterceptPos);
 
     // Convergence check: distance changed by less than 0.1%

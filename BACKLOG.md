@@ -145,6 +145,10 @@ Current ship equipment (20 items) is dominated by mandatory survival systems. "F
 
 - **EVA (Extra-Vehicular Activity)**: Crew EVA system for outside-the-ship operations. Would enable hand-mining of specific asteroid targets, ship hull inspection/repair, cargo transfer between ships, and salvage operations. Requires EVA suit crew equipment, airlock room type, and EVA skill or EVA-related piloting checks. Could tie into mining (artisanal hand-mining of rare samples) and repair (hull patch jobs) gameplay loops.
 
+## Segmented Flight Re-Planning
+
+- **Mass-dependent trajectory updates**: When mass changes during flight affect acceleration significantly (e.g. large fuel burn on long voyages), re-plan the remaining trajectory from the ship's current position — similar to how `redirectShipFlight` already handles destination changes. Each segment gets its own frozen trajectory (originPos, interceptPos, totalTime); the visualization draws the segment chain. This replaces the removed `applyCourseCorrection` system which patched individual fields without maintaining internal consistency.
+
 ## Deferred Spatial Model Features
 
 - ~~**2D/3D Coordinate System**~~: **DONE** — All 13 locations have 2D circular orbital parameters. Sun-orbiting bodies (Mars, belt, Jupiter) and Earth-orbiting satellites follow circular orbits with realistic radii and periods. Distances computed dynamically each tick via `updateWorldPositions()`. See `src/orbitalMechanics.ts`.

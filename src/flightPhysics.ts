@@ -9,7 +9,11 @@ import {
   MAX_PROVISION_DAYS,
   getEffectiveConsumptionPerCrewPerDay,
 } from './provisionsSystem';
-import { getLocationPosition, solveIntercept } from './orbitalMechanics';
+import {
+  getLocationPosition,
+  solveIntercept,
+  lerpVec2,
+} from './orbitalMechanics';
 import { scanForGravityAssists } from './gravityAssistSystem';
 import { getCrewEquipmentDefinition } from './crewEquipment';
 import { getOreDefinition } from './oreTypes';
@@ -26,6 +30,27 @@ import { getOreDefinition } from './oreTypes';
  * Standard gravity constant for Isp calculations
  */
 const G0 = 9.81; // m/s²
+
+/**
+ * Walk up the orbital parent chain from a location until we find
+ * the body with parentId=null — the cluster owner. For Gateway
+ * (parentId='earth') this returns Earth. For Earth (parentId=null)
+ * this returns Earth itself.
+ */
+export function findClusterOwner(
+  loc: WorldLocation,
+  world: World
+): WorldLocation {
+  let current = loc;
+  while (current.orbital?.parentId) {
+    const parent = world.locations.find(
+      (l) => l.id === current.orbital!.parentId
+    );
+    if (!parent) break;
+    current = parent;
+  }
+  return current;
+}
 
 /**
  * Shared mass constants used across flight physics, quest generation,
@@ -480,8 +505,28 @@ export function initializeFlight(
     // computes both positions at the same future time. This cancels out
     // common orbital motion for co-orbiting bodies (e.g. LEO station → Earth).
     const originForSolver = orbital.originPos ? undefined : origin;
+    const isRedirect = !!orbital.originPos;
+
+    // For redirects, co-move the free-space origin with the destination's
+    // cluster owner (walk up parentId chain until parentId=null). Without
+    // co-movement, the solver diverges: the fixed heliocentric origin drifts
+    // away as the cluster owner orbits the Sun.
+    let originParentForSolver: WorldLocation | undefined;
+    if (isRedirect) {
+      originParentForSolver = findClusterOwner(destination, orbital.world);
+    }
+
+    // Engine warmup delay: the ship doesn't start flying until warmup completes.
+    // On the tick that warmup finishes, the first advanceFlight also runs,
+    // so the effective delay is (warmupTicks - 1) ticks.
+    // Redirects skip warmup (engine already online).
+    const warmupDelaySeconds = isRedirect
+      ? 0
+      : Math.max(0, Math.ceil(100 / engineDef.warmupRate) - 1) *
+        GAME_SECONDS_PER_TICK;
 
     // Solve intercept: where will the destination be when we arrive?
+    // Include warmup delay so the solver targets the correct future position.
     const interceptResult = solveIntercept(
       flightOriginPos,
       destination,
@@ -492,19 +537,20 @@ export function initializeFlight(
           initialAcceleration,
           allocatedDeltaV
         );
-        return timing.totalTime;
+        return warmupDelaySeconds + timing.totalTime;
       },
       orbital.gameTime,
       orbital.world,
       10,
-      originForSolver
+      { origin: originForSolver, originParent: originParentForSolver }
     );
 
     distanceKm = interceptResult.travelDistanceKm;
     flightInterceptPos = interceptResult.interceptPos;
-    // Use co-moving origin position so originPos and interceptPos share
-    // the same time reference, keeping the interpolated path correct.
-    flightOriginPos = interceptResult.originPosAtArrival;
+    // Keep originPos at launch time (not arrival time). The origin is where
+    // the ship actually departs from. The intercept solver also returns
+    // originPosAtArrival for co-moving reference, but using that places
+    // the origin on the wrong side of the parent body after fast orbits.
     estimatedArrivalGameTime = interceptResult.arrivalGameTime;
   } else {
     // Legacy: use static distance
@@ -576,10 +622,7 @@ export function initializeFlight(
     interceptPos: flightInterceptPos,
     shipPos: flightOriginPos ? { ...flightOriginPos } : undefined,
     estimatedArrivalGameTime,
-    // Set for normal flights (origin is a real body whose position can be
-    // recomputed at any time). Left undefined for redirects where the origin
-    // is a fixed point in space. The caller (redirectShipFlight) clears this.
-    originBodyId: origin.id,
+    departureGameTime: orbital?.gameTime,
     gravityAssists,
   };
 }
@@ -649,9 +692,66 @@ export function redirectShipFlight(
     id: ship.activeFlightPlan?.origin ?? '',
   } as WorldLocation;
 
-  // shipPos is always in current-time coordinates (updated every tick by
-  // updateFlightPosition in gameTick.ts), so we can use it directly.
-  const currentShipPos = ship.activeFlightPlan?.shipPos;
+  // shipPos is computed via heliocentric lerp (originPos→interceptPos), which
+  // diverges from the actual position for intra-cluster flights: originPos and
+  // interceptPos are frozen at departure/arrival times, so the lerp traces the
+  // chord of the parent body's solar orbit rather than a local path between the
+  // two endpoints. To fix this, interpolate in the cluster's local frame and
+  // convert back to heliocentric at the current time.
+  const fp = ship.activeFlightPlan;
+  let currentShipPos = fp?.shipPos;
+
+  if (
+    fp?.originPos &&
+    fp.interceptPos &&
+    fp.departureGameTime != null &&
+    fp.estimatedArrivalGameTime != null &&
+    world &&
+    gameTime != null
+  ) {
+    const progress =
+      fp.totalDistance > 0
+        ? Math.min(1, fp.distanceCovered / fp.totalDistance)
+        : 0;
+
+    // Find the cluster owner (top-level body both endpoints orbit)
+    const destLoc = world.locations.find((l) => l.id === fp.destination);
+    const origLoc = world.locations.find((l) => l.id === fp.origin);
+    const refLoc = destLoc ?? origLoc;
+    if (refLoc) {
+      const clusterOwner = findClusterOwner(refLoc, world);
+      const parentAtDep = getLocationPosition(
+        clusterOwner,
+        fp.departureGameTime,
+        world
+      );
+      const parentAtArr = getLocationPosition(
+        clusterOwner,
+        fp.estimatedArrivalGameTime,
+        world
+      );
+
+      // Convert heliocentric endpoints to local-frame (relative to parent)
+      const originLocal = {
+        x: fp.originPos.x - parentAtDep.x,
+        y: fp.originPos.y - parentAtDep.y,
+      };
+      const interceptLocal = {
+        x: fp.interceptPos.x - parentAtArr.x,
+        y: fp.interceptPos.y - parentAtArr.y,
+      };
+
+      // Interpolate in local frame
+      const shipLocal = lerpVec2(originLocal, interceptLocal, progress);
+
+      // Convert back to heliocentric at CURRENT time
+      const parentNow = getLocationPosition(clusterOwner, gameTime, world);
+      currentShipPos = {
+        x: parentNow.x + shipLocal.x,
+        y: parentNow.y + shipLocal.y,
+      };
+    }
+  }
 
   ship.activeFlightPlan = initializeFlight(
     ship,
@@ -666,9 +766,6 @@ export function redirectShipFlight(
 
   // Override originKm to the exact interpolated position
   ship.activeFlightPlan.originKm = currentKm;
-
-  // Mark as a redirect: origin is a point in space, not a real body
-  ship.activeFlightPlan.originBodyId = undefined;
 
   // Engine is already running — no warmup needed
   if (ship.engine.state !== 'online') {
@@ -824,17 +921,6 @@ export function advanceFlight(flight: FlightState): boolean {
         0.5 * flight.acceleration * timeIntoDecel * timeIntoDecel;
       flight.distanceCovered = accelDistance + coastDistance + decelDistance;
     }
-  }
-
-  // Safety: if distance covered meets or exceeds totalDistance (e.g. after a
-  // course correction reduced totalDistance mid-flight), complete immediately.
-  // This prevents ships from being stuck for the original (stale) totalTime
-  // while crew starves.
-  if (flight.distanceCovered >= flight.totalDistance) {
-    flight.distanceCovered = flight.totalDistance;
-    flight.currentVelocity = 0;
-    flight.phase = 'decelerating';
-    return true;
   }
 
   // 2D ship position (shipPos) is updated externally by updateFlightPosition()
