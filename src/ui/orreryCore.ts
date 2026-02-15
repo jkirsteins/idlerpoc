@@ -171,7 +171,7 @@ export interface MarkerRefs {
 
 /** Ship flight trajectory line and moving dot */
 export interface ShipDotRefs {
-  dot: SVGPolygonElement;
+  dot: SVGCircleElement;
   label: SVGTextElement;
   trajectory: SVGLineElement;
 }
@@ -191,9 +191,6 @@ export interface OrreryRefs {
   focusParentLabel: SVGTextElement;
   markerMap: Map<string, MarkerRefs>;
   shipDotsPool: ShipDotRefs[]; // Pool for multi-ship visualization
-  // Single-ship flight visualization (used by Nav tab)
-  flightLine: SVGLineElement;
-  shipDot: SVGCircleElement;
   currentRing: SVGCircleElement; // pulsing ring at current location
   destRing: SVGCircleElement; // glow ring at destination
   selectionRing: SVGCircleElement; // highlight ring for selected location
@@ -321,29 +318,12 @@ export function createOrreryVisualization(
   flightLayer.setAttribute('class', 'orrery-flights');
   svg.appendChild(flightLayer);
 
-  // Single-ship flight line + ship dot (used by Nav tab)
-  const flightLine = document.createElementNS(SVG_NS, 'line');
-  flightLine.setAttribute('stroke', '#dc2626');
-  flightLine.setAttribute('stroke-width', '1');
-  flightLine.setAttribute('stroke-dasharray', '4,2');
-  flightLine.setAttribute('stroke-opacity', '0.6');
-  flightLine.style.display = 'none';
-  flightLayer.appendChild(flightLine);
-
-  const shipDot = document.createElementNS(SVG_NS, 'circle');
-  shipDot.setAttribute('r', '3');
-  shipDot.setAttribute('fill', '#dc2626');
-  shipDot.setAttribute('stroke', '#fff');
-  shipDot.setAttribute('stroke-width', '0.5');
-  shipDot.style.display = 'none';
-  flightLayer.appendChild(shipDot);
-
-  // Multi-ship dot pool (used by Fleet Map)
+  // Ship dot pool (circles for all ships)
   const shipDotsPool: ShipDotRefs[] = [];
   const maxShips = config.maxShips || 10;
   for (let i = 0; i < maxShips; i++) {
-    const dot = document.createElementNS(SVG_NS, 'polygon');
-    dot.setAttribute('points', '0,-4 3.5,4 -3.5,4'); // Triangle pointing up, ~8 SVG units tall
+    const dot = document.createElementNS(SVG_NS, 'circle');
+    dot.setAttribute('r', '3');
     dot.setAttribute('stroke', '#fff');
     dot.setAttribute('stroke-width', '0.5');
     dot.style.display = 'none';
@@ -387,13 +367,12 @@ export function createOrreryVisualization(
   currentRing.appendChild(currentRingOpacAnim);
   flightLayer.appendChild(currentRing);
 
-  // Destination glow ring (steady)
+  // Destination glow ring (steady, radius set dynamically relative to location dot size)
   const destRing = document.createElementNS(SVG_NS, 'circle');
   destRing.setAttribute('fill', 'none');
   destRing.setAttribute('stroke', '#4a9eff');
   destRing.setAttribute('stroke-width', '1.5');
   destRing.setAttribute('stroke-opacity', '0.6');
-  destRing.setAttribute('r', '10');
   destRing.style.display = 'none';
   flightLayer.appendChild(destRing);
 
@@ -483,8 +462,6 @@ export function createOrreryVisualization(
     focusParentLabel,
     markerMap,
     shipDotsPool,
-    flightLine,
-    shipDot,
     currentRing,
     destRing,
     selectionRing,
@@ -546,10 +523,9 @@ export function showMarker(refs: MarkerRefs): void {
 
 // ─── Mode Update Functions ───────────────────────────────────────
 
-export interface OrreryModeState {
-  type: 'overview' | 'focus';
-  parentId?: string;
-}
+export type OrreryModeState =
+  | { type: 'overview' }
+  | { type: 'focus'; parentId: string };
 
 export interface LocationRenderInfo {
   id: string;
@@ -598,7 +574,7 @@ export function computeLocationRenderInfo(
     const parentLoc = locations.find((l) => l.id === mode.parentId);
     if (!parentLoc) return [];
 
-    const childIds = clusterData.childrenMap.get(mode.parentId!) || [];
+    const childIds = clusterData.childrenMap.get(mode.parentId) || [];
     const children = childIds
       .map((id) => locations.find((l) => l.id === id))
       .filter((l): l is WorldLocation => l !== undefined);
@@ -701,7 +677,7 @@ export function updateOrreryModeUI(
     orreryRefs.focusParentLabel.textContent = parentLoc.name;
 
     // Configure local orbit rings
-    const childIds = clusterData.childrenMap.get(mode.parentId!) || [];
+    const childIds = clusterData.childrenMap.get(mode.parentId) || [];
     const children = childIds
       .map((id) => locations.find((l) => l.id === id))
       .filter((l): l is WorldLocation => l !== undefined);

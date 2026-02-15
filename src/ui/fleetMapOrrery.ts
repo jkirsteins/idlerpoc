@@ -195,17 +195,17 @@ export function createFleetMapOrrery(
         callbacks.onSelectShip(ship.shipId);
       });
 
-      // Triangle indicator (matching ship color)
-      const triangle = document.createElement('div');
-      triangle.style.cssText = `
-        width: 0;
-        height: 0;
-        border-left: 4px solid transparent;
-        border-right: 4px solid transparent;
-        border-bottom: 7px solid ${ship.color};
+      // Circle indicator (matching ship color and size)
+      const circle = document.createElement('div');
+      circle.style.cssText = `
+        width: ${ship.isActive ? '10px' : '7px'};
+        height: ${ship.isActive ? '10px' : '7px'};
+        border-radius: 50%;
+        background: ${ship.color};
         flex-shrink: 0;
+        ${ship.isActive ? 'box-shadow: 0 0 4px ' + ship.color + ';' : ''}
       `;
-      row.appendChild(triangle);
+      row.appendChild(circle);
 
       // Ship name
       const name = document.createElement('span');

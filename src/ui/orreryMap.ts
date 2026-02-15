@@ -52,6 +52,11 @@ export interface OrreryMapRefs {
   clusterButtonsContainer: HTMLElement | null;
   backButton: HTMLElement;
   focusTitle: HTMLElement;
+  getLastSvgPositions: () => Map<
+    string,
+    { x: number; y: number; dotR: number }
+  >;
+  getCurrentMode: () => OrreryModeState;
 }
 
 /**
@@ -180,6 +185,12 @@ export function createOrreryMap(
 
   // Orrery mode state
   let orreryMode: OrreryModeState = { type: 'overview' };
+
+  // Cached SVG positions from last update (for Nav ring positioning)
+  let lastSvgPositions = new Map<
+    string,
+    { x: number; y: number; dotR: number }
+  >();
 
   // Create orrery with config
   const orreryRefs: OrreryRefs = createOrreryVisualization(
@@ -326,6 +337,9 @@ export function createOrreryMap(
       svgPositions.set(info.id, { ...info.svgPos, dotR: info.dotR });
     }
 
+    // Cache positions for external use (Nav ring positioning)
+    lastSvgPositions = svgPositions;
+
     // Apply render info to markers
     for (const info of renderInfo) {
       const refs = markerMap.get(info.id);
@@ -357,8 +371,17 @@ export function createOrreryMap(
       }
     }
 
-    // Update ship visualization
-    updateShipVisualization(orreryRefs, currentShips, svgPositions, gameData);
+    // Update ship visualization with mode and cluster data
+    updateShipVisualization(
+      orreryRefs,
+      currentShips,
+      svgPositions,
+      gameData,
+      orreryMode,
+      {
+        childrenMap: clusterChildrenMap,
+      }
+    );
   }
 
   // Initial render
@@ -383,6 +406,8 @@ export function createOrreryMap(
       clusterButtonsContainer,
       backButton,
       focusTitle,
+      getLastSvgPositions: () => lastSvgPositions,
+      getCurrentMode: () => orreryMode,
     },
   };
 }

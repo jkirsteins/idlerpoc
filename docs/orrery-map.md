@@ -1,6 +1,6 @@
 # Orrery Map Architecture
 
-The orrery map is an SVG-based solar system visualization in `src/ui/navigationView.ts`. It has two modes: **Overview** (full solar system) and **Focus** (zoomed into a cluster like the Earth system). This document covers the coordinate systems, projection pipeline, and known pitfalls.
+The orrery map is an SVG-based solar system visualization used by both the Nav tab (single-ship) and Fleet Map tab (multi-ship). It has two modes: **Overview** (full solar system) and **Focus** (zoomed into a cluster like the Earth system). This document covers the coordinate systems, projection pipeline, and known pitfalls.
 
 ## Coordinate Systems
 
@@ -107,13 +107,39 @@ Sun
 
 `findClusterOwner(loc, world)` walks up this tree to find the top-level body (e.g., Gateway → Earth, Phobos Station → Mars). This determines the parent body used for local-frame conversions.
 
+## Ship Visualization
+
+Ship dots, trajectories, and labels are rendered by `updateShipVisualization()` in `orreryUpdate.ts`, shared between Nav tab (single ship) and Fleet Map (multi-ship).
+
+### Ship Dots
+
+- **Size**: All ships use `r=1.5` (smaller than location dots)
+- **Active ship stroke**: Yellow (`#ffc107`) during burn phases (accelerating/decelerating), white (`#fff`) during coast, width = `radius * 0.3`
+- **Inactive ship stroke**: Ship color, width = `radius * 0.2`
+
+### Ship Labels
+
+- Only shown for the active ship (to reduce clutter in Fleet Map)
+- Font size `4` (smaller than location labels which use `7`)
+
+### Destination Ring
+
+- Blue ring (`#4a9eff`) around the active ship's destination
+- Radius = `locationDotRadius * 1.6` (proportional to location size, not a fixed offset)
+- Shown in both Nav tab and Fleet Map
+- Nav tab hides it when destination equals current location or selected location (to avoid redundant highlighting)
+
 ## Key Files
 
-| File                                         | Responsibility                                                            |
-| -------------------------------------------- | ------------------------------------------------------------------------- |
-| `src/ui/navigationView.ts`                   | Orrery SVG rendering, focus/overview modes, trajectory visualization      |
-| `src/ui/mapProjection.ts`                    | Coordinate projection functions (heliocentric → SVG, local → SVG)         |
-| `src/orbitalMechanics.ts`                    | `getLocationPosition()`, `solveIntercept()`, orbital position computation |
-| `src/flightPhysics.ts`                       | `initializeFlight()`, `redirectShipFlight()`, `findClusterOwner()`        |
-| `src/gameTick.ts`                            | `updateFlightPosition()` — per-tick `shipPos` lerp                        |
-| `src/__tests__/trajectoryProjection.test.ts` | Tests for trajectory projection and redirect correctness                  |
+| File                                         | Responsibility                                                                            |
+| -------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| `src/ui/orreryCore.ts`                       | SVG element creation, orrery visualization setup, shared refs                             |
+| `src/ui/orreryUpdate.ts`                     | Ship visualization (dots, trajectories, labels), destination ring, gravity assist markers |
+| `src/ui/orreryMap.ts`                        | Unified orrery map component used by both Nav and Fleet tabs                              |
+| `src/ui/navigationView.ts`                   | Nav tab integration, single-ship orrery with selection overlay                            |
+| `src/ui/fleetMapOrrery.ts`                   | Fleet Map tab integration, multi-ship orrery with legend                                  |
+| `src/ui/mapProjection.ts`                    | Coordinate projection functions (heliocentric → SVG, local → SVG)                         |
+| `src/orbitalMechanics.ts`                    | `getLocationPosition()`, `solveIntercept()`, orbital position computation                 |
+| `src/flightPhysics.ts`                       | `initializeFlight()`, `redirectShipFlight()`, `findClusterOwner()`                        |
+| `src/gameTick.ts`                            | `updateFlightPosition()` — per-tick `shipPos` lerp                                        |
+| `src/__tests__/trajectoryProjection.test.ts` | Tests for trajectory projection and redirect correctness                                  |
