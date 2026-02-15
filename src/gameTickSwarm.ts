@@ -34,7 +34,11 @@ export interface TickResult {
   logEntries: LogEntry[];
 }
 
-export function applyTick(data: GameData, currentTime: number): TickResult {
+export function applyTick(
+  data: GameData,
+  currentTime: number,
+  forcedTicks?: number
+): TickResult {
   const result: TickResult = {
     workersHatched: 0,
     workersDied: 0,
@@ -44,14 +48,17 @@ export function applyTick(data: GameData, currentTime: number): TickResult {
     logEntries: [],
   };
 
-  // Calculate time elapsed
-  const elapsedTicks = Math.floor(
-    (currentTime - data.lastTickTimestamp) / 1000
-  );
+  const elapsedTicks =
+    typeof forcedTicks === 'number'
+      ? Math.floor(forcedTicks)
+      : Math.floor((currentTime - data.lastTickTimestamp) / 1000);
   if (elapsedTicks <= 0) return result;
 
-  // Cap at reasonable max for performance (1 day)
-  const ticksToProcess = Math.min(elapsedTicks, SWARM_CONSTANTS.TICKS_PER_DAY);
+  // Cap at reasonable max for realtime path (forced ticks are pre-batched externally)
+  const ticksToProcess =
+    typeof forcedTicks === 'number'
+      ? elapsedTicks
+      : Math.min(elapsedTicks, SWARM_CONSTANTS.TICKS_PER_DAY);
 
   // Process each tick
   for (let i = 0; i < ticksToProcess; i++) {

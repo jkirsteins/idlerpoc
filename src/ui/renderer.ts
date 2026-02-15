@@ -33,7 +33,7 @@ export interface RendererCallbacks {
   onResetGame: () => void;
 }
 
-export type TabId = 'swarm' | 'planet' | 'system' | 'log' | 'settings';
+export type TabId = 'swarm' | 'planet' | 'system' | 'log';
 
 interface RendererState {
   activeTab: TabId;
@@ -468,7 +468,6 @@ function createMainPanel(
     { id: 'planet', label: 'Planet' },
     { id: 'system', label: 'System' },
     { id: 'log', label: 'Log' },
-    { id: 'settings', label: 'Settings' },
   ];
 
   for (const { id, label } of tabs) {
@@ -567,39 +566,9 @@ function getTabContent(
       return createSystemTabContent(gameData);
     case 'log':
       return createLogTabContent(gameData);
-    case 'settings':
-      return createSettingsTabContent();
     default:
       return '';
   }
-}
-
-function createSettingsTabContent(): string {
-  return `
-    <div style="max-width: 560px;">
-      <h2 style="color: var(--accent-cyan, #00e5ff); margin-bottom: 1rem;">Settings</h2>
-      <div style="background: var(--bg-panel, #12121a); padding: 1rem; border-radius: 8px; display: flex; flex-direction: column; gap: 0.75rem;">
-        <button
-          onclick="window.swarmCallbacks?.saveGame()"
-          style="padding: 0.75rem; background: #2a2a3a; color: #fff; border: none; border-radius: 4px; cursor: pointer;"
-        >
-          Download Save
-        </button>
-        <button
-          onclick="window.swarmCallbacks?.loadGame()"
-          style="padding: 0.75rem; background: #2a2a3a; color: #fff; border: none; border-radius: 4px; cursor: pointer;"
-        >
-          Upload Save
-        </button>
-        <button
-          onclick="window.swarmCallbacks?.resetGame()"
-          style="padding: 0.75rem; background: #5c1a1a; color: #ff9b9b; border: none; border-radius: 4px; cursor: pointer;"
-        >
-          Reset Game
-        </button>
-      </div>
-    </div>
-  `;
 }
 
 function createSwarmTabContent(
