@@ -28,6 +28,23 @@ export interface MapZoomPanControls {
   zoomOutBtn: HTMLButtonElement;
   /** Animate to center the given SVG coordinate at the given zoom level. */
   zoomTo(svgX: number, svgY: number, zoom: number, animate?: boolean): void;
+  /** Update the world bounds used for clamping and reset. */
+  setViewBounds(
+    bounds: { x: number; y: number; width: number; height: number },
+    options?: { resetToFit?: boolean }
+  ): void;
+}
+
+export interface MapZoomPanOptions {
+  initialViewBox?: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  };
+  startZoom?: number;
+  minZoom?: number;
+  maxZoom?: number;
 }
 
 /**
@@ -36,20 +53,62 @@ export interface MapZoomPanControls {
  */
 export function setupMapZoomPan(
   svg: SVGSVGElement,
-  container: HTMLElement
+  container: HTMLElement,
+  options: MapZoomPanOptions = {}
 ): MapZoomPanControls {
+  if (!container.style.touchAction) {
+    container.style.touchAction = 'none';
+  }
+  const minZoom = options.minZoom ?? MIN_ZOOM;
+  const maxZoom = options.maxZoom ?? MAX_ZOOM;
+  let initialViewBox = options.initialViewBox ?? {
+    x: INITIAL_VB_X,
+    y: INITIAL_VB_Y,
+    width: INITIAL_VB_WIDTH,
+    height: INITIAL_VB_HEIGHT,
+  };
+  const panDebugEnabled =
+    typeof window !== 'undefined' &&
+    new URLSearchParams(window.location.search).get('debugpan') === '1';
+  const debugPan = (...args: unknown[]) => {
+    if (!panDebugEnabled) return;
+    console.debug('[mapZoomPan]', ...args);
+  };
+  const eventSurface: HTMLElement = container;
+
   // ViewBox state (in SVG coordinate space)
-  // Start at zoom level 4 centered on origin
-  const START_ZOOM = 4;
-  const startSize = INITIAL_VB_WIDTH / START_ZOOM; // 100
-  let viewBoxX = -startSize / 2;
-  let viewBoxY = -startSize / 2;
-  let viewBoxWidth = startSize;
-  let viewBoxHeight = startSize;
+  const defaultStartZoom = Math.min(4, maxZoom);
+  const startZoom = Math.max(minZoom, options.startZoom ?? defaultStartZoom);
+  const startWidth = initialViewBox.width / startZoom;
+  const startHeight = initialViewBox.height / startZoom;
+  const initialCenterX = initialViewBox.x + initialViewBox.width / 2;
+  const initialCenterY = initialViewBox.y + initialViewBox.height / 2;
+  let viewBoxX = initialCenterX - startWidth / 2;
+  let viewBoxY = initialCenterY - startHeight / 2;
+  let viewBoxWidth = startWidth;
+  let viewBoxHeight = startHeight;
+
+  function getDefaultViewBox(): {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  } {
+    const centerX = initialViewBox.x + initialViewBox.width / 2;
+    const centerY = initialViewBox.y + initialViewBox.height / 2;
+    const width = initialViewBox.width / startZoom;
+    const height = initialViewBox.height / startZoom;
+    return {
+      x: centerX - width / 2,
+      y: centerY - height / 2,
+      width,
+      height,
+    };
+  }
 
   /** Get current zoom level (1x = default, 10x = max zoomed in) */
   function getCurrentZoom(): number {
-    return INITIAL_VB_WIDTH / viewBoxWidth;
+    return initialViewBox.width / viewBoxWidth;
   }
 
   /**
@@ -59,16 +118,18 @@ export function setupMapZoomPan(
    */
   function clampViewBox(): void {
     // Clamp dimensions to zoom limits
-    const minWidth = INITIAL_VB_WIDTH / MAX_ZOOM; // 40 at 10x zoom
-    const maxWidth = INITIAL_VB_WIDTH / MIN_ZOOM; // 400 at 1x zoom
+    const minWidth = initialViewBox.width / maxZoom;
+    const maxWidth = initialViewBox.width / minZoom;
+    const minHeight = initialViewBox.height / maxZoom;
+    const maxHeight = initialViewBox.height / minZoom;
     viewBoxWidth = Math.max(minWidth, Math.min(maxWidth, viewBoxWidth));
-    viewBoxHeight = Math.max(minWidth, Math.min(maxWidth, viewBoxHeight));
+    viewBoxHeight = Math.max(minHeight, Math.min(maxHeight, viewBoxHeight));
 
     // Clamp origin to keep viewBox within bounds
-    const minX = -200;
-    const maxX = 200 - viewBoxWidth;
-    const minY = -200;
-    const maxY = 200 - viewBoxHeight;
+    const minX = initialViewBox.x;
+    const maxX = initialViewBox.x + initialViewBox.width - viewBoxWidth;
+    const minY = initialViewBox.y;
+    const maxY = initialViewBox.y + initialViewBox.height - viewBoxHeight;
     viewBoxX = Math.max(minX, Math.min(maxX, viewBoxX));
     viewBoxY = Math.max(minY, Math.min(maxY, viewBoxY));
   }
@@ -98,14 +159,16 @@ export function setupMapZoomPan(
    * Update button states based on current viewBox.
    */
   function updateUIState(): void {
+    const defaultView = getDefaultViewBox();
+    const epsilon = 0.0001;
     const isDefault =
-      viewBoxX === INITIAL_VB_X &&
-      viewBoxY === INITIAL_VB_Y &&
-      viewBoxWidth === INITIAL_VB_WIDTH &&
-      viewBoxHeight === INITIAL_VB_HEIGHT;
+      Math.abs(viewBoxX - defaultView.x) < epsilon &&
+      Math.abs(viewBoxY - defaultView.y) < epsilon &&
+      Math.abs(viewBoxWidth - defaultView.width) < epsilon &&
+      Math.abs(viewBoxHeight - defaultView.height) < epsilon;
     resetBtn.style.display = isDefault ? 'none' : '';
-    zoomInBtn.disabled = getCurrentZoom() >= MAX_ZOOM;
-    zoomOutBtn.disabled = getCurrentZoom() <= MIN_ZOOM;
+    zoomInBtn.disabled = getCurrentZoom() >= maxZoom;
+    zoomOutBtn.disabled = getCurrentZoom() <= minZoom;
   }
 
   /**
@@ -118,6 +181,15 @@ export function setupMapZoomPan(
       `${viewBoxX} ${viewBoxY} ${viewBoxWidth} ${viewBoxHeight}`
     );
     updateUIState();
+  }
+
+  function safeSetPointerCapture(pointerId: number): void {
+    if (!('setPointerCapture' in eventSurface)) return;
+    try {
+      eventSurface.setPointerCapture(pointerId);
+    } catch (error) {
+      debugPan('setPointerCapture failed', { pointerId, error });
+    }
   }
 
   /**
@@ -169,11 +241,11 @@ export function setupMapZoomPan(
     const oldWidth = viewBoxWidth;
     const oldHeight = viewBoxHeight;
     const newZoom = Math.max(
-      MIN_ZOOM,
-      Math.min(MAX_ZOOM, getCurrentZoom() * zoomFactor)
+      minZoom,
+      Math.min(maxZoom, getCurrentZoom() * zoomFactor)
     );
-    const newWidth = INITIAL_VB_WIDTH / newZoom;
-    const newHeight = INITIAL_VB_HEIGHT / newZoom;
+    const newWidth = initialViewBox.width / newZoom;
+    const newHeight = initialViewBox.height / newZoom;
 
     // Calculate how far the fixed point is into the current viewBox (0-1)
     const fx = (svgX - viewBoxX) / oldWidth;
@@ -227,11 +299,12 @@ export function setupMapZoomPan(
 
   resetBtn.addEventListener('click', (e) => {
     e.stopPropagation();
+    const defaultView = getDefaultViewBox();
     animateViewBoxTo(
-      INITIAL_VB_X,
-      INITIAL_VB_Y,
-      INITIAL_VB_WIDTH,
-      INITIAL_VB_HEIGHT
+      defaultView.x,
+      defaultView.y,
+      defaultView.width,
+      defaultView.height
     );
   });
 
@@ -260,9 +333,9 @@ export function setupMapZoomPan(
     targetZoom: number,
     animate = true
   ): void {
-    targetZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, targetZoom));
-    const targetWidth = INITIAL_VB_WIDTH / targetZoom;
-    const targetHeight = INITIAL_VB_HEIGHT / targetZoom;
+    targetZoom = Math.max(minZoom, Math.min(maxZoom, targetZoom));
+    const targetWidth = initialViewBox.width / targetZoom;
+    const targetHeight = initialViewBox.height / targetZoom;
     const targetViewBoxX = svgX - targetWidth / 2;
     const targetViewBoxY = svgY - targetHeight / 2;
 
@@ -280,6 +353,38 @@ export function setupMapZoomPan(
       viewBoxHeight = targetHeight;
       applyViewBox();
     }
+  }
+
+  function setViewBounds(
+    bounds: { x: number; y: number; width: number; height: number },
+    options: { resetToFit?: boolean } = {}
+  ): void {
+    const nextBounds = {
+      x: bounds.x,
+      y: bounds.y,
+      width: Math.max(1, bounds.width),
+      height: Math.max(1, bounds.height),
+    };
+
+    const currentZoom = getCurrentZoom();
+    const centerX = viewBoxX + viewBoxWidth / 2;
+    const centerY = viewBoxY + viewBoxHeight / 2;
+    initialViewBox = nextBounds;
+
+    if (options.resetToFit ?? false) {
+      const defaultView = getDefaultViewBox();
+      viewBoxX = defaultView.x;
+      viewBoxY = defaultView.y;
+      viewBoxWidth = defaultView.width;
+      viewBoxHeight = defaultView.height;
+    } else {
+      viewBoxWidth = initialViewBox.width / currentZoom;
+      viewBoxHeight = initialViewBox.height / currentZoom;
+      viewBoxX = centerX - viewBoxWidth / 2;
+      viewBoxY = centerY - viewBoxHeight / 2;
+    }
+
+    applyViewBox();
   }
 
   // --- Pointer tracking state ---
@@ -312,8 +417,13 @@ export function setupMapZoomPan(
     };
   }
 
+  function shouldIgnoreTarget(target: EventTarget | null): boolean {
+    if (!(target instanceof Element)) return false;
+    return target.closest('button') !== null;
+  }
+
   // Capture-phase click listener: suppress clicks after drags
-  svg.addEventListener(
+  eventSurface.addEventListener(
     'click',
     (e) => {
       if (wasDragging) {
@@ -325,7 +435,15 @@ export function setupMapZoomPan(
     true
   );
 
-  svg.addEventListener('pointerdown', (e: PointerEvent) => {
+  eventSurface.addEventListener('pointerdown', (e: PointerEvent) => {
+    if (shouldIgnoreTarget(e.target)) return;
+    debugPan('pointerdown', {
+      pointerId: e.pointerId,
+      pointerType: e.pointerType,
+      x: e.clientX,
+      y: e.clientY,
+    });
+
     // Don't capture immediately — defer until drag threshold is exceeded
     // so that taps/clicks propagate normally to child elements (hitAreas).
     pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
@@ -340,16 +458,17 @@ export function setupMapZoomPan(
       wasDragging = false;
     } else if (pointers.size === 2) {
       // Pinch always captures immediately
-      svg.setPointerCapture(e.pointerId);
+      safeSetPointerCapture(e.pointerId);
       dragStart = null;
       pinchStartDist = getPointerDistance();
       pinchStartWidth = viewBoxWidth;
       const mid = getPointerMidpoint();
       pinchMidpointSvg = screenToSvg(mid.x, mid.y);
+      debugPan('pinch start', { pinchStartDist });
     }
   });
 
-  svg.addEventListener('pointermove', (e: PointerEvent) => {
+  eventSurface.addEventListener('pointermove', (e: PointerEvent) => {
     if (!pointers.has(e.pointerId)) return;
     pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
 
@@ -361,7 +480,8 @@ export function setupMapZoomPan(
       if (dist > DRAG_THRESHOLD) {
         if (!wasDragging) {
           // Capture pointer once drag begins so pan continues outside SVG bounds
-          svg.setPointerCapture(e.pointerId);
+          safeSetPointerCapture(e.pointerId);
+          debugPan('drag start', { pointerId: e.pointerId, dist });
         }
         wasDragging = true;
       }
@@ -383,10 +503,10 @@ export function setupMapZoomPan(
       const newWidth = pinchStartWidth / ratio;
 
       // Clamp to zoom limits
-      const newZoom = INITIAL_VB_WIDTH / newWidth;
-      const clampedZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, newZoom));
-      const clampedWidth = INITIAL_VB_WIDTH / clampedZoom;
-      const clampedHeight = INITIAL_VB_HEIGHT / clampedZoom;
+      const newZoom = initialViewBox.width / newWidth;
+      const clampedZoom = Math.max(minZoom, Math.min(maxZoom, newZoom));
+      const clampedWidth = initialViewBox.width / clampedZoom;
+      const clampedHeight = initialViewBox.height / clampedZoom;
 
       // Keep SVG midpoint fixed
       viewBoxX = pinchMidpointSvg.x - clampedWidth / 2;
@@ -395,12 +515,14 @@ export function setupMapZoomPan(
       viewBoxHeight = clampedHeight;
 
       wasDragging = true;
+      debugPan('pinch move', { newDist, clampedZoom });
       applyViewBox();
     }
   });
 
   const handlePointerUp = (e: PointerEvent): void => {
     pointers.delete(e.pointerId);
+    debugPan('pointerup', { pointerId: e.pointerId, remaining: pointers.size });
     if (pointers.size === 0) {
       dragStart = null;
       pinchMidpointSvg = null;
@@ -416,13 +538,14 @@ export function setupMapZoomPan(
       pinchMidpointSvg = null;
     }
   };
-  svg.addEventListener('pointerup', handlePointerUp);
-  svg.addEventListener('pointercancel', handlePointerUp);
+  eventSurface.addEventListener('pointerup', handlePointerUp);
+  eventSurface.addEventListener('pointercancel', handlePointerUp);
 
   // Mouse wheel and trackpad gestures
-  svg.addEventListener(
+  eventSurface.addEventListener(
     'wheel',
     (e: WheelEvent) => {
+      if (shouldIgnoreTarget(e.target)) return;
       e.preventDefault();
 
       // Detect gesture type:
@@ -455,6 +578,14 @@ export function setupMapZoomPan(
 
   // Initialize viewBox
   applyViewBox();
+  debugPan('initialized', {
+    viewBoxX,
+    viewBoxY,
+    viewBoxWidth,
+    viewBoxHeight,
+    minZoom,
+    maxZoom,
+  });
 
-  return { resetBtn, zoomInBtn, zoomOutBtn, zoomTo };
+  return { resetBtn, zoomInBtn, zoomOutBtn, zoomTo, setViewBounds };
 }

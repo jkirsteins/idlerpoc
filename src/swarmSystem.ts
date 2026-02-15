@@ -7,15 +7,27 @@ import type {
   LogEntry,
 } from './models/swarmTypes';
 import { SWARM_CONSTANTS } from './models/swarmTypes';
+import {
+  DEFAULT_QUEEN_ALIEN_TYPE_ID,
+  getQueenMetabolismProfile,
+} from './alienTypes';
 
 // ============================================================================
 // QUEEN OPERATIONS
 // ============================================================================
 
-export function createQueen(zoneId: string): Queen {
+export function createQueen(zoneId: string, yearTicks: number): Queen {
+  const profile = getQueenMetabolismProfile(
+    DEFAULT_QUEEN_ALIEN_TYPE_ID,
+    100,
+    100,
+    yearTicks
+  );
+
   return {
     id: `queen-${Date.now()}`,
     locationZoneId: zoneId,
+    alienTypeId: DEFAULT_QUEEN_ALIEN_TYPE_ID,
     neuralCapacity: SWARM_CONSTANTS.QUEEN_BASE_CAPACITY,
     directive: 'idle',
     commandQueue: [],
@@ -26,9 +38,15 @@ export function createQueen(zoneId: string): Queen {
       ticksRemaining: 0,
     },
     energy: {
-      current: 50,
+      current: 100,
       max: 100,
     },
+    health: {
+      current: 100,
+      max: 100,
+    },
+    metabolismPerTick: profile.metabolismPerTick,
+    hpDecayPerTickAtZeroEnergy: profile.hpDecayPerTickAtZeroEnergy,
   };
 }
 

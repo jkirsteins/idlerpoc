@@ -86,6 +86,7 @@ export interface Worker {
 
   // Zone assignment
   assignedZoneId?: string;
+  currentZoneId?: string; // Where worker is currently located
 }
 
 // ============================================================================
@@ -116,6 +117,7 @@ export interface WorkerOrder {
 export interface Queen {
   id: string;
   locationZoneId: string; // Where embedded
+  alienTypeId: string;
 
   // Neural capacity
   neuralCapacity: number; // Base 20
@@ -129,6 +131,9 @@ export interface Queen {
 
   // Resources
   energy: EnergyPool;
+  health: EnergyPool;
+  metabolismPerTick: number;
+  hpDecayPerTickAtZeroEnergy: number;
 
   // Position
   position?: { x: number; y: number }; // Within zone
@@ -146,6 +151,26 @@ export type ZoneState =
   | 'harvesting'
   | 'saturated';
 
+export type TerrainType = 'soil' | 'liquid' | 'ice';
+export type TemperatureZone = 'hot' | 'warm' | 'temperate' | 'cold' | 'frozen';
+export type AtmosphereState = 'thick' | 'thin' | 'none';
+export type InsolationBand = 'light' | 'terminator' | 'dark';
+export type ZoneBiome =
+  | 'sunscorch'
+  | 'temperate-basin'
+  | 'twilight-marsh'
+  | 'night-ice'
+  | 'mineral-ridge'
+  | 'barren-plain';
+
+export interface ZoneAtmosphereGases {
+  n2: number;
+  co2: number;
+  o2: number;
+  ch4: number;
+  inert: number;
+}
+
 export interface Zone {
   id: string;
   name: string;
@@ -158,6 +183,7 @@ export interface Zone {
   // State
   state: ZoneState;
   progress: number; // 0-100 toward next state
+  ownedBySwarm: boolean;
 
   // Resources
   biomassRate: number; // Surface lichen growth per tick
@@ -171,6 +197,25 @@ export interface Zone {
 
   // Workers
   assignedWorkers: string[]; // Worker IDs
+
+  // Spatial - Hex grid coordinates (axial)
+  hexQ: number;
+  hexR: number;
+  hexS: number; // = -q-r
+
+  // Environment - derived from temperature calculation
+  terrainType: TerrainType;
+  temperatureZone: TemperatureZone;
+  temperatureKelvin: number;
+  atmosphere: AtmosphereState;
+  insolationBand: InsolationBand;
+  biome: ZoneBiome;
+  hasMineralVein: boolean;
+  atmosphericMass: number;
+  atmosphericGases: ZoneAtmosphereGases;
+
+  // Connectivity - neighbor zone IDs
+  neighborIds: string[];
 
   // Bounds for procedural naming
   continentIndex: number;
@@ -192,8 +237,14 @@ export interface Planet {
   id: string;
   name: string;
   trappistId: string; // b, c, d, e, f, g, h
-  distanceAU: number; // From star
+  distanceAU: number; // Semi-major axis in AU
   orbitalPeriod: number; // Earth days
+  eccentricity: number; // Orbital eccentricity (0 = circular)
+  initialAngleRad: number; // Starting angle at gameTime=0
+
+  // Time: rotation period in Earth hours (tidally locked = orbital period)
+  // Stored as ticks per local day for the UI
+  dayLengthTicks: number;
 
   // State
   discovered: boolean; // Always true for all 7
@@ -203,8 +254,9 @@ export interface Planet {
   zones: Zone[];
   moons: Moon[];
 
-  // Visual position (simplified for v1)
-  angle: number; // Current orbital angle
+  // Position (updated each tick by orbital mechanics)
+  x: number; // km from star center
+  y: number; // km from star center
 }
 
 // ============================================================================
@@ -275,7 +327,6 @@ export interface GameData {
 
   // Settings
   isPaused: boolean;
-  timeSpeed: 1 | 2 | 5;
 }
 
 // ============================================================================

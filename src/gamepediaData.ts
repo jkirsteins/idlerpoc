@@ -50,7 +50,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
     sections: [
       {
         paragraphs: [
-          'Welcome to The Long Haul: 2247! You begin docked at Earth with a [[ship-classes|Class I]] vessel, your captain alone at the helm, 5,000 [[credits-economy|credits]], a full fuel tank, and enough [[provisions|provisions]] to last about 30 days. This guide walks you through the first things to do.',
+          'Welcome to Infinite Brood! You begin docked at Earth with a [[ship-classes|Class I]] vessel, your captain alone at the helm, 5,000 [[credits-economy|credits]], a full fuel tank, and enough [[provisions|provisions]] to last about 30 days. This guide walks you through the first things to do.',
         ],
       },
       {

@@ -1,7 +1,24 @@
-// Swarm Game Renderer
+// Swarm Game Renderer - Component-based architecture
+// Follows mount-once / update-on-tick pattern from component.ts
 
-import type { GameData } from '../models/swarmTypes';
+import { SWARM_CONSTANTS, type GameData } from '../models/swarmTypes';
 import { calculateSwarmAggregates } from '../swarmSystem';
+import {
+  formatAtmosphericMass,
+  formatPercentage,
+  formatPressureIndex,
+} from '../formatting';
+import { derivePlanetAtmosphere } from '../planetAtmosphere';
+import type { Component } from './component';
+import { createOrreryComponent, type OrreryCallbacks } from './orreryComponent';
+import {
+  createPlanetMapComponent,
+  type PlanetMapCallbacks,
+} from './planetMapComponent';
+import {
+  createPlanetLocalComponent,
+  type PlanetLocalCallbacks,
+} from './planetLocalComponent';
 
 // ============================================================================
 // TYPES
@@ -9,7 +26,6 @@ import { calculateSwarmAggregates } from '../swarmSystem';
 
 export interface RendererCallbacks {
   onTogglePause: () => void;
-  onSetTimeSpeed: (speed: 1 | 2 | 5) => void;
   onSetQueenDirective: (directive: 'gather_biomass' | 'idle') => void;
   onToggleEggProduction: (enabled: boolean) => void;
   onExportSave: () => string;
@@ -17,303 +33,614 @@ export interface RendererCallbacks {
   onResetGame: () => void;
 }
 
-export interface GameState {
-  gameData: GameData;
-  activeTab: 'swarm' | 'planet' | 'system' | 'log';
+export type TabId = 'swarm' | 'planet' | 'system' | 'log';
+
+interface RendererState {
+  activeTab: TabId;
 }
 
 // ============================================================================
-// MAIN RENDER FUNCTION
+// MAIN RENDER FUNCTION - Mount Once
 // ============================================================================
+
+export interface Renderer {
+  update: (gameData: GameData) => void;
+  destroy: () => void;
+}
+
+// Track current layout for potential cleanup (used in destroy)
+let _currentLayout: HTMLElement | null = null;
+void _currentLayout; // Suppress unused warning - used in destroy()
 
 export function render(
   container: HTMLElement,
   gameData: GameData,
   callbacks: RendererCallbacks
-): void {
-  const state: GameState = {
-    gameData,
+): Renderer {
+  // Store state outside render cycle
+  const state: RendererState = {
     activeTab: 'swarm',
   };
 
-  // Clear container
+  // Clear container once on initial mount
   container.innerHTML = '';
 
-  // Create main layout
+  // Create main layout container
   const layout = document.createElement('div');
   layout.className = 'swarm-layout';
   layout.style.cssText = `
-    display: flex;
-    flex-direction: column;
-    height: 100vh;
-    background: #0a0a0f;
-    color: #e0e0e0;
-    font-family: system-ui, -apple-system, sans-serif;
+    display: grid;
+    grid-template-columns: 280px 1fr 50%;
+    grid-template-rows: auto 1fr auto;
+    grid-template-areas:
+      'header header header'
+      'left main right'
+      'footer footer footer';
+    height: 100%;
+    background: var(--bg-void, #050508);
+    color: var(--text-primary, #e0e0e0);
+    font-family: var(--font-body, system-ui, sans-serif);
   `;
 
-  // Header
-  layout.appendChild(createHeader(gameData, callbacks));
+  // Mount all components
+  const header = createHeader(gameData, callbacks);
+  const leftSidebar = createLeftSidebar(gameData);
+  const mainPanel = createMainPanel(gameData, state, callbacks);
+  const rightSidebar = createRightSidebar(gameData);
+  const footer = createFooter(gameData, callbacks);
 
-  // Main content area
-  const content = document.createElement('div');
-  content.className = 'swarm-content';
-  content.style.cssText = `
-    display: flex;
-    flex: 1;
-    overflow: hidden;
-  `;
+  // Set grid areas
+  header.el.style.gridArea = 'header';
+  leftSidebar.el.style.gridArea = 'left';
+  mainPanel.el.style.gridArea = 'main';
+  rightSidebar.el.style.gridArea = 'right';
+  footer.el.style.gridArea = 'footer';
 
-  // Left sidebar - Swarm status
-  content.appendChild(createSwarmSidebar(gameData));
-
-  // Main panel - Active tab
-  content.appendChild(createMainPanel(state, callbacks));
-
-  // Right sidebar - System view mini
-  content.appendChild(createSystemSidebar(gameData));
-
-  layout.appendChild(content);
-
-  // Footer - Controls
-  layout.appendChild(createFooter(gameData, callbacks));
+  // Append all to layout
+  layout.appendChild(header.el);
+  layout.appendChild(leftSidebar.el);
+  layout.appendChild(mainPanel.el);
+  layout.appendChild(rightSidebar.el);
+  layout.appendChild(footer.el);
 
   container.appendChild(layout);
+
+  if (typeof window !== 'undefined') {
+    window.swarmCallbacks = {
+      setQueenDirective: callbacks.onSetQueenDirective,
+      toggleEggProduction: callbacks.onToggleEggProduction,
+      saveGame: () => {
+        const saveData = callbacks.onExportSave();
+        if (!saveData) return;
+        const blob = new Blob([saveData], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `swarm-save-${new Date().toISOString().slice(0, 10)}.json`;
+        link.click();
+        URL.revokeObjectURL(url);
+      },
+      loadGame: () => {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = '.json,application/json';
+        input.addEventListener('change', () => {
+          const file = input.files?.[0];
+          if (!file) return;
+          const reader = new FileReader();
+          reader.onload = () => {
+            const content =
+              typeof reader.result === 'string' ? reader.result : '';
+            if (!content) {
+              alert('Failed to read save file.');
+              return;
+            }
+
+            if (
+              confirm(
+                'Load this save file and replace current progress? This cannot be undone.'
+              )
+            ) {
+              if (callbacks.onImportSave(content)) {
+                alert('Save loaded successfully!');
+              } else {
+                alert('Invalid save file!');
+              }
+            }
+          };
+          reader.readAsText(file);
+        });
+        input.click();
+      },
+      resetGame: callbacks.onResetGame,
+    };
+  }
+
+  // Store reference for updates
+  const update = (gd: GameData) => {
+    header.update(gd);
+    leftSidebar.update(gd);
+    mainPanel.update(gd);
+    rightSidebar.update(gd);
+    footer.update(gd);
+  };
+
+  _currentLayout = layout;
+
+  return {
+    update,
+    destroy: () => {
+      container.innerHTML = '';
+      _currentLayout = null;
+    },
+  };
 }
 
 // ============================================================================
-// HEADER
+// HEADER COMPONENT
 // ============================================================================
 
 function createHeader(
-  gameData: GameData,
-  callbacks: RendererCallbacks
-): HTMLElement {
-  const header = document.createElement('header');
-  header.style.cssText = `
+  _gameData: GameData,
+  _callbacks: RendererCallbacks
+): Component {
+  const el = document.createElement('header');
+  el.style.cssText = `
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 1rem;
-    background: #12121a;
-    border-bottom: 1px solid #2a2a3a;
+    padding: 0.75rem 1rem;
+    background: var(--bg-panel, #0a0a12);
+    border-bottom: 1px solid var(--border-color, #2a2a3a);
   `;
 
-  // Title
+  // Logo
+  const logoContainer = document.createElement('div');
+  logoContainer.style.cssText =
+    'display: flex; align-items: center; gap: 0.75rem;';
+
+  const logo = document.createElement('img');
+  logo.src = '/logo.png';
+  logo.alt = 'TRAPPIST-1 Swarm';
+  logo.style.cssText = 'height: 40px; width: auto;';
+  logoContainer.appendChild(logo);
+
   const title = document.createElement('h1');
   title.textContent = 'TRAPPIST-1 Swarm';
   title.style.cssText = `
     margin: 0;
     font-size: 1.25rem;
-    color: #64ffda;
+    color: var(--accent-cyan, #00e5ff);
+    font-family: var(--font-header, sans-serif);
   `;
-  header.appendChild(title);
+  logoContainer.appendChild(title);
 
-  // Game info
-  const info = document.createElement('div');
-  info.style.cssText = `
-    display: flex;
-    gap: 1.5rem;
-    font-size: 0.9rem;
-  `;
-
-  const day = Math.floor(gameData.gameTime / 480);
-  info.innerHTML = `
-    <span>Day ${day}</span>
-    <span style="color: ${gameData.isPaused ? '#ff6b6b' : '#69f0ae'}">${gameData.isPaused ? 'PAUSED' : 'RUNNING'}</span>
-  `;
-  header.appendChild(info);
+  el.appendChild(logoContainer);
 
   // Settings button
   const settingsBtn = document.createElement('button');
   settingsBtn.textContent = '⚙️';
   settingsBtn.style.cssText = `
     background: transparent;
-    border: 1px solid #444;
+    border: 1px solid var(--border-color, #444);
     color: #fff;
     padding: 0.5rem;
     cursor: pointer;
     border-radius: 4px;
+    font-size: 1rem;
   `;
-  settingsBtn.onclick = () => showSettingsModal(callbacks);
-  header.appendChild(settingsBtn);
+  settingsBtn.onclick = () => showSettingsModal(_callbacks);
+  el.appendChild(settingsBtn);
 
-  return header;
+  return {
+    el,
+    update: (_gameData: GameData) => {
+      // Header is mostly static, could update title/status here if needed
+    },
+  };
 }
 
 // ============================================================================
-// SWARM SIDEBAR
+// LEFT SIDEBAR COMPONENT - Day Progress & Swarm Stats
 // ============================================================================
 
-function createSwarmSidebar(gameData: GameData): HTMLElement {
-  const sidebar = document.createElement('aside');
-  sidebar.style.cssText = `
-    width: 280px;
-    background: #12121a;
-    border-right: 1px solid #2a2a3a;
+function createLeftSidebar(_gameData: GameData): Component {
+  const el = document.createElement('aside');
+  el.className = 'left-sidebar';
+  el.style.cssText = `
+    background: var(--bg-panel, #0a0a12);
+    border-right: 1px solid var(--border-color, #2a2a3a);
     padding: 1rem;
     overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
   `;
 
-  const aggregates = calculateSwarmAggregates(gameData.swarm);
-  const queen = gameData.swarm.queens[0];
+  // Day/Year Display Section
+  const timeSection = document.createElement('div');
+  timeSection.style.cssText = 'text-align: center;';
 
-  sidebar.innerHTML = `
-    <h2 style="margin: 0 0 1rem 0; font-size: 1rem; color: #64ffda;">Swarm Status</h2>
-    
-    <div style="margin-bottom: 1.5rem;">
-      <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
-        <span>Queens:</span>
-        <span style="font-weight: bold;">${aggregates.totalQueens}</span>
-      </div>
-      <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
-        <span>Workers:</span>
-        <span style="font-weight: bold;">${aggregates.totalWorkers}</span>
-      </div>
-      <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
-        <span>Neural Load:</span>
-        <span style="font-weight: bold; color: ${aggregates.neuralLoad > 1 ? '#ff6b6b' : '#69f0ae'}">
-          ${Math.round(aggregates.neuralLoad * 100)}%
-        </span>
-      </div>
-      <div style="display: flex; justify-content: space-between;">
-        <span>Efficiency:</span>
-        <span style="font-weight: bold;">${Math.round(aggregates.efficiency * 100)}%</span>
-      </div>
-    </div>
-    
-    <h3 style="margin: 0 0 0.75rem 0; font-size: 0.9rem; color: #aaa;">Worker Distribution</h3>
-    <div style="font-size: 0.85rem; line-height: 1.6;">
-      <div>• Self-maintenance: ${aggregates.workerStates.selfMaintenance}</div>
-      <div>• Gathering: ${aggregates.workerStates.gathering}</div>
-      <div>• Idle (empty): ${aggregates.workerStates.idleEmpty}</div>
-      <div>• Idle (full): ${aggregates.workerStates.idleCargoFull}</div>
-    </div>
-    
-    ${
-      queen
-        ? `
-    <h3 style="margin: 1.5rem 0 0.75rem 0; font-size: 0.9rem; color: #aaa;">Queen Energy</h3>
-    <div style="background: #1a1a2e; border-radius: 4px; padding: 0.75rem;">
-      <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
-        <span>Current:</span>
-        <span>${Math.floor(queen.energy.current)} / ${queen.energy.max}</span>
-      </div>
-      <div style="background: #2a2a3a; height: 8px; border-radius: 4px; overflow: hidden;">
-        <div style="background: #64ffda; height: 100%; width: ${(queen.energy.current / queen.energy.max) * 100}%"></div>
-      </div>
-      <div style="margin-top: 0.5rem; font-size: 0.8rem; color: #888;">
-        Egg: ${queen.eggProduction.inProgress ? `${Math.floor(queen.eggProduction.progress)}%` : 'Not laying'}
-      </div>
-    </div>
-    `
-        : ''
-    }
+  const yearDisplay = document.createElement('div');
+  yearDisplay.style.cssText = `
+    font-size: 1.1rem;
+    font-weight: bold;
+    color: var(--accent-cyan, #00e5ff);
+    margin-bottom: 0.5rem;
+  `;
+  timeSection.appendChild(yearDisplay);
+
+  // Progress bar container
+  const progressContainer = document.createElement('div');
+  progressContainer.style.cssText = `
+    background: var(--bg-void, #050508);
+    border-radius: 4px;
+    height: 8px;
+    overflow: hidden;
+    position: relative;
   `;
 
-  return sidebar;
+  const progressBar = document.createElement('div');
+  progressBar.style.cssText = `
+    height: 100%;
+    border-radius: 4px;
+    transition: width 0.3s ease, background-color 0.3s ease;
+  `;
+  progressContainer.appendChild(progressBar);
+  timeSection.appendChild(progressContainer);
+
+  const dayLabel = document.createElement('div');
+  dayLabel.style.cssText = `
+    font-size: 0.8rem;
+    color: var(--text-secondary, #888);
+    margin-top: 0.25rem;
+  `;
+  timeSection.appendChild(dayLabel);
+
+  el.appendChild(timeSection);
+
+  // Swarm Stats Section
+  const statsSection = document.createElement('div');
+  statsSection.innerHTML =
+    '<h3 style="margin: 0 0 0.75rem 0; font-size: 0.9rem; color: var(--text-secondary, #aaa);">Swarm Status</h3>';
+
+  const statsContainer = document.createElement('div');
+  statsContainer.style.cssText = `
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    font-size: 0.9rem;
+  `;
+
+  const workersEl = document.createElement('div');
+  workersEl.style.cssText = 'display: flex; justify-content: space-between;';
+  workersEl.innerHTML =
+    '<span>Workers:</span><span style="font-weight: bold;">-</span>';
+  statsContainer.appendChild(workersEl);
+
+  const queensEl = document.createElement('div');
+  queensEl.style.cssText = 'display: flex; justify-content: space-between;';
+  queensEl.innerHTML =
+    '<span>Queens:</span><span style="font-weight: bold;">-</span>';
+  statsContainer.appendChild(queensEl);
+
+  const neuralEl = document.createElement('div');
+  neuralEl.style.cssText = 'display: flex; justify-content: space-between;';
+  neuralEl.innerHTML =
+    '<span>Neural Load:</span><span style="font-weight: bold;">-</span>';
+  statsContainer.appendChild(neuralEl);
+
+  const efficiencyEl = document.createElement('div');
+  efficiencyEl.style.cssText = 'display: flex; justify-content: space-between;';
+  efficiencyEl.innerHTML =
+    '<span>Efficiency:</span><span style="font-weight: bold;">-</span>';
+  statsContainer.appendChild(efficiencyEl);
+
+  statsSection.appendChild(statsContainer);
+  el.appendChild(statsSection);
+
+  // Worker Distribution Section
+  const distributionSection = document.createElement('div');
+  distributionSection.innerHTML =
+    '<h3 style="margin: 0 0 0.75rem 0; font-size: 0.9rem; color: var(--text-secondary, #aaa);">Worker Distribution</h3>';
+
+  const distributionContainer = document.createElement('div');
+  distributionContainer.style.cssText = `
+    font-size: 0.85rem;
+    line-height: 1.6;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  `;
+
+  const gatheringEl = document.createElement('div');
+  gatheringEl.textContent = 'Gathering: -';
+  distributionContainer.appendChild(gatheringEl);
+
+  const idleEmptyEl = document.createElement('div');
+  idleEmptyEl.textContent = 'Idle (empty): -';
+  distributionContainer.appendChild(idleEmptyEl);
+
+  const idleFullEl = document.createElement('div');
+  idleFullEl.textContent = 'Idle (full): -';
+  distributionContainer.appendChild(idleFullEl);
+
+  const maintenanceEl = document.createElement('div');
+  maintenanceEl.textContent = 'Maintenance: -';
+  distributionContainer.appendChild(maintenanceEl);
+
+  distributionSection.appendChild(distributionContainer);
+  el.appendChild(distributionSection);
+
+  return {
+    el,
+    update: (gameData: GameData) => {
+      // Get home planet (Asimov) - year is based on its rotation
+      const homePlanet = gameData.planets.find(
+        (p) => p.id === gameData.homePlanetId
+      );
+      const asimovDayLength = homePlanet?.dayLengthTicks ?? 480;
+
+      // Year = orbits around Asimov (1 rotation = 1 year)
+      const years = Math.floor(gameData.gameTime / asimovDayLength) + 1;
+      const yearProgress =
+        (gameData.gameTime % asimovDayLength) / asimovDayLength;
+
+      yearDisplay.textContent = `Year ${years}`;
+      progressBar.style.width = `${yearProgress * 100}%`;
+
+      // Color gradient through the year
+      let color: string;
+      if (yearProgress < 0.25) {
+        color = '#4a9eff';
+      } else if (yearProgress < 0.5) {
+        color = '#ffc107';
+      } else if (yearProgress < 0.75) {
+        color = '#ff9800';
+      } else {
+        color = '#9c27b0';
+      }
+      progressBar.style.backgroundColor = color;
+
+      const elapsedTicksInYear = gameData.gameTime % asimovDayLength;
+      const elapsedHoursInYear =
+        elapsedTicksInYear / SWARM_CONSTANTS.TICKS_PER_HOUR;
+      dayLabel.textContent = `${(yearProgress * 100).toFixed(1)}% - ${elapsedHoursInYear.toFixed(1)}h elapsed`;
+
+      // Update swarm stats
+      const aggregates = calculateSwarmAggregates(gameData.swarm);
+
+      (workersEl.lastChild as HTMLElement).textContent = String(
+        aggregates.totalWorkers
+      );
+      (queensEl.lastChild as HTMLElement).textContent = String(
+        aggregates.totalQueens
+      );
+
+      const neuralLoadEl = neuralEl.lastChild as HTMLElement;
+      neuralLoadEl.textContent = `${Math.round(aggregates.neuralLoad * 100)}%`;
+      neuralLoadEl.style.color =
+        aggregates.neuralLoad > 1 ? '#ff4444' : '#4caf50';
+
+      (efficiencyEl.lastChild as HTMLElement).textContent =
+        `${Math.round(aggregates.efficiency * 100)}%`;
+
+      // Update distribution
+      gatheringEl.textContent = `Gathering: ${aggregates.workerStates.gathering}`;
+      idleEmptyEl.textContent = `Idle (empty): ${aggregates.workerStates.idleEmpty}`;
+      idleFullEl.textContent = `Idle (full): ${aggregates.workerStates.idleCargoFull}`;
+      maintenanceEl.textContent = `Maintenance: ${aggregates.workerStates.selfMaintenance}`;
+    },
+  };
 }
 
 // ============================================================================
-// MAIN PANEL
+// MAIN PANEL COMPONENT - Tabs
 // ============================================================================
 
 function createMainPanel(
-  state: GameState,
+  _gameData: GameData,
+  state: RendererState,
   callbacks: RendererCallbacks
-): HTMLElement {
-  const panel = document.createElement('main');
-  panel.style.cssText = `
-    flex: 1;
+): Component {
+  const el = document.createElement('main');
+  el.className = 'main-panel';
+  el.style.cssText = `
     padding: 1rem;
     overflow-y: auto;
-    background: #0a0a0f;
+    background: var(--bg-void, #050508);
   `;
 
-  // Tab buttons
-  const tabs = document.createElement('div');
-  tabs.style.cssText = `
+  // Tab buttons container
+  const tabsContainer = document.createElement('div');
+  tabsContainer.style.cssText = `
     display: flex;
     gap: 0.5rem;
     margin-bottom: 1rem;
-    border-bottom: 1px solid #2a2a3a;
+    border-bottom: 1px solid var(--border-color, #2a2a3a);
     padding-bottom: 0.5rem;
   `;
 
-  const tabNames: Array<[string, string]> = [
-    ['swarm', 'Swarm'],
-    ['planet', 'Planet'],
-    ['system', 'System'],
-    ['log', 'Log'],
+  const tabButtons = new Map<TabId, HTMLButtonElement>();
+
+  const tabs: Array<{ id: TabId; label: string }> = [
+    { id: 'swarm', label: 'Swarm' },
+    { id: 'planet', label: 'Planet' },
+    { id: 'system', label: 'System' },
+    { id: 'log', label: 'Log' },
   ];
 
-  for (const [id, label] of tabNames) {
+  for (const { id, label } of tabs) {
     const btn = document.createElement('button');
     btn.textContent = label;
+    btn.dataset.tabId = id;
     btn.style.cssText = `
-      background: ${state.activeTab === id ? '#2a2a3a' : 'transparent'};
+      background: transparent;
       border: none;
-      color: ${state.activeTab === id ? '#64ffda' : '#888'};
+      color: var(--text-secondary, #888);
       padding: 0.5rem 1rem;
       cursor: pointer;
       border-radius: 4px;
+      font-size: 0.9rem;
+      transition: all 0.2s;
     `;
-    btn.onclick = () => {
-      state.activeTab = id as typeof state.activeTab;
-      render(panel.parentElement!.parentElement!, state.gameData, callbacks);
-    };
-    tabs.appendChild(btn);
+
+    tabButtons.set(id, btn);
+    tabsContainer.appendChild(btn);
   }
 
-  panel.appendChild(tabs);
+  el.appendChild(tabsContainer);
 
-  // Tab content
-  const content = document.createElement('div');
-  content.style.cssText = 'min-height: 400px;';
+  // Tab content container
+  const contentContainer = document.createElement('div');
+  contentContainer.style.cssText = 'min-height: 400px;';
 
-  switch (state.activeTab) {
-    case 'swarm':
-      content.innerHTML = createSwarmTabContent(state.gameData, callbacks);
-      break;
-    case 'planet':
-      content.innerHTML = createPlanetTabContent(state.gameData);
-      break;
-    case 'system':
-      content.innerHTML = createSystemTabContent(state.gameData);
-      break;
-    case 'log':
-      content.innerHTML = createLogTabContent(state.gameData);
-      break;
+  const tabContents = new Map<TabId, HTMLElement>();
+
+  // Create tab contents first so onclick handlers can reference them
+  for (const { id } of tabs) {
+    const content = document.createElement('div');
+    content.style.display = id === state.activeTab ? 'block' : 'none';
+    tabContents.set(id, content);
+    contentContainer.appendChild(content);
   }
 
-  panel.appendChild(content);
+  // Now add onclick handlers that reference tabContents
+  for (const { id } of tabs) {
+    const btn = tabButtons.get(id);
+    if (btn) {
+      btn.onclick = () => {
+        state.activeTab = id;
+        // Update button styles
+        for (const [tabId, button] of tabButtons) {
+          if (tabId === id) {
+            button.style.background = 'var(--bg-panel, #12121e)';
+            button.style.color = 'var(--accent-cyan, #00e5ff)';
+          } else {
+            button.style.background = 'transparent';
+            button.style.color = 'var(--text-secondary, #888)';
+          }
+        }
+        // Update content visibility
+        for (const [tabId, content] of tabContents) {
+          content.style.display = tabId === id ? 'block' : 'none';
+        }
+      };
+    }
+  }
 
-  return panel;
+  el.appendChild(contentContainer);
+
+  // Initial tab state
+  const initialBtn = tabButtons.get(state.activeTab);
+  if (initialBtn) {
+    initialBtn.style.background = 'var(--bg-panel, #12121e)';
+    initialBtn.style.color = 'var(--accent-cyan, #00e5ff)';
+  }
+
+  return {
+    el,
+    update: (gameData: GameData) => {
+      // Update tab content based on active tab
+      const activeTab = state.activeTab;
+      for (const [id, content] of tabContents) {
+        if (id === activeTab) {
+          content.innerHTML = getTabContent(id, gameData, callbacks);
+        }
+      }
+    },
+  };
 }
 
-// ============================================================================
-// TAB CONTENT
-// ============================================================================
+function getTabContent(
+  tabId: TabId,
+  gameData: GameData,
+  callbacks: RendererCallbacks
+): string {
+  switch (tabId) {
+    case 'swarm':
+      return createSwarmTabContent(gameData, callbacks);
+    case 'planet':
+      return createPlanetTabContent(gameData);
+    case 'system':
+      return createSystemTabContent(gameData);
+    case 'log':
+      return createLogTabContent(gameData);
+    default:
+      return '';
+  }
+}
 
 function createSwarmTabContent(
   gameData: GameData,
   _callbacks: RendererCallbacks
 ): string {
   const queen = gameData.swarm.queens[0];
-  if (!queen) return '<div>No queen found</div>';
+  if (!queen) {
+    return `
+      <div style="max-width: 600px;">
+        <h2 style="color: var(--accent-cyan, #00e5ff); margin-bottom: 1rem;">Swarm Control</h2>
+        <div style="background: var(--bg-panel, #12121a); padding: 1rem; border-radius: 8px; margin-bottom: 1rem;">
+          <div style="font-size: 1rem; font-weight: 600; color: #ff9b9b; margin-bottom: 0.5rem;">No active queens</div>
+          <div style="color: var(--text-secondary, #888); line-height: 1.5;">All queens are dead. Swarm-owned areas remain under swarm control, but no new directives can be issued.</div>
+        </div>
+        <div style="background: var(--bg-panel, #12121a); padding: 1rem; border-radius: 8px;">
+          <h3 style="margin: 0 0 0.75rem 0; font-size: 1rem;">Swarm Stats</h3>
+          <div style="font-size: 0.9rem; line-height: 1.8;">
+            <div>Total Workers: ${gameData.swarm.workers.length}</div>
+            <div>Total Queens: ${gameData.swarm.queens.length}</div>
+            <div>Swarm-Owned Zones: ${gameData.planets.reduce(
+              (sum, planet) =>
+                sum + planet.zones.filter((zone) => zone.ownedBySwarm).length,
+              0
+            )}</div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  const energyPct =
+    queen.energy.max > 0 ? (queen.energy.current / queen.energy.max) * 100 : 0;
+  const healthPct =
+    queen.health.max > 0 ? (queen.health.current / queen.health.max) * 100 : 0;
+  const eggHoursRemaining =
+    queen.eggProduction.ticksRemaining / SWARM_CONSTANTS.TICKS_PER_HOUR;
 
   return `
     <div style="max-width: 600px;">
-      <h2 style="color: #64ffda; margin-bottom: 1rem;">Queen Control</h2>
+      <h2 style="color: var(--accent-cyan, #00e5ff); margin-bottom: 1rem;">Queen Control</h2>
+
+      <div style="background: var(--bg-panel, #12121a); padding: 1rem; border-radius: 8px; margin-bottom: 1rem;">
+        <h3 style="margin: 0 0 0.75rem 0; font-size: 1rem;">Vital Status</h3>
+        <div style="display: flex; flex-direction: column; gap: 0.6rem;">
+          <div class="stat-bar stat-bar--compact">
+            <div class="stat-bar__label">Energy ${queen.energy.current.toFixed(1)} / ${queen.energy.max.toFixed(0)}</div>
+            <div class="stat-bar__track">
+              <div class="stat-bar__fill ${energyPct > 40 ? 'bar-good' : energyPct > 15 ? 'bar-warning' : 'bar-danger'}" style="width: ${Math.max(0, Math.min(100, energyPct))}%;"></div>
+            </div>
+          </div>
+          <div class="stat-bar stat-bar--compact">
+            <div class="stat-bar__label">Health ${queen.health.current.toFixed(1)} / ${queen.health.max.toFixed(0)}</div>
+            <div class="stat-bar__track">
+              <div class="stat-bar__fill ${healthPct > 40 ? 'bar-good' : healthPct > 15 ? 'bar-warning' : 'bar-danger'}" style="width: ${Math.max(0, Math.min(100, healthPct))}%;"></div>
+            </div>
+          </div>
+          <div style="font-size: 0.82rem; color: var(--text-secondary, #888);">
+            Metabolism: ${queen.metabolismPerTick.toFixed(4)} energy/s
+          </div>
+        </div>
+      </div>
       
-      <div style="background: #12121a; padding: 1rem; border-radius: 8px; margin-bottom: 1rem;">
+      <div style="background: var(--bg-panel, #12121a); padding: 1rem; border-radius: 8px; margin-bottom: 1rem;">
         <h3 style="margin: 0 0 0.75rem 0; font-size: 1rem;">Directive</h3>
         <div style="display: flex; gap: 0.5rem;">
           <button 
-            onclick="window.setQueenDirective('gather_biomass')"
+            onclick="window.swarmCallbacks?.setQueenDirective('gather_biomass')"
             style="
               flex: 1; 
               padding: 0.75rem; 
-              background: ${queen.directive === 'gather_biomass' ? '#64ffda' : '#2a2a3a'};
+              background: ${queen.directive === 'gather_biomass' ? 'var(--accent-cyan, #00e5ff)' : '#2a2a3a'};
               color: ${queen.directive === 'gather_biomass' ? '#0a0a0f' : '#fff'};
               border: none;
               border-radius: 4px;
@@ -323,11 +650,11 @@ function createSwarmTabContent(
             Gather Biomass
           </button>
           <button 
-            onclick="window.setQueenDirective('idle')"
+            onclick="window.swarmCallbacks?.setQueenDirective('idle')"
             style="
               flex: 1; 
               padding: 0.75rem; 
-              background: ${queen.directive === 'idle' ? '#64ffda' : '#2a2a3a'};
+              background: ${queen.directive === 'idle' ? 'var(--accent-cyan, #00e5ff)' : '#2a2a3a'};
               color: ${queen.directive === 'idle' ? '#0a0a0f' : '#fff'};
               border: none;
               border-radius: 4px;
@@ -339,13 +666,13 @@ function createSwarmTabContent(
         </div>
       </div>
       
-      <div style="background: #12121a; padding: 1rem; border-radius: 8px; margin-bottom: 1rem;">
+      <div style="background: var(--bg-panel, #12121a); padding: 1rem; border-radius: 8px; margin-bottom: 1rem;">
         <h3 style="margin: 0 0 0.75rem 0; font-size: 1rem;">Egg Production</h3>
         <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
           <input 
             type="checkbox" 
             ${queen.eggProduction.enabled ? 'checked' : ''}
-            onchange="window.toggleEggProduction(this.checked)"
+            onchange="window.swarmCallbacks?.toggleEggProduction(this.checked)"
             style="width: 20px; height: 20px;"
           >
           <span>Enable egg laying (costs 10 energy per egg)</span>
@@ -355,10 +682,10 @@ function createSwarmTabContent(
             ? `
           <div style="margin-top: 0.75rem;">
             <div style="background: #2a2a3a; height: 8px; border-radius: 4px; overflow: hidden;">
-              <div style="background: #69f0ae; height: 100%; width: ${queen.eggProduction.progress}%"></div>
+              <div style="background: #4caf50; height: 100%; width: ${queen.eggProduction.progress}%"></div>
             </div>
             <div style="font-size: 0.8rem; color: #888; margin-top: 0.25rem;">
-              ${Math.floor(queen.eggProduction.ticksRemaining)} ticks remaining
+              ${eggHoursRemaining.toFixed(1)}h remaining
             </div>
           </div>
         `
@@ -366,12 +693,11 @@ function createSwarmTabContent(
         }
       </div>
       
-      <div style="background: #12121a; padding: 1rem; border-radius: 8px;">
+      <div style="background: var(--bg-panel, #12121a); padding: 1rem; border-radius: 8px;">
         <h3 style="margin: 0 0 0.75rem 0; font-size: 1rem;">Swarm Stats</h3>
         <div style="font-size: 0.9rem; line-height: 1.8;">
           <div>Total Workers: ${gameData.swarm.workers.length}</div>
           <div>Total Queens: ${gameData.swarm.queens.length}</div>
-          <div>Game Time: Day ${Math.floor(gameData.gameTime / 480)}</div>
         </div>
       </div>
     </div>
@@ -384,21 +710,155 @@ function createPlanetTabContent(gameData: GameData): string {
   );
   if (!homePlanet) return '<div>No planet found</div>';
 
-  const conqueredZones = homePlanet.zones.filter(
-    (z) => z.state === 'harvesting' || z.state === 'saturated'
-  ).length;
+  const atmosphere = derivePlanetAtmosphere(homePlanet);
+
+  const conqueredZones = homePlanet.zones.filter((z) => z.ownedBySwarm).length;
   const totalZones = homePlanet.zones.length;
+
+  const composition = atmosphere.composition;
+  const compositionMass = atmosphere.compositionMass;
+  const topGas = [
+    { label: 'N2', value: composition.n2 },
+    { label: 'CO2', value: composition.co2 },
+    { label: 'O2', value: composition.o2 },
+    { label: 'CH4', value: composition.ch4 },
+    { label: 'Inert', value: composition.inert },
+  ]
+    .sort((a, b) => b.value - a.value)
+    .slice(0, 3)
+    .map((gas) => `${gas.label} ${formatPercentage(gas.value)}`)
+    .join(', ');
+
+  const bandRows = atmosphere.bandSummaries
+    .map((band) => {
+      const bandLabel =
+        band.band === 'light'
+          ? 'Light'
+          : band.band === 'terminator'
+            ? 'Terminator'
+            : 'Dark';
+      return `
+        <tr>
+          <td style="padding: 0.4rem 0.5rem; border-top: 1px solid rgba(255,255,255,0.06);">${bandLabel}</td>
+          <td style="padding: 0.4rem 0.5rem; border-top: 1px solid rgba(255,255,255,0.06);">${band.zones}</td>
+          <td style="padding: 0.4rem 0.5rem; border-top: 1px solid rgba(255,255,255,0.06);">${formatAtmosphericMass(band.totalMass)} (${formatPercentage(band.massShare)})</td>
+          <td style="padding: 0.4rem 0.5rem; border-top: 1px solid rgba(255,255,255,0.06);">${formatAtmosphericMass(band.averageMass)}</td>
+          <td style="padding: 0.4rem 0.5rem; border-top: 1px solid rgba(255,255,255,0.06);">${band.dominantAtmosphere}</td>
+        </tr>
+      `;
+    })
+    .join('');
+
+  const gasBreakdown = [
+    { label: 'N2', pct: composition.n2, mass: compositionMass.n2 },
+    { label: 'CO2', pct: composition.co2, mass: compositionMass.co2 },
+    { label: 'O2', pct: composition.o2, mass: compositionMass.o2 },
+    { label: 'CH4', pct: composition.ch4, mass: compositionMass.ch4 },
+    { label: 'Inert', pct: composition.inert, mass: compositionMass.inert },
+  ]
+    .sort((a, b) => b.mass - a.mass)
+    .map(
+      (gas) =>
+        `<tr>
+          <td style="padding: 0.35rem 0.5rem; border-top: 1px solid rgba(255,255,255,0.06);">${gas.label}</td>
+          <td style="padding: 0.35rem 0.5rem; border-top: 1px solid rgba(255,255,255,0.06);">${formatPercentage(gas.pct)}</td>
+          <td style="padding: 0.35rem 0.5rem; border-top: 1px solid rgba(255,255,255,0.06);">${formatAtmosphericMass(gas.mass)}</td>
+        </tr>`
+    )
+    .join('');
+
+  const topZoneLines = atmosphere.topContributors
+    .map((zone, index) => {
+      const bandLabel =
+        zone.band === 'light'
+          ? 'Light'
+          : zone.band === 'terminator'
+            ? 'Terminator'
+            : 'Dark';
+      return `<tr>
+        <td style="padding: 0.35rem 0.5rem; border-top: 1px solid rgba(255,255,255,0.06);">${index + 1}</td>
+        <td style="padding: 0.35rem 0.5rem; border-top: 1px solid rgba(255,255,255,0.06); word-break: break-word;">${zone.zoneName}</td>
+        <td style="padding: 0.35rem 0.5rem; border-top: 1px solid rgba(255,255,255,0.06);">${formatAtmosphericMass(zone.mass)} (${formatPercentage(zone.massShare)})</td>
+        <td style="padding: 0.35rem 0.5rem; border-top: 1px solid rgba(255,255,255,0.06);">${bandLabel}</td>
+      </tr>`;
+    })
+    .join('');
 
   return `
     <div>
-      <h2 style="color: #64ffda; margin-bottom: 1rem;">${homePlanet.name}</h2>
-      <div style="margin-bottom: 1rem; color: #888;">
-        ${homePlanet.zones[0].name} — Starting zone
+      <h2 style="color: var(--accent-cyan, #00e5ff); margin-bottom: 1rem;">${homePlanet.name}</h2>
+      <div style="margin-bottom: 1rem; color: var(--text-secondary, #888);">
+        ${homePlanet.zones[0]?.name || 'Unknown'} — Starting zone
       </div>
-      <div style="background: #12121a; padding: 1rem; border-radius: 8px;">
+      <div style="background: var(--bg-panel, #12121a); padding: 1rem; border-radius: 8px;">
         <div>Zones conquered: ${conqueredZones} / ${totalZones}</div>
-        <div style="margin-top: 0.5rem; font-size: 0.85rem; color: #888;">
-          Planet visualization coming in v2
+        <div style="margin-top: 0.5rem; font-size: 0.85rem; color: var(--text-secondary, #888);">
+          Planet visualization available in the System tab
+        </div>
+      </div>
+      <div style="background: var(--bg-panel, #12121a); padding: 1rem; border-radius: 8px; margin-top: 1rem;">
+        <div style="font-weight: 600; margin-bottom: 0.5rem; color: var(--accent-cyan, #00e5ff);">Atmosphere (Derived from Zones)</div>
+        <table style="width: 100%; border-collapse: collapse; font-size: 0.88rem; table-layout: fixed;">
+          <tbody>
+            <tr>
+              <th style="text-align: left; width: 170px; color: var(--text-secondary, #888); font-weight: 500; padding: 0.4rem 0.5rem;">Mass</th>
+              <td style="padding: 0.4rem 0.5rem; word-break: break-word;">${formatAtmosphericMass(atmosphere.totalMass)}</td>
+            </tr>
+            <tr>
+              <th style="text-align: left; width: 170px; color: var(--text-secondary, #888); font-weight: 500; padding: 0.4rem 0.5rem; border-top: 1px solid rgba(255,255,255,0.06);">Pressure Index</th>
+              <td style="padding: 0.4rem 0.5rem; border-top: 1px solid rgba(255,255,255,0.06); word-break: break-word;">${formatPressureIndex(atmosphere.pressureIndex)}</td>
+            </tr>
+            <tr>
+              <th style="text-align: left; width: 170px; color: var(--text-secondary, #888); font-weight: 500; padding: 0.4rem 0.5rem; border-top: 1px solid rgba(255,255,255,0.06);">Dominant Gases</th>
+              <td style="padding: 0.4rem 0.5rem; border-top: 1px solid rgba(255,255,255,0.06); word-break: break-word;">${topGas}</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div style="margin-top: 0.75rem; background: rgba(0,0,0,0.18); border: 1px solid var(--border-color, #2a2a3a); border-radius: 6px; padding: 0.6rem; min-width: 0;">
+          <div style="font-size: 0.78rem; color: var(--text-secondary, #888); margin-bottom: 0.35rem;">Insolation Band Contribution</div>
+          <table style="width: 100%; border-collapse: collapse; font-size: 0.82rem; table-layout: fixed;">
+            <thead>
+              <tr>
+                <th style="text-align: left; padding: 0.3rem 0.5rem; color: var(--text-secondary, #888);">Band</th>
+                <th style="text-align: left; padding: 0.3rem 0.5rem; color: var(--text-secondary, #888);">Zones</th>
+                <th style="text-align: left; padding: 0.3rem 0.5rem; color: var(--text-secondary, #888);">Total</th>
+                <th style="text-align: left; padding: 0.3rem 0.5rem; color: var(--text-secondary, #888);">Avg/Zone</th>
+                <th style="text-align: left; padding: 0.3rem 0.5rem; color: var(--text-secondary, #888);">State</th>
+              </tr>
+            </thead>
+            <tbody>${bandRows}</tbody>
+          </table>
+        </div>
+
+        <div style="margin-top: 0.75rem; display: flex; flex-direction: column; gap: 0.75rem; min-width: 0;">
+          <div style="background: rgba(0,0,0,0.18); border: 1px solid var(--border-color, #2a2a3a); border-radius: 6px; padding: 0.6rem; min-width: 0;">
+            <div style="font-size: 0.78rem; color: var(--text-secondary, #888); margin-bottom: 0.35rem;">Gas Mass Contribution</div>
+            <table style="width: 100%; border-collapse: collapse; font-size: 0.82rem; table-layout: fixed;">
+              <thead>
+                <tr>
+                  <th style="text-align: left; padding: 0.3rem 0.5rem; color: var(--text-secondary, #888);">Gas</th>
+                  <th style="text-align: left; padding: 0.3rem 0.5rem; color: var(--text-secondary, #888);">Share</th>
+                  <th style="text-align: left; padding: 0.3rem 0.5rem; color: var(--text-secondary, #888);">Mass</th>
+                </tr>
+              </thead>
+              <tbody>${gasBreakdown}</tbody>
+            </table>
+          </div>
+          <div style="background: rgba(0,0,0,0.18); border: 1px solid var(--border-color, #2a2a3a); border-radius: 6px; padding: 0.6rem; min-width: 0;">
+            <div style="font-size: 0.78rem; color: var(--text-secondary, #888); margin-bottom: 0.35rem;">Top Zone Contributors</div>
+            <table style="width: 100%; border-collapse: collapse; font-size: 0.82rem; table-layout: fixed;">
+              <thead>
+                <tr>
+                  <th style="text-align: left; padding: 0.3rem 0.5rem; color: var(--text-secondary, #888); width: 32px;">#</th>
+                  <th style="text-align: left; padding: 0.3rem 0.5rem; color: var(--text-secondary, #888);">Zone</th>
+                  <th style="text-align: left; padding: 0.3rem 0.5rem; color: var(--text-secondary, #888);">Contribution</th>
+                  <th style="text-align: left; padding: 0.3rem 0.5rem; color: var(--text-secondary, #888);">Band</th>
+                </tr>
+              </thead>
+              <tbody>${topZoneLines}</tbody>
+            </table>
+          </div>
         </div>
       </div>
     </div>
@@ -408,23 +868,23 @@ function createPlanetTabContent(gameData: GameData): string {
 function createSystemTabContent(gameData: GameData): string {
   return `
     <div>
-      <h2 style="color: #64ffda; margin-bottom: 1rem;">TRAPPIST-1 System</h2>
+      <h2 style="color: var(--accent-cyan, #00e5ff); margin-bottom: 1rem;">TRAPPIST-1 System</h2>
       <div style="display: grid; gap: 0.75rem;">
         ${gameData.planets
           .map(
             (planet) => `
           <div style="
-            background: ${planet.id === gameData.homePlanetId ? '#1a3a3a' : '#12121a'};
+            background: ${planet.id === gameData.homePlanetId ? '#1a3a3a' : 'var(--bg-panel, #12121a)'};
             padding: 1rem;
             border-radius: 8px;
-            border: 1px solid ${planet.id === gameData.homePlanetId ? '#64ffda' : '#2a2a3a'};
+            border: 1px solid ${planet.id === gameData.homePlanetId ? 'var(--accent-cyan, #00e5ff)' : 'var(--border-color, #2a2a3a)'};
           ">
             <div style="display: flex; justify-content: space-between; align-items: center;">
               <div>
-                <div style="font-weight: bold; color: ${planet.id === gameData.homePlanetId ? '#64ffda' : '#fff'}">
+                <div style="font-weight: bold; color: ${planet.id === gameData.homePlanetId ? 'var(--accent-cyan, #00e5ff)' : '#fff'}">
                   ${planet.name} ${planet.id === gameData.homePlanetId ? '(Home)' : ''}
                 </div>
-                <div style="font-size: 0.8rem; color: #888;">
+                <div style="font-size: 0.8rem; color: var(--text-secondary, #888);">
                   ${planet.distanceAU} AU • ${planet.accessible ? 'Accessible' : 'Locked'}
                 </div>
               </div>
@@ -446,18 +906,18 @@ function createLogTabContent(gameData: GameData): string {
 
   return `
     <div>
-      <h2 style="color: #64ffda; margin-bottom: 1rem;">Event Log</h2>
+      <h2 style="color: var(--accent-cyan, #00e5ff); margin-bottom: 1rem;">Event Log</h2>
       <div style="display: flex; flex-direction: column; gap: 0.5rem;">
         ${recentLogs.length === 0 ? '<div style="color: #666;">No events yet</div>' : ''}
         ${recentLogs
           .map(
             (log) => `
           <div style="
-            background: #12121a;
+            background: var(--bg-panel, #12121a);
             padding: 0.75rem;
             border-radius: 4px;
             font-size: 0.85rem;
-            border-left: 3px solid ${log.type === 'daily_summary' ? '#64ffda' : '#444'};
+            border-left: 3px solid ${log.type === 'daily_summary' ? 'var(--accent-cyan, #00e5ff)' : '#444'};
           ">
             ${log.message}
           </div>
@@ -470,107 +930,224 @@ function createLogTabContent(gameData: GameData): string {
 }
 
 // ============================================================================
-// SYSTEM SIDEBAR
+// RIGHT SIDEBAR COMPONENT - Map (Orrery + Planet View)
 // ============================================================================
 
-function createSystemSidebar(_gameData: GameData): HTMLElement {
-  void _gameData;
-  const sidebar = document.createElement('aside');
-  sidebar.style.cssText = `
-    width: 240px;
-    background: #12121a;
-    border-left: 1px solid #2a2a3a;
-    padding: 1rem;
-    overflow-y: auto;
+type MapViewMode = 'system' | 'local' | 'planet';
+
+function createRightSidebar(gameData: GameData): Component {
+  const el = document.createElement('aside');
+  el.className = 'right-sidebar';
+  el.style.cssText = `
+    background: var(--bg-panel, #0a0a12);
+    border-left: 1px solid var(--border-color, #2a2a3a);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
   `;
 
-  sidebar.innerHTML = `
-    <h2 style="margin: 0 0 1rem 0; font-size: 1rem; color: #64ffda;">System Map</h2>
-    <div style="font-size: 0.85rem; color: #888; text-align: center; padding: 2rem 0;">
-      <div style="margin-bottom: 1rem;">🪐</div>
-      <div>7 planets</div>
-      <div style="margin-top: 0.5rem; font-size: 0.75rem;">
-        Detailed orrery<br>coming in v2
-      </div>
-    </div>
-    <div style="margin-top: 1rem; font-size: 0.8rem;">
-      <div style="color: #666; margin-bottom: 0.5rem;">Legend:</div>
-      <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.25rem;">
-        <div style="width: 8px; height: 8px; background: #64ffda; border-radius: 50%;"></div>
-        <span>Current planet</span>
-      </div>
-      <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.25rem;">
-        <div style="width: 8px; height: 8px; background: #444; border-radius: 50%;"></div>
-        <span>Locked planet</span>
-      </div>
-    </div>
-  `;
+  // View state
+  let viewMode: MapViewMode = 'system';
+  let selectedPlanetId: string | null = null;
+  void selectedPlanetId; // Will be used for displaying selected planet info
 
-  return sidebar;
-}
-
-// ============================================================================
-// FOOTER
-// ============================================================================
-
-function createFooter(
-  gameData: GameData,
-  callbacks: RendererCallbacks
-): HTMLElement {
-  const footer = document.createElement('footer');
-  footer.style.cssText = `
+  // Header
+  const header = document.createElement('div');
+  header.style.cssText = `
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 0.75rem 1rem;
-    background: #12121a;
-    border-top: 1px solid #2a2a3a;
+    padding: 0.5rem 0.75rem;
+    border-bottom: 1px solid var(--border-color, #2a2a3a);
   `;
 
-  // Left: Pause/Resume
-  const left = document.createElement('div');
-  const pauseBtn = document.createElement('button');
-  pauseBtn.textContent = gameData.isPaused ? '▶️ Resume' : '⏸️ Pause';
-  pauseBtn.style.cssText = `
-    background: ${gameData.isPaused ? '#69f0ae' : '#ff6b6b'};
-    color: #0a0a0f;
-    border: none;
-    padding: 0.5rem 1rem;
-    border-radius: 4px;
-    cursor: pointer;
-    font-weight: bold;
-  `;
-  pauseBtn.onclick = callbacks.onTogglePause;
-  left.appendChild(pauseBtn);
-  footer.appendChild(left);
+  const title = document.createElement('span');
+  title.style.cssText =
+    'font-weight: bold; color: var(--accent-cyan, #00e5ff);';
+  title.textContent = 'System Map';
+  header.appendChild(title);
 
-  // Center: Speed control
-  const center = document.createElement('div');
-  center.style.cssText = 'display: flex; gap: 0.5rem;';
+  el.appendChild(header);
 
-  for (const speed of [1, 2, 5] as const) {
-    const btn = document.createElement('button');
-    btn.textContent = `${speed}x`;
-    btn.style.cssText = `
-      background: ${gameData.timeSpeed === speed ? '#64ffda' : '#2a2a3a'};
-      color: ${gameData.timeSpeed === speed ? '#0a0a0f' : '#fff'};
-      border: none;
-      padding: 0.5rem 0.75rem;
-      border-radius: 4px;
-      cursor: pointer;
-    `;
-    btn.onclick = () => callbacks.onSetTimeSpeed(speed);
-    center.appendChild(btn);
+  // Orrery container
+  const orreryContainer = document.createElement('div');
+  orreryContainer.style.cssText =
+    'flex: 1; position: relative; display: none; min-height: 0;';
+  el.appendChild(orreryContainer);
+
+  // Planet local view container (planet + moons)
+  const planetLocalContainer = document.createElement('div');
+  planetLocalContainer.style.cssText =
+    'flex: 1; position: relative; display: none; min-height: 0;';
+  el.appendChild(planetLocalContainer);
+
+  // Planet map container
+  const planetMapContainer = document.createElement('div');
+  planetMapContainer.style.cssText =
+    'flex: 1; position: relative; display: none; min-height: 0;';
+  el.appendChild(planetMapContainer);
+
+  // Create orrery component
+  const orreryCallbacks: OrreryCallbacks = {
+    onPlanetSelect: (planetId: string) => {
+      const planet = gameData.planets.find((p) => p.id === planetId);
+      if (planet?.accessible) {
+        selectedPlanetId = planetId;
+        switchToLocalView(planetId);
+      } else {
+        // Show locked view or alert
+        console.log('Planet is locked:', planetId);
+      }
+    },
+    onPlanetFocus: (planetId: string) => {
+      const planet = gameData.planets.find((p) => p.id === planetId);
+      if (planet?.accessible) {
+        switchToLocalView(planetId);
+      } else {
+        console.log('Planet is locked:', planetId);
+      }
+    },
+  };
+
+  const orrery = createOrreryComponent(
+    orreryContainer,
+    gameData,
+    orreryCallbacks
+  );
+
+  // Create planet local component (planet + moons)
+  const planetLocalCallbacks: PlanetLocalCallbacks = {
+    onBackToSystem: () => {
+      switchToSystemView();
+    },
+    onViewZones: (planetId: string) => {
+      switchToPlanetView(planetId);
+    },
+  };
+
+  let planetLocal: Component<GameData> | null = null;
+
+  // Create planet map component (zones)
+  const planetMapCallbacks: PlanetMapCallbacks = {
+    onZoneSelect: (zoneId: string) => {
+      console.log('Selected zone:', zoneId);
+    },
+    onBackToLocal: () => {
+      if (selectedPlanetId) {
+        switchToLocalView(selectedPlanetId);
+      } else {
+        switchToSystemView();
+      }
+    },
+    onBackToSystem: () => {
+      switchToSystemView();
+    },
+    getPlanetId: () => selectedPlanetId,
+  };
+
+  let planetMap: Component<GameData> | null = null;
+
+  // Helper to switch to planet view (zones)
+  function switchToPlanetView(planetId: string) {
+    console.log('Switching to planet view:', planetId);
+    selectedPlanetId = planetId;
+    viewMode = 'planet';
+    orreryContainer.style.display = 'none';
+    planetLocalContainer.style.display = 'none';
+    planetMapContainer.style.display = '';
+    title.textContent = 'Zone Map';
+
+    // Create planet map if not exists
+    if (!planetMap) {
+      console.log('Creating planet map component');
+      planetMap = createPlanetMapComponent(
+        planetMapContainer,
+        gameData,
+        planetMapCallbacks
+      );
+      console.log('Planet map created, element:', planetMap.el);
+    }
+    planetMap.update(gameData);
   }
-  footer.appendChild(center);
 
-  // Right: Version
-  const right = document.createElement('div');
-  right.style.cssText = 'font-size: 0.75rem; color: #666;';
-  right.textContent = 'v1.0.0 Swarm';
-  footer.appendChild(right);
+  // Helper to switch to local view (planet + moons)
+  function switchToLocalView(planetId: string) {
+    console.log('Switching to local view:', planetId);
+    selectedPlanetId = planetId;
+    viewMode = 'local';
+    orreryContainer.style.display = 'none';
+    planetLocalContainer.style.display = '';
+    planetMapContainer.style.display = 'none';
+    title.textContent = 'Planet Local';
 
-  return footer;
+    if (!planetLocal) {
+      console.log('Creating planet local component');
+      planetLocal = createPlanetLocalComponent(
+        planetLocalContainer,
+        gameData,
+        planetLocalCallbacks
+      );
+      console.log('Planet local created:', planetLocal.el);
+    }
+    planetLocal.update(gameData);
+  }
+
+  // Helper to switch back to system view
+  function switchToSystemView() {
+    viewMode = 'system';
+    selectedPlanetId = null;
+    orreryContainer.style.display = '';
+    planetLocalContainer.style.display = 'none';
+    planetMapContainer.style.display = 'none';
+    title.textContent = 'System Map';
+  }
+
+  // Initialize view
+  orreryContainer.style.display = '';
+
+  return {
+    el,
+    update: (gameData: GameData) => {
+      orrery.update(gameData);
+      if (planetLocal && viewMode === 'local') {
+        planetLocal.update(gameData);
+      }
+      if (planetMap && viewMode === 'planet') {
+        planetMap.update(gameData);
+      }
+    },
+  };
+}
+
+// ============================================================================
+// FOOTER COMPONENT
+// ============================================================================
+
+function createFooter(
+  _gameData: GameData,
+  _callbacks: RendererCallbacks
+): Component {
+  const el = document.createElement('footer');
+  el.style.cssText = `
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 0.75rem 1rem;
+    background: var(--bg-panel, #0a0a12);
+    border-top: 1px solid var(--border-color, #2a2a3a);
+  `;
+
+  // Center: Status
+  const status = document.createElement('div');
+  status.style.cssText =
+    'font-size: 0.9rem; color: var(--text-secondary, #888);';
+  status.textContent = 'TRAPPIST-1 System';
+  el.appendChild(status);
+
+  return {
+    el,
+    update: (_gameData: GameData) => {},
+  };
 }
 
 // ============================================================================
@@ -594,23 +1171,23 @@ function showSettingsModal(callbacks: RendererCallbacks): void {
 
   const content = document.createElement('div');
   content.style.cssText = `
-    background: #12121a;
+    background: var(--bg-panel, #12121a);
     padding: 2rem;
     border-radius: 8px;
     max-width: 400px;
     width: 90%;
-    border: 1px solid #2a2a3a;
+    border: 1px solid var(--border-color, #2a2a3a);
   `;
 
   content.innerHTML = `
-    <h2 style="margin: 0 0 1rem 0; color: #64ffda;">Settings</h2>
+    <h2 style="margin: 0 0 1rem 0; color: var(--accent-cyan, #00e5ff);">Settings</h2>
     
     <div style="margin-bottom: 1rem;">
       <button id="exportBtn" style="width: 100%; padding: 0.75rem; margin-bottom: 0.5rem; background: #2a2a3a; color: #fff; border: none; border-radius: 4px; cursor: pointer;">
-        Export Save
+        Download Save
       </button>
       <button id="importBtn" style="width: 100%; padding: 0.75rem; margin-bottom: 0.5rem; background: #2a2a3a; color: #fff; border: none; border-radius: 4px; cursor: pointer;">
-        Import Save
+        Upload Save
       </button>
       <button id="resetBtn" style="width: 100%; padding: 0.75rem; background: #5c1a1a; color: #ff9b9b; border: none; border-radius: 4px; cursor: pointer;">
         Reset Game
@@ -628,21 +1205,47 @@ function showSettingsModal(callbacks: RendererCallbacks): void {
   // Event handlers
   content.querySelector('#exportBtn')!.addEventListener('click', () => {
     const saveData = callbacks.onExportSave();
-    if (saveData) {
-      void navigator.clipboard.writeText(saveData).then(() => {
-        alert('Save data copied to clipboard!');
-      });
-    }
+    if (!saveData) return;
+    const blob = new Blob([saveData], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `swarm-save-${new Date().toISOString().slice(0, 10)}.json`;
+    link.click();
+    URL.revokeObjectURL(url);
   });
 
   content.querySelector('#importBtn')!.addEventListener('click', () => {
-    const saveData = prompt('Paste save data:');
-    if (saveData && callbacks.onImportSave(saveData)) {
-      alert('Save loaded successfully!');
-      modal.remove();
-    } else if (saveData) {
-      alert('Invalid save data!');
-    }
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json,application/json';
+    input.addEventListener('change', () => {
+      const file = input.files?.[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        const content = typeof reader.result === 'string' ? reader.result : '';
+        if (!content) {
+          alert('Failed to read save file.');
+          return;
+        }
+
+        if (
+          confirm(
+            'Load this save file and replace current progress? This cannot be undone.'
+          )
+        ) {
+          if (callbacks.onImportSave(content)) {
+            alert('Save loaded successfully!');
+            modal.remove();
+          } else {
+            alert('Invalid save file!');
+          }
+        }
+      };
+      reader.readAsText(file);
+    });
+    input.click();
   });
 
   content.querySelector('#resetBtn')!.addEventListener('click', () => {
@@ -660,12 +1263,17 @@ function showSettingsModal(callbacks: RendererCallbacks): void {
 }
 
 // ============================================================================
-// GLOBAL HANDLERS (for inline onclick)
+// GLOBAL HANDLERS
 // ============================================================================
 
 declare global {
   interface Window {
-    setQueenDirective: (directive: 'gather_biomass' | 'idle') => void;
-    toggleEggProduction: (enabled: boolean) => void;
+    swarmCallbacks?: {
+      setQueenDirective: (directive: 'gather_biomass' | 'idle') => void;
+      toggleEggProduction: (enabled: boolean) => void;
+      saveGame: () => void;
+      loadGame: () => void;
+      resetGame: () => void;
+    };
   }
 }

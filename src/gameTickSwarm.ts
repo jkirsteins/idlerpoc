@@ -34,7 +34,11 @@ export interface TickResult {
   logEntries: LogEntry[];
 }
 
-export function applyTick(data: GameData, currentTime: number): TickResult {
+export function applyTick(
+  data: GameData,
+  currentTime: number,
+  forcedTicks?: number
+): TickResult {
   const result: TickResult = {
     workersHatched: 0,
     workersDied: 0,
@@ -44,14 +48,17 @@ export function applyTick(data: GameData, currentTime: number): TickResult {
     logEntries: [],
   };
 
-  // Calculate time elapsed
-  const elapsedTicks = Math.floor(
-    (currentTime - data.lastTickTimestamp) / 1000
-  );
+  const elapsedTicks =
+    typeof forcedTicks === 'number'
+      ? Math.floor(forcedTicks)
+      : Math.floor((currentTime - data.lastTickTimestamp) / 1000);
   if (elapsedTicks <= 0) return result;
 
-  // Cap at reasonable max for performance (1 day)
-  const ticksToProcess = Math.min(elapsedTicks, SWARM_CONSTANTS.TICKS_PER_DAY);
+  // Cap at reasonable max for realtime path (forced ticks are pre-batched externally)
+  const ticksToProcess =
+    typeof forcedTicks === 'number'
+      ? elapsedTicks
+      : Math.min(elapsedTicks, SWARM_CONSTANTS.TICKS_PER_DAY);
 
   // Process each tick
   for (let i = 0; i < ticksToProcess; i++) {
@@ -130,23 +137,30 @@ function processSingleTick(data: GameData): SingleTickResult {
 
   // 3. Process each queen
   for (const queen of swarm.queens) {
-    // Queen upkeep
-    if (queen.energy.current >= SWARM_CONSTANTS.QUEEN_UPKEEP) {
-      queen.energy.current -= SWARM_CONSTANTS.QUEEN_UPKEEP;
-    } else {
-      // Queen starvation
-      result.queensDied++;
-      result.logEntries.push(
-        createLogEntry('queen_died', `Queen died from starvation`, {
-          queenId: queen.id,
-        })
+    queen.energy.current = Math.max(
+      0,
+      queen.energy.current - queen.metabolismPerTick
+    );
+
+    if (queen.energy.current <= 0) {
+      queen.health.current = Math.max(
+        0,
+        queen.health.current - queen.hpDecayPerTickAtZeroEnergy
       );
-      // Remove queen
-      const queenIndex = swarm.queens.indexOf(queen);
-      if (queenIndex > -1) {
-        swarm.queens.splice(queenIndex, 1);
+
+      if (queen.health.current <= 0) {
+        result.queensDied++;
+        result.logEntries.push(
+          createLogEntry('queen_died', `Queen died from starvation`, {
+            queenId: queen.id,
+          })
+        );
+        const queenIndex = swarm.queens.indexOf(queen);
+        if (queenIndex > -1) {
+          swarm.queens.splice(queenIndex, 1);
+        }
+        continue;
       }
-      continue;
     }
 
     // Egg production

@@ -4,6 +4,21 @@ This file tracks deferred features and known gaps for TRAPPIST-1 Swarm Idle.
 
 ---
 
+## Planetary Metabolism Phase 2
+
+Follow-up items after zone-derived atmosphere v1:
+
+- Queen internal metabolic pools (`biomass`, `carbon`, `energy`, `nutrients`) instead of a single energy lane
+- Alternative resource acquisition loops (atmospheric carbon fixation, mineral nutrient extraction, thermal/photonic energy harvesting)
+- Planet-specific atmospheric resistance curves that change terraforming speed
+- Atmosphere stability and circulation mechanics between neighboring zones
+- Biome succession over long horizons (converted zones influencing nearby unmanaged zones)
+- Define explicit zone ownership acquisition rules independent from lifecycle state names (`exploring/converting/harvesting`)
+
+**Prerequisites**: Mature zone ecology loop, expanded resource UI, balancing pass.
+
+---
+
 ## Multi-Queen System
 
 Enable multiple queens each controlling separate worker pools:
