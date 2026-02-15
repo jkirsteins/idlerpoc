@@ -1,10 +1,4 @@
-import type {
-  GameData,
-  WorldLocation,
-  Ship,
-  Vec2,
-  FlightState,
-} from '../models';
+import type { GameData, WorldLocation, Ship } from '../models';
 import { getActiveShip } from '../models';
 import { getLocationTypeTemplate } from '../spaceLocations';
 import {
@@ -28,15 +22,9 @@ import {
   createFlightProfileControl,
   updateFlightProfileControl,
 } from './flightProfileControl';
-import { setupMapZoomPan, type MapZoomPanControls } from './mapZoomPan';
-import { getLocationPosition } from '../orbitalMechanics';
-import {
-  orbitalRadiusToSvg,
-  projectToSvg,
-  localOrbitalRadiusToSvg,
-  projectToSvgLocal,
-  computeFrozenTrajectoryLocal,
-} from './mapProjection';
+import { computeClusterData, type MarkerRefs } from './orreryCore';
+import { createOrreryMap } from './orreryMap';
+import { type ShipDisplayInfo } from './orreryUpdate';
 
 const NAV_SERVICE_LABELS: Record<string, { icon: string; label: string }> = {
   refuel: { icon: '\u26FD', label: 'Fuel' },
@@ -49,118 +37,6 @@ const NAV_SERVICE_LABELS: Record<string, { icon: string; label: string }> = {
 export interface NavigationViewCallbacks {
   onToggleNavigation: () => void;
   onStartTrip?: (destinationId: string) => void;
-}
-
-/** Per-location refs for the SVG orrery marker */
-interface MarkerRefs {
-  dot: SVGCircleElement; // the body dot
-  label: SVGTextElement; // name label
-  hitArea: SVGCircleElement; // invisible click target
-  leaderLine: SVGLineElement; // connects dot to displaced label
-  clusterIndicator: SVGCircleElement | null; // dashed ring on cluster parents
-}
-
-// SVG namespace
-const SVG_NS = 'http://www.w3.org/2000/svg';
-const ORRERY_SIZE = 400; // viewBox is -200..200
-const ORRERY_HALF = ORRERY_SIZE / 2;
-
-/** Minimum SVG-unit separation between label centers before repulsion kicks in */
-const MIN_LABEL_SEPARATION = 14;
-/** Displacement threshold before a leader line is shown */
-const LEADER_LINE_THRESHOLD = 4;
-/** Number of repulsion iterations per tick */
-const DECONFLICT_ITERATIONS = 3;
-
-/**
- * Generic label deconfliction — no location-specific layout logic.
- *
- * Design principle: the orrery must never contain location-specific layout
- * logic. All visual positioning derives from orbital data through generic
- * algorithms. Adding new locations to the world should "just work" without
- * any orrery-specific code changes.
- */
-interface LabelEntry {
-  id: string;
-  dotX: number;
-  dotY: number;
-  labelX: number;
-  labelY: number;
-}
-
-function deconflictLabels(entries: LabelEntry[]): void {
-  for (let iter = 0; iter < DECONFLICT_ITERATIONS; iter++) {
-    for (let i = 0; i < entries.length; i++) {
-      for (let j = i + 1; j < entries.length; j++) {
-        const a = entries[i];
-        const b = entries[j];
-        const dx = b.labelX - a.labelX;
-        const dy = b.labelY - a.labelY;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-        if (dist < MIN_LABEL_SEPARATION && dist > 0.01) {
-          // Push labels apart along the line connecting them
-          const overlap = MIN_LABEL_SEPARATION - dist;
-          const pushX = (dx / dist) * overlap * 0.5;
-          const pushY = (dy / dist) * overlap * 0.5;
-          a.labelX -= pushX;
-          a.labelY -= pushY;
-          b.labelX += pushX;
-          b.labelY += pushY;
-        } else if (dist <= 0.01) {
-          // Labels exactly coincide — push radially outward from centroid
-          const cx = (a.dotX + b.dotX) * 0.5;
-          const cy = (a.dotY + b.dotY) * 0.5;
-          const angleA = Math.atan2(a.dotY - cy, a.dotX - cx) + Math.PI * 0.1;
-          const angleB = angleA + Math.PI;
-          a.labelX += Math.cos(angleA) * MIN_LABEL_SEPARATION * 0.5;
-          a.labelY += Math.sin(angleA) * MIN_LABEL_SEPARATION * 0.5;
-          b.labelX += Math.cos(angleB) * MIN_LABEL_SEPARATION * 0.5;
-          b.labelY += Math.sin(angleB) * MIN_LABEL_SEPARATION * 0.5;
-        }
-      }
-    }
-  }
-  // Clamp to viewBox bounds
-  const bound = ORRERY_HALF - 10;
-  for (const e of entries) {
-    e.labelX = Math.max(-bound, Math.min(bound, e.labelX));
-    e.labelY = Math.max(-bound, Math.min(bound, e.labelY));
-  }
-}
-
-/** Ship flight trajectory line and moving dot */
-interface FlightLineRefs {
-  line: SVGLineElement;
-  shipDot: SVGCircleElement;
-}
-
-/**
- * Build an SVG path string for an elliptical orbit.
- * Samples 72 points along the orbit and projects each through the provided
- * radius-to-SVG mapping function, so the path matches the log-scale
- * projection used for dot positions.
- */
-function buildOrbitPath(
-  semiMajorAxis: number,
-  eccentricity: number,
-  radiusToSvg: (km: number) => number
-): string {
-  const N = 72; // every 5°
-  const parts: string[] = [];
-  for (let i = 0; i <= N; i++) {
-    const theta = (2 * Math.PI * i) / N;
-    const r =
-      eccentricity === 0
-        ? semiMajorAxis
-        : (semiMajorAxis * (1 - eccentricity * eccentricity)) /
-          (1 + eccentricity * Math.cos(theta));
-    const svgR = radiusToSvg(r);
-    const x = svgR * Math.cos(theta);
-    const y = svgR * Math.sin(theta);
-    parts.push(`${i === 0 ? 'M' : 'L'}${x.toFixed(2)},${y.toFixed(2)}`);
-  }
-  parts.push('Z');
-  return parts.join(' ');
 }
 
 /** Per-location refs for the legend item (compact card — no accordion) */
@@ -178,66 +54,17 @@ interface LegendItemRefs {
   unreachableReason: HTMLElement;
 }
 
-/**
- * Compute cluster membership from location orbital data.
- * Returns parent→children map and convenience sets.
- * Generic: any body with 2+ satellites (via parentId) forms a cluster.
- */
-function computeClusterData(locations: WorldLocation[]): {
-  childrenMap: Map<string, string[]>;
-  parentIds: Set<string>;
-  memberIds: Set<string>;
-} {
-  const childrenMap = new Map<string, string[]>();
-  for (const loc of locations) {
-    if (loc.orbital?.parentId) {
-      const pid = loc.orbital.parentId;
-      if (!childrenMap.has(pid)) childrenMap.set(pid, []);
-      childrenMap.get(pid)!.push(loc.id);
-    }
-  }
-  // Only keep clusters with 2+ children
-  const parentIds = new Set<string>();
-  const memberIds = new Set<string>();
-  for (const [parentId, childIds] of childrenMap) {
-    if (childIds.length >= 2) {
-      parentIds.add(parentId);
-      for (const id of childIds) memberIds.add(id);
-    }
-  }
-  return { childrenMap, parentIds, memberIds };
-}
-
-/**
- * Build cluster focus buttons for the orrery map.
- * Clicking a button switches to Focus mode for that cluster.
- */
-function buildClusterButtons(
-  locations: WorldLocation[],
-  clusterChildrenMap: Map<string, string[]>,
-  clusterParentIds: Set<string>,
-  onFocusCluster: (parentId: string) => void
-): HTMLElement | null {
-  const bar = document.createElement('div');
-  bar.className = 'nav-map-cluster-bar';
-
-  for (const [parentId, childIds] of clusterChildrenMap) {
-    if (childIds.length < 2) continue;
-    if (!clusterParentIds.has(parentId)) continue;
-    const parent = locations.find((l) => l.id === parentId);
-    if (!parent) continue;
-
-    const btn = document.createElement('button');
-    btn.className = 'nav-map-cluster-btn';
-    btn.textContent = `${parent.name} System`;
-    btn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      onFocusCluster(parentId);
-    });
-    bar.appendChild(btn);
-  }
-
-  return bar.children.length > 0 ? bar : null;
+/** Build ship display info for active ship */
+function buildActiveShipInfo(gameData: GameData): ShipDisplayInfo {
+  const ship = getActiveShip(gameData);
+  return {
+    shipId: ship.id,
+    shipName: ship.name,
+    color: '#dc2626', // Red for active ship in Nav tab
+    locationId: ship.location.dockedAt || ship.location.orbitingAt || null,
+    flightPlan: ship.activeFlightPlan || null,
+    isActive: true,
+  };
 }
 
 /** Shared context for update helpers — avoids passing 8+ parameters */
@@ -422,57 +249,6 @@ function updateMarkerVisual(
   }
 }
 
-/** Position a marker and its label, update leader line */
-function positionMarker(
-  refs: MarkerRefs,
-  svgPos: { x: number; y: number },
-  labelPos: { x: number; y: number },
-  dotR: number
-): void {
-  refs.dot.setAttribute('cx', String(svgPos.x));
-  refs.dot.setAttribute('cy', String(svgPos.y));
-  refs.label.setAttribute('x', String(labelPos.x));
-  refs.label.setAttribute('y', String(labelPos.y));
-  refs.hitArea.setAttribute('cx', String(svgPos.x));
-  refs.hitArea.setAttribute('cy', String(svgPos.y));
-
-  const labelDx = labelPos.x - svgPos.x;
-  const labelDy = labelPos.y - (svgPos.y + dotR + 6);
-  const labelDisplacement = Math.sqrt(labelDx * labelDx + labelDy * labelDy);
-  if (labelDisplacement > LEADER_LINE_THRESHOLD) {
-    refs.leaderLine.setAttribute('x1', String(svgPos.x));
-    refs.leaderLine.setAttribute('y1', String(svgPos.y));
-    refs.leaderLine.setAttribute('x2', String(labelPos.x));
-    refs.leaderLine.setAttribute('y2', String(labelPos.y - 3));
-    refs.leaderLine.style.display = '';
-  } else {
-    refs.leaderLine.style.display = 'none';
-  }
-}
-
-/** Hide a marker's SVG elements */
-function hideMarker(refs: MarkerRefs): void {
-  refs.dot.style.display = 'none';
-  refs.label.style.display = 'none';
-  refs.hitArea.style.display = 'none';
-  refs.leaderLine.style.display = 'none';
-  if (refs.clusterIndicator) refs.clusterIndicator.style.display = 'none';
-
-  // Reset stale attributes to prevent visual artifacts if element becomes visible
-  refs.dot.setAttribute('stroke', '#0f3460');
-  refs.dot.setAttribute('stroke-width', '1');
-  refs.dot.removeAttribute('opacity');
-  refs.label.setAttribute('fill', '#ccc');
-  refs.label.removeAttribute('opacity');
-}
-
-/** Show a marker's SVG elements */
-function showMarker(refs: MarkerRefs): void {
-  refs.dot.style.display = '';
-  refs.label.style.display = '';
-  refs.hitArea.style.display = '';
-}
-
 /** Create legend item DOM — compact flat card (no accordion) */
 function createLegendItemDom(
   location: WorldLocation,
@@ -569,82 +345,6 @@ function createLegendItemDom(
     travelButton,
     unreachableReason,
   };
-}
-
-/** Compute edge position for a trajectory endpoint outside the current cluster */
-function computeEdgePos(
-  frozenPos: Vec2 | undefined,
-  externalLocId: string,
-  parentPos: { x: number; y: number },
-  gd: GameData
-): { x: number; y: number } {
-  if (frozenPos) {
-    const angle = Math.atan2(
-      frozenPos.y - parentPos.y,
-      frozenPos.x - parentPos.x
-    );
-    return { x: 185 * Math.cos(angle), y: 185 * Math.sin(angle) };
-  }
-  const extLoc = gd.world.locations.find((l) => l.id === externalLocId);
-  if (!extLoc) return { x: 0, y: 0 };
-  const extPos = getLocationPosition(extLoc, gd.gameTime, gd.world);
-  const angle = Math.atan2(extPos.y - parentPos.y, extPos.x - parentPos.x);
-  return { x: 185 * Math.cos(angle), y: 185 * Math.sin(angle) };
-}
-
-/** Resolve origin/dest SVG positions for a flight in focus mode */
-function resolveFlightEndpoints(
-  fp: FlightState,
-  originInCluster: boolean,
-  destInCluster: boolean,
-  cachedSvgPositions: Map<string, { x: number; y: number }>,
-  parentPos: { x: number; y: number },
-  gd: GameData,
-  ctx: { parentLoc: WorldLocation; logMin: number; logMax: number }
-): { originSvg: { x: number; y: number }; destSvg: { x: number; y: number } } {
-  const getLocalPos = (locId: string) =>
-    cachedSvgPositions.get(locId) ?? { x: 0, y: 0 };
-
-  const depTime = fp.departureGameTime ?? fp.estimatedArrivalGameTime;
-  const hasFrozen = !!(
-    fp.originPos &&
-    fp.interceptPos &&
-    fp.estimatedArrivalGameTime
-  );
-  const frozen = hasFrozen
-    ? computeFrozenTrajectoryLocal(
-        fp.originPos!,
-        fp.interceptPos!,
-        fp.estimatedArrivalGameTime!,
-        {
-          parentLoc: ctx.parentLoc,
-          world: gd.world,
-          logMin: ctx.logMin,
-          logMax: ctx.logMax,
-          departureGameTime: depTime,
-        }
-      )
-    : undefined;
-
-  let originSvg: { x: number; y: number };
-  let destSvg: { x: number; y: number };
-
-  if (originInCluster && destInCluster) {
-    originSvg = frozen?.originSvg ?? getLocalPos(fp.origin);
-    destSvg = frozen?.destSvg ?? getLocalPos(fp.destination);
-  } else if (originInCluster) {
-    originSvg = frozen?.originSvg ?? getLocalPos(fp.origin);
-    destSvg = frozen
-      ? computeEdgePos(fp.interceptPos, fp.destination, parentPos, gd)
-      : computeEdgePos(undefined, fp.destination, parentPos, gd);
-  } else {
-    originSvg = frozen
-      ? computeEdgePos(fp.originPos, fp.origin, parentPos, gd)
-      : computeEdgePos(undefined, fp.origin, parentPos, gd);
-    destSvg = frozen?.destSvg ?? getLocalPos(fp.destination);
-  }
-
-  return { originSvg, destSvg };
 }
 
 /** Per-overlay refs for the selection detail panel */
@@ -817,22 +517,10 @@ export function createNavigationView(
   // Selection state — links map dots to legend cards
   let selectedLocationId: string | null = null;
 
-  // --- Orrery mode: overview (solar system) or focus (cluster detail) ---
-  type OrreryMode = { type: 'overview' } | { type: 'focus'; parentId: string };
-  let orreryMode: OrreryMode = { type: 'overview' };
-
   // Cluster membership data — computed once at mount
-  const {
-    childrenMap: clusterChildrenMap,
-    parentIds: clusterParentIds,
-    memberIds: clusterMemberIds,
-  } = computeClusterData(gameData.world.locations);
-
-  // Cached SVG positions from most recent update tick (used by applySelection + hover)
-  let cachedSvgPositions = new Map<
-    string,
-    { x: number; y: number; dotR: number }
-  >();
+  const { memberIds: clusterMemberIds } = computeClusterData(
+    gameData.world.locations
+  );
 
   // Refs to travel estimate elements — updated in-place on slider drag
   let estimateRefs: {
@@ -878,240 +566,52 @@ export function createNavigationView(
   title.textContent = 'Navigation Chart';
   header.appendChild(title);
 
-  const closeBtn = document.createElement('button');
-  closeBtn.className = 'nav-close-btn';
-  closeBtn.textContent = 'Close';
-  closeBtn.addEventListener('click', callbacks.onToggleNavigation);
-  header.appendChild(closeBtn);
-
   container.appendChild(header);
 
   // Orrery SVG map area
   const mapArea = document.createElement('div');
   mapArea.className = 'nav-map';
 
-  const svg = document.createElementNS(SVG_NS, 'svg');
-  svg.setAttribute(
-    'viewBox',
-    `${-ORRERY_HALF} ${-ORRERY_HALF} ${ORRERY_SIZE} ${ORRERY_SIZE}`
-  );
-  svg.setAttribute('width', '100%');
-  svg.setAttribute('height', '100%');
-  svg.style.display = 'block';
+  // Create orrery using unified map component
+  const {
+    component: orreryMapComponent,
+    updateWithShips: updateOrreryWithShips,
+    refs: orreryMapRefs,
+  } = createOrreryMap(gameData, {
+    ships: [buildActiveShipInfo(gameData)],
+    showZoomControls: true,
+    showClusterButtons: true,
+    onLocationClick: (locationId, isClusterParent) => {
+      if (isClusterParent) {
+        // Clicking cluster parent in overview mode switches to focus
+        // (handled by orreryMap)
+      } else {
+        // Clicking regular location selects it
+        selectedLocationId = locationId;
+        applySelection();
+      }
+    },
+    onFocusChange: () => {
+      // Mode change handled by orreryMap — just re-apply selection
+      applySelection();
+    },
+  });
 
-  // Background ring layer (behind dots)
-  const ringLayer = document.createElementNS(SVG_NS, 'g');
-  ringLayer.setAttribute('class', 'orrery-rings');
-  svg.appendChild(ringLayer);
+  // Extract refs for Nav-specific decorations
+  const orreryRefs = orreryMapRefs.orreryRefs;
+  const currentRing = orreryRefs.currentRing;
+  const currentRingAnim = currentRing.children[0] as SVGAnimateElement;
+  const destRing = orreryRefs.destRing;
+  const selectionRing = orreryRefs.selectionRing;
+  const assistMarkers = orreryRefs.assistMarkers;
 
-  // Orbit rings — one per unique Sun-orbiting (radius, eccentricity) pair
-  const overviewOrbitRings: SVGPathElement[] = [];
-  const sunOrbits = new Map<string, { a: number; e: number }>();
-  for (const loc of gameData.world.locations) {
-    if (loc.orbital && !loc.orbital.parentId) {
-      const a = loc.orbital.orbitalRadiusKm;
-      const e = loc.orbital.eccentricity ?? 0;
-      const key = `${a}:${e}`;
-      if (!sunOrbits.has(key)) sunOrbits.set(key, { a, e });
-    }
-  }
-  for (const { a, e } of sunOrbits.values()) {
-    const ring = document.createElementNS(SVG_NS, 'path');
-    ring.setAttribute('d', buildOrbitPath(a, e, orbitalRadiusToSvg));
-    ring.setAttribute('fill', 'none');
-    ring.setAttribute('stroke', 'rgba(15, 52, 96, 0.5)');
-    ring.setAttribute('stroke-width', '0.5');
-    ring.setAttribute('stroke-dasharray', '3,3');
-    ringLayer.appendChild(ring);
-    overviewOrbitRings.push(ring);
-  }
-
-  // Focus-mode local orbit ring pool (max 8, hidden by default)
-  const MAX_LOCAL_RINGS = 8;
-  const localRings: SVGPathElement[] = [];
-  for (let i = 0; i < MAX_LOCAL_RINGS; i++) {
-    const ring = document.createElementNS(SVG_NS, 'path');
-    ring.setAttribute('d', '');
-    ring.setAttribute('fill', 'none');
-    ring.setAttribute('stroke', 'rgba(74, 158, 255, 0.3)');
-    ring.setAttribute('stroke-width', '0.5');
-    ring.setAttribute('stroke-dasharray', '3,3');
-    ring.style.display = 'none';
-    ringLayer.appendChild(ring);
-    localRings.push(ring);
-  }
-
-  // Sun marker at center
-  const sunDot = document.createElementNS(SVG_NS, 'circle');
-  sunDot.setAttribute('cx', '0');
-  sunDot.setAttribute('cy', '0');
-  sunDot.setAttribute('r', '4');
-  sunDot.setAttribute('fill', '#ffd700');
-  svg.appendChild(sunDot);
-  const sunLabel = document.createElementNS(SVG_NS, 'text');
-  sunLabel.setAttribute('x', '0');
-  sunLabel.setAttribute('y', '10');
-  sunLabel.setAttribute('text-anchor', 'middle');
-  sunLabel.setAttribute('fill', '#888');
-  sunLabel.setAttribute('font-size', '5');
-  sunLabel.textContent = 'Sun';
-  svg.appendChild(sunLabel);
-
-  // Body dots layer
-  const bodyLayer = document.createElementNS(SVG_NS, 'g');
-  bodyLayer.setAttribute('class', 'orrery-bodies');
-  svg.appendChild(bodyLayer);
-
-  // Focus-mode parent dot at center (hidden by default)
-  const focusParentDot = document.createElementNS(SVG_NS, 'circle');
-  focusParentDot.setAttribute('cx', '0');
-  focusParentDot.setAttribute('cy', '0');
-  focusParentDot.setAttribute('r', '8');
-  focusParentDot.setAttribute('fill', '#4fc3f7');
-  focusParentDot.setAttribute('stroke', '#fff');
-  focusParentDot.setAttribute('stroke-width', '1');
-  focusParentDot.style.display = 'none';
-  bodyLayer.appendChild(focusParentDot);
-
-  const focusParentLabel = document.createElementNS(SVG_NS, 'text');
-  focusParentLabel.setAttribute('x', '0');
-  focusParentLabel.setAttribute('y', '14');
-  focusParentLabel.setAttribute('text-anchor', 'middle');
-  focusParentLabel.setAttribute('fill', '#fff');
-  focusParentLabel.setAttribute('font-size', '7');
-  focusParentLabel.style.display = 'none';
-  bodyLayer.appendChild(focusParentLabel);
-
-  // Flight trajectory layer (on top of rings, below labels)
-  const flightLayer = document.createElementNS(SVG_NS, 'g');
-  flightLayer.setAttribute('class', 'orrery-flights');
-  svg.appendChild(flightLayer);
-
-  // Flight line + ship dot (created once, updated each tick)
-  const flightLine = document.createElementNS(SVG_NS, 'line');
-  flightLine.setAttribute('stroke', '#dc2626');
-  flightLine.setAttribute('stroke-width', '1');
-  flightLine.setAttribute('stroke-dasharray', '4,2');
-  flightLine.setAttribute('stroke-opacity', '0.6');
-  flightLine.style.display = 'none';
-  flightLayer.appendChild(flightLine);
-
-  const shipDot = document.createElementNS(SVG_NS, 'circle');
-  shipDot.setAttribute('r', '2');
-  shipDot.setAttribute('fill', '#dc2626');
-  shipDot.setAttribute('stroke', '#fff');
-  shipDot.setAttribute('stroke-width', '0.5');
-  shipDot.style.display = 'none';
-  flightLayer.appendChild(shipDot);
-
-  const flightRefs: FlightLineRefs = { line: flightLine, shipDot };
-
-  // Current-location pulsing ring — animation 'from'/'to' set dynamically from dot size
-  const currentRing = document.createElementNS(SVG_NS, 'circle');
-  currentRing.setAttribute('fill', 'none');
-  currentRing.setAttribute('stroke', '#dc2626');
-  currentRing.setAttribute('stroke-width', '1');
-  currentRing.setAttribute('stroke-opacity', '0');
-  currentRing.style.display = 'none';
-  const currentRingAnim = document.createElementNS(SVG_NS, 'animate');
-  currentRingAnim.setAttribute('attributeName', 'r');
-  currentRingAnim.setAttribute('from', '6');
-  currentRingAnim.setAttribute('to', '16');
-  currentRingAnim.setAttribute('dur', '2s');
-  currentRingAnim.setAttribute('repeatCount', 'indefinite');
-  currentRing.appendChild(currentRingAnim);
-  const currentRingOpacAnim = document.createElementNS(SVG_NS, 'animate');
-  currentRingOpacAnim.setAttribute('attributeName', 'stroke-opacity');
-  currentRingOpacAnim.setAttribute('values', '0.7;0');
-  currentRingOpacAnim.setAttribute('dur', '2s');
-  currentRingOpacAnim.setAttribute('repeatCount', 'indefinite');
-  currentRing.appendChild(currentRingOpacAnim);
-  flightLayer.appendChild(currentRing);
-
-  // Destination glow ring (steady) — radius set dynamically from dot size
-  const destRing = document.createElementNS(SVG_NS, 'circle');
-  destRing.setAttribute('fill', 'none');
-  destRing.setAttribute('stroke', '#4a9eff');
-  destRing.setAttribute('stroke-width', '1.5');
-  destRing.setAttribute('stroke-opacity', '0.6');
-  destRing.style.display = 'none';
-  flightLayer.appendChild(destRing);
-
-  // Selection highlight ring — radius set dynamically from dot size
-  const selectionRing = document.createElementNS(SVG_NS, 'circle');
-  selectionRing.setAttribute('fill', 'none');
-  selectionRing.setAttribute('stroke', '#4a9eff');
-  selectionRing.setAttribute('stroke-width', '2');
-  selectionRing.setAttribute('stroke-opacity', '0.8');
-  selectionRing.style.display = 'none';
-  flightLayer.appendChild(selectionRing);
-
-  // Gravity assist markers pool (max 5 — created once, show/hide as needed)
-  const MAX_ASSIST_MARKERS = 5;
-
-  interface AssistMarkerRefs {
-    halo: SVGCircleElement; // influence zone halo around body
-    diamond: SVGPolygonElement; // marker on trajectory line
-  }
-
-  const assistMarkers: AssistMarkerRefs[] = [];
-  for (let i = 0; i < MAX_ASSIST_MARKERS; i++) {
-    const halo = document.createElementNS(SVG_NS, 'circle');
-    halo.setAttribute('r', '10');
-    halo.setAttribute('fill', 'none');
-    halo.setAttribute('stroke', '#ffc107');
-    halo.setAttribute('stroke-width', '1');
-    halo.setAttribute('stroke-opacity', '0.5');
-    halo.setAttribute('stroke-dasharray', '2,2');
-    halo.style.display = 'none';
-    flightLayer.appendChild(halo);
-
-    const diamond = document.createElementNS(SVG_NS, 'polygon');
-    diamond.setAttribute('fill', '#ffc107');
-    diamond.setAttribute('stroke', '#fff');
-    diamond.setAttribute('stroke-width', '0.3');
-    diamond.style.display = 'none';
-    flightLayer.appendChild(diamond);
-
-    assistMarkers.push({ halo, diamond });
-  }
-
-  mapArea.appendChild(svg);
+  mapArea.appendChild(orreryMapComponent.el);
 
   const selectionOverlay = createSelectionOverlay(() => {
     selectedLocationId = null;
     applySelection();
   });
   mapArea.appendChild(selectionOverlay.wrapper);
-
-  // Zoom/pan gesture handling (pinch, drag, wheel)
-  const zoomControls: MapZoomPanControls = setupMapZoomPan(svg, mapArea);
-
-  // Cluster focus buttons (e.g. "Earth System") — switches to focus mode
-  const clusterBar = buildClusterButtons(
-    gameData.world.locations,
-    clusterChildrenMap,
-    clusterParentIds,
-    (parentId) => switchToFocus(parentId)
-  );
-  if (clusterBar) mapArea.appendChild(clusterBar);
-
-  // Back-to-overview button (hidden by default, shown in focus mode)
-  const backToOverviewBtn = document.createElement('button');
-  backToOverviewBtn.className = 'nav-map-cluster-btn nav-map-back-btn';
-  backToOverviewBtn.textContent = '\u2190 Overview';
-  backToOverviewBtn.style.display = 'none';
-  backToOverviewBtn.addEventListener('click', (e) => {
-    e.stopPropagation();
-    switchToOverview();
-  });
-  mapArea.appendChild(backToOverviewBtn);
-
-  // Focus mode title (e.g. "Earth System") — hidden by default
-  const focusTitle = document.createElement('div');
-  focusTitle.className = 'nav-map-focus-title';
-  focusTitle.style.display = 'none';
-  mapArea.appendChild(focusTitle);
 
   container.appendChild(mapArea);
 
@@ -1131,82 +631,18 @@ export function createNavigationView(
 
   container.appendChild(legend);
 
-  // --- Create per-location elements once ---
-  const markerMap = new Map<string, MarkerRefs>();
+  // --- Create per-location legend items ---
+  // SVG markers are created by orreryMap — we just reference them for threat coloring
+  const markerMap = orreryMapRefs.markerMap;
   const legendMap = new Map<string, LegendItemRefs>();
 
-  for (const location of gameData.world.locations) {
-    // --- SVG marker ---
-    const pos = projectToSvg(location.x, location.y);
-
-    const template = getLocationTypeTemplate(location.type);
-    const isClusterChild = clusterMemberIds.has(location.id);
-    const isClusterParent = clusterParentIds.has(location.id);
-    const dotRadius =
-      location.type === 'planet' ? 5 : isClusterChild ? 2.5 : 3.5;
-
-    const dot = document.createElementNS(SVG_NS, 'circle');
-    dot.setAttribute('cx', String(pos.x));
-    dot.setAttribute('cy', String(pos.y));
-    dot.setAttribute('r', String(dotRadius));
-    dot.setAttribute('fill', template.color ?? '#0f3460');
-    dot.setAttribute('stroke', '#0f3460');
-    dot.setAttribute('stroke-width', '1');
-    bodyLayer.appendChild(dot);
-
-    // Cluster indicator ring on parent dots (dashed, pulsing)
-    let clusterIndicator: SVGCircleElement | null = null;
-    if (isClusterParent) {
-      clusterIndicator = document.createElementNS(SVG_NS, 'circle');
-      clusterIndicator.setAttribute('cx', String(pos.x));
-      clusterIndicator.setAttribute('cy', String(pos.y));
-      clusterIndicator.setAttribute('r', String(dotRadius + 4));
-      clusterIndicator.setAttribute('fill', 'none');
-      clusterIndicator.setAttribute('stroke', '#4a9eff');
-      clusterIndicator.setAttribute('stroke-width', '1');
-      clusterIndicator.setAttribute('stroke-dasharray', '3,2');
-      clusterIndicator.setAttribute('class', 'orrery-cluster-indicator');
-      bodyLayer.appendChild(clusterIndicator);
-    }
-
-    // Leader line (connects dot to displaced label, hidden by default)
-    const leaderLine = document.createElementNS(SVG_NS, 'line');
-    leaderLine.setAttribute('stroke', '#4a6fa5');
-    leaderLine.setAttribute('stroke-width', '0.3');
-    leaderLine.setAttribute('stroke-opacity', '0.3');
-    leaderLine.style.display = 'none';
-    bodyLayer.appendChild(leaderLine);
-
-    const markerLabel = document.createElementNS(SVG_NS, 'text');
-    markerLabel.setAttribute('x', String(pos.x));
-    markerLabel.setAttribute('y', String(pos.y + dotRadius + 6));
-    markerLabel.setAttribute('text-anchor', 'middle');
-    markerLabel.setAttribute('fill', '#ccc');
-    markerLabel.setAttribute('font-size', '6');
-    markerLabel.textContent = location.name;
-    bodyLayer.appendChild(markerLabel);
-
-    // Invisible hit area for click/hover events (15-unit radius for mobile)
-    const hitArea = document.createElementNS(SVG_NS, 'circle');
-    hitArea.setAttribute('cx', String(pos.x));
-    hitArea.setAttribute('cy', String(pos.y));
-    hitArea.setAttribute('r', '15');
-    hitArea.setAttribute('fill', 'transparent');
-    hitArea.style.cursor = 'pointer';
-    bodyLayer.appendChild(hitArea);
-
-    // Click handler — selects location or drills into cluster
-    hitArea.addEventListener('click', () => {
-      if (orreryMode.type === 'overview' && clusterParentIds.has(location.id)) {
-        switchToFocus(location.id);
-      } else {
-        selectedLocationId = location.id;
-        applySelection();
-      }
-    });
+  // Setup marker hover handlers for threat coloring
+  for (const [locationId, markerRefs] of markerMap) {
+    const location = gameData.world.locations.find((l) => l.id === locationId);
+    if (!location) continue;
 
     // Hover feedback on desktop (dot stroke highlight only)
-    hitArea.addEventListener('mouseenter', () => {
+    markerRefs.hitArea.addEventListener('mouseenter', () => {
       const ship = getActiveShip(latestGameData);
       const currentLocId =
         ship.location.dockedAt || ship.location.orbitingAt || null;
@@ -1219,36 +655,18 @@ export function createNavigationView(
 
       // Only override stroke if this is NOT current/destination (preserve red stroke)
       if (!isCurrent && !isDest) {
-        dot.setAttribute('stroke', '#4a9eff');
-        dot.setAttribute('stroke-width', '1');
+        markerRefs.dot.setAttribute('stroke', '#4a9eff');
+        markerRefs.dot.setAttribute('stroke-width', '1');
       }
     });
     // mouseleave: stroke reset handled by update tick
+  }
 
-    markerMap.set(location.id, {
-      dot,
-      label: markerLabel,
-      hitArea,
-      leaderLine,
-      clusterIndicator,
-    });
-
-    // --- Legend item (compact card) ---
+  for (const location of gameData.world.locations) {
+    // Create legend item (compact card)
     const legendItem = createLegendItemDom(
       location,
       () => {
-        // If this is a cluster child and we're in overview, switch to focus mode
-        if (
-          orreryMode.type === 'overview' &&
-          clusterMemberIds.has(location.id)
-        ) {
-          const parentId = location.orbital?.parentId;
-          if (parentId && clusterParentIds.has(parentId)) {
-            selectedLocationId = location.id;
-            switchToFocus(parentId);
-            return;
-          }
-        }
         selectedLocationId = location.id;
         applySelection();
       },
@@ -1262,9 +680,10 @@ export function createNavigationView(
 
   /** Apply selection state — highlight map dot + update overlay + highlight legend card */
   function applySelection(): void {
-    // Update SVG selection ring position using cached positions
+    // Update SVG selection ring position using positions from orreryMap
     if (selectedLocationId) {
-      const pos = cachedSvgPositions.get(selectedLocationId);
+      const svgPositions = orreryMapRefs.getLastSvgPositions();
+      const pos = svgPositions.get(selectedLocationId);
       if (pos) {
         selectionRing.setAttribute('cx', String(pos.x));
         selectionRing.setAttribute('cy', String(pos.y));
@@ -1288,227 +707,6 @@ export function createNavigationView(
       updateSelectionOverlay(selectionOverlay, selectedLocationId, latestCtx);
     } else if (!selectedLocationId) {
       selectionOverlay.content.style.display = 'none';
-    }
-  }
-
-  /** Switch orrery to cluster Focus mode */
-  function switchToFocus(parentId: string): void {
-    orreryMode = { type: 'focus', parentId };
-    // Reset CSS zoom/pan
-    zoomControls.zoomTo(0, 0, 1, false);
-    // Keep selection if it's in this cluster, otherwise clear
-    const childIds = clusterChildrenMap.get(parentId) || [];
-    if (
-      selectedLocationId &&
-      selectedLocationId !== parentId &&
-      !childIds.includes(selectedLocationId)
-    ) {
-      selectedLocationId = null;
-    }
-    update(latestGameData);
-    applySelection();
-  }
-
-  /** Switch orrery back to solar system Overview mode */
-  function switchToOverview(): void {
-    orreryMode = { type: 'overview' };
-    // Reset CSS zoom/pan
-    zoomControls.zoomTo(0, 0, 1, false);
-    // If selected location was a hidden cluster child, select parent instead
-    if (selectedLocationId && clusterMemberIds.has(selectedLocationId)) {
-      const loc = latestGameData.world.locations.find(
-        (l) => l.id === selectedLocationId
-      );
-      if (loc?.orbital?.parentId) {
-        selectedLocationId = loc.orbital.parentId;
-      }
-    }
-    update(latestGameData);
-    applySelection();
-  }
-
-  /** Update flight trajectory visualization using overview (solar) projection */
-  function updateFlightVizOverview(
-    gd: GameData,
-    ship: Ship,
-    isInFlight: boolean
-  ): void {
-    if (isInFlight && ship.activeFlightPlan) {
-      const fp = ship.activeFlightPlan;
-      let originSvg: { x: number; y: number };
-      let destSvg: { x: number; y: number };
-
-      // Project trajectory endpoints to SVG coordinates with log scaling
-      if (fp.originPos && fp.interceptPos) {
-        originSvg = projectToSvg(fp.originPos.x, fp.originPos.y);
-        destSvg = projectToSvg(fp.interceptPos.x, fp.interceptPos.y);
-      } else {
-        const originLoc = gd.world.locations.find((l) => l.id === fp.origin);
-        const destLoc = gd.world.locations.find((l) => l.id === fp.destination);
-        originSvg = originLoc
-          ? projectToSvg(originLoc.x, originLoc.y)
-          : { x: 0, y: 0 };
-        destSvg = destLoc ? projectToSvg(destLoc.x, destLoc.y) : { x: 0, y: 0 };
-      }
-
-      // CRITICAL: Interpolate ship position in SVG space, not in linear km space!
-      // With logarithmic radial scaling, projecting a linearly-interpolated km
-      // position causes massive distortion (5% real progress can appear as 50%
-      // visual progress). Always interpolate in the post-projection SVG space
-      // so visual progress matches flight progress.
-      const progress =
-        fp.totalDistance > 0 ? fp.distanceCovered / fp.totalDistance : 0;
-      const shipSvg = {
-        x: originSvg.x + (destSvg.x - originSvg.x) * progress,
-        y: originSvg.y + (destSvg.y - originSvg.y) * progress,
-      };
-
-      flightRefs.line.setAttribute('x1', String(originSvg.x));
-      flightRefs.line.setAttribute('y1', String(originSvg.y));
-      flightRefs.line.setAttribute('x2', String(destSvg.x));
-      flightRefs.line.setAttribute('y2', String(destSvg.y));
-      flightRefs.line.style.display = '';
-      flightRefs.shipDot.setAttribute('cx', String(shipSvg.x));
-      flightRefs.shipDot.setAttribute('cy', String(shipSvg.y));
-      flightRefs.shipDot.style.display = '';
-
-      // Ship dot stroke: yellow during burn, white during coast
-      if (fp.phase === 'accelerating' || fp.phase === 'decelerating') {
-        flightRefs.shipDot.setAttribute('stroke', '#ffc107');
-      } else {
-        flightRefs.shipDot.setAttribute('stroke', '#fff');
-      }
-
-      const assists = fp.gravityAssists || [];
-      for (let i = 0; i < MAX_ASSIST_MARKERS; i++) {
-        const marker = assistMarkers[i];
-        if (i < assists.length) {
-          const a = assists[i];
-          const color =
-            a.result === 'success'
-              ? '#4caf50'
-              : a.result === 'failure'
-                ? '#f44336'
-                : '#ffc107';
-          const bodyLoc = gd.world.locations.find((l) => l.id === a.bodyId);
-          if (bodyLoc) {
-            const bodyPos = getLocationPosition(bodyLoc, gd.gameTime, gd.world);
-            const bodySvg = projectToSvg(bodyPos.x, bodyPos.y);
-            marker.halo.setAttribute('cx', String(bodySvg.x));
-            marker.halo.setAttribute('cy', String(bodySvg.y));
-            marker.halo.setAttribute('stroke', color);
-            marker.halo.style.display = '';
-          } else {
-            marker.halo.style.display = 'none';
-          }
-          const dx = destSvg.x - originSvg.x;
-          const dy = destSvg.y - originSvg.y;
-          const mx = originSvg.x + dx * a.approachProgress;
-          const my = originSvg.y + dy * a.approachProgress;
-          const ds = 2.5;
-          marker.diamond.setAttribute(
-            'points',
-            `${mx},${my - ds} ${mx + ds},${my} ${mx},${my + ds} ${mx - ds},${my}`
-          );
-          marker.diamond.setAttribute('fill', color);
-          marker.diamond.style.display = '';
-        } else {
-          marker.halo.style.display = 'none';
-          marker.diamond.style.display = 'none';
-        }
-      }
-    } else {
-      hideFlightViz();
-    }
-  }
-
-  /** Update flight trajectory for focus mode — handle 3 scenarios */
-  function updateFlightVizFocus(
-    gd: GameData,
-    ship: Ship,
-    isInFlight: boolean,
-    {
-      parentId,
-      parentPos,
-      logMin,
-      logMax,
-      parentLoc,
-    }: {
-      parentId: string;
-      parentPos: { x: number; y: number };
-      logMin: number;
-      logMax: number;
-      parentLoc: WorldLocation;
-    }
-  ): void {
-    if (!isInFlight || !ship.activeFlightPlan) {
-      hideFlightViz();
-      return;
-    }
-
-    const fp = ship.activeFlightPlan;
-    const childIds = clusterChildrenMap.get(parentId) || [];
-    const isInCluster = (id: string) =>
-      id === parentId || childIds.includes(id);
-    const originInCluster = isInCluster(fp.origin);
-    const destInCluster = isInCluster(fp.destination);
-
-    if (!originInCluster && !destInCluster) {
-      // Scenario C: flight entirely outside this cluster — hide
-      hideFlightViz();
-      return;
-    }
-
-    const { originSvg, destSvg } = resolveFlightEndpoints(
-      fp,
-      originInCluster,
-      destInCluster,
-      cachedSvgPositions,
-      parentPos,
-      gd,
-      { parentLoc, logMin, logMax }
-    );
-
-    const line = flightRefs.line;
-    line.setAttribute('x1', String(originSvg.x));
-    line.setAttribute('y1', String(originSvg.y));
-    line.setAttribute('x2', String(destSvg.x));
-    line.setAttribute('y2', String(destSvg.y));
-    line.style.display = '';
-
-    // Interpolate in SVG space (post-projection) to avoid log distortion
-    const progress =
-      fp.totalDistance > 0 ? fp.distanceCovered / fp.totalDistance : 0;
-    const dot = flightRefs.shipDot;
-    dot.setAttribute(
-      'cx',
-      String(originSvg.x + (destSvg.x - originSvg.x) * progress)
-    );
-    dot.setAttribute(
-      'cy',
-      String(originSvg.y + (destSvg.y - originSvg.y) * progress)
-    );
-    dot.setAttribute(
-      'stroke',
-      fp.phase === 'accelerating' || fp.phase === 'decelerating'
-        ? '#ffc107'
-        : '#fff'
-    );
-    dot.style.display = '';
-
-    for (const marker of assistMarkers) {
-      marker.halo.style.display = 'none';
-      marker.diamond.style.display = 'none';
-    }
-  }
-
-  /** Hide all flight visualization elements */
-  function hideFlightViz(): void {
-    flightRefs.line.style.display = 'none';
-    flightRefs.shipDot.style.display = 'none';
-    for (const marker of assistMarkers) {
-      marker.halo.style.display = 'none';
-      marker.diamond.style.display = 'none';
     }
   }
 
@@ -1570,75 +768,13 @@ export function createNavigationView(
     // Store ctx for immediate overlay updates in applySelection()
     latestCtx = ctx;
 
-    if (orreryMode.type === 'overview') {
-      updateOverview(ctx);
-    } else {
-      updateFocus(ctx, orreryMode.parentId);
-    }
+    // Update orrery with current ship data
+    updateOrreryWithShips(gameData, [buildActiveShipInfo(gameData)]);
 
-    // Update selection overlay every tick (distances/alignment change with orbits)
-    updateSelectionOverlay(selectionOverlay, selectedLocationId, ctx);
-  }
+    // Get SVG positions from orreryMap
+    const svgPositions = orreryMapRefs.getLastSvgPositions();
 
-  /** Update in Overview mode — solar system view, clusters collapsed */
-  function updateOverview(ctx: UpdateCtx): void {
-    const {
-      gd,
-      ship,
-      virtualOrigin,
-      currentLocationId,
-      flightDestinationId,
-      isInFlight,
-    } = ctx;
-    // Show overview UI
-    sunDot.style.display = '';
-    sunLabel.style.display = '';
-    for (const ring of overviewOrbitRings) ring.style.display = '';
-    if (clusterBar) clusterBar.style.display = '';
-
-    // Hide focus UI
-    focusParentDot.style.display = 'none';
-    focusParentLabel.style.display = 'none';
-    for (const ring of localRings) ring.style.display = 'none';
-    backToOverviewBtn.style.display = 'none';
-    focusTitle.style.display = 'none';
-
-    // Compute positions and deconfliction for visible locations
-    const labelEntries: LabelEntry[] = [];
-    const svgPositions = new Map<
-      string,
-      { x: number; y: number; dotR: number }
-    >();
-
-    for (const location of gd.world.locations) {
-      const svgPos = projectToSvg(location.x, location.y);
-      const isChild = clusterMemberIds.has(location.id);
-      const dotR = location.type === 'planet' ? 5 : isChild ? 2.5 : 3.5;
-      svgPositions.set(location.id, { ...svgPos, dotR });
-
-      if (!isChild) {
-        labelEntries.push({
-          id: location.id,
-          dotX: svgPos.x,
-          dotY: svgPos.y,
-          labelX: svgPos.x,
-          labelY: svgPos.y + dotR + 6,
-        });
-      }
-    }
-
-    deconflictLabels(labelEntries);
-
-    const labelPositions = new Map<string, { x: number; y: number }>();
-    for (const entry of labelEntries) {
-      labelPositions.set(entry.id, { x: entry.labelX, y: entry.labelY });
-    }
-
-    // Cache positions for applySelection and hover
-    cachedSvgPositions = svgPositions;
-
-    // Update pulsing rings — consolidate to avoid overlapping rings at same position
-    // Priority: currentRing (pulsing orange) > selectionRing (blue) > destRing (blue)
+    // Position current/dest/selection rings
     if (currentLocationId && !clusterMemberIds.has(currentLocationId)) {
       const pos = svgPositions.get(currentLocationId);
       if (pos) {
@@ -1654,75 +790,27 @@ export function createNavigationView(
       currentRing.style.display = 'none';
     }
 
-    // Destination ring — skip if current location already has a ring
+    // Destination ring is now positioned by updateShipVisualization,
+    // but Nav tab hides it in special cases (destination = current/selected location)
     if (
       flightDestinationId &&
-      !clusterMemberIds.has(flightDestinationId) &&
-      flightDestinationId !== currentLocationId &&
-      flightDestinationId !== selectedLocationId
+      (flightDestinationId === currentLocationId ||
+        flightDestinationId === selectedLocationId)
     ) {
-      const pos = svgPositions.get(flightDestinationId);
-      if (pos) {
-        destRing.setAttribute('cx', String(pos.x));
-        destRing.setAttribute('cy', String(pos.y));
-        destRing.setAttribute('r', String(pos.dotR + 4));
-        destRing.style.display = '';
-      } else {
-        destRing.style.display = 'none';
-      }
-    } else {
       destRing.style.display = 'none';
     }
 
-    // Selection ring — skip if current or destination ring already shown
-    if (
-      selectedLocationId &&
-      !clusterMemberIds.has(selectedLocationId) &&
-      selectedLocationId !== currentLocationId
-    ) {
-      const pos = svgPositions.get(selectedLocationId);
-      if (pos) {
-        selectionRing.setAttribute('cx', String(pos.x));
-        selectionRing.setAttribute('cy', String(pos.y));
-        selectionRing.setAttribute('r', String(pos.dotR + 5));
-        selectionRing.style.display = '';
-      } else {
-        selectionRing.style.display = 'none';
-      }
-    } else {
-      selectionRing.style.display = 'none';
+    // Hide gravity assist markers (they're shown on ship trajectory in overview mode)
+    for (const marker of assistMarkers) {
+      marker.halo.style.display = 'none';
+      marker.diamond.style.display = 'none';
     }
 
-    // Per-location update
-    for (const location of gd.world.locations) {
-      const refs = markerMap.get(location.id);
+    // Update marker threat coloring + legend items
+    for (const location of gameData.world.locations) {
+      const markerRefs = markerMap.get(location.id);
       const legendRefs = legendMap.get(location.id);
-      if (!refs || !legendRefs) continue;
-
-      const isChild = clusterMemberIds.has(location.id);
-
-      if (isChild) {
-        // Hide cluster children markers in overview, but keep legend visible
-        hideMarker(refs);
-        legendRefs.item.style.display = '';
-        updateLegendItem(location, legendRefs, ctx);
-        continue;
-      }
-
-      // Show this location
-      showMarker(refs);
-      legendRefs.item.style.display = '';
-
-      const svgPos = svgPositions.get(location.id)!;
-      const labelPos = labelPositions.get(location.id)!;
-      positionMarker(refs, svgPos, labelPos, svgPos.dotR);
-
-      // Cluster indicator ring on parents
-      if (refs.clusterIndicator) {
-        refs.clusterIndicator.setAttribute('cx', String(svgPos.x));
-        refs.clusterIndicator.setAttribute('cy', String(svgPos.y));
-        refs.clusterIndicator.style.display = '';
-      }
+      if (!markerRefs || !legendRefs) continue;
 
       const reachable = isLocationReachable(ship, location, virtualOrigin);
       const isCurrent = location.id === currentLocationId;
@@ -1730,7 +818,7 @@ export function createNavigationView(
       const isOtherDestination = !isCurrent && !isFlightDest && reachable;
 
       updateMarkerVisual(
-        refs,
+        markerRefs,
         location,
         isCurrent,
         isFlightDest,
@@ -1742,240 +830,8 @@ export function createNavigationView(
       updateLegendItem(location, legendRefs, ctx);
     }
 
-    // Flight visualization (overview projection)
-    updateFlightVizOverview(gd, ship, isInFlight);
-  }
-
-  /** Update in Focus mode — local cluster view */
-  function updateFocus(ctx: UpdateCtx, parentId: string): void {
-    const {
-      gd,
-      ship,
-      virtualOrigin,
-      currentLocationId,
-      flightDestinationId,
-      isInFlight,
-    } = ctx;
-    // Hide overview UI
-    sunDot.style.display = 'none';
-    sunLabel.style.display = 'none';
-    for (const ring of overviewOrbitRings) ring.style.display = 'none';
-    if (clusterBar) clusterBar.style.display = 'none';
-
-    // Show focus UI
-    backToOverviewBtn.style.display = '';
-    focusTitle.style.display = '';
-
-    const parentLoc = gd.world.locations.find((l) => l.id === parentId);
-    if (!parentLoc) return;
-
-    // Update focus title
-    focusTitle.textContent = `${parentLoc.name} System`;
-
-    // Focus parent dot at center
-    focusParentDot.style.display = '';
-    focusParentDot.setAttribute(
-      'fill',
-      getLocationTypeTemplate(parentLoc.type).color ?? '#4fc3f7'
-    );
-    focusParentDot.setAttribute('stroke', '#fff');
-    focusParentDot.setAttribute('stroke-width', '1');
-    focusParentLabel.style.display = '';
-    focusParentLabel.textContent = parentLoc.name;
-
-    // Gather cluster children and compute local log bounds
-    const childIds = clusterChildrenMap.get(parentId) || [];
-    const children = childIds
-      .map((id) => gd.world.locations.find((l) => l.id === id))
-      .filter((l): l is WorldLocation => l !== undefined);
-
-    const radii = children.map((c) => c.orbital!.orbitalRadiusKm);
-    const logMin = Math.log10(Math.min(...radii));
-    const logMax = Math.log10(Math.max(...radii));
-
-    // Configure local orbit rings — unique (radius, eccentricity) pairs
-    const localOrbitMap = new Map<string, { a: number; e: number }>();
-    for (const c of children) {
-      const a = c.orbital!.orbitalRadiusKm;
-      const e = c.orbital!.eccentricity ?? 0;
-      const key = `${a}:${e}`;
-      if (!localOrbitMap.has(key)) localOrbitMap.set(key, { a, e });
-    }
-    const localOrbits = [...localOrbitMap.values()].sort((a, b) => a.a - b.a);
-    const localLogMin = logMin;
-    const localLogMax = logMax;
-    for (let i = 0; i < MAX_LOCAL_RINGS; i++) {
-      if (i < localOrbits.length) {
-        const { a, e } = localOrbits[i];
-        const toSvg = (r: number) =>
-          localOrbitalRadiusToSvg(r, localLogMin, localLogMax);
-        localRings[i].setAttribute('d', buildOrbitPath(a, e, toSvg));
-        localRings[i].style.display = '';
-      } else {
-        localRings[i].style.display = 'none';
-      }
-    }
-
-    // Parent position for local projection
-    const parentPos = getLocationPosition(parentLoc, gd.gameTime, gd.world);
-
-    // Compute local SVG positions
-    const svgPositions = new Map<
-      string,
-      { x: number; y: number; dotR: number }
-    >();
-    const labelEntries: LabelEntry[] = [];
-
-    // Parent at center
-    svgPositions.set(parentId, { x: 0, y: 0, dotR: 8 });
-
-    for (const child of children) {
-      const satPos = getLocationPosition(child, gd.gameTime, gd.world);
-      const localSvg = projectToSvgLocal(parentPos, satPos, logMin, logMax);
-      const dotR = 3.5;
-      svgPositions.set(child.id, { ...localSvg, dotR });
-      labelEntries.push({
-        id: child.id,
-        dotX: localSvg.x,
-        dotY: localSvg.y,
-        labelX: localSvg.x,
-        labelY: localSvg.y + dotR + 6,
-      });
-    }
-
-    deconflictLabels(labelEntries);
-
-    const labelPositions = new Map<string, { x: number; y: number }>();
-    for (const entry of labelEntries) {
-      labelPositions.set(entry.id, { x: entry.labelX, y: entry.labelY });
-    }
-
-    // Cache positions
-    cachedSvgPositions = svgPositions;
-
-    // Pulsing rings — consolidate to avoid overlapping rings at same position
-    // Priority: currentRing (pulsing orange) > selectionRing (blue) > destRing (blue)
-    if (currentLocationId) {
-      const pos = svgPositions.get(currentLocationId);
-      if (pos) {
-        currentRing.setAttribute('cx', String(pos.x));
-        currentRing.setAttribute('cy', String(pos.y));
-        currentRingAnim.setAttribute('from', String(pos.dotR + 2));
-        currentRingAnim.setAttribute('to', String(pos.dotR + 12));
-        currentRing.style.display = '';
-      } else {
-        currentRing.style.display = 'none';
-      }
-    } else {
-      currentRing.style.display = 'none';
-    }
-
-    // Destination ring — skip if current location already has a ring
-    if (
-      flightDestinationId &&
-      flightDestinationId !== currentLocationId &&
-      flightDestinationId !== selectedLocationId
-    ) {
-      const pos = svgPositions.get(flightDestinationId);
-      if (pos) {
-        destRing.setAttribute('cx', String(pos.x));
-        destRing.setAttribute('cy', String(pos.y));
-        destRing.setAttribute('r', String(pos.dotR + 4));
-        destRing.style.display = '';
-      } else {
-        destRing.style.display = 'none';
-      }
-    } else {
-      destRing.style.display = 'none';
-    }
-
-    // Selection ring — skip if current or destination ring already shown
-    if (selectedLocationId && selectedLocationId !== currentLocationId) {
-      const pos = svgPositions.get(selectedLocationId);
-      if (pos) {
-        selectionRing.setAttribute('cx', String(pos.x));
-        selectionRing.setAttribute('cy', String(pos.y));
-        selectionRing.setAttribute('r', String(pos.dotR + 5));
-        selectionRing.style.display = '';
-      } else {
-        selectionRing.style.display = 'none';
-      }
-    } else {
-      selectionRing.style.display = 'none';
-    }
-
-    // Per-location update
-    for (const location of gd.world.locations) {
-      const refs = markerMap.get(location.id);
-      const legendRefs = legendMap.get(location.id);
-      if (!refs || !legendRefs) continue;
-
-      const isParent = location.id === parentId;
-      const isClusterChild = childIds.includes(location.id);
-
-      if (!isParent && !isClusterChild) {
-        // Hide non-cluster locations
-        hideMarker(refs);
-        legendRefs.item.style.display = 'none';
-        continue;
-      }
-
-      if (isParent) {
-        // Parent uses the dedicated focus dot — hide its regular marker
-        hideMarker(refs);
-        legendRefs.item.style.display = '';
-
-        updateLegendItem(location, legendRefs, ctx);
-        continue;
-      }
-
-      // Cluster child — show and position using local projection
-      showMarker(refs);
-      legendRefs.item.style.display = '';
-
-      // Use focus-mode dot size (all children same size in focus)
-      refs.dot.setAttribute('r', '3.5');
-
-      const svgPos = svgPositions.get(location.id)!;
-      const labelPos = labelPositions.get(location.id)!;
-      positionMarker(refs, svgPos, labelPos, svgPos.dotR);
-
-      // Hide cluster indicator in focus mode
-      if (refs.clusterIndicator) refs.clusterIndicator.style.display = 'none';
-
-      const reachable = isLocationReachable(ship, location, virtualOrigin);
-      const isCurrent = location.id === currentLocationId;
-      const isFlightDest = location.id === flightDestinationId;
-      const isOtherDestination = !isCurrent && !isFlightDest && reachable;
-
-      updateMarkerVisual(
-        refs,
-        location,
-        isCurrent,
-        isFlightDest,
-        isOtherDestination,
-        reachable,
-        ctx
-      );
-
-      updateLegendItem(location, legendRefs, ctx);
-    }
-
-    // Defensive: ensure all cluster indicators are hidden in focus mode
-    for (const [, refs] of markerMap) {
-      if (refs.clusterIndicator) {
-        refs.clusterIndicator.style.display = 'none';
-      }
-    }
-
-    // Flight visualization (focus projection)
-    updateFlightVizFocus(gd, ship, isInFlight, {
-      parentId,
-      parentPos,
-      logMin,
-      logMax,
-      parentLoc,
-    });
+    // Update selection overlay every tick (distances/alignment change with orbits)
+    updateSelectionOverlay(selectionOverlay, selectedLocationId, ctx);
   }
 
   // Initial render

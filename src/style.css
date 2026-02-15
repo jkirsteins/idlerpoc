@@ -1329,7 +1329,7 @@ button:active:not(:disabled) {
   height: 400px;
   background: #0d0d18;
   border-radius: 8px;
-  border: 2px solid #12121e;
+  border: 1px solid #444;
   margin-bottom: 20px;
   overflow: hidden;
   touch-action: none;
@@ -1342,29 +1342,46 @@ button:active:not(:disabled) {
   image-rendering: crisp-edges;
 }
 
-.nav-map-zoom-btn {
+/* Map control buttons container - uses flexbox for automatic spacing */
+.nav-map-controls {
   position: absolute;
   top: 8px;
   right: 8px;
-  width: 28px;
+  display: flex;
+  gap: 8px;
+  z-index: 1;
+  pointer-events: none;
+}
+
+/* Base button styles - shared by all map control buttons */
+.nav-map-btn {
   height: 28px;
-  padding: 0;
-  font-size: 18px;
-  font-weight: bold;
-  line-height: 1;
+  padding: 0 10px;
+  font-size: 11px;
+  line-height: 28px;
   background: rgba(15, 52, 96, 0.85);
   color: #4a9eff;
   border: 1px solid #4a9eff;
   border-radius: 4px;
   cursor: pointer;
-  z-index: 1;
+  pointer-events: auto;
+  user-select: none;
+}
+
+.nav-map-btn:hover:not(:disabled) {
+  background: rgba(74, 158, 255, 0.2);
+}
+
+/* Zoom buttons - override with square shape and larger font */
+.nav-map-zoom-btn {
+  width: 28px;
+  padding: 0;
+  font-size: 18px;
+  font-weight: bold;
+  line-height: 1;
   display: flex;
   align-items: center;
   justify-content: center;
-}
-
-.nav-map-zoom-btn:hover:not(:disabled) {
-  background: rgba(74, 158, 255, 0.2);
 }
 
 .nav-map-zoom-btn:disabled {
@@ -1372,56 +1389,39 @@ button:active:not(:disabled) {
   cursor: not-allowed;
 }
 
-.nav-map-zoom-btn:first-of-type {
-  /* Zoom in button (+) */
-  right: 8px;
-}
-
-.nav-map-zoom-btn:nth-of-type(2) {
-  /* Zoom out button (−) */
-  right: 44px;
-}
-
-.nav-map-reset-zoom {
-  position: absolute;
-  top: 8px;
-  right: 80px;
-  padding: 4px 10px;
-  font-size: 11px;
-  background: rgba(15, 52, 96, 0.85);
-  color: #4a9eff;
-  border: 1px solid #4a9eff;
-  border-radius: 4px;
-  cursor: pointer;
-  z-index: 1;
-}
-
-.nav-map-reset-zoom:hover {
-  background: rgba(74, 158, 255, 0.2);
-}
-
+/* Bottom-left controls container - holds cluster buttons */
 .nav-map-cluster-bar {
   position: absolute;
   bottom: 8px;
   left: 8px;
   display: flex;
-  gap: 4px;
+  gap: 8px;
   z-index: 1;
+  pointer-events: none;
 }
 
-.nav-map-cluster-btn {
-  padding: 4px 10px;
-  font-size: 11px;
-  background: rgba(15, 52, 96, 0.85);
-  color: #4a9eff;
+.nav-map-cluster-bar > * {
+  pointer-events: auto;
+}
+
+/* Legend panel - positioned to avoid cluster buttons */
+.nav-map-legend-panel {
+  position: absolute;
+  bottom: 48px;
+  left: 8px;
+  max-width: 250px;
+  max-height: calc(100% - 100px);
+  background: rgba(10, 15, 30, 0.95);
   border: 1px solid #4a9eff;
   border-radius: 4px;
-  cursor: pointer;
+  padding: 10px;
+  font-size: 10px;
+  overflow-y: auto;
+  pointer-events: auto;
+  z-index: 2;
 }
 
-.nav-map-cluster-btn:hover {
-  background: rgba(74, 158, 255, 0.2);
-}
+/* Cluster buttons extend base button styles - no overrides needed */
 
 .nav-map-back-btn {
   position: absolute;
