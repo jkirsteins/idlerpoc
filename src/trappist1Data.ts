@@ -1105,7 +1105,6 @@ function stringArrayOr(value: unknown, fallback: string[]): string[] {
 function booleanOr(value: unknown, fallback: boolean): boolean {
   return typeof value === 'boolean' ? value : fallback;
 }
-
 function insolationBandOr(
   value: unknown,
   fallback: InsolationBand
