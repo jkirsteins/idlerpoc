@@ -117,6 +117,7 @@ export interface WorkerOrder {
 export interface Queen {
   id: string;
   locationZoneId: string; // Where embedded
+  alienTypeId: string;
 
   // Neural capacity
   neuralCapacity: number; // Base 20
@@ -130,6 +131,9 @@ export interface Queen {
 
   // Resources
   energy: EnergyPool;
+  health: EnergyPool;
+  metabolismPerTick: number;
+  hpDecayPerTickAtZeroEnergy: number;
 
   // Position
   position?: { x: number; y: number }; // Within zone
@@ -179,6 +183,7 @@ export interface Zone {
   // State
   state: ZoneState;
   progress: number; // 0-100 toward next state
+  ownedBySwarm: boolean;
 
   // Resources
   biomassRate: number; // Surface lichen growth per tick

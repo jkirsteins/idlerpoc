@@ -841,6 +841,7 @@ function generateZones(planetDef: PlanetDefinition): Zone[] {
       regionId: `${planetDef.id}-region-${Math.floor((zoneId % 64) / 8)}`,
       state: 'unexplored',
       progress: 0,
+      ownedBySwarm: false,
       biomassRate,
       biomassAvailable: Math.floor(biomassRate * 1000),
       predators: {
@@ -959,6 +960,7 @@ export function getStartingZone(planets: Planet[]): Zone {
   // Auto-conquer starting zone
   startingZone.state = 'harvesting';
   startingZone.progress = 100;
+  startingZone.ownedBySwarm = true;
   startingZone.predators = {
     strength: 0,
     defeated: true,
@@ -1100,6 +1102,10 @@ function stringArrayOr(value: unknown, fallback: string[]): string[] {
   return filtered.length > 0 ? filtered : fallback;
 }
 
+function booleanOr(value: unknown, fallback: boolean): boolean {
+  return typeof value === 'boolean' ? value : fallback;
+}
+
 function insolationBandOr(
   value: unknown,
   fallback: InsolationBand
@@ -1163,6 +1169,10 @@ function normalizeZoneFromTemplate(
       templateZone.temperatureKelvin
     ),
     progress: finiteOr(loadedZone.progress, templateZone.progress),
+    ownedBySwarm: booleanOr(
+      loadedZone.ownedBySwarm,
+      loadedZone.state !== 'unexplored' ? true : templateZone.ownedBySwarm
+    ),
     biomassRate: finiteOr(loadedZone.biomassRate, templateZone.biomassRate),
     biomassAvailable: finiteOr(
       loadedZone.biomassAvailable,

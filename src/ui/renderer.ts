@@ -1,7 +1,7 @@
 // Swarm Game Renderer - Component-based architecture
 // Follows mount-once / update-on-tick pattern from component.ts
 
-import type { GameData } from '../models/swarmTypes';
+import { SWARM_CONSTANTS, type GameData } from '../models/swarmTypes';
 import { calculateSwarmAggregates } from '../swarmSystem';
 import {
   formatAtmosphericMass,
@@ -33,7 +33,7 @@ export interface RendererCallbacks {
   onResetGame: () => void;
 }
 
-export type TabId = 'swarm' | 'planet' | 'system' | 'log' | 'settings';
+export type TabId = 'swarm' | 'planet' | 'system' | 'log';
 
 interface RendererState {
   activeTab: TabId;
@@ -76,7 +76,7 @@ export function render(
       'header header header'
       'left main right'
       'footer footer footer';
-    height: 100vh;
+    height: 100%;
     background: var(--bg-void, #050508);
     color: var(--text-primary, #e0e0e0);
     font-family: var(--font-body, system-ui, sans-serif);
@@ -402,8 +402,10 @@ function createLeftSidebar(_gameData: GameData): Component {
       }
       progressBar.style.backgroundColor = color;
 
-      // Show year progress percentage
-      dayLabel.textContent = `${(yearProgress * 100).toFixed(1)}%`;
+      const elapsedTicksInYear = gameData.gameTime % asimovDayLength;
+      const elapsedHoursInYear =
+        elapsedTicksInYear / SWARM_CONSTANTS.TICKS_PER_HOUR;
+      dayLabel.textContent = `${(yearProgress * 100).toFixed(1)}% - ${elapsedHoursInYear.toFixed(1)}h elapsed`;
 
       // Update swarm stats
       const aggregates = calculateSwarmAggregates(gameData.swarm);
@@ -466,7 +468,6 @@ function createMainPanel(
     { id: 'planet', label: 'Planet' },
     { id: 'system', label: 'System' },
     { id: 'log', label: 'Log' },
-    { id: 'settings', label: 'Settings' },
   ];
 
   for (const { id, label } of tabs) {
@@ -565,39 +566,9 @@ function getTabContent(
       return createSystemTabContent(gameData);
     case 'log':
       return createLogTabContent(gameData);
-    case 'settings':
-      return createSettingsTabContent();
     default:
       return '';
   }
-}
-
-function createSettingsTabContent(): string {
-  return `
-    <div style="max-width: 560px;">
-      <h2 style="color: var(--accent-cyan, #00e5ff); margin-bottom: 1rem;">Settings</h2>
-      <div style="background: var(--bg-panel, #12121a); padding: 1rem; border-radius: 8px; display: flex; flex-direction: column; gap: 0.75rem;">
-        <button
-          onclick="window.swarmCallbacks?.saveGame()"
-          style="padding: 0.75rem; background: #2a2a3a; color: #fff; border: none; border-radius: 4px; cursor: pointer;"
-        >
-          Download Save
-        </button>
-        <button
-          onclick="window.swarmCallbacks?.loadGame()"
-          style="padding: 0.75rem; background: #2a2a3a; color: #fff; border: none; border-radius: 4px; cursor: pointer;"
-        >
-          Upload Save
-        </button>
-        <button
-          onclick="window.swarmCallbacks?.resetGame()"
-          style="padding: 0.75rem; background: #5c1a1a; color: #ff9b9b; border: none; border-radius: 4px; cursor: pointer;"
-        >
-          Reset Game
-        </button>
-      </div>
-    </div>
-  `;
 }
 
 function createSwarmTabContent(
@@ -605,11 +576,61 @@ function createSwarmTabContent(
   _callbacks: RendererCallbacks
 ): string {
   const queen = gameData.swarm.queens[0];
-  if (!queen) return '<div>No queen found</div>';
+  if (!queen) {
+    return `
+      <div style="max-width: 600px;">
+        <h2 style="color: var(--accent-cyan, #00e5ff); margin-bottom: 1rem;">Swarm Control</h2>
+        <div style="background: var(--bg-panel, #12121a); padding: 1rem; border-radius: 8px; margin-bottom: 1rem;">
+          <div style="font-size: 1rem; font-weight: 600; color: #ff9b9b; margin-bottom: 0.5rem;">No active queens</div>
+          <div style="color: var(--text-secondary, #888); line-height: 1.5;">All queens are dead. Swarm-owned areas remain under swarm control, but no new directives can be issued.</div>
+        </div>
+        <div style="background: var(--bg-panel, #12121a); padding: 1rem; border-radius: 8px;">
+          <h3 style="margin: 0 0 0.75rem 0; font-size: 1rem;">Swarm Stats</h3>
+          <div style="font-size: 0.9rem; line-height: 1.8;">
+            <div>Total Workers: ${gameData.swarm.workers.length}</div>
+            <div>Total Queens: ${gameData.swarm.queens.length}</div>
+            <div>Swarm-Owned Zones: ${gameData.planets.reduce(
+              (sum, planet) =>
+                sum + planet.zones.filter((zone) => zone.ownedBySwarm).length,
+              0
+            )}</div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  const energyPct =
+    queen.energy.max > 0 ? (queen.energy.current / queen.energy.max) * 100 : 0;
+  const healthPct =
+    queen.health.max > 0 ? (queen.health.current / queen.health.max) * 100 : 0;
+  const eggHoursRemaining =
+    queen.eggProduction.ticksRemaining / SWARM_CONSTANTS.TICKS_PER_HOUR;
 
   return `
     <div style="max-width: 600px;">
       <h2 style="color: var(--accent-cyan, #00e5ff); margin-bottom: 1rem;">Queen Control</h2>
+
+      <div style="background: var(--bg-panel, #12121a); padding: 1rem; border-radius: 8px; margin-bottom: 1rem;">
+        <h3 style="margin: 0 0 0.75rem 0; font-size: 1rem;">Vital Status</h3>
+        <div style="display: flex; flex-direction: column; gap: 0.6rem;">
+          <div class="stat-bar stat-bar--compact">
+            <div class="stat-bar__label">Energy ${queen.energy.current.toFixed(1)} / ${queen.energy.max.toFixed(0)}</div>
+            <div class="stat-bar__track">
+              <div class="stat-bar__fill ${energyPct > 40 ? 'bar-good' : energyPct > 15 ? 'bar-warning' : 'bar-danger'}" style="width: ${Math.max(0, Math.min(100, energyPct))}%;"></div>
+            </div>
+          </div>
+          <div class="stat-bar stat-bar--compact">
+            <div class="stat-bar__label">Health ${queen.health.current.toFixed(1)} / ${queen.health.max.toFixed(0)}</div>
+            <div class="stat-bar__track">
+              <div class="stat-bar__fill ${healthPct > 40 ? 'bar-good' : healthPct > 15 ? 'bar-warning' : 'bar-danger'}" style="width: ${Math.max(0, Math.min(100, healthPct))}%;"></div>
+            </div>
+          </div>
+          <div style="font-size: 0.82rem; color: var(--text-secondary, #888);">
+            Metabolism: ${queen.metabolismPerTick.toFixed(4)} energy/s
+          </div>
+        </div>
+      </div>
       
       <div style="background: var(--bg-panel, #12121a); padding: 1rem; border-radius: 8px; margin-bottom: 1rem;">
         <h3 style="margin: 0 0 0.75rem 0; font-size: 1rem;">Directive</h3>
@@ -664,7 +685,7 @@ function createSwarmTabContent(
               <div style="background: #4caf50; height: 100%; width: ${queen.eggProduction.progress}%"></div>
             </div>
             <div style="font-size: 0.8rem; color: #888; margin-top: 0.25rem;">
-              ${Math.floor(queen.eggProduction.ticksRemaining)} ticks remaining
+              ${eggHoursRemaining.toFixed(1)}h remaining
             </div>
           </div>
         `
@@ -691,9 +712,7 @@ function createPlanetTabContent(gameData: GameData): string {
 
   const atmosphere = derivePlanetAtmosphere(homePlanet);
 
-  const conqueredZones = homePlanet.zones.filter(
-    (z) => z.state === 'harvesting' || z.state === 'saturated'
-  ).length;
+  const conqueredZones = homePlanet.zones.filter((z) => z.ownedBySwarm).length;
   const totalZones = homePlanet.zones.length;
 
   const composition = atmosphere.composition;
@@ -708,9 +727,9 @@ function createPlanetTabContent(gameData: GameData): string {
     .sort((a, b) => b.value - a.value)
     .slice(0, 3)
     .map((gas) => `${gas.label} ${formatPercentage(gas.value)}`)
-    .join(' | ');
+    .join(', ');
 
-  const bandLines = atmosphere.bandSummaries
+  const bandRows = atmosphere.bandSummaries
     .map((band) => {
       const bandLabel =
         band.band === 'light'
@@ -718,13 +737,17 @@ function createPlanetTabContent(gameData: GameData): string {
           : band.band === 'terminator'
             ? 'Terminator'
             : 'Dark';
-      return `${bandLabel}: ${band.zones} zones • ${formatAtmosphericMass(
-        band.totalMass
-      )} total (${formatPercentage(band.massShare)}) • ${formatAtmosphericMass(
-        band.averageMass
-      )}/zone • ${band.dominantAtmosphere}`;
+      return `
+        <tr>
+          <td style="padding: 0.4rem 0.5rem; border-top: 1px solid rgba(255,255,255,0.06);">${bandLabel}</td>
+          <td style="padding: 0.4rem 0.5rem; border-top: 1px solid rgba(255,255,255,0.06);">${band.zones}</td>
+          <td style="padding: 0.4rem 0.5rem; border-top: 1px solid rgba(255,255,255,0.06);">${formatAtmosphericMass(band.totalMass)} (${formatPercentage(band.massShare)})</td>
+          <td style="padding: 0.4rem 0.5rem; border-top: 1px solid rgba(255,255,255,0.06);">${formatAtmosphericMass(band.averageMass)}</td>
+          <td style="padding: 0.4rem 0.5rem; border-top: 1px solid rgba(255,255,255,0.06);">${band.dominantAtmosphere}</td>
+        </tr>
+      `;
     })
-    .join('<br/>');
+    .join('');
 
   const gasBreakdown = [
     { label: 'N2', pct: composition.n2, mass: compositionMass.n2 },
@@ -736,7 +759,11 @@ function createPlanetTabContent(gameData: GameData): string {
     .sort((a, b) => b.mass - a.mass)
     .map(
       (gas) =>
-        `<div style="white-space: nowrap;">${gas.label}: ${formatPercentage(gas.pct)} • ${formatAtmosphericMass(gas.mass)}</div>`
+        `<tr>
+          <td style="padding: 0.35rem 0.5rem; border-top: 1px solid rgba(255,255,255,0.06);">${gas.label}</td>
+          <td style="padding: 0.35rem 0.5rem; border-top: 1px solid rgba(255,255,255,0.06);">${formatPercentage(gas.pct)}</td>
+          <td style="padding: 0.35rem 0.5rem; border-top: 1px solid rgba(255,255,255,0.06);">${formatAtmosphericMass(gas.mass)}</td>
+        </tr>`
     )
     .join('');
 
@@ -748,7 +775,12 @@ function createPlanetTabContent(gameData: GameData): string {
           : zone.band === 'terminator'
             ? 'Terminator'
             : 'Dark';
-      return `<div style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${index + 1}. ${zone.zoneName} • ${formatAtmosphericMass(zone.mass)} (${formatPercentage(zone.massShare)}) • ${bandLabel} • ${zone.biome}</div>`;
+      return `<tr>
+        <td style="padding: 0.35rem 0.5rem; border-top: 1px solid rgba(255,255,255,0.06);">${index + 1}</td>
+        <td style="padding: 0.35rem 0.5rem; border-top: 1px solid rgba(255,255,255,0.06); word-break: break-word;">${zone.zoneName}</td>
+        <td style="padding: 0.35rem 0.5rem; border-top: 1px solid rgba(255,255,255,0.06);">${formatAtmosphericMass(zone.mass)} (${formatPercentage(zone.massShare)})</td>
+        <td style="padding: 0.35rem 0.5rem; border-top: 1px solid rgba(255,255,255,0.06);">${bandLabel}</td>
+      </tr>`;
     })
     .join('');
 
@@ -766,20 +798,66 @@ function createPlanetTabContent(gameData: GameData): string {
       </div>
       <div style="background: var(--bg-panel, #12121a); padding: 1rem; border-radius: 8px; margin-top: 1rem;">
         <div style="font-weight: 600; margin-bottom: 0.5rem; color: var(--accent-cyan, #00e5ff);">Atmosphere (Derived from Zones)</div>
-        <div style="display: flex; gap: 1rem; flex-wrap: wrap; align-items: center;">
-          <span style="white-space: nowrap;">Mass: ${formatAtmosphericMass(atmosphere.totalMass)}</span>
-          <span style="white-space: nowrap;">Pressure Index: ${formatPressureIndex(atmosphere.pressureIndex)}</span>
-          <span style="white-space: nowrap;">Dominant Gases: ${topGas}</span>
+        <table style="width: 100%; border-collapse: collapse; font-size: 0.88rem; table-layout: fixed;">
+          <tbody>
+            <tr>
+              <th style="text-align: left; width: 170px; color: var(--text-secondary, #888); font-weight: 500; padding: 0.4rem 0.5rem;">Mass</th>
+              <td style="padding: 0.4rem 0.5rem; word-break: break-word;">${formatAtmosphericMass(atmosphere.totalMass)}</td>
+            </tr>
+            <tr>
+              <th style="text-align: left; width: 170px; color: var(--text-secondary, #888); font-weight: 500; padding: 0.4rem 0.5rem; border-top: 1px solid rgba(255,255,255,0.06);">Pressure Index</th>
+              <td style="padding: 0.4rem 0.5rem; border-top: 1px solid rgba(255,255,255,0.06); word-break: break-word;">${formatPressureIndex(atmosphere.pressureIndex)}</td>
+            </tr>
+            <tr>
+              <th style="text-align: left; width: 170px; color: var(--text-secondary, #888); font-weight: 500; padding: 0.4rem 0.5rem; border-top: 1px solid rgba(255,255,255,0.06);">Dominant Gases</th>
+              <td style="padding: 0.4rem 0.5rem; border-top: 1px solid rgba(255,255,255,0.06); word-break: break-word;">${topGas}</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div style="margin-top: 0.75rem; background: rgba(0,0,0,0.18); border: 1px solid var(--border-color, #2a2a3a); border-radius: 6px; padding: 0.6rem; min-width: 0;">
+          <div style="font-size: 0.78rem; color: var(--text-secondary, #888); margin-bottom: 0.35rem;">Insolation Band Contribution</div>
+          <table style="width: 100%; border-collapse: collapse; font-size: 0.82rem; table-layout: fixed;">
+            <thead>
+              <tr>
+                <th style="text-align: left; padding: 0.3rem 0.5rem; color: var(--text-secondary, #888);">Band</th>
+                <th style="text-align: left; padding: 0.3rem 0.5rem; color: var(--text-secondary, #888);">Zones</th>
+                <th style="text-align: left; padding: 0.3rem 0.5rem; color: var(--text-secondary, #888);">Total</th>
+                <th style="text-align: left; padding: 0.3rem 0.5rem; color: var(--text-secondary, #888);">Avg/Zone</th>
+                <th style="text-align: left; padding: 0.3rem 0.5rem; color: var(--text-secondary, #888);">State</th>
+              </tr>
+            </thead>
+            <tbody>${bandRows}</tbody>
+          </table>
         </div>
-        <div style="margin-top: 0.6rem; font-size: 0.85rem; color: var(--text-secondary, #888); line-height: 1.5;">${bandLines}</div>
-        <div style="margin-top: 0.75rem; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.75rem; min-width: 0;">
+
+        <div style="margin-top: 0.75rem; display: flex; flex-direction: column; gap: 0.75rem; min-width: 0;">
           <div style="background: rgba(0,0,0,0.18); border: 1px solid var(--border-color, #2a2a3a); border-radius: 6px; padding: 0.6rem; min-width: 0;">
             <div style="font-size: 0.78rem; color: var(--text-secondary, #888); margin-bottom: 0.35rem;">Gas Mass Contribution</div>
-            <div style="display: flex; flex-direction: column; gap: 0.2rem; font-size: 0.82rem;">${gasBreakdown}</div>
+            <table style="width: 100%; border-collapse: collapse; font-size: 0.82rem; table-layout: fixed;">
+              <thead>
+                <tr>
+                  <th style="text-align: left; padding: 0.3rem 0.5rem; color: var(--text-secondary, #888);">Gas</th>
+                  <th style="text-align: left; padding: 0.3rem 0.5rem; color: var(--text-secondary, #888);">Share</th>
+                  <th style="text-align: left; padding: 0.3rem 0.5rem; color: var(--text-secondary, #888);">Mass</th>
+                </tr>
+              </thead>
+              <tbody>${gasBreakdown}</tbody>
+            </table>
           </div>
           <div style="background: rgba(0,0,0,0.18); border: 1px solid var(--border-color, #2a2a3a); border-radius: 6px; padding: 0.6rem; min-width: 0;">
             <div style="font-size: 0.78rem; color: var(--text-secondary, #888); margin-bottom: 0.35rem;">Top Zone Contributors</div>
-            <div style="display: flex; flex-direction: column; gap: 0.2rem; font-size: 0.82rem;">${topZoneLines}</div>
+            <table style="width: 100%; border-collapse: collapse; font-size: 0.82rem; table-layout: fixed;">
+              <thead>
+                <tr>
+                  <th style="text-align: left; padding: 0.3rem 0.5rem; color: var(--text-secondary, #888); width: 32px;">#</th>
+                  <th style="text-align: left; padding: 0.3rem 0.5rem; color: var(--text-secondary, #888);">Zone</th>
+                  <th style="text-align: left; padding: 0.3rem 0.5rem; color: var(--text-secondary, #888);">Contribution</th>
+                  <th style="text-align: left; padding: 0.3rem 0.5rem; color: var(--text-secondary, #888);">Band</th>
+                </tr>
+              </thead>
+              <tbody>${topZoneLines}</tbody>
+            </table>
           </div>
         </div>
       </div>
@@ -889,27 +967,6 @@ function createRightSidebar(gameData: GameData): Component {
   title.textContent = 'System Map';
   header.appendChild(title);
 
-  // Zoom controls (visible in system view)
-  const zoomControls = document.createElement('div');
-  zoomControls.style.cssText = 'display: flex; gap: 0.25rem;';
-
-  const zoomInBtn = document.createElement('button');
-  zoomInBtn.textContent = '+';
-  zoomInBtn.style.cssText = `
-    background: #2a2a3a; border: none; color: #fff; 
-    width: 24px; height: 24px; border-radius: 4px; cursor: pointer;
-  `;
-
-  const zoomOutBtn = document.createElement('button');
-  zoomOutBtn.textContent = '−';
-  zoomOutBtn.style.cssText = `
-    background: #2a2a3a; border: none; color: #fff; 
-    width: 24px; height: 24px; border-radius: 4px; cursor: pointer;
-  `;
-
-  zoomControls.appendChild(zoomInBtn);
-  zoomControls.appendChild(zoomOutBtn);
-  header.appendChild(zoomControls);
   el.appendChild(header);
 
   // Orrery container
@@ -999,7 +1056,6 @@ function createRightSidebar(gameData: GameData): Component {
     planetLocalContainer.style.display = 'none';
     planetMapContainer.style.display = '';
     title.textContent = 'Zone Map';
-    zoomControls.style.display = 'none';
 
     // Create planet map if not exists
     if (!planetMap) {
@@ -1023,7 +1079,6 @@ function createRightSidebar(gameData: GameData): Component {
     planetLocalContainer.style.display = '';
     planetMapContainer.style.display = 'none';
     title.textContent = 'Planet Local';
-    zoomControls.style.display = 'flex';
 
     if (!planetLocal) {
       console.log('Creating planet local component');
@@ -1045,12 +1100,7 @@ function createRightSidebar(gameData: GameData): Component {
     planetLocalContainer.style.display = 'none';
     planetMapContainer.style.display = 'none';
     title.textContent = 'System Map';
-    zoomControls.style.display = 'flex';
   }
-
-  // Zoom handlers (simplified - would need to be wired to orrery)
-  zoomInBtn.onclick = () => console.log('Zoom in');
-  zoomOutBtn.onclick = () => console.log('Zoom out');
 
   // Initialize view
   orreryContainer.style.display = '';
@@ -1074,33 +1124,18 @@ function createRightSidebar(gameData: GameData): Component {
 // ============================================================================
 
 function createFooter(
-  gameData: GameData,
-  callbacks: RendererCallbacks
+  _gameData: GameData,
+  _callbacks: RendererCallbacks
 ): Component {
   const el = document.createElement('footer');
   el.style.cssText = `
     display: flex;
-    justify-content: space-between;
+    justify-content: center;
     align-items: center;
     padding: 0.75rem 1rem;
     background: var(--bg-panel, #0a0a12);
     border-top: 1px solid var(--border-color, #2a2a3a);
   `;
-
-  // Left: Pause/Resume
-  const pauseBtn = document.createElement('button');
-  pauseBtn.style.cssText = `
-    background: ${gameData.isPaused ? '#4caf50' : '#ff4444'};
-    color: #0a0a0f;
-    border: none;
-    padding: 0.5rem 1rem;
-    border-radius: 4px;
-    cursor: pointer;
-    font-weight: bold;
-  `;
-  pauseBtn.textContent = gameData.isPaused ? '▶ Resume' : '⏸ Pause';
-  pauseBtn.onclick = callbacks.onTogglePause;
-  el.appendChild(pauseBtn);
 
   // Center: Status
   const status = document.createElement('div');
@@ -1109,18 +1144,9 @@ function createFooter(
   status.textContent = 'TRAPPIST-1 System';
   el.appendChild(status);
 
-  // Right: Version
-  const version = document.createElement('div');
-  version.style.cssText = 'font-size: 0.75rem; color: #666;';
-  version.textContent = 'v1.0.0 Swarm';
-  el.appendChild(version);
-
   return {
     el,
-    update: (gameData: GameData) => {
-      pauseBtn.style.background = gameData.isPaused ? '#4caf50' : '#ff4444';
-      pauseBtn.textContent = gameData.isPaused ? '▶ Resume' : '⏸ Pause';
-    },
+    update: (_gameData: GameData) => {},
   };
 }
 
@@ -1158,10 +1184,10 @@ function showSettingsModal(callbacks: RendererCallbacks): void {
     
     <div style="margin-bottom: 1rem;">
       <button id="exportBtn" style="width: 100%; padding: 0.75rem; margin-bottom: 0.5rem; background: #2a2a3a; color: #fff; border: none; border-radius: 4px; cursor: pointer;">
-        Export Save
+        Download Save
       </button>
       <button id="importBtn" style="width: 100%; padding: 0.75rem; margin-bottom: 0.5rem; background: #2a2a3a; color: #fff; border: none; border-radius: 4px; cursor: pointer;">
-        Import Save
+        Upload Save
       </button>
       <button id="resetBtn" style="width: 100%; padding: 0.75rem; background: #5c1a1a; color: #ff9b9b; border: none; border-radius: 4px; cursor: pointer;">
         Reset Game
@@ -1179,21 +1205,47 @@ function showSettingsModal(callbacks: RendererCallbacks): void {
   // Event handlers
   content.querySelector('#exportBtn')!.addEventListener('click', () => {
     const saveData = callbacks.onExportSave();
-    if (saveData) {
-      void navigator.clipboard.writeText(saveData).then(() => {
-        alert('Save data copied to clipboard!');
-      });
-    }
+    if (!saveData) return;
+    const blob = new Blob([saveData], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `swarm-save-${new Date().toISOString().slice(0, 10)}.json`;
+    link.click();
+    URL.revokeObjectURL(url);
   });
 
   content.querySelector('#importBtn')!.addEventListener('click', () => {
-    const saveData = prompt('Paste save data:');
-    if (saveData && callbacks.onImportSave(saveData)) {
-      alert('Save loaded successfully!');
-      modal.remove();
-    } else if (saveData) {
-      alert('Invalid save data!');
-    }
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json,application/json';
+    input.addEventListener('change', () => {
+      const file = input.files?.[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        const content = typeof reader.result === 'string' ? reader.result : '';
+        if (!content) {
+          alert('Failed to read save file.');
+          return;
+        }
+
+        if (
+          confirm(
+            'Load this save file and replace current progress? This cannot be undone.'
+          )
+        ) {
+          if (callbacks.onImportSave(content)) {
+            alert('Save loaded successfully!');
+            modal.remove();
+          } else {
+            alert('Invalid save file!');
+          }
+        }
+      };
+      reader.readAsText(file);
+    });
+    input.click();
   });
 
   content.querySelector('#resetBtn')!.addEventListener('click', () => {

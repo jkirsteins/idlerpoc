@@ -42,7 +42,10 @@ export function calculateMetabolicRates(
   queens: Queen[]
 ): MetabolicRates {
   const workerUpkeep = workers.length * SWARM_CONSTANTS.WORKER_UPKEEP_ENERGY;
-  const queenUpkeep = queens.length * SWARM_CONSTANTS.QUEEN_UPKEEP;
+  const queenUpkeep = queens.reduce(
+    (sum, queen) => sum + queen.metabolismPerTick,
+    0
+  );
 
   return {
     workerUpkeep,

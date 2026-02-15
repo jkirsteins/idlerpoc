@@ -71,47 +71,38 @@ function getSafeZoneHex(
   return { q, r, s: -q - r };
 }
 
-// Get color based on zone state
-function getZoneStateColor(zone: Zone, isHome: boolean): string {
-  if (zone.state === 'unexplored') {
-    return isHome ? '#2a2a3a' : '#1a1a1a';
-  }
-  if (zone.state === 'exploring') return '#4a9eff';
-  if (zone.state === 'combating') return '#ff6b6b';
-  if (zone.state === 'converting') return '#ffc107';
-  if (zone.state === 'harvesting') return '#4caf50';
-  if (zone.state === 'saturated') return '#9c27b0';
-  return '#444';
+function getZoneBaseColor(isSwarmOwned: boolean): string {
+  return isSwarmOwned ? '#b13dff' : '#10141d';
 }
 
-// Get terrain indicator color
-function getTerrainIndicator(zone: Zone): string | null {
-  if (zone.terrainType === 'liquid') return '#00bcd4';
-  if (zone.terrainType === 'ice') return '#e0e0ff';
-  return null;
-}
-
-// Get atmosphere indicator
-function getAtmosphereOpacity(zone: Zone): number {
-  if (zone.atmosphere === 'thick') return 0.3;
-  if (zone.atmosphere === 'thin') return 0.15;
-  return 0; // none
-}
-
-function getInsolationTint(zone: Zone): { fill: string; opacity: number } {
+function getInsolationTint(
+  zone: Zone,
+  isSwarmOwned: boolean
+): { fill: string; opacity: number } {
+  const baseOpacity = isSwarmOwned ? 0.26 : 0.1;
   if (zone.insolationBand === 'light') {
-    return { fill: '#ffcf66', opacity: 0.2 };
+    return { fill: '#ffcf66', opacity: baseOpacity };
   }
   if (zone.insolationBand === 'dark') {
-    return { fill: '#3f4c93', opacity: 0.28 };
+    return { fill: '#3f4c93', opacity: isSwarmOwned ? 0.34 : 0.14 };
   }
-  return { fill: '#6ab8c9', opacity: 0.2 };
+  return { fill: '#6ab8c9', opacity: baseOpacity };
 }
 
-function getInsolationStroke(zone: Zone): string {
-  if (zone.insolationBand === 'light') return 'rgba(255, 207, 102, 0.45)';
-  if (zone.insolationBand === 'dark') return 'rgba(108, 128, 209, 0.55)';
-  return 'rgba(106, 184, 201, 0.5)';
+function getInsolationStroke(zone: Zone, isSwarmOwned: boolean): string {
+  if (zone.insolationBand === 'light') {
+    return isSwarmOwned
+      ? 'rgba(255, 207, 102, 0.92)'
+      : 'rgba(255, 207, 102, 0.3)';
+  }
+  if (zone.insolationBand === 'dark') {
+    return isSwarmOwned
+      ? 'rgba(108, 128, 209, 0.95)'
+      : 'rgba(108, 128, 209, 0.38)';
+  }
+  return isSwarmOwned
+    ? 'rgba(106, 184, 201, 0.9)'
+    : 'rgba(106, 184, 201, 0.34)';
 }
 
 export function createPlanetMapComponent(
@@ -274,15 +265,10 @@ export function createPlanetMapComponent(
     justify-content: center;
   `;
   legend.innerHTML = `
-    <span>⬛ Unexplored</span>
-    <span style="color: #4a9eff">● Exploring</span>
-    <span style="color: #ffc107">● Converting</span>
-    <span style="color: #4caf50">● Harvesting</span>
-    <span style="color: #00bcd4">◆ Liquid</span>
-    <span style="color: #e0e0ff">◆ Ice</span>
-    <span style="color: #ffcf66">◌ Light side</span>
+    <span style="color: #ffcf66">◌ Light</span>
     <span style="color: #6ab8c9">◌ Terminator</span>
-    <span style="color: #6c80d1">◌ Dark side</span>
+    <span style="color: #6c80d1">◌ Dark</span>
+    <span style="color: #b13dff">● Swarm</span>
   `;
   el.appendChild(legend);
 
@@ -329,7 +315,6 @@ export function createPlanetMapComponent(
         gameData.planets.find((p) => p.accessible);
 
       if (!planet) return;
-
       // If planet changed, rebuild hex grid
       if (currentPlanetId !== planet.id) {
         currentPlanetId = planet.id;
@@ -366,21 +351,21 @@ export function createPlanetMapComponent(
 
           // Create hex group
           const hexGroup = document.createElementNS(SVG_NS, 'g');
+          const isSwarmOwned = zone.ownedBySwarm;
 
           // Hex background
           const hexBg = document.createElementNS(SVG_NS, 'path');
           hexBg.setAttribute('d', createHexPath(x, y));
           hexBg.setAttribute('class', 'zone-bg');
-          hexBg.setAttribute(
-            'fill',
-            getZoneStateColor(zone, zone.planetId === gameData.homePlanetId)
-          );
+          hexBg.setAttribute('fill', getZoneBaseColor(isSwarmOwned));
+          hexBg.setAttribute('opacity', isSwarmOwned ? '1' : '0.26');
           hexBg.setAttribute('stroke', '#333');
           hexBg.setAttribute('stroke-width', '0.5');
           hexGroup.appendChild(hexBg);
 
-          const insolationTint = getInsolationTint(zone);
+          const insolationTint = getInsolationTint(zone, isSwarmOwned);
           const insolationOverlay = document.createElementNS(SVG_NS, 'path');
+          insolationOverlay.setAttribute('class', 'zone-insolation-overlay');
           insolationOverlay.setAttribute('d', createHexPath(x, y));
           insolationOverlay.setAttribute('fill', insolationTint.fill);
           insolationOverlay.setAttribute(
@@ -391,57 +376,19 @@ export function createPlanetMapComponent(
           hexGroup.appendChild(insolationOverlay);
 
           const insolationRing = document.createElementNS(SVG_NS, 'path');
+          insolationRing.setAttribute('class', 'zone-insolation-ring');
           insolationRing.setAttribute('d', createHexPath(x, y));
           insolationRing.setAttribute('fill', 'none');
-          insolationRing.setAttribute('stroke', getInsolationStroke(zone));
-          insolationRing.setAttribute('stroke-width', '0.9');
+          insolationRing.setAttribute(
+            'stroke',
+            getInsolationStroke(zone, isSwarmOwned)
+          );
+          insolationRing.setAttribute(
+            'stroke-width',
+            isSwarmOwned ? '1.3' : '0.9'
+          );
           insolationRing.style.pointerEvents = 'none';
           hexGroup.appendChild(insolationRing);
-
-          // Terrain indicator (small shape in center)
-          const terrainColor = getTerrainIndicator(zone);
-          if (terrainColor) {
-            const terrainMark = document.createElementNS(SVG_NS, 'circle');
-            terrainMark.setAttribute('cx', String(x));
-            terrainMark.setAttribute('cy', String(y));
-            terrainMark.setAttribute('r', '4');
-            terrainMark.setAttribute('fill', terrainColor);
-            terrainMark.setAttribute('opacity', '0.7');
-            hexGroup.appendChild(terrainMark);
-          }
-
-          // Atmosphere overlay
-          const atmosOpacity = getAtmosphereOpacity(zone);
-          if (atmosOpacity > 0) {
-            const atmos = document.createElementNS(SVG_NS, 'circle');
-            atmos.setAttribute('cx', String(x));
-            atmos.setAttribute('cy', String(y));
-            atmos.setAttribute('r', String(HEX_SIZE * 0.8));
-            atmos.setAttribute('fill', '#87ceeb');
-            atmos.setAttribute('opacity', String(atmosOpacity));
-            hexGroup.appendChild(atmos);
-          }
-
-          // Zone label (for nearby)
-          if (
-            zone.state !== 'unexplored' ||
-            zone.planetId === gameData.homePlanetId
-          ) {
-            const label = document.createElementNS(SVG_NS, 'text');
-            label.setAttribute('x', String(x));
-            label.setAttribute('y', String(y + 3));
-            label.setAttribute('text-anchor', 'middle');
-            label.setAttribute(
-              'fill',
-              zone.state === 'unexplored' ? '#555' : '#fff'
-            );
-            label.setAttribute('font-size', '5');
-
-            // Abbreviated name
-            const abbrev = zone.name.substring(0, 3).toUpperCase();
-            label.textContent = abbrev;
-            hexGroup.appendChild(label);
-          }
 
           // Click handler
           hexGroup.style.cursor = 'pointer';
@@ -471,9 +418,7 @@ export function createPlanetMapComponent(
         }
 
         // Update zone count
-        const conquered = planet.zones.filter(
-          (z) => z.state === 'harvesting' || z.state === 'saturated'
-        ).length;
+        const conquered = planet.zones.filter((z) => z.ownedBySwarm).length;
         zoneCount.textContent = `${conquered}/${planet.zones.length} zones`;
 
         // Fit and center view on planet zone bounds
@@ -526,11 +471,29 @@ export function createPlanetMapComponent(
       // Update zone colors (states may change)
       for (let i = 0; i < zoneHexes.length; i++) {
         const { zone, hex } = zoneHexes[i];
+        const isSwarmOwned = zone.ownedBySwarm;
         const hexBg = hex.querySelector('.zone-bg');
         if (hexBg) {
-          hexBg.setAttribute(
-            'fill',
-            getZoneStateColor(zone, zone.planetId === gameData.homePlanetId)
+          hexBg.setAttribute('fill', getZoneBaseColor(isSwarmOwned));
+          hexBg.setAttribute('opacity', isSwarmOwned ? '1' : '0.26');
+        }
+
+        const insolationOverlay = hex.querySelector('.zone-insolation-overlay');
+        if (insolationOverlay) {
+          const tint = getInsolationTint(zone, isSwarmOwned);
+          insolationOverlay.setAttribute('fill', tint.fill);
+          insolationOverlay.setAttribute('opacity', String(tint.opacity));
+        }
+
+        const insolationRing = hex.querySelector('.zone-insolation-ring');
+        if (insolationRing) {
+          insolationRing.setAttribute(
+            'stroke',
+            getInsolationStroke(zone, isSwarmOwned)
+          );
+          insolationRing.setAttribute(
+            'stroke-width',
+            isSwarmOwned ? '1.3' : '0.9'
           );
         }
 

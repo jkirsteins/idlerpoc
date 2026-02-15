@@ -18,7 +18,7 @@ let renderer: Renderer | null = null;
 function getDebugSpeedMultiplier(): number {
   const param = new URLSearchParams(window.location.search).get('debugspeed');
   const n = param ? Number(param) : 1;
-  return Number.isFinite(n) && n >= 1 ? n : 1;
+  return Number.isFinite(n) && n > 0 ? n : 1;
 }
 
 // ============================================================================
@@ -66,15 +66,29 @@ function startTickLoop(): void {
   if (tickInterval) return;
 
   const debugSpeed = getDebugSpeedMultiplier();
-  const tickIntervalMs = 1000 / debugSpeed;
+  const frameIntervalMs = 100;
+  const msPerGameTick = 1000;
+  const maxTicksPerFrame = 100;
+  let lastFrameMs = Date.now();
+  let carriedGameMs = 0;
 
   tickInterval = window.setInterval(() => {
     if (!isPaused && gameData) {
-      // Process debugSpeed ticks per interval
-      const ticksToProcess = debugSpeed;
+      const now = Date.now();
+      const elapsedRealMs = now - lastFrameMs;
+      lastFrameMs = now;
+
+      carriedGameMs += elapsedRealMs * debugSpeed;
+      const ticksToProcess = Math.min(
+        maxTicksPerFrame,
+        Math.floor(carriedGameMs / msPerGameTick)
+      );
+
+      if (ticksToProcess <= 0) return;
+      carriedGameMs -= ticksToProcess * msPerGameTick;
 
       for (let i = 0; i < ticksToProcess; i++) {
-        const result = applyTick(gameData, Date.now());
+        const result = applyTick(gameData, now);
 
         // Log significant events
         if (result.logEntries.length > 0) {
@@ -91,8 +105,10 @@ function startTickLoop(): void {
       if (renderer) {
         renderer.update(gameData);
       }
+    } else {
+      lastFrameMs = Date.now();
     }
-  }, tickIntervalMs);
+  }, frameIntervalMs);
 }
 
 // ============================================================================

@@ -50,6 +50,7 @@ export function advanceZoneState(zone: Zone): boolean {
       if (zone.progress >= 100) {
         zone.state = 'harvesting';
         zone.progress = 0;
+        zone.ownedBySwarm = true;
         return true;
       }
       break;

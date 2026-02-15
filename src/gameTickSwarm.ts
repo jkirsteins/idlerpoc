@@ -130,23 +130,30 @@ function processSingleTick(data: GameData): SingleTickResult {
 
   // 3. Process each queen
   for (const queen of swarm.queens) {
-    // Queen upkeep
-    if (queen.energy.current >= SWARM_CONSTANTS.QUEEN_UPKEEP) {
-      queen.energy.current -= SWARM_CONSTANTS.QUEEN_UPKEEP;
-    } else {
-      // Queen starvation
-      result.queensDied++;
-      result.logEntries.push(
-        createLogEntry('queen_died', `Queen died from starvation`, {
-          queenId: queen.id,
-        })
+    queen.energy.current = Math.max(
+      0,
+      queen.energy.current - queen.metabolismPerTick
+    );
+
+    if (queen.energy.current <= 0) {
+      queen.health.current = Math.max(
+        0,
+        queen.health.current - queen.hpDecayPerTickAtZeroEnergy
       );
-      // Remove queen
-      const queenIndex = swarm.queens.indexOf(queen);
-      if (queenIndex > -1) {
-        swarm.queens.splice(queenIndex, 1);
+
+      if (queen.health.current <= 0) {
+        result.queensDied++;
+        result.logEntries.push(
+          createLogEntry('queen_died', `Queen died from starvation`, {
+            queenId: queen.id,
+          })
+        );
+        const queenIndex = swarm.queens.indexOf(queen);
+        if (queenIndex > -1) {
+          swarm.queens.splice(queenIndex, 1);
+        }
+        continue;
       }
-      continue;
     }
 
     // Egg production

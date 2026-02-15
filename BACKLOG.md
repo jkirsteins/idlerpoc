@@ -13,6 +13,7 @@ Follow-up items after zone-derived atmosphere v1:
 - Planet-specific atmospheric resistance curves that change terraforming speed
 - Atmosphere stability and circulation mechanics between neighboring zones
 - Biome succession over long horizons (converted zones influencing nearby unmanaged zones)
+- Define explicit zone ownership acquisition rules independent from lifecycle state names (`exploring/converting/harvesting`)
 
 **Prerequisites**: Mature zone ecology loop, expanded resource UI, balancing pass.
 
