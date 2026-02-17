@@ -21,6 +21,8 @@ export interface MiningRouteInfoBarRefs {
   label: HTMLSpanElement;
   status: HTMLDivElement;
   stats: HTMLDivElement;
+  resumeBtn?: HTMLButtonElement;
+  pausedBadge?: HTMLSpanElement;
 }
 
 // ─── Mining Route Setup Refs ────────────────────────────────
@@ -84,8 +86,12 @@ export function updateMiningRouteInfoBar(
   const cargoPct =
     maxCargoKg > 0 ? Math.round((oreWeight / maxCargoKg) * 100) : 0;
 
+  const isPaused = route.status === 'paused';
+
   let statusText: string;
-  if (route.status === 'mining') {
+  if (isPaused) {
+    statusText = `Paused at ${sellLoc?.name ?? '?'}. Resume to continue mining.`;
+  } else if (route.status === 'mining') {
     statusText = `Mining at ${mineLoc?.name ?? '?'} (cargo ${cargoPct}% full)`;
   } else if (route.status === 'selling') {
     statusText = `In transit to ${sellLoc?.name ?? 'sell station'}`;
@@ -93,6 +99,14 @@ export function updateMiningRouteInfoBar(
     statusText = `Returning to ${mineLoc?.name ?? 'mine'}`;
   }
   refs.status.textContent = statusText;
+
+  // Paused badge + Resume button
+  if (refs.pausedBadge) {
+    refs.pausedBadge.style.display = isPaused ? '' : 'none';
+  }
+  if (refs.resumeBtn) {
+    refs.resumeBtn.style.display = isPaused ? '' : 'none';
+  }
 
   // Stats
   let statsText = `Trips: ${route.totalTrips} \u00B7 Revenue: ${formatCredits(route.totalCreditsEarned)}`;

@@ -50,7 +50,13 @@ import {
   autoAssignCrewToJobs,
 } from './jobSlots';
 import { sellOre, sellAllOre } from './miningSystem';
-import { assignMiningRoute, cancelMiningRoute } from './miningRoute';
+import {
+  assignMiningRoute,
+  cancelMiningRoute,
+  goSellNow,
+  setMiningPendingAction,
+  resumeMiningRoute,
+} from './miningRoute';
 import { getEquipmentDefinition, canEquipInSlot } from './equipment';
 import { spendPoolXpOnItem } from './masterySystem';
 
@@ -1234,6 +1240,33 @@ const callbacks: RendererCallbacks = {
     const ship = getActiveShip(state.gameData);
 
     cancelMiningRoute(state.gameData, ship);
+    saveGame(state.gameData);
+    renderApp();
+  },
+
+  onGoSellNow: () => {
+    if (state.phase !== 'playing') return;
+    const ship = getActiveShip(state.gameData);
+
+    goSellNow(state.gameData, ship);
+    saveGame(state.gameData);
+    renderApp();
+  },
+
+  onSetMiningPendingAction: (action: 'pause' | 'abandon' | null) => {
+    if (state.phase !== 'playing') return;
+    const ship = getActiveShip(state.gameData);
+
+    setMiningPendingAction(ship, action);
+    saveGame(state.gameData);
+    renderApp();
+  },
+
+  onResumeMiningRoute: () => {
+    if (state.phase !== 'playing') return;
+    const ship = getActiveShip(state.gameData);
+
+    resumeMiningRoute(state.gameData, ship);
     saveGame(state.gameData);
     renderApp();
   },

@@ -396,6 +396,7 @@ export function createTabbedView(
           onDockAtNearestPort: callbacks.onDockAtNearestPort,
           onCancelPause: callbacks.onCancelPause,
           onRequestAbandon: callbacks.onRequestAbandon,
+          onSetMiningPendingAction: callbacks.onSetMiningPendingAction,
         });
       case 'station':
         return createStationTab(gameData, callbacks);
@@ -412,6 +413,9 @@ export function createTabbedView(
           onFlightProfileChange: callbacks.onFlightProfileChange,
           onStartMiningRoute: callbacks.onStartMiningRoute,
           onCancelMiningRoute: callbacks.onCancelMiningRoute,
+          onGoSellNow: callbacks.onGoSellNow,
+          onSetMiningPendingAction: callbacks.onSetMiningPendingAction,
+          onResumeMiningRoute: callbacks.onResumeMiningRoute,
           onSelectMiningOre: callbacks.onSelectMiningOre,
         });
       case 'nav':

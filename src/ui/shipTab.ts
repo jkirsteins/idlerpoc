@@ -86,6 +86,7 @@ export interface ShipTabCallbacks {
   onDockAtNearestPort: () => void;
   onCancelPause: () => void;
   onRequestAbandon: () => void;
+  onSetMiningPendingAction: (action: 'pause' | 'abandon' | null) => void;
 }
 
 /** Snapshot the props the ship tab renders so we can shallow-compare. */
@@ -225,6 +226,8 @@ export function createShipTab(
     onContinue: () => callbacks.onCancelPause(),
     onPause: () => callbacks.onDockAtNearestPort(),
     onAbandon: () => callbacks.onRequestAbandon(),
+    onSetMiningPendingAction: (action) =>
+      callbacks.onSetMiningPendingAction(action),
   });
 
   // ── Ship stats panel slot ──

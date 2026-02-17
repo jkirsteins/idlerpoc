@@ -37,6 +37,8 @@ import { formatCredits, formatMass, formatDistance } from '../formatting';
 export interface MiningPanelCallbacks {
   onStartMiningRoute: (sellLocationId: string, mineLocationId?: string) => void;
   onCancelMiningRoute: () => void;
+  onGoSellNow: () => void;
+  onSetMiningPendingAction: (action: 'pause' | 'abandon' | null) => void;
   onSelectMiningOre: (oreId: string | null) => void;
 }
 
@@ -65,6 +67,17 @@ interface MiningStatusRefs {
   activeRouteStats: HTMLDivElement;
   activeRouteInfoSpan: HTMLSpanElement;
   activeRouteProfitSpan: HTMLSpanElement;
+  goSellNowBtn: HTMLButtonElement;
+  routeActionGroup: HTMLDivElement;
+  routeActionCards: Map<
+    'continue' | 'pause' | 'abandon',
+    {
+      card: HTMLLabelElement;
+      radio: HTMLInputElement;
+      labelEl: HTMLElement;
+      descEl: HTMLElement;
+    }
+  >;
   setupRouteContainer: HTMLDivElement;
   setupRouteLabel: HTMLDivElement;
   noTradeMsg: HTMLDivElement;
@@ -252,6 +265,61 @@ export function createMiningPanel(callbacks: MiningPanelCallbacks): {
     activeRouteStats.appendChild(activeRouteProfitSpan);
 
     activeRouteContainer.appendChild(activeRouteStats);
+
+    // "Go sell now" button
+    const goSellNowBtn = document.createElement('button');
+    goSellNowBtn.textContent = 'Go sell now';
+    goSellNowBtn.style.cssText =
+      'font-size: 0.8rem; padding: 4px 12px; margin-top: 0.4rem; display: none;';
+    goSellNowBtn.addEventListener('click', () => cb.onGoSellNow());
+    activeRouteContainer.appendChild(goSellNowBtn);
+
+    // Route action radio cards (continue / pause on sell / abandon on sell)
+    const routeActionGroup = document.createElement('div');
+    routeActionGroup.className = 'action-radio-group';
+    routeActionGroup.style.cssText = 'margin-top: 0.5rem; display: none;';
+    const routeActionCards = new Map<
+      'continue' | 'pause' | 'abandon',
+      {
+        card: HTMLLabelElement;
+        radio: HTMLInputElement;
+        labelEl: HTMLElement;
+        descEl: HTMLElement;
+      }
+    >();
+
+    const radioName = `mining-route-action-${Date.now()}`;
+    for (const value of ['continue', 'pause', 'abandon'] as const) {
+      const card = document.createElement('label');
+      card.className = 'action-radio-card action-radio-card--default';
+
+      const radio = document.createElement('input');
+      radio.type = 'radio';
+      radio.name = radioName;
+      radio.value = value;
+      radio.addEventListener('change', () => {
+        if (value === 'continue') cb.onSetMiningPendingAction(null);
+        else cb.onSetMiningPendingAction(value);
+      });
+      card.appendChild(radio);
+
+      const textWrap = document.createElement('div');
+      textWrap.className = 'action-radio-text';
+
+      const labelEl = document.createElement('div');
+      labelEl.className = 'action-radio-label';
+      textWrap.appendChild(labelEl);
+
+      const descEl = document.createElement('div');
+      descEl.className = 'action-radio-desc';
+      textWrap.appendChild(descEl);
+
+      card.appendChild(textWrap);
+      routeActionGroup.appendChild(card);
+      routeActionCards.set(value, { card, radio, labelEl, descEl });
+    }
+
+    activeRouteContainer.appendChild(routeActionGroup);
     routeSection.appendChild(activeRouteContainer);
 
     // Setup route
@@ -310,6 +378,9 @@ export function createMiningPanel(callbacks: MiningPanelCallbacks): {
       activeRouteStats,
       activeRouteInfoSpan,
       activeRouteProfitSpan,
+      goSellNowBtn,
+      routeActionGroup,
+      routeActionCards,
       setupRouteContainer,
       setupRouteLabel,
       noTradeMsg,
@@ -680,6 +751,56 @@ export function createMiningPanel(callbacks: MiningPanelCallbacks): {
         r.activeRouteProfitSpan.style.display = '';
       } else {
         r.activeRouteProfitSpan.style.display = 'none';
+      }
+
+      // "Go sell now" button — only visible when actively mining
+      r.goSellNowBtn.style.display = route.status === 'mining' ? '' : 'none';
+
+      // Route action radio cards — visible when mining or in transit
+      const showActions =
+        route.status === 'mining' ||
+        route.status === 'selling' ||
+        route.status === 'returning';
+      r.routeActionGroup.style.display = showActions ? '' : 'none';
+
+      if (showActions) {
+        const selectedAction: 'continue' | 'pause' | 'abandon' =
+          route.pendingAction === 'abandon'
+            ? 'abandon'
+            : route.pendingAction === 'pause'
+              ? 'pause'
+              : 'continue';
+
+        const actionData = {
+          continue: {
+            label: 'Continue route',
+            desc: 'Mining route continues normally.',
+            style: 'default',
+          },
+          pause: {
+            label: 'Pause on next sell',
+            desc: 'Route pauses after selling ore. Resume anytime.',
+            style: 'caution',
+          },
+          abandon: {
+            label: 'Abandon on next sell',
+            desc: `Ends route after selling. You keep ${formatCredits(route.totalCreditsEarned)}.`,
+            style: 'danger',
+          },
+        } as const;
+
+        for (const [action, refs] of r.routeActionCards) {
+          const data = actionData[action];
+          const isSelected = selectedAction === action;
+
+          refs.radio.checked = isSelected;
+          refs.card.className = `action-radio-card action-radio-card--${data.style}`;
+          if (isSelected)
+            refs.card.classList.add('action-radio-card--selected');
+
+          refs.labelEl.textContent = data.label;
+          refs.descEl.textContent = data.desc;
+        }
       }
     } else {
       r.activeRouteContainer.style.display = 'none';

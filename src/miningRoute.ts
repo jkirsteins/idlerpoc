@@ -198,6 +198,127 @@ export function cancelMiningRoute(gameData: GameData, ship: Ship): void {
   ship.miningAccumulator = {};
 }
 
+// ─── Player Controls ────────────────────────────────────────────
+
+/**
+ * Force immediate departure to sell station, even if cargo isn't full.
+ * The route continues normally after selling (auto-returns to mine).
+ * Only works when the ship is actively mining (status === 'mining').
+ */
+export function goSellNow(gameData: GameData, ship: Ship): boolean {
+  const route = ship.miningRoute;
+  if (!route || route.status !== 'mining') return false;
+
+  const mineLocation = gameData.world.locations.find(
+    (l) => l.id === route.mineLocationId
+  );
+  const sellLocation = gameData.world.locations.find(
+    (l) => l.id === route.sellLocationId
+  );
+
+  if (!mineLocation || !sellLocation) return false;
+
+  const departed = startShipFlight(
+    ship,
+    mineLocation,
+    sellLocation,
+    true,
+    ship.flightProfileBurnFraction,
+    gameData.gameTime,
+    gameData.world
+  );
+
+  if (!departed) {
+    addLog(
+      gameData.log,
+      gameData.gameTime,
+      'mining_route',
+      `Cannot depart to sell — helm is unmanned. Assign crew to helm.`,
+      ship.name
+    );
+    return false;
+  }
+
+  route.status = 'selling';
+
+  const oreWeight = getOreCargoWeight(ship);
+  const suffix =
+    oreWeight > 0 ? `with ${formatMass(oreWeight)} of ore` : 'with empty cargo';
+
+  addLog(
+    gameData.log,
+    gameData.gameTime,
+    'mining_route',
+    `Departing to ${sellLocation.name} to sell ${suffix}`,
+    ship.name
+  );
+
+  return true;
+}
+
+/**
+ * Set a deferred action on the mining route. The action is applied when the
+ * ship next docks at the sell station.
+ */
+export function setMiningPendingAction(
+  ship: Ship,
+  action: 'pause' | 'abandon' | null
+): void {
+  if (!ship.miningRoute) return;
+  ship.miningRoute.pendingAction = action ?? undefined;
+}
+
+/**
+ * Resume a paused mining route. Departs from sell station back to the mine.
+ */
+export function resumeMiningRoute(gameData: GameData, ship: Ship): boolean {
+  const route = ship.miningRoute;
+  if (!route || route.status !== 'paused') return false;
+
+  const sellLocation = gameData.world.locations.find(
+    (l) => l.id === route.sellLocationId
+  );
+  const mineLocation = gameData.world.locations.find(
+    (l) => l.id === route.mineLocationId
+  );
+
+  if (!sellLocation || !mineLocation) return false;
+
+  const departed = startShipFlight(
+    ship,
+    sellLocation,
+    mineLocation,
+    false, // orbit on arrival
+    ship.flightProfileBurnFraction,
+    gameData.gameTime,
+    gameData.world
+  );
+
+  if (!departed) {
+    addLog(
+      gameData.log,
+      gameData.gameTime,
+      'mining_route',
+      `Cannot resume mining route — helm is unmanned. Assign crew to helm to depart.`,
+      ship.name
+    );
+    return false;
+  }
+
+  route.status = 'returning';
+  route.pendingAction = undefined;
+
+  addLog(
+    gameData.log,
+    gameData.gameTime,
+    'mining_route',
+    `Resumed mining route. Departing ${sellLocation.name} for ${mineLocation.name}`,
+    ship.name
+  );
+
+  return true;
+}
+
 // ─── Tick Integration: Cargo Full → Depart ──────────────────────
 
 /**
@@ -410,6 +531,39 @@ function handleSellArrival(
   // been insufficient). This explicit call ensures provisions are
   // topped up now that revenue is available.
   autoResupplyProvisions(gameData, ship, sellLocation.id);
+
+  // ── Check deferred player action ──
+  if (route.pendingAction === 'abandon') {
+    const routeName = formatMiningRouteName(
+      mineLocation.name,
+      sellLocation.name
+    );
+    addLog(
+      gameData.log,
+      gameData.gameTime,
+      'mining_route',
+      `Mining route ended: ${routeName}. ${route.totalTrips} trips, ${formatCredits(route.totalCreditsEarned)} earned.`,
+      ship.name
+    );
+    ship.miningRoute = null;
+    ship.miningAccumulator = {};
+    return true;
+  }
+
+  if (route.pendingAction === 'pause') {
+    route.status = 'paused';
+    route.pendingAction = undefined;
+    route.totalTrips++;
+
+    addLog(
+      gameData.log,
+      gameData.gameTime,
+      'mining_route',
+      `Mining route paused at ${sellLocation.name}. ${route.totalTrips} trips completed, ${formatCredits(route.totalCreditsEarned)} earned. Resume to continue.`,
+      ship.name
+    );
+    return true;
+  }
 
   // Depart back to mine (orbit on arrival)
   const departed = startShipFlight(

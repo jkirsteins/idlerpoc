@@ -52,6 +52,9 @@ export interface WorkTabCallbacks {
   onFlightProfileChange: () => void;
   onStartMiningRoute: (sellLocationId: string, mineLocationId?: string) => void;
   onCancelMiningRoute: () => void;
+  onGoSellNow: () => void;
+  onSetMiningPendingAction: (action: 'pause' | 'abandon' | null) => void;
+  onResumeMiningRoute: () => void;
   onSelectMiningOre: (oreId: string | null) => void;
 }
 
@@ -205,6 +208,8 @@ interface NoContractRefs {
   miningRouteInfoStatus: HTMLDivElement;
   miningRouteInfoStats: HTMLDivElement;
   miningRouteInfoCancelBtn: HTMLButtonElement;
+  miningRouteInfoResumeBtn: HTMLButtonElement;
+  miningRouteInfoPausedBadge: HTMLSpanElement;
   miningRouteSetupSection: HTMLDivElement;
   miningRouteSetupHeading: HTMLHeadingElement;
   miningRouteSetupContainer: HTMLDivElement;
@@ -557,6 +562,8 @@ export function createWorkTab(
     onContinue: () => callbacks.onCancelPause(),
     onPause: () => callbacks.onDockAtNearestPort(),
     onAbandon: () => callbacks.onRequestAbandon(),
+    onSetMiningPendingAction: (action) =>
+      callbacks.onSetMiningPendingAction(action),
   });
 
   let prevPhase: 'none' | 'active' | 'paused' = 'none';
@@ -734,6 +741,25 @@ export function createWorkTab(
       'font-weight: bold; font-size: 0.9rem; color: #ffa500;';
     miningRouteInfoHeader.appendChild(miningRouteInfoLabel);
 
+    const miningRouteInfoBtnGroup = document.createElement('div');
+    miningRouteInfoBtnGroup.style.cssText =
+      'display: flex; gap: 4px; align-items: center;';
+
+    const miningRouteInfoPausedBadge = document.createElement('span');
+    miningRouteInfoPausedBadge.textContent = 'PAUSED';
+    miningRouteInfoPausedBadge.style.cssText =
+      'font-size: 0.75rem; padding: 2px 8px; border-radius: 3px; background: rgba(255,165,0,0.15); color: #ffa500; border: 1px solid #ffa500; display: none;';
+    miningRouteInfoBtnGroup.appendChild(miningRouteInfoPausedBadge);
+
+    const miningRouteInfoResumeBtn = document.createElement('button');
+    miningRouteInfoResumeBtn.textContent = 'Resume Route';
+    miningRouteInfoResumeBtn.style.cssText =
+      'font-size: 0.75rem; padding: 2px 8px; display: none;';
+    miningRouteInfoResumeBtn.addEventListener('click', () =>
+      callbacks.onResumeMiningRoute()
+    );
+    miningRouteInfoBtnGroup.appendChild(miningRouteInfoResumeBtn);
+
     const miningRouteInfoCancelBtn = document.createElement('button');
     miningRouteInfoCancelBtn.textContent = 'Cancel Route';
     miningRouteInfoCancelBtn.style.cssText =
@@ -741,7 +767,9 @@ export function createWorkTab(
     miningRouteInfoCancelBtn.addEventListener('click', () =>
       callbacks.onCancelMiningRoute()
     );
-    miningRouteInfoHeader.appendChild(miningRouteInfoCancelBtn);
+    miningRouteInfoBtnGroup.appendChild(miningRouteInfoCancelBtn);
+
+    miningRouteInfoHeader.appendChild(miningRouteInfoBtnGroup);
     miningRouteInfoBar.appendChild(miningRouteInfoHeader);
 
     const miningRouteInfoStatus = document.createElement('div');
@@ -812,6 +840,8 @@ export function createWorkTab(
       miningRouteInfoStatus,
       miningRouteInfoStats,
       miningRouteInfoCancelBtn,
+      miningRouteInfoResumeBtn,
+      miningRouteInfoPausedBadge,
       miningRouteSetupSection,
       miningRouteSetupHeading,
       miningRouteSetupContainer,
@@ -1350,6 +1380,8 @@ export function createWorkTab(
         miningPanel = createMiningPanel({
           onStartMiningRoute: callbacks.onStartMiningRoute,
           onCancelMiningRoute: callbacks.onCancelMiningRoute,
+          onGoSellNow: callbacks.onGoSellNow,
+          onSetMiningPendingAction: callbacks.onSetMiningPendingAction,
           onSelectMiningOre: callbacks.onSelectMiningOre,
         });
         noContractRefs.miningSlot.appendChild(miningPanel.el);
@@ -1366,6 +1398,8 @@ export function createWorkTab(
         label: noContractRefs.miningRouteInfoLabel,
         status: noContractRefs.miningRouteInfoStatus,
         stats: noContractRefs.miningRouteInfoStats,
+        resumeBtn: noContractRefs.miningRouteInfoResumeBtn,
+        pausedBadge: noContractRefs.miningRouteInfoPausedBadge,
       },
       gd,
       ship
