@@ -14,6 +14,10 @@ import {
   getThreatLevel,
   getThreatNarrative,
 } from '../encounterSystem';
+import {
+  getMiningRouteActionOptions,
+  getSelectedMiningAction,
+} from '../miningRoute';
 import type { Component } from './component';
 
 // Radio-group selection values (shared with workTab)
@@ -158,19 +162,17 @@ export function createFlightStatusComponent(
 
   container.appendChild(radioGroupEl);
 
-  /** Track whether radio group is currently in mining-route mode */
-  let radioMiningMode = false;
+  /** Which system owns the radio group, derived from update(). */
+  let radioContext: 'contract' | 'mining' | 'hidden' = 'hidden';
 
   function handleRadioSelect(action: ActiveAction) {
-    if (radioMiningMode && callbacks.onSetMiningPendingAction) {
+    if (radioContext === 'mining' && callbacks.onSetMiningPendingAction) {
       if (action === 'continue') {
         callbacks.onSetMiningPendingAction(null);
-      } else if (action === 'pause') {
-        callbacks.onSetMiningPendingAction('pause');
-      } else if (action === 'abandon') {
-        callbacks.onSetMiningPendingAction('abandon');
+      } else {
+        callbacks.onSetMiningPendingAction(action);
       }
-    } else {
+    } else if (radioContext === 'contract') {
       if (action === 'continue') {
         callbacks.onContinue();
       } else if (action === 'pause') {
@@ -297,7 +299,6 @@ export function createFlightStatusComponent(
 
   // ── Update: radio group (contract) ──
   function updateRadioGroupContract(ship: Ship) {
-    radioMiningMode = false;
     const activeContract = ship.activeContract;
     if (!activeContract) return;
 
@@ -336,37 +337,11 @@ export function createFlightStatusComponent(
 
   // ── Update: radio group (mining route) ──
   function updateRadioGroupMining(ship: Ship) {
-    radioMiningMode = true;
     const route = ship.miningRoute;
     if (!route) return;
 
-    const selectedAction: ActiveAction =
-      route.pendingAction === 'abandon'
-        ? 'abandon'
-        : route.pendingAction === 'pause'
-          ? 'pause'
-          : 'continue';
-
-    const optionData: Record<
-      ActiveAction,
-      { label: string; desc: string; warn?: string; style: string }
-    > = {
-      continue: {
-        label: 'Continue route',
-        desc: 'Mining route continues normally. Ship auto-sells and returns to mine.',
-        style: 'default',
-      },
-      pause: {
-        label: 'Pause on next sell',
-        desc: 'Route pauses after selling ore. Ship stays docked. Resume anytime.',
-        style: 'caution',
-      },
-      abandon: {
-        label: 'Abandon on next sell',
-        desc: `Ends mining route after selling ore. You keep ${formatCredits(route.totalCreditsEarned)} from completed trips.`,
-        style: 'danger',
-      },
-    };
+    const selectedAction: ActiveAction = getSelectedMiningAction(route);
+    const optionData = getMiningRouteActionOptions(route);
 
     applyRadioData(optionData, selectedAction);
   }
@@ -429,12 +404,15 @@ export function createFlightStatusComponent(
       (miningRoute.status === 'selling' || miningRoute.status === 'returning');
 
     if (showContractActions) {
+      radioContext = 'contract';
       radioGroupEl.style.display = '';
       updateRadioGroupContract(ship);
     } else if (showMiningActions) {
+      radioContext = 'mining';
       radioGroupEl.style.display = '';
       updateRadioGroupMining(ship);
     } else {
+      radioContext = 'hidden';
       radioGroupEl.style.display = 'none';
     }
   }

@@ -34,6 +34,10 @@ import {
 import { estimateTripTime } from '../questGen';
 import { getDistanceBetween, canShipAccessLocation } from '../worldGen';
 import { formatCredits, formatMass, formatDistance } from '../formatting';
+import {
+  getMiningRouteActionOptions,
+  getSelectedMiningAction,
+} from '../miningRoute';
 export interface MiningPanelCallbacks {
   onStartMiningRoute: (sellLocationId: string, mineLocationId?: string) => void;
   onCancelMiningRoute: () => void;
@@ -764,30 +768,8 @@ export function createMiningPanel(callbacks: MiningPanelCallbacks): {
       r.routeActionGroup.style.display = showActions ? '' : 'none';
 
       if (showActions) {
-        const selectedAction: 'continue' | 'pause' | 'abandon' =
-          route.pendingAction === 'abandon'
-            ? 'abandon'
-            : route.pendingAction === 'pause'
-              ? 'pause'
-              : 'continue';
-
-        const actionData = {
-          continue: {
-            label: 'Continue route',
-            desc: 'Mining route continues normally.',
-            style: 'default',
-          },
-          pause: {
-            label: 'Pause on next sell',
-            desc: 'Route pauses after selling ore. Resume anytime.',
-            style: 'caution',
-          },
-          abandon: {
-            label: 'Abandon on next sell',
-            desc: `Ends route after selling. You keep ${formatCredits(route.totalCreditsEarned)}.`,
-            style: 'danger',
-          },
-        } as const;
+        const selectedAction = getSelectedMiningAction(route);
+        const actionData = getMiningRouteActionOptions(route);
 
         for (const [action, refs] of r.routeActionCards) {
           const data = actionData[action];

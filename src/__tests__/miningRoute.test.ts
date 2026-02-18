@@ -7,6 +7,11 @@ import {
   checkMiningRouteDeparture,
   handleMiningRouteArrival,
   retryMiningRouteDeparture,
+  goSellNow,
+  setMiningPendingAction,
+  resumeMiningRoute,
+  getMiningRouteActionOptions,
+  getSelectedMiningAction,
 } from '../miningRoute';
 import { getRemainingOreCapacity } from '../miningSystem';
 
@@ -565,6 +570,312 @@ describe('Mining Route System', () => {
       const departed = retryMiningRouteDeparture(gameData, ship);
 
       expect(departed).toBe(false);
+    });
+  });
+
+  // ─── goSellNow ─────────────────────────────────────────────────
+
+  describe('goSellNow', () => {
+    beforeEach(() => {
+      assignMiningRoute(gameData, ship, TRADE_LOCATION_ID);
+    });
+
+    it('departs to sell station when mining', () => {
+      ship.oreCargo.push({ oreId: 'iron_ore', quantity: 5 });
+
+      const result = goSellNow(gameData, ship);
+
+      expect(result).toBe(true);
+      expect(ship.location.status).toBe('in_flight');
+      expect(ship.miningRoute!.status).toBe('selling');
+      expect(ship.activeFlightPlan!.destination).toBe(TRADE_LOCATION_ID);
+      expect(ship.activeFlightPlan!.dockOnArrival).toBe(true);
+    });
+
+    it('works with empty cargo', () => {
+      ship.oreCargo = [];
+
+      const result = goSellNow(gameData, ship);
+
+      expect(result).toBe(true);
+      expect(ship.miningRoute!.status).toBe('selling');
+    });
+
+    it('returns false when not in mining status', () => {
+      ship.miningRoute!.status = 'selling';
+      expect(goSellNow(gameData, ship)).toBe(false);
+
+      ship.miningRoute!.status = 'returning';
+      expect(goSellNow(gameData, ship)).toBe(false);
+
+      ship.miningRoute!.status = 'paused';
+      expect(goSellNow(gameData, ship)).toBe(false);
+    });
+
+    it('returns false when no mining route', () => {
+      ship.miningRoute = null;
+      expect(goSellNow(gameData, ship)).toBe(false);
+    });
+
+    it('returns false when helm is unmanned', () => {
+      for (const slot of ship.jobSlots) {
+        if (slot.type === 'helm') slot.assignedCrewId = null;
+      }
+
+      const result = goSellNow(gameData, ship);
+
+      expect(result).toBe(false);
+      expect(ship.location.status).toBe('orbiting');
+      expect(ship.miningRoute!.status).toBe('mining');
+    });
+
+    it('returns false when provisions too low', () => {
+      ship.provisionsKg = 0.01; // Almost no provisions
+
+      const result = goSellNow(gameData, ship);
+
+      expect(result).toBe(false);
+      expect(ship.miningRoute!.status).toBe('mining');
+      const lastLog = gameData.log[gameData.log.length - 1];
+      expect(lastLog.message).toContain('provisions');
+    });
+
+    it('logs departure with ore weight', () => {
+      ship.oreCargo.push({ oreId: 'iron_ore', quantity: 5 });
+      const logBefore = gameData.log.length;
+
+      goSellNow(gameData, ship);
+
+      const newLogs = gameData.log.slice(logBefore);
+      const departLog = newLogs.find((l) => l.message.includes('Departing'));
+      expect(departLog).toBeDefined();
+      expect(departLog!.message).toContain('ore');
+    });
+  });
+
+  // ─── setMiningPendingAction ────────────────────────────────────
+
+  describe('setMiningPendingAction', () => {
+    beforeEach(() => {
+      assignMiningRoute(gameData, ship, TRADE_LOCATION_ID);
+    });
+
+    it('sets pause pending action', () => {
+      setMiningPendingAction(ship, 'pause');
+      expect(ship.miningRoute!.pendingAction).toBe('pause');
+    });
+
+    it('sets abandon pending action', () => {
+      setMiningPendingAction(ship, 'abandon');
+      expect(ship.miningRoute!.pendingAction).toBe('abandon');
+    });
+
+    it('clears pending action with null', () => {
+      ship.miningRoute!.pendingAction = 'pause';
+      setMiningPendingAction(ship, null);
+      expect(ship.miningRoute!.pendingAction).toBeUndefined();
+    });
+
+    it('does nothing when no mining route', () => {
+      ship.miningRoute = null;
+      // Should not throw
+      setMiningPendingAction(ship, 'pause');
+    });
+  });
+
+  // ─── handleMiningRouteArrival with pendingAction ──────────────
+
+  describe('handleMiningRouteArrival with pendingAction', () => {
+    beforeEach(() => {
+      assignMiningRoute(gameData, ship, TRADE_LOCATION_ID);
+      ship.miningRoute!.status = 'selling';
+      ship.oreCargo.push({ oreId: 'iron_ore', quantity: 10 });
+      ship.location = { status: 'docked', dockedAt: TRADE_LOCATION_ID };
+      delete ship.activeFlightPlan;
+      gameData.credits = 1_000_000; // Enough for refuel
+    });
+
+    it('abandons route when pendingAction is abandon', () => {
+      ship.miningRoute!.pendingAction = 'abandon';
+      ship.miningRoute!.totalCreditsEarned = 5000;
+
+      handleMiningRouteArrival(gameData, ship);
+
+      expect(ship.miningRoute).toBeNull();
+      const lastLog = gameData.log[gameData.log.length - 1];
+      expect(lastLog.message).toContain('Mining route ended');
+    });
+
+    it('increments totalTrips on abandon', () => {
+      ship.miningRoute!.pendingAction = 'abandon';
+      ship.miningRoute!.totalTrips = 3;
+
+      handleMiningRouteArrival(gameData, ship);
+
+      // Route is nullified, but the log should show 4 trips
+      const lastLog = gameData.log[gameData.log.length - 1];
+      expect(lastLog.message).toContain('4 trips');
+    });
+
+    it('pauses route when pendingAction is pause', () => {
+      ship.miningRoute!.pendingAction = 'pause';
+
+      handleMiningRouteArrival(gameData, ship);
+
+      expect(ship.miningRoute).not.toBeNull();
+      expect(ship.miningRoute!.status).toBe('paused');
+      expect(ship.miningRoute!.pendingAction).toBeUndefined();
+      expect(ship.miningRoute!.totalTrips).toBe(1);
+    });
+
+    it('paused route stays docked', () => {
+      ship.miningRoute!.pendingAction = 'pause';
+
+      handleMiningRouteArrival(gameData, ship);
+
+      // Ship should stay docked, not start a new flight
+      expect(ship.location.status).toBe('docked');
+    });
+
+    it('sells ore before executing pending action', () => {
+      ship.miningRoute!.pendingAction = 'pause';
+      const creditsBefore = gameData.credits;
+
+      handleMiningRouteArrival(gameData, ship);
+
+      expect(gameData.credits).toBeGreaterThan(creditsBefore);
+      expect(ship.oreCargo.length).toBe(0);
+    });
+
+    it('continues normally when no pendingAction', () => {
+      // No pendingAction set (undefined by default)
+      handleMiningRouteArrival(gameData, ship);
+
+      // Should depart back to mine
+      expect(ship.location.status).toBe('in_flight');
+      expect(ship.miningRoute!.status).toBe('returning');
+    });
+  });
+
+  // ─── resumeMiningRoute ─────────────────────────────────────────
+
+  describe('resumeMiningRoute', () => {
+    beforeEach(() => {
+      assignMiningRoute(gameData, ship, TRADE_LOCATION_ID);
+      // Simulate a paused route at sell station
+      ship.miningRoute!.status = 'paused';
+      ship.miningRoute!.totalTrips = 2;
+      ship.location = { status: 'docked', dockedAt: TRADE_LOCATION_ID };
+      delete ship.activeFlightPlan;
+    });
+
+    it('departs to mine from paused state', () => {
+      const result = resumeMiningRoute(gameData, ship);
+
+      expect(result).toBe(true);
+      expect(ship.location.status).toBe('in_flight');
+      expect(ship.miningRoute!.status).toBe('returning');
+      expect(ship.activeFlightPlan!.destination).toBe(MINE_LOCATION_ID);
+      expect(ship.activeFlightPlan!.dockOnArrival).toBe(false); // orbit
+    });
+
+    it('clears pendingAction on resume', () => {
+      ship.miningRoute!.pendingAction = 'pause';
+
+      resumeMiningRoute(gameData, ship);
+
+      expect(ship.miningRoute!.pendingAction).toBeUndefined();
+    });
+
+    it('returns false when not paused', () => {
+      ship.miningRoute!.status = 'mining';
+      expect(resumeMiningRoute(gameData, ship)).toBe(false);
+
+      ship.miningRoute!.status = 'selling';
+      expect(resumeMiningRoute(gameData, ship)).toBe(false);
+    });
+
+    it('returns false when no mining route', () => {
+      ship.miningRoute = null;
+      expect(resumeMiningRoute(gameData, ship)).toBe(false);
+    });
+
+    it('returns false when helm is unmanned', () => {
+      for (const slot of ship.jobSlots) {
+        if (slot.type === 'helm') slot.assignedCrewId = null;
+      }
+
+      const result = resumeMiningRoute(gameData, ship);
+
+      expect(result).toBe(false);
+      expect(ship.miningRoute!.status).toBe('paused');
+    });
+
+    it('returns false when provisions too low', () => {
+      ship.provisionsKg = 0.01;
+
+      const result = resumeMiningRoute(gameData, ship);
+
+      expect(result).toBe(false);
+      expect(ship.miningRoute!.status).toBe('paused');
+    });
+
+    it('logs resume departure', () => {
+      const logBefore = gameData.log.length;
+      resumeMiningRoute(gameData, ship);
+
+      const newLogs = gameData.log.slice(logBefore);
+      const resumeLog = newLogs.find((l) => l.message.includes('Resumed'));
+      expect(resumeLog).toBeDefined();
+    });
+  });
+
+  // ─── getMiningRouteActionOptions / getSelectedMiningAction ────
+
+  describe('getMiningRouteActionOptions', () => {
+    it('returns option data for all three actions', () => {
+      const route = {
+        mineLocationId: MINE_LOCATION_ID,
+        sellLocationId: TRADE_LOCATION_ID,
+        status: 'mining' as const,
+        totalTrips: 3,
+        totalCreditsEarned: 5000,
+        assignedAt: 0,
+      };
+
+      const options = getMiningRouteActionOptions(route);
+
+      expect(options.continue.label).toBe('Continue route');
+      expect(options.pause.label).toBe('Pause on next sell');
+      expect(options.abandon.label).toBe('Abandon on next sell');
+      expect(options.abandon.desc).toContain('5,000');
+    });
+  });
+
+  describe('getSelectedMiningAction', () => {
+    const baseRoute = {
+      mineLocationId: MINE_LOCATION_ID,
+      sellLocationId: TRADE_LOCATION_ID,
+      status: 'mining' as const,
+      totalTrips: 0,
+      totalCreditsEarned: 0,
+      assignedAt: 0,
+    };
+
+    it('returns continue when no pending action', () => {
+      expect(getSelectedMiningAction(baseRoute)).toBe('continue');
+    });
+
+    it('returns pause when pending pause', () => {
+      expect(
+        getSelectedMiningAction({ ...baseRoute, pendingAction: 'pause' })
+      ).toBe('pause');
+    });
+
+    it('returns abandon when pending abandon', () => {
+      expect(
+        getSelectedMiningAction({ ...baseRoute, pendingAction: 'abandon' })
+      ).toBe('abandon');
     });
   });
 });
