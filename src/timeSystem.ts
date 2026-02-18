@@ -100,27 +100,37 @@ export function getDaysSinceEpoch(gameTime: number): number {
  */
 export function formatDuration(gameSeconds: number): string {
   if (gameSeconds < 60) {
-    return `${Math.round(gameSeconds)}s`;
+    const rounded = Math.round(gameSeconds);
+    if (rounded === 60) return '1m';
+    return `${rounded}s`;
   } else if (gameSeconds < 3600) {
-    const minutes = Math.floor(gameSeconds / 60);
-    const seconds = Math.round(gameSeconds % 60);
-    if (seconds === 0) {
-      return `${minutes}m`;
+    let minutes = Math.floor(gameSeconds / 60);
+    let seconds = Math.round(gameSeconds % 60);
+    if (seconds === 60) {
+      seconds = 0;
+      minutes += 1;
     }
+    if (minutes === 60) return '1h';
+    if (seconds === 0) return `${minutes}m`;
     return `${minutes}m ${seconds}s`;
   } else if (gameSeconds < 86400) {
-    const hours = Math.floor(gameSeconds / 3600);
-    const minutes = Math.round((gameSeconds % 3600) / 60);
-    if (minutes === 0) {
-      return `${hours}h`;
+    let hours = Math.floor(gameSeconds / 3600);
+    let minutes = Math.round((gameSeconds % 3600) / 60);
+    if (minutes === 60) {
+      minutes = 0;
+      hours += 1;
     }
+    if (hours === 24) return '1d';
+    if (minutes === 0) return `${hours}h`;
     return `${hours}h ${minutes}m`;
   } else {
-    const days = Math.floor(gameSeconds / 86400);
-    const hours = Math.round((gameSeconds % 86400) / 3600);
-    if (hours === 0) {
-      return `${days}d`;
+    let days = Math.floor(gameSeconds / 86400);
+    let hours = Math.round((gameSeconds % 86400) / 3600);
+    if (hours === 24) {
+      hours = 0;
+      days += 1;
     }
+    if (hours === 0) return `${days}d`;
     return `${days}d ${hours}h`;
   }
 }
@@ -144,20 +154,27 @@ export function ticksToGameSeconds(ticks: number): number {
  */
 export function formatRealDuration(realSeconds: number): string {
   if (realSeconds < 60) {
-    return `${Math.round(realSeconds)}s`;
+    const rounded = Math.round(realSeconds);
+    if (rounded === 60) return '1m';
+    return `${rounded}s`;
   } else if (realSeconds < 3600) {
-    const minutes = Math.floor(realSeconds / 60);
-    const seconds = Math.round(realSeconds % 60);
-    if (seconds === 0) {
-      return `${minutes}m`;
+    let minutes = Math.floor(realSeconds / 60);
+    let seconds = Math.round(realSeconds % 60);
+    if (seconds === 60) {
+      seconds = 0;
+      minutes += 1;
     }
+    if (minutes === 60) return '1h';
+    if (seconds === 0) return `${minutes}m`;
     return `${minutes}m ${seconds}s`;
   } else {
-    const hours = Math.floor(realSeconds / 3600);
-    const minutes = Math.round((realSeconds % 3600) / 60);
-    if (minutes === 0) {
-      return `${hours}h`;
+    let hours = Math.floor(realSeconds / 3600);
+    let minutes = Math.round((realSeconds % 3600) / 60);
+    if (minutes === 60) {
+      minutes = 0;
+      hours += 1;
     }
+    if (minutes === 0) return `${hours}h`;
     return `${hours}h ${minutes}m`;
   }
 }
