@@ -2678,4 +2678,79 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
       'navigation',
     ],
   },
+  // ═══════════════════════════════════════════════════════════
+  // SWARM SYSTEMS
+  // ═══════════════════════════════════════════════════════════
+  {
+    id: 'egg-production',
+    title: 'Egg Production & Nursery',
+    category: 'Core Systems',
+    summary:
+      'How queens lay eggs, how eggs gestate in nurseries, and the skills that improve both processes.',
+    sections: [
+      {
+        paragraphs: [
+          'Egg production is how the swarm grows its worker population. The queen lays eggs into a nursery structure, where they gestate independently through two phases before hatching into workers. The process is gated by energy cost and nursery capacity, creating a natural population growth curve.',
+        ],
+      },
+      {
+        heading: 'Two-Stage Process',
+        paragraphs: [
+          'Egg production has two distinct stages that operate independently:',
+          "Stage 1 — Laying: The queen spends energy and time to produce an egg. Once laid, the egg is placed into a nursery in the queen's zone. The queen then enters a cooldown before she can lay again.",
+          'Stage 2 — Gestation: Each egg in the nursery progresses through incubation and maturation phases on its own timer. Multiple eggs gestate simultaneously. When maturation completes, the egg hatches into a new worker.',
+        ],
+        table: {
+          headers: ['Stage', 'Base Duration', 'Improved By'],
+          rows: [
+            ['Laying', '10 seconds', 'Brood Skill (queen)'],
+            ['Incubation', '30 seconds', 'Egg Type Mastery (queen)'],
+            ['Maturation', '15 seconds', 'Egg Type Mastery (queen)'],
+            ['Auto-Cooldown', '20 seconds', 'Manual Lay button'],
+            ['Manual Cooldown', '5 seconds', '—'],
+          ],
+        },
+      },
+      {
+        heading: 'Active vs Passive Play',
+        paragraphs: [
+          'Egg production supports both idle and active play styles:',
+          'Passive (auto-mode): Toggle egg production on and the queen lays eggs automatically with a 20-second cooldown between each lay. Walk away and the swarm grows on its own.',
+          'Active (Lay Egg button): Clicking the Lay Egg button during cooldown shortens it to 5 seconds. This roughly doubles egg throughput compared to passive mode, but also burns energy twice as fast — requiring proportionally more gatherers to sustain.',
+          'The Lay Egg button is disabled when the queen is mid-lay, when energy is too low, or when the nursery is full.',
+        ],
+      },
+      {
+        heading: 'Nursery',
+        paragraphs: [
+          'A nursery is a physical structure built in a swarm-conquered zone. Each nursery has a capacity that limits how many eggs can gestate simultaneously. The starting zone begins with one nursery (capacity 10).',
+          'The queen can only lay eggs if there is a nursery in her zone with available space. When the nursery is full, laying pauses until an egg hatches and frees a slot.',
+          "Multiple eggs gestate in parallel — at steady state, roughly 3 eggs are gestating at once. This means the nursery acts as a buffer between the queen's laying rate and the hatching rate.",
+        ],
+      },
+      {
+        heading: 'Energy Cost',
+        paragraphs: [
+          "Each egg costs 10 energy to lay. If the queen's energy drops below this threshold, laying pauses automatically until energy is restored through worker gathering. This creates a natural feedback loop: more workers gather more energy, enabling more eggs, producing more workers — until the energy economy reaches equilibrium.",
+        ],
+      },
+      {
+        heading: 'Brood Skill',
+        paragraphs: [
+          'The queen gains Brood Skill experience each time she completes laying an egg. Brood Skill ranges from 0 to 100 and reduces the time required to lay each egg.',
+          'At skill 0 laying takes 10 seconds. At skill 50 laying takes about 6.7 seconds. At skill 100 laying takes 5 seconds. The formula is: effective laying time = base time / (1 + skill / 100).',
+          'Brood Skill uses the same diminishing-returns curve as worker foraging skill — early levels come quickly, later levels require significantly more lays.',
+        ],
+      },
+      {
+        heading: 'Egg Type Mastery',
+        paragraphs: [
+          'The queen also gains mastery XP for each egg type when eggs of that type hatch. Worker egg mastery reduces the total gestation time (incubation + maturation) for worker eggs.',
+          'Mastery uses the RuneScape-style XP curve. At level 0 gestation takes 45 seconds. At level 50 gestation takes about 36 seconds (20% faster). At level 99 gestation takes about 23 seconds (50% faster).',
+          'Each hatched worker egg awards 10 mastery XP. Higher mastery levels require exponentially more XP, creating a long-term progression arc.',
+        ],
+      },
+    ],
+    relatedArticles: ['skill-system', 'mastery-system'],
+  },
 ];

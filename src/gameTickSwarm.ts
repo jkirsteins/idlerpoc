@@ -1,10 +1,11 @@
 // Game Tick - Master tick system for swarm simulation
 
-import type { GameData, Worker, LogEntry } from './models/swarmTypes';
+import type { GameData, Worker, Egg, LogEntry } from './models/swarmTypes';
 import { SWARM_CONSTANTS } from './models/swarmTypes';
 import { updatePlanetPositions } from './trappist1Data';
 import {
-  processEggProduction,
+  processQueenLaying,
+  processEggGestation,
   processWorkerTick,
   assignOrders,
   calculateSwarmAggregates,
@@ -30,6 +31,7 @@ export interface TickResult {
   workersDied: number;
   queensDied: number;
   eggsLaid: number;
+  eggsHatched: number;
   netEnergy: number;
   logEntries: LogEntry[];
 }
@@ -44,6 +46,7 @@ export function applyTick(
     workersDied: 0,
     queensDied: 0,
     eggsLaid: 0,
+    eggsHatched: 0,
     netEnergy: 0,
     logEntries: [],
   };
@@ -68,6 +71,7 @@ export function applyTick(
     result.workersDied += tickResult.workersDied;
     result.queensDied += tickResult.queensDied;
     result.eggsLaid += tickResult.eggsLaid;
+    result.eggsHatched += tickResult.eggsHatched;
     result.netEnergy += tickResult.netEnergy;
     result.logEntries.push(...tickResult.logEntries);
 
@@ -113,6 +117,7 @@ interface SingleTickResult {
   workersDied: number;
   queensDied: number;
   eggsLaid: number;
+  eggsHatched: number;
   netEnergy: number;
   logEntries: LogEntry[];
 }
@@ -123,6 +128,7 @@ function processSingleTick(data: GameData): SingleTickResult {
     workersDied: 0,
     queensDied: 0,
     eggsLaid: 0,
+    eggsHatched: 0,
     netEnergy: 0,
     logEntries: [],
   };
@@ -163,25 +169,49 @@ function processSingleTick(data: GameData): SingleTickResult {
       }
     }
 
-    // Egg production
-    if (queen.eggProduction.enabled) {
-      const newWorker = processEggProduction(queen, data.gameTime);
-      if (newWorker) {
-        swarm.workers.push(newWorker);
-        result.workersHatched++;
-        result.eggsLaid++;
-        result.logEntries.push(
-          createLogEntry('worker_hatched', `New worker hatched`, {
-            workerId: newWorker.id,
-          })
-        );
-      }
+    // Egg laying (queen action with cooldown)
+    const newEgg = processQueenLaying(
+      queen,
+      data.swarm.eggs,
+      data.swarm.structures
+    );
+    if (newEgg) {
+      data.swarm.eggs.push(newEgg);
+      result.eggsLaid++;
+      result.logEntries.push(
+        createLogEntry('egg_laid', 'Queen laid a new egg', {
+          eggId: newEgg.id,
+        })
+      );
     }
 
     // Re-evaluate orders periodically
     if (data.gameTime % SWARM_CONSTANTS.ORDER_REEVALUATION_INTERVAL === 0) {
       assignOrders(queen, swarm.workers);
     }
+  }
+
+  // 3b. Process egg gestation (independent of queen laying)
+  const eggsToRemove: Egg[] = [];
+  for (const egg of data.swarm.eggs) {
+    const queen = swarm.queens.find((q) => q.id === egg.queenId);
+    const gestationResult = processEggGestation(egg, queen, data.gameTime);
+    if (gestationResult.hatched && gestationResult.worker) {
+      swarm.workers.push(gestationResult.worker);
+      result.workersHatched++;
+      result.eggsHatched++;
+      eggsToRemove.push(egg);
+      result.logEntries.push(
+        createLogEntry('egg_hatched', 'A worker hatched from an egg', {
+          workerId: gestationResult.worker.id,
+          eggId: egg.id,
+        })
+      );
+    }
+  }
+  for (const egg of eggsToRemove) {
+    const index = data.swarm.eggs.indexOf(egg);
+    if (index > -1) data.swarm.eggs.splice(index, 1);
   }
 
   // 4. Process workers
@@ -300,6 +330,7 @@ export function processCatchUp(
       workersDied: 0,
       queensDied: 0,
       eggsLaid: 0,
+      eggsHatched: 0,
       netEnergy: 0,
       logEntries: [],
     };
@@ -326,12 +357,53 @@ function processBatchedCatchUp(
     workersDied: 0,
     queensDied: 0,
     eggsLaid: 0,
+    eggsHatched: 0,
     netEnergy: 0,
     logEntries: [],
   };
 
   const { swarm } = data;
   const neuralCapacity = calculateTotalNeuralCapacity(swarm.queens);
+
+  // Resolve mid-gestation eggs: complete any eggs that would have hatched
+  const gestationTicks = SWARM_CONSTANTS.EGG_TOTAL_GESTATION_TICKS;
+  const eggsToHatch: Egg[] = [];
+  for (const egg of swarm.eggs) {
+    const remainingTicks = gestationTicks - egg.totalTicks;
+    if (remainingTicks <= elapsedTicks) {
+      eggsToHatch.push(egg);
+    } else {
+      // Advance egg progress
+      egg.totalTicks += elapsedTicks;
+      egg.ticksInPhase += elapsedTicks;
+      // Check phase transition
+      if (
+        egg.phase === 'incubating' &&
+        egg.ticksInPhase >= SWARM_CONSTANTS.EGG_INCUBATION_TICKS
+      ) {
+        egg.ticksInPhase -= SWARM_CONSTANTS.EGG_INCUBATION_TICKS;
+        egg.phase = 'maturing';
+      }
+    }
+  }
+  for (const egg of eggsToHatch) {
+    const queen = swarm.queens.find((q) => q.id === egg.queenId);
+    if (queen) {
+      swarm.workers.push({
+        id: `worker-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        queenId: queen.id,
+        state: 'idle_empty',
+        health: SWARM_CONSTANTS.WORKER_HEALTH_MAX,
+        cargo: { current: 0, max: SWARM_CONSTANTS.WORKER_CARGO_MAX },
+        skills: { foraging: 0, mastery: { surfaceLichen: 0 } },
+      });
+      queen.broodMastery.worker += SWARM_CONSTANTS.EGG_HATCH_MASTERY_XP;
+      result.workersHatched++;
+      result.eggsHatched++;
+    }
+    const idx = swarm.eggs.indexOf(egg);
+    if (idx > -1) swarm.eggs.splice(idx, 1);
+  }
 
   // Simulate toward equilibrium
   const daysElapsed = elapsedTicks / SWARM_CONSTANTS.TICKS_PER_DAY;

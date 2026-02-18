@@ -96,10 +96,42 @@ export interface Worker {
 export type QueenDirective = 'gather_biomass' | 'idle';
 
 export interface EggProduction {
-  enabled: boolean; // Player toggle
-  inProgress: boolean; // Currently laying?
-  progress: number; // 0-100
-  ticksRemaining: number;
+  enabled: boolean; // Auto-mode toggle
+  isLaying: boolean; // Currently in laying phase
+  layingProgress: number; // 0-100
+  layingTicksRemaining: number;
+  cooldownTicksRemaining: number;
+  manualCooldown: boolean; // Was last/current action manually triggered?
+}
+
+// ============================================================================
+// EGG ENTITY
+// ============================================================================
+
+export type EggPhase = 'incubating' | 'maturing';
+export type EggType = 'worker'; // Extensible for future types
+
+export interface Egg {
+  id: string;
+  queenId: string;
+  nurseryId: string; // Which nursery holds this egg
+  type: EggType;
+  phase: EggPhase;
+  ticksInPhase: number;
+  totalTicks: number;
+}
+
+// ============================================================================
+// STRUCTURES
+// ============================================================================
+
+export type StructureType = 'nursery';
+
+export interface Structure {
+  id: string;
+  type: StructureType;
+  zoneId: string; // Which zone it's built in
+  capacity: number; // Nursery: max eggs
 }
 
 export interface WorkerOrder {
@@ -128,6 +160,10 @@ export interface Queen {
 
   // Reproduction
   eggProduction: EggProduction;
+  broodSkill: number; // 0-100, laying efficiency (reduces laying time)
+  broodMastery: {
+    worker: number; // XP for worker egg type (reduces gestation time)
+  };
 
   // Resources
   energy: EnergyPool;
@@ -266,6 +302,8 @@ export interface Planet {
 export interface Swarm {
   queens: Queen[];
   workers: Worker[];
+  eggs: Egg[];
+  structures: Structure[];
 }
 
 // ============================================================================
@@ -290,6 +328,7 @@ export type LogEntryType =
   | 'worker_died'
   | 'queen_died'
   | 'egg_laid'
+  | 'egg_hatched'
   | 'zone_conquered'
   | 'daily_summary';
 
@@ -334,11 +373,20 @@ export interface GameData {
 // ============================================================================
 
 export const SWARM_CONSTANTS = {
-  // Timing (ticks)
-  EGG_LAYING_TICKS: 10,
-  INCUBATION_TICKS: 30,
-  MATURATION_TICKS: 15,
-  TOTAL_SPAWN_TICKS: 55, // 10 + 30 + 15
+  // Egg production timing (ticks)
+  EGG_LAYING_TICKS: 10, // Base laying duration
+  EGG_INCUBATION_TICKS: 30, // Egg incubation phase
+  EGG_MATURATION_TICKS: 15, // Egg maturation phase
+  EGG_TOTAL_GESTATION_TICKS: 45, // 30 + 15 (gestation only, excludes laying)
+  EGG_AUTO_COOLDOWN_TICKS: 20, // Passive cooldown between lays
+  EGG_MANUAL_COOLDOWN_TICKS: 5, // Active (clicked) cooldown
+
+  // Nursery
+  NURSERY_BASE_CAPACITY: 10, // Starting nursery egg capacity
+
+  // Brood skill progression
+  BROOD_XP_PER_LAY: 1, // Activity amount for brood skill gain
+  EGG_HATCH_MASTERY_XP: 10, // Mastery XP per hatch
 
   // Worker lifecycle
   WORKER_HEALTH_MAX: 100,

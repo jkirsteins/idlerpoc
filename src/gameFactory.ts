@@ -7,7 +7,7 @@ import {
   getStartingZone,
   normalizePlanetsFromSave,
 } from './trappist1Data';
-import { createQueen, createLogEntry } from './swarmSystem';
+import { createQueen, createNursery, createLogEntry } from './swarmSystem';
 import {
   DEFAULT_QUEEN_ALIEN_TYPE_ID,
   getQueenMetabolismProfile,
@@ -32,10 +32,15 @@ export function createNewGame(): GameData {
   // Create initial queen
   const queen = createQueen(startingZone.id, yearTicks);
 
+  // Create starting nursery in the queen's zone
+  const nursery = createNursery(startingZone.id);
+
   // Create swarm
   const swarm: Swarm = {
     queens: [queen],
     workers: [],
+    eggs: [],
+    structures: [nursery],
   };
 
   // Create game data
@@ -98,6 +103,15 @@ export function loadGame(saveData: string): GameData | null {
 
     parsed.planets = normalizePlanetsFromSave(parsed.planets);
 
+    // Backfill eggs and structures arrays for old saves
+    const swarmRaw = parsed.swarm as unknown as Record<string, unknown>;
+    if (!Array.isArray(swarmRaw.eggs)) {
+      (parsed.swarm as { eggs: unknown[] }).eggs = [];
+    }
+    if (!Array.isArray(swarmRaw.structures)) {
+      (parsed.swarm as { structures: unknown[] }).structures = [];
+    }
+
     const homePlanet = parsed.planets.find((p) => p.id === parsed.homePlanetId);
     const yearTicks =
       homePlanet?.dayLengthTicks ?? SWARM_CONSTANTS.TICKS_PER_DAY;
@@ -137,6 +151,80 @@ export function loadGame(saveData: string): GameData | null {
         queen.metabolismPerTick = profile.metabolismPerTick;
         queen.hpDecayPerTickAtZeroEnergy = profile.hpDecayPerTickAtZeroEnergy;
       }
+
+      // Backfill brood skill/mastery for old saves
+      if (typeof queen.broodSkill !== 'number') {
+        queen.broodSkill = 0;
+      }
+      if (
+        !queen.broodMastery ||
+        typeof queen.broodMastery.worker !== 'number'
+      ) {
+        queen.broodMastery = { worker: 0 };
+      }
+
+      // Migrate old EggProduction shape (inProgress) to new shape (isLaying)
+      const ep = queen.eggProduction as unknown as Record<string, unknown>;
+      if (ep.inProgress !== undefined) {
+        const wasInProgress = ep.inProgress as boolean;
+        const oldTicksRemaining = (ep.ticksRemaining as number) ?? 0;
+        const enabled = (ep.enabled as boolean) ?? false;
+
+        // Old system: single timer covering laying + gestation
+        // If timer was in the laying portion (> gestation ticks remaining),
+        // the queen was still laying. Otherwise, create an egg entity.
+        const gestationTicks = SWARM_CONSTANTS.EGG_TOTAL_GESTATION_TICKS;
+        const wasStillLaying =
+          wasInProgress && oldTicksRemaining > gestationTicks;
+
+        queen.eggProduction = {
+          enabled,
+          isLaying: wasStillLaying,
+          layingProgress: 0,
+          layingTicksRemaining: wasStillLaying
+            ? Math.max(0, oldTicksRemaining - gestationTicks)
+            : 0,
+          cooldownTicksRemaining: 0,
+          manualCooldown: false,
+        };
+
+        // If old egg was in gestation phase, create an egg entity in a nursery
+        if (wasInProgress && !wasStillLaying && oldTicksRemaining > 0) {
+          // Ensure we have a nursery
+          let nursery = parsed.swarm.structures.find(
+            (s) => s.type === 'nursery' && s.zoneId === queen.locationZoneId
+          );
+          if (!nursery) {
+            nursery = createNursery(queen.locationZoneId);
+            parsed.swarm.structures.push(nursery);
+          }
+
+          const elapsedGestation = gestationTicks - oldTicksRemaining;
+          const incubationTicks = SWARM_CONSTANTS.EGG_INCUBATION_TICKS;
+          parsed.swarm.eggs.push({
+            id: `egg-migrated-${Date.now()}`,
+            queenId: queen.id,
+            nurseryId: nursery.id,
+            type: 'worker' as const,
+            phase:
+              elapsedGestation < incubationTicks ? 'incubating' : 'maturing',
+            ticksInPhase:
+              elapsedGestation < incubationTicks
+                ? elapsedGestation
+                : elapsedGestation - incubationTicks,
+            totalTicks: elapsedGestation,
+          });
+        }
+      }
+    }
+
+    // Ensure at least one nursery exists (for old saves that had no structures)
+    if (
+      parsed.swarm.structures.length === 0 &&
+      parsed.swarm.queens.length > 0
+    ) {
+      const firstQueen = parsed.swarm.queens[0];
+      parsed.swarm.structures.push(createNursery(firstQueen.locationZoneId));
     }
 
     return parsed;

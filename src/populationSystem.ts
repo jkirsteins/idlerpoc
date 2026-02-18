@@ -280,6 +280,14 @@ export function formatDailySummary(summary: DailySummary): string {
     parts.push('• ⚠️ CRITICAL: Swarm collapse imminent');
   }
 
+  const activeEggs =
+    'activeEggs' in summary
+      ? (summary as DailySummary & { activeEggs?: number }).activeEggs
+      : undefined;
+  if (activeEggs !== undefined && activeEggs > 0) {
+    parts.push(`• Nursery: ${activeEggs} eggs gestating`);
+  }
+
   parts.push(
     `• Population: ${summary.peakWorkers} workers (${Math.round(summary.efficiency * 100)}% efficiency)`
   );
