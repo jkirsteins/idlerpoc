@@ -43,28 +43,27 @@ interface RendererState {
 // SHARED HELPERS
 // ============================================================================
 
-/** Compute the current year number from game time and home planet day length. */
-function getGameYear(gameData: GameData): number {
-  const homePlanet = gameData.planets.find(
-    (p) => p.id === gameData.homePlanetId
-  );
-  const asimovDayLength = homePlanet?.dayLengthTicks ?? 480;
-  return Math.floor(gameData.gameTime / asimovDayLength) + 1;
+/** Pre-computed per-tick values shared across components. */
+interface TickSnapshot {
+  gameData: GameData;
+  year: number;
+  yearProgress: number;
+  elapsedHours: number;
+  aggregates: ReturnType<typeof calculateSwarmAggregates>;
 }
 
-/** Compute year progress (0–1) from game time and home planet day length. */
-function getYearProgress(gameData: GameData): {
-  progress: number;
-  elapsedHours: number;
-} {
+/** Compute snapshot once per tick — avoids duplicate planet lookups and aggregate scans. */
+function computeTickSnapshot(gameData: GameData): TickSnapshot {
   const homePlanet = gameData.planets.find(
     (p) => p.id === gameData.homePlanetId
   );
   const asimovDayLength = homePlanet?.dayLengthTicks ?? 480;
-  const progress = (gameData.gameTime % asimovDayLength) / asimovDayLength;
+  const year = Math.floor(gameData.gameTime / asimovDayLength) + 1;
+  const yearProgress = (gameData.gameTime % asimovDayLength) / asimovDayLength;
   const elapsedHours =
     (gameData.gameTime % asimovDayLength) / SWARM_CONSTANTS.TICKS_PER_HOUR;
-  return { progress, elapsedHours };
+  const aggregates = calculateSwarmAggregates(gameData.swarm);
+  return { gameData, year, yearProgress, elapsedHours, aggregates };
 }
 
 // ============================================================================
@@ -218,11 +217,12 @@ export function render(
     };
   }
 
-  // Store reference for updates — single sidebar instance, no drawer duplication
+  // Store reference for updates — snapshot computed once, shared across components
   const update = (gd: GameData) => {
+    const snapshot = computeTickSnapshot(gd);
     header.update(gd);
-    mobileHeader.update(gd);
-    leftSidebar.update(gd);
+    mobileHeader.update(snapshot);
+    leftSidebar.update(snapshot);
     mainPanel.update(gd);
     rightSidebar.update(gd);
     footer.update(gd);
@@ -301,7 +301,7 @@ function createHeader(
 // LEFT SIDEBAR COMPONENT - Day Progress & Swarm Stats
 // ============================================================================
 
-function createLeftSidebar(_gameData: GameData): Component {
+function createLeftSidebar(_gameData: GameData): Component<TickSnapshot> {
   const el = document.createElement('aside');
   el.className = 'left-sidebar';
 
@@ -422,12 +422,10 @@ function createLeftSidebar(_gameData: GameData): Component {
 
   return {
     el,
-    update: (gameData: GameData) => {
-      const years = getGameYear(gameData);
-      const { progress: yearProgress, elapsedHours } =
-        getYearProgress(gameData);
+    update: (snapshot: TickSnapshot) => {
+      const { year, yearProgress, elapsedHours, aggregates } = snapshot;
 
-      yearDisplay.textContent = `Year ${years}`;
+      yearDisplay.textContent = `Year ${year}`;
       progressBar.style.width = `${yearProgress * 100}%`;
 
       // Color gradient through the year
@@ -444,9 +442,6 @@ function createLeftSidebar(_gameData: GameData): Component {
       progressBar.style.backgroundColor = color;
 
       dayLabel.textContent = `${(yearProgress * 100).toFixed(1)}% - ${elapsedHours.toFixed(1)}h elapsed`;
-
-      // Update swarm stats
-      const aggregates = calculateSwarmAggregates(gameData.swarm);
 
       (workersEl.lastChild as HTMLElement).textContent = String(
         aggregates.totalWorkers
@@ -1170,7 +1165,7 @@ function createFooter(
 function createMobileHeader(
   _gameData: GameData,
   callbacks: RendererCallbacks
-): Component {
+): Component<TickSnapshot> {
   const el = document.createElement('div');
   el.className = 'swarm-mobile-header';
 
@@ -1227,13 +1222,10 @@ function createMobileHeader(
 
   return {
     el,
-    update: (gameData: GameData) => {
-      const years = getGameYear(gameData);
-      const aggregates = calculateSwarmAggregates(gameData.swarm);
-
-      yearValueEl.textContent = String(years);
-      workersValueEl.textContent = String(aggregates.totalWorkers);
-      queensValueEl.textContent = String(aggregates.totalQueens);
+    update: (snapshot: TickSnapshot) => {
+      yearValueEl.textContent = String(snapshot.year);
+      workersValueEl.textContent = String(snapshot.aggregates.totalWorkers);
+      queensValueEl.textContent = String(snapshot.aggregates.totalQueens);
     },
   };
 }
