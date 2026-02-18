@@ -2,119 +2,139 @@
 
 System design for Fleet Chronicles — an emergent narrative layer that detects meaningful patterns in gameplay events and surfaces them as shareable crew stories.
 
-Source files (planned): `chronicleSystem.ts`, `personalitySystem.ts`, `arcDetector.ts`, `narrativeGenerator.ts`, `relationshipSystem.ts`, `storySystem.ts`, `ui/storiesTab.ts`, `ui/storyCard.ts`, `ui/storyShareModal.ts`.
+Source files: `chronicleSystem.ts`, `personalitySystem.ts`, `arcDetector.ts`, `arcPatterns.ts`, `narrativeGenerator.ts`, `ui/storiesTab.ts`.
 
 ---
 
 ## Overview
 
-The emergent storytelling system transforms raw gameplay logs into human-readable narratives about crew members, ships, and fleet history. Players do not author stories — they emerge from the simulation.
+The emergent storytelling system transforms raw gameplay events into human-readable narratives about crew members, ships, and fleet history. Players do not author stories — they emerge from the simulation.
 
 ### Four-Layer Architecture
 
 ```
 Events  →  Chronicle  →  Arc Detector  →  UI / Share
-(logs)     (filtered     (pattern          (story cards,
-            per-actor     matching on       text export,
-            history)      chronicles)       PNG export)
+(event      (filtered     (pattern          (story cards,
+ bus)        per-actor     matching on       text export)
+             history)      chronicles)
 ```
 
-1. **Events**: The existing `LogEntry` stream from `logSystem.ts`. Every gameplay action (departures, arrivals, combat outcomes, crew deaths, contract completions, mining hauls, skill rank-ups) already produces log entries. The storytelling system consumes these without modifying the log pipeline.
+1. **Events**: The typed event bus (`gameEvents.ts`). Game systems emit events (combat outcomes, crew deaths, contract completions, gravity assists, etc.) via `emit()`. The storytelling system subscribes to these events without modifying the event pipeline.
 
-2. **Chronicle**: A persistent, per-actor (crew member or ship) record of notable events. Not every log entry becomes a chronicle entry — only "chronicle-worthy" events that carry narrative weight. Chronicles are the curated memory of an actor's career.
+2. **Chronicle**: A persistent, per-actor (crew member or ship) record of notable events stored directly on each actor (`crew.chronicle[]`, `ship.chronicle[]`). Not every event becomes a chronicle entry — only "chronicle-worthy" events that carry narrative weight. Chronicles are the curated memory of an actor's career.
 
 3. **Arc Detector**: A pattern-matching engine that scans chronicles for recognizable story shapes (survivor arcs, rags-to-riches progressions, legendary partnerships). Runs periodically and after catch-up to detect new arcs.
 
-4. **UI / Share**: Story cards displayed in a dedicated Stories tab, with options to copy as formatted text or export as a styled PNG image for sharing outside the game.
+4. **UI / Share**: Story cards displayed in a dedicated Stories tab, with options to copy as formatted text for sharing outside the game.
 
 ---
 
 ## Chronicle System
 
+File: `src/chronicleSystem.ts`
+
 ### Purpose
 
-The event log is a firehose — 200 entries, pruned on a rolling basis, with no per-actor indexing. Chronicles extract and preserve the subset of events that matter for storytelling, indexed by actor (crew ID or ship ID).
+The event log is a firehose — 200 entries, pruned on a rolling basis, with no per-actor indexing. Chronicles extract and preserve the subset of events that matter for storytelling, indexed by actor (crew member or ship).
 
-### Chronicle-Worthy Events
+### Integration via Event Bus
 
-An event is chronicle-worthy if it represents a turning point, milestone, or dramatic moment. The following `LogEntryType` values qualify:
+The chronicle system subscribes to typed events via `on()` from `gameEvents.ts`. Each handler receives the narrowed event type directly (e.g., `CrewDeathEvent`), eliminating redundant type guards.
 
-| Event Type             | Why It Matters Narratively                       |
-| ---------------------- | ------------------------------------------------ |
-| `encounter_evade`      | Narrow escape — tension and relief               |
-| `encounter_negotiate`  | Talking your way out — character moment          |
-| `encounter_victory`    | Triumph against threat                           |
-| `encounter_harassment` | Took a hit but survived                          |
-| `encounter_boarding`   | Major loss event, high drama                     |
-| `encounter_fled`       | Desperation, survival instinct                   |
-| `crew_death`           | Permanent loss — the most dramatic event         |
-| `rescue`               | Heroism, fleet solidarity                        |
-| `stranded`             | Crisis, vulnerability                            |
-| `fuel_depleted`        | Emergency, desperation                           |
-| `rank_up`              | Milestone progression                            |
-| `contract_complete`    | Achievement, routine mastery                     |
-| `arrival`              | First arrival at a new destination — exploration |
-| `mining_sale`          | Large haul payoffs (filtered by value threshold) |
+Registered handlers:
 
-Events that are NOT chronicle-worthy: routine departures, mid-flight updates, salary deductions, fuel purchases, quest acceptance (only completion matters), and minor status changes.
+| Event Type             | Handler                 | Chronicle Types Created                                                                  |
+| ---------------------- | ----------------------- | ---------------------------------------------------------------------------------------- |
+| `crew_hired`           | handleCrewHired         | `hired` (crew)                                                                           |
+| `crew_death`           | handleCrewDeath         | `death` (crew + ship), `comrade_lost` (bonded crew)                                      |
+| `crew_departed`        | handleCrewDeparted      | `crew_departed` (crew)                                                                   |
+| `crew_near_death`      | handleNearDeath         | `near_death` (crew)                                                                      |
+| `crew_skill_milestone` | handleSkillMilestone    | `skill_milestone` (crew)                                                                 |
+| `crew_role_change`     | handleRoleChange        | `role_change` (crew)                                                                     |
+| `encounter_resolved`   | handleEncounterResolved | `combat_victory`, `boarding_survived`, `close_call`, or `negotiation_save` (crew + ship) |
+| `ship_stranded`        | handleShipStranded      | `stranded` (crew + ship)                                                                 |
+| `ship_rescued`         | handleShipRescued       | `rescue_participant` (crew + ship)                                                       |
+| `contract_completed`   | handleContractCompleted | `contract_milestone` (crew + ship)                                                       |
+| `first_visit`          | handleFirstVisit        | `first_visit` (crew + ship)                                                              |
+| `gravity_assist`       | handleGravityAssist     | `gravity_assist_master` (crew, successes only)                                           |
+
+Events that are NOT chronicle-worthy: routine departures, mid-flight updates, salary deductions, fuel purchases, quest acceptance, evasions, harassment (too common).
 
 ### Chronicle Entry Structure
 
 ```typescript
 interface ChronicleEntry {
   gameTime: number; // when it happened
-  type: LogEntryType; // event category
-  message: string; // human-readable description
-  shipName: string; // which ship
+  type: ChronicleEventType; // enriched event category (19 types)
+  actorId: string; // crew or ship ID
+  actorType: 'crew' | 'ship'; // which kind of actor
+  shipId: string; // ship context
+  shipName: string; // ship display name
   locationId?: string; // where (if applicable)
-  emotionalWeight: number; // 1-10 scale, used for pruning
-  involvedActors: string[]; // crew IDs and/or ship IDs involved
+  details: Record<string, string | number | boolean>; // rich event metadata
+  emotionalWeight: number; // -3 to +3 scale
+  tags: string[]; // searchable categories for arc matching
 }
 ```
+
+Chronicle entries are distinct from `LogEntry` — they use `ChronicleEventType` (not `LogEntryType`), carry actor-specific metadata in `details`, and use a -3 to +3 emotional weight scale rather than being simple text messages.
 
 ### Emotional Weight Scale
 
-Each chronicle-worthy event type has a base emotional weight:
-
-| Weight | Events                                                   |
-| ------ | -------------------------------------------------------- |
-| 10     | `crew_death`                                             |
-| 9      | `encounter_boarding`, `stranded`                         |
-| 8      | `rescue`, `fuel_depleted`                                |
-| 7      | `encounter_victory`, `encounter_fled`                    |
-| 6      | `encounter_evade`, `encounter_negotiate`                 |
-| 5      | `encounter_harassment`                                   |
-| 4      | `rank_up` (weight increases at higher ranks)             |
-| 3      | `contract_complete` (first completion of a type gets +2) |
-| 2      | `arrival` (first visit to a location gets +3)            |
-| 1      | `mining_sale` (only included above a value threshold)    |
+| Weight | Events                                                                                                 |
+| ------ | ------------------------------------------------------------------------------------------------------ |
+| -3     | `death`, `stranded`                                                                                    |
+| -2     | `boarding_survived`, `comrade_lost`                                                                    |
+| -1     | `close_call`                                                                                           |
+| 0      | `hired`, `first_visit`, `role_change`                                                                  |
+| +1     | `contract_milestone` (scales with trips: `Math.min(3, 1 + floor(trips/3))`)                            |
+| +2     | `combat_victory`, `rescue_participant`, `skill_milestone`, `gravity_assist_master`, `negotiation_save` |
+| +3     | `near_death` (survived against the odds)                                                               |
 
 ### Chronicle Caps and Pruning
 
-Each actor (crew member or ship) maintains a chronicle of at most **50 entries**. When a new entry would exceed the cap:
+Each actor (crew member or ship) maintains a chronicle of at most **50 entries** (`MAX_CHRONICLE_ENTRIES`). When a new entry would exceed the cap:
 
-1. Sort existing entries by `emotionalWeight` ascending (lowest weight first).
-2. Among entries tied at the lowest weight, prefer pruning the oldest.
-3. Remove the single lowest-weight entry to make room.
+1. Sort entries by `abs(emotionalWeight)` ascending.
+2. Remove the lowest-weight entries to bring the count to the cap.
 
-This ensures that high-drama events (deaths, rescues, boarding) are preserved indefinitely while routine milestones (contract completions, minor encounters) are gradually forgotten as more dramatic events accumulate. A crew member who has survived multiple boardings and a rescue will have a chronicle dominated by those events, with early routine contracts pruned away — exactly the story a player would want to tell.
+This ensures that high-drama events (deaths, near-deaths, rescues) are preserved while routine milestones are gradually forgotten.
 
 ### Chronicle Storage
 
-Chronicles are stored in `GameData` as a map:
+Chronicles are stored directly on each actor:
+
+- `CrewMember.chronicle?: ChronicleEntry[]`
+- `Ship.chronicle?: ChronicleEntry[]`
+
+Both fields are optional — new/existing actors without chronicles simply have `undefined`. No save migration needed.
+
+### Dead Crew Archive
+
+When a crew member dies, they are spliced from `ship.crew`, orphaning their chronicle. The system preserves dead crew data in `gameData.stories.deadCrewArchive` so arc detection can still evaluate them.
 
 ```typescript
-interface GameData {
-  // ... existing fields ...
-  chronicles: Record<string, ChronicleEntry[]>; // keyed by actor ID
+interface DeadCrewArchive {
+  id: string;
+  name: string;
+  role: CrewRole;
+  skills: CrewSkills;
+  personality?: CrewPersonality;
+  relationships?: CrewRelationship[];
+  chronicle: ChronicleEntry[];
+  diedAt: number;
+  shipId: string;
+  shipName: string;
 }
 ```
 
-Actor IDs use the crew member's `id` field for crew chronicles and the ship's `name` for ship chronicles. Ship chronicles track events that affect the vessel as a whole (stranding, rescue, repeated encounters on the same route).
+Archive cap: **20 entries** (`MAX_DEAD_CREW_ARCHIVE`). Oldest entries pruned first.
 
 ---
 
 ## Personality System
+
+File: `src/personalitySystem.ts`
 
 ### Overview
 
@@ -137,142 +157,223 @@ Every crew member has exactly **2 personality traits** that color their story na
 
 ### Deterministic Generation
 
-Traits are derived from the crew member's `id` string using a simple hash:
+Traits are derived from the crew member's `id` string using `hashString()` (DJB2 variant from `utils.ts`):
 
 ```typescript
-function getPersonalityTraits(
-  crewId: string
-): [PersonalityTrait, PersonalityTrait] {
-  const hash = simpleHash(crewId); // deterministic numeric hash
-  const traits = ALL_TRAITS; // sorted array of 10 traits
-  const first = traits[hash % 10];
-  const second = traits[Math.floor(hash / 10) % 9]; // skip first trait's index
-  return [first, second];
+function generatePersonality(crewId: string): CrewPersonality {
+  const hash = hashString(crewId);
+  const trait1 = ALL_TRAITS[hash % ALL_TRAITS.length];
+  // Second trait is always different from first
+  const remaining = ALL_TRAITS.filter((t) => t !== trait1);
+  const trait2 =
+    remaining[Math.floor(hash / ALL_TRAITS.length) % remaining.length];
+  return { trait1, trait2 };
 }
 ```
 
-This ensures:
-
-- The same crew member always gets the same traits (deterministic, no RNG state).
-- Traits are assigned at "birth" and never change — personality is innate.
-- No save data needed for trait storage — traits are computed on demand from the ID.
+This ensures the same crew member always gets the same traits, no RNG state needed.
 
 ### Mechanical Effects
 
-Each trait applies a small modifier (plus or minus 5-10%) to specific gameplay stats. With 2 traits per crew member, effects stack additively.
+Each trait applies a small modifier to specific gameplay stat channels. With 2 traits per crew member, effects stack additively. The authoritative table is the `TRAIT_EFFECTS` map in `personalitySystem.ts`.
 
-| Trait        | Positive Effect           | Negative Effect                        |
-| ------------ | ------------------------- | -------------------------------------- |
-| `stoic`      | +10% morale_recovery      | -5% negotiation                        |
-| `reckless`   | +10% combat_attack        | -10% evasion                           |
-| `cautious`   | +10% evasion              | -5% combat_attack                      |
-| `gregarious` | +10% negotiation          | -5% mining_yield                       |
-| `meticulous` | +10% repair_speed         | -5% encounter_rate (slower reaction)   |
-| `pragmatic`  | +10% trade_income         | -5% morale_recovery                    |
-| `idealistic` | +10% departure_resistance | -5% salary_expectation (accepts less)  |
-| `sardonic`   | +5% morale_recovery       | -5% departure_resistance               |
-| `loyal`      | +10% departure_resistance | -5% trade_income                       |
-| `ambitious`  | +10% training_speed       | -10% salary_expectation (demands more) |
+| Trait        | Positive Effect           | Negative Effect                                 |
+| ------------ | ------------------------- | ----------------------------------------------- |
+| `stoic`      | +10% morale recovery\*    | -5% training speed                              |
+| `reckless`   | +10% combat attack        | +5% encounter rate (attracts trouble)           |
+| `cautious`   | +5% evasion               | -5% mining yield                                |
+| `gregarious` | +10% negotiation          | —                                               |
+| `meticulous` | +10% repair speed         | -5% combat attack                               |
+| `pragmatic`  | +5% trade income          | —                                               |
+| `idealistic` | +10% morale recovery\*    | -10% departure resistance (leaves on principle) |
+| `sardonic`   | +5% morale recovery\*     | -5% negotiation                                 |
+| `loyal`      | +25% departure resistance | -5% trade income                                |
+| `ambitious`  | +10% training speed       | +10% salary expectation                         |
 
-**Stacking rules**: Additive within a crew member's two traits. If a crew member is `reckless` + `ambitious`, they get +10% combat_attack, -10% evasion, +10% training_speed, and -10% salary_expectation. Effects from different crew members on the same ship do not combine — each modifier applies only to that crew member's personal stats.
+\* Morale recovery is reserved for a future morale system. Currently has no mechanical effect.
 
-**Effect channels explained**:
+### Modifier Application
 
-| Channel                | What It Modifies                                             |
-| ---------------------- | ------------------------------------------------------------ |
-| `training_speed`       | Multiplier on passive skill training rate                    |
-| `combat_attack`        | Additive modifier to crew combat attack value                |
-| `evasion`              | Modifier to ship evasion chance (per-crew contribution)      |
-| `repair_speed`         | Modifier to repair points generated by this crew             |
-| `negotiation`          | Modifier to negotiation success chance                       |
-| `mining_yield`         | Modifier to mining extraction rate                           |
-| `trade_income`         | Modifier to contract/trade payment                           |
-| `encounter_rate`       | Modifier to encounter detection (negative = more encounters) |
-| `morale_recovery`      | Modifier to morale recovery rate (future morale system)      |
-| `departure_resistance` | Modifier to unpaid departure threshold                       |
-| `salary_expectation`   | Modifier to salary multiplier                                |
+```typescript
+getTraitModifier(crew: CrewMember, effect: TraitEffect): number
+// Returns: 1.0 + trait1Mod + trait2Mod
+// Example: reckless+ambitious crew, 'combat_attack' → 1.10 (+10%)
+```
+
+### Wired Effect Channels
+
+| Channel                | Applied In            | Mechanic                                                       |
+| ---------------------- | --------------------- | -------------------------------------------------------------- |
+| `training_speed`       | `skillProgression.ts` | Multiplier on passive skill training rate                      |
+| `combat_attack`        | `combatSystem.ts`     | Multiplier on crew combat attack value                         |
+| `evasion`              | `combatSystem.ts`     | Multiplier on evasion contribution                             |
+| `repair_speed`         | `gameTick.ts`         | Multiplier on repair points per tick                           |
+| `negotiation`          | `encounterSystem.ts`  | Multiplier on negotiation success check                        |
+| `mining_yield`         | `miningSystem.ts`     | Multiplier on mining extraction rate                           |
+| `trade_income`         | `contractExec.ts`     | Best crew modifier on ship trade payments                      |
+| `encounter_rate`       | `encounterSystem.ts`  | Multiplier on encounter detection rate                         |
+| `departure_resistance` | `contractExec.ts`     | Multiplier on unpaid departure grace period (3 game days base) |
+| `salary_expectation`   | `crewRoles.ts`        | Multiplier on crew salary calculation                          |
+
+### Personality Visibility
+
+Personality traits are displayed in the **Crew tab** detail panel as badge elements between the service record and stats sections. Each badge shows the trait name with a tooltip description. Arc modifier bonuses (from story arcs) are shown alongside when applicable.
 
 ---
 
 ## Arc Detection
 
+File: `src/arcDetector.ts`, `src/arcPatterns.ts`
+
 ### Execution Schedule
 
 The arc detector runs:
 
-1. **Every 480 ticks** (~1 game day) during normal play.
+1. **Every 480 ticks** (`ARC_SCAN_INTERVAL`, ~1 game day / ~8 real minutes) during normal play.
 2. **After catch-up processing** completes, to detect arcs formed during offline time.
 
 Detection is not run every tick for performance — story arcs develop over days, not seconds.
 
+### Pattern Interface
+
+```typescript
+interface ArcPattern {
+  arcType: ArcType;
+  actorType: 'crew' | 'ship' | 'both';
+  detect: (
+    entries: ChronicleEntry[],
+    actor: CrewMember | Ship,
+    gameData: GameData
+  ) => ArcMatch | null;
+}
+
+interface ArcMatch {
+  entries: ChronicleEntry[];
+  emotionalArc: number[];
+  metadata: Record<string, string | number>;
+  title: string;
+  rating: number; // 1-5
+}
+```
+
+Patterns return `null` when conditions aren't met, or an `ArcMatch` with a 1-5 integer rating when they detect a story. There is no continuous 0-1 score — patterns use discrete thresholds derived from game systems.
+
 ### The 12 Arc Patterns
 
-Each pattern defines:
+#### Crew Patterns
 
-- A **name** and **display title**.
-- **Required chronicle entries**: minimum count and types.
-- **Time window**: how far back in the chronicle to scan.
-- A **scoring function** that rates how strongly the pattern matches (0.0 to 1.0).
-- A **minimum threshold** score to trigger (typically 0.6).
+| Pattern           | Title(s)                                    | Detection                                                      | Rating                               |
+| ----------------- | ------------------------------------------- | -------------------------------------------------------------- | ------------------------------------ |
+| `survivor`        | Survivor / Nine Lives / The Unkillable      | 2+ `near_death`, not dead                                      | `min(5, count+1)`                    |
+| `rags_to_riches`  | "From Nothing to {rank}"                    | `hired` with low skills → `skill_milestone` at named rank      | From rank index via `rankToRating()` |
+| `old_reliable`    | Old Reliable                                | `hired` + 5+ combined combat/skill events, alive               | `min(5, floor(exp/3)+1)`             |
+| `legend_pilot`    | Navigator Legend                            | 5+ `gravity_assist_master`                                     | `min(5, floor(assists/3)+1)`         |
+| `rescue_hero`     | Rescue Hero / Fleet Savior / Guardian Angel | 2+ `rescue_participant`                                        | `min(5, rescues+1)`                  |
+| `battle_brothers` | Brothers in Arms                            | `battle_brother` bond with 3+ shared events, 2+ combat entries | `min(5, floor(bond/20)+1)`           |
+| `mentor_protege`  | "Apprentice of {name}"                      | `mentor` bond + 2+ `skill_milestone`                           | `min(5, floor(milestones/2)+1)`      |
 
-| Pattern ID         | Display Title        | Detection Logic                                                                                                                                                                |
-| ------------------ | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `survivor`         | "The Survivor"       | Crew member has 3+ near-death events (boarding, starvation, oxygen critical) and is still alive. Score scales with event count and variety.                                    |
-| `rags_to_riches`   | "Rags to Riches"     | Crew member started as a green recruit (initial skill total < 10) and has reached Proficient+ rank in any skill. Score scales with rank achieved and time taken.               |
-| `old_reliable`     | "Old Reliable"       | Crew member has 20+ contract completions on the same trade route. Score scales with trip count and route consistency.                                                          |
-| `legend_pilot`     | "Legend of the Void" | Crew member has reached Master rank in Piloting and has 5+ evasion/victory chronicles. Score scales with rank and combat variety.                                              |
-| `rescue_hero`      | "The Rescue"         | Crew member was aboard a ship that completed a rescue mission. Score increases if the rescued ship had critical provisions.                                                    |
-| `battle_brothers`  | "Brothers in Arms"   | Two crew members on the same ship have 5+ shared combat chronicles (victories, boardings, evasions). Score scales with shared event count.                                     |
-| `mentor_protege`   | "Mentor & Protege"   | Two crew members on the same ship where one has 50+ skill advantage in any skill and the junior has gained 20+ points in that skill since boarding. Mentor relationship.       |
-| `cursed_ship`      | "The Cursed Ship"    | A ship has 5+ boarding/harassment events and 2+ crew deaths in its chronicle. Score scales with loss severity.                                                                 |
-| `lucky_ship`       | "Fortune's Favor"    | A ship has 8+ evasion or negotiation successes with zero boarding events. Score scales with streak length.                                                                     |
-| `from_ashes`       | "From the Ashes"     | A ship was stranded and rescued, then completed 10+ contracts afterward. Score scales with post-rescue productivity.                                                           |
-| `frontier_pioneer` | "Frontier Pioneer"   | A crew member has first-arrival chronicles at 5+ unique locations. Score scales with location count and distance from Earth of furthest visit.                                 |
-| `iron_crew`        | "The Iron Crew"      | A ship has maintained the same crew complement (no deaths, no departures) for 30+ game days with 10+ combined contract completions. Score scales with tenure and productivity. |
+#### Ship Patterns
 
-### Scoring and Deduplication
+| Pattern            | Title(s)                              | Detection                                             | Rating                             |
+| ------------------ | ------------------------------------- | ----------------------------------------------------- | ---------------------------------- |
+| `cursed_ship`      | Star-Crossed / Ill-Fated / The Damned | 3+ bad events (boarding, close call, death, stranded) | `min(5, floor(count/2)+1)`         |
+| `lucky_ship`       | Fortune's Favorite / The Blessed      | 4+ good events (victory, rescue, contract)            | `min(5, floor(count/2))`           |
+| `from_ashes`       | From the Ashes                        | Death(s) followed by 2+ recovery events               | `min(5, deaths+recovery)`          |
+| `frontier_pioneer` | "Pioneer of {location}"               | `first_visit` at 50M+ km from Earth                   | 2 (Mars), 3 (Belt), 4 (Jupiter+)   |
+| `iron_crew`        | Iron Crew                             | Death(s) followed by 3+ post-loss activities          | `min(5, floor(deaths+activity/2))` |
 
-- Each pattern returns a score from 0.0 to 1.0. Only scores above the pattern's threshold (default 0.6) produce a detected arc.
-- An arc is identified by the combination of `(pattern_id, primary_actor_id, secondary_actor_id?)`. If this key already exists in the story list, the existing arc's score is updated rather than creating a duplicate.
-- Higher scores produce more detailed narrative text (the generator includes additional flavor lines above 0.8).
+#### Threshold Derivations
+
+Thresholds trace back to game systems rather than arbitrary constants:
+
+- **`LOW_SKILL_THRESHOLD`** = `SKILL_RANKS[1].minLevel × 4` — the Green rank boundary across 4 skills
+- **`rankToRating()`** = `ceil(rankIndex / 2)`, null below Competent (index 4)
+- **Frontier distances** from solar system geography: Mars (50M km), Asteroid Belt (250M km), Jupiter (550M km)
+- **Bond thresholds**: 30 for battle_brother, 50 for mentor — from relationship system's tier boundaries
+- **Mentor skill gap**: derived from `SKILL_RANKS[5].minLevel - SKILL_RANKS[4].minLevel`
+
+### Deduplication
+
+An arc is identified by the key `{arcType}:{actorId}`. If this key already exists in detected or dismissed arcs, the pattern is skipped. Arcs are not re-evaluated once detected.
+
+### Dead Crew Scanning
+
+The arc detector scans three sources:
+
+1. Living crew on all ships (`ship.crew`)
+2. Ship chronicles (`ship.chronicle`)
+3. Dead crew archives (`gameData.stories.deadCrewArchive`)
+
+This ensures arcs can still be detected for crew who died before their story was recognized.
+
+### Arc Effects (Gameplay Bonuses)
+
+Active arcs provide small gameplay bonuses via `getArcModifier()`:
+
+| Arc Type          | Effect Channel  | Bonus per Rating Star |
+| ----------------- | --------------- | --------------------- |
+| `survivor`        | health_recovery | +1%                   |
+| `rags_to_riches`  | training_speed  | +1%                   |
+| `old_reliable`    | training_speed  | +1%                   |
+| `legend_pilot`    | fuel_efficiency | +1%                   |
+| `battle_brothers` | combat_attack   | +1%                   |
+| `mentor_protege`  | training_speed  | +1%                   |
+| `lucky_ship`      | evasion         | +1%                   |
+| `from_ashes`      | training_speed  | +1%                   |
+| `iron_crew`       | combat_attack   | +1%                   |
+
+A 4-star `rags_to_riches` arc grants +4% training speed. Multiple arcs with the same effect stack additively.
+
+### Storage Caps
+
+- Maximum active arcs: **30** (`MAX_ARCS`). Pruned by rating (lowest first).
+- Maximum dismissed arc keys: **100** (`MAX_DISMISSED_IDS`). Pruned FIFO.
 
 ---
 
 ## Narrative Generation
 
+File: `src/narrativeGenerator.ts`
+
 ### Template-Based Synthesis
 
-Each arc pattern has a set of narrative templates — short paragraph structures with placeholder slots filled from chronicle data.
+Each arc type has **3-5 narrative template variants** — short paragraph structures with placeholder slots filled from chronicle data. Templates are selected deterministically using `hashString(arc.id) % templates.length`, ensuring the same arc always generates the same narrative.
+
+Templates are function-based:
 
 ```typescript
-interface NarrativeTemplate {
-  pattern: ArcPatternId;
-  minScore: number; // minimum arc score to use this template
-  title: string; // e.g. "The Survivor: {crewName}"
-  opening: string; // first sentence template
-  body: string[]; // middle paragraph templates (selected by score)
-  closing: string; // final sentence template
-  flavorSlots: string[]; // personality-colored insertions
-}
+const SURVIVOR_TEMPLATES = [
+  (ctx: NarrativeContext) =>
+    `${ctx.actorName} has cheated death ${ctx.metadata.survivalCount} times aboard ${ctx.shipName}. ...`,
+  // ... more variants
+];
 ```
 
 ### Personality-Colored Flavor Text
 
-Each trait has a bank of short phrases for each arc type. When generating narrative text, the crew member's two personality traits inject flavor into designated slots:
+Each trait has optional flavor sentences for specific arc types, appended to the base narrative. Examples:
 
-**Example — "The Survivor" arc for a `stoic` + `loyal` crew member:**
+- **Stoic** survivor: "Through it all, they never flinched."
+- **Reckless** survivor: "Some say they go looking for trouble. They might be right."
+- **Sardonic** cursed ship: '"Another day, another catastrophe," they say with a grin.'
+- **Ambitious** rags-to-riches: "They always knew they were destined for more."
 
-> _Kira Vasquez has survived what would break most spacers. Three boardings on the Stellarwind, including the brutal ambush near The Crucible that left two crew dead. She doesn't talk about it much — just shows up for her shift and does the work. "They were my people," she said once, after the memorial. "You don't forget that."_
+The narrative structure is identical for the same arc — only the flavor text changes based on personality.
 
-Compared to the same arc for a `sardonic` + `reckless` crew member:
+### Share Text Format
 
-> _Jin Park has survived what would break most spacers. Three boardings on the Stellarwind, including the brutal ambush near The Crucible that left two crew dead. "At this point I think the pirates owe me a frequent customer card," he joked on the bridge afterward. He volunteered for the next dangerous run before anyone asked._
+```
+═══════════════════════════════════
+STARSHIP COMMANDER — The Unkillable
+★★★★★
+═══════════════════════════════════
 
-The narrative structure is identical — only the flavor-slot text changes based on personality.
+Marcus Chen has cheated death four times aboard The Endeavour...
 
-### Template Data
+#StarshipCommander
+```
 
-Templates are stored as static data arrays (similar to `gamepediaData.ts`) — no runtime LLM or procedural text generation. All narrative text is hand-authored in advance and assembled from parts. This keeps the system deterministic and saves-compatible.
+All narrative text is hand-authored in templates. No runtime LLM or procedural text generation. This keeps the system deterministic and save-compatible.
 
 ---
 
@@ -280,44 +381,37 @@ Templates are stored as static data arrays (similar to `gamepediaData.ts`) — n
 
 ### Bond Formation
 
-Relationships between crew members form automatically based on shared experiences. Bonds are tracked as a numeric `bondStrength` (0-100) between pairs of crew IDs.
-
-**Bond formation rules:**
-
-| Bond Level       | Threshold | Formation Condition                                                                                                                                                  |
-| ---------------- | --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `shipmate`       | 10        | Serving on the same ship for 10+ game days                                                                                                                           |
-| `battle_brother` | 30        | 30+ shared days AND 3+ shared combat chronicles                                                                                                                      |
-| `mentor`         | 50        | 50+ shared days AND one crew member has a 20+ skill gap in any skill compared to the other, AND the junior has gained 10+ points since they started serving together |
-
-Bond strength increases by:
-
-- **+1 per game day** of shared ship assignment.
-- **+5 per shared combat event** (encounter on the same ship).
-- **+3 per shared crisis** (stranding, fuel depletion, oxygen critical).
-- **+2 per shared contract completion**.
-
-Bond strength decays by **-0.5 per game day** when crew are on different ships, to a floor of 0.
-
-### Comrade Lost
-
-When a crew member dies, all crew members with a bond strength of 10+ to the deceased gain a `comrade_lost` chronicle entry. This entry has emotional weight 8 and references the deceased by name. The `comrade_lost` mechanic ensures that deaths ripple through the story system — other crew members' narratives acknowledge the loss.
-
-If the deceased had a `battle_brother` or `mentor` bond with the survivor, the `comrade_lost` entry is elevated to emotional weight 9 and may trigger the "Brothers in Arms" or "Mentor & Protege" arc patterns retrospectively.
-
-### Relationship Storage
+Relationships between crew members form automatically based on shared chronicle-worthy events. Bonds are tracked per crew member in `crew.relationships[]`.
 
 ```typescript
-interface Bond {
-  crewIdA: string; // lexicographically smaller ID
-  crewIdB: string; // lexicographically larger ID
-  strength: number; // 0-100
-  sharedDays: number; // total days on same ship
-  sharedCombat: number; // count of shared combat events
+interface CrewRelationship {
+  otherCrewId: string;
+  otherCrewName: string;
+  bond: number; // 0-100
+  bondType: 'shipmate' | 'battle_brother' | 'mentor';
+  sharedEvents: number;
 }
 ```
 
-Bonds are stored in `GameData.bonds: Bond[]`. The array is kept compact — bonds that decay to 0 are removed.
+### Bond Growth
+
+When two crew are on the same ship during a chronicle-worthy event, both gain bond points:
+
+- **Combat events** (COMBAT_EVENT_TYPES): `max(BASE_BOND_GAIN, abs(emotionalWeight) × 3)`
+- **Non-combat events**: `BASE_BOND_GAIN = 5`
+- Bond capped at 100
+
+### Bond Type Thresholds
+
+| Bond Level       | Threshold | Additional Condition                                      |
+| ---------------- | --------- | --------------------------------------------------------- |
+| `shipmate`       | bond < 30 | —                                                         |
+| `battle_brother` | bond ≥ 30 | —                                                         |
+| `mentor`         | bond ≥ 50 | Skill gap > `MENTOR_SKILL_GAP` (derived from SKILL_RANKS) |
+
+### Comrade Lost
+
+When a crew member dies, all crew members with a bond strength of 10+ to the deceased gain a `comrade_lost` chronicle entry (emotional weight -2). This entry references the deceased by name and captures the bond type and strength.
 
 ---
 
@@ -325,91 +419,28 @@ Bonds are stored in `GameData.bonds: Bond[]`. The array is kept compact — bond
 
 ### States
 
-Each detected arc becomes a **Story** with a lifecycle:
-
 ```
 Detected  →  Active  →  Dismissed
-              ↑
-              └── Updated (score improved, narrative refreshed)
 ```
 
-- **Active**: Visible in the Stories tab. The player can read, share, or dismiss it.
-- **Dismissed**: Hidden from the main list. Can be found in a "Dismissed Stories" archive section. Dismissed stories do not count toward the storage cap.
-
-### Storage Cap
-
-The game stores at most **30 active stories**. When a new arc is detected and the cap is reached:
-
-1. Stories are sorted by their arc score (lowest first).
-2. The lowest-scoring active story is automatically dismissed to make room.
-3. A toast notification informs the player: "A new story was detected. An older story was archived to make room."
-
-This ensures the story list is always curated — only the most dramatic and well-evidenced narratives survive.
+- **Active**: Visible in the Stories tab. The player can read, share, or dismiss.
+- **Dismissed**: Hidden. The arc key is stored in `dismissedArcIds` to prevent re-detection.
 
 ### Story Rating
 
-Each story has a composite rating derived from:
+Each story has an integer rating from **1 to 5**, derived directly from the arc pattern's analysis of chronicle data:
 
-- **Arc score** (0.0-1.0): How strongly the pattern matched.
-- **Emotional weight sum**: Total emotional weight of the chronicle entries that contributed to the arc.
-- **Recency**: More recent stories get a small boost (decays over 30 game days).
+- Higher event counts → higher ratings (e.g., 4 near-deaths = 5-star survivor)
+- Higher skill ranks → higher ratings (e.g., Master rank = 4+ star rags-to-riches)
+- Greater distances → higher ratings (Jupiter pioneer = 4-star)
 
-Rating = `arcScore * 0.5 + normalizedWeight * 0.3 + recencyBoost * 0.2`
-
-This rating determines pruning order and display sort order (highest rating first).
-
----
-
-## Sharing
-
-### Text Copy
-
-Players can copy a story as formatted plain text via the clipboard API. The text format:
-
-```
-═══════════════════════════════
-THE SURVIVOR: KIRA VASQUEZ
-Stellarwind — Day 42 to Day 187
-═══════════════════════════════
-
-Kira Vasquez has survived what would break most spacers. Three
-boardings on the Stellarwind, including the brutal ambush near
-The Crucible that left two crew dead. She doesn't talk about it
-much — just shows up for her shift and does the work.
-
-"They were my people," she said once, after the memorial.
-"You don't forget that."
-
-         — Starship Commander Fleet Chronicle
-```
-
-### PNG Image Export
-
-Players can export a story as a styled PNG image using the Canvas API:
-
-1. Create an offscreen `<canvas>` element (800 x 600 default, adjustable by content length).
-2. Draw the game's dark background gradient (`#1a1a2e` to `#16213e`).
-3. Render the story title in the game's accent color (`#e94560`).
-4. Render the narrative body text in light color (`#e0e0e0`), word-wrapped.
-5. Add a subtle game logo/watermark and "Starship Commander" attribution at the bottom.
-6. Convert to PNG blob and trigger download or share.
-
-The canvas approach avoids html2canvas dependencies and gives full control over styling.
-
-### Web Share API
-
-On devices that support `navigator.share()` (mobile browsers, some desktop), a "Share" button uses the Web Share API to share:
-
-- **Text-only share**: Title and narrative text.
-- **Image share**: The PNG blob as a shared file (where supported).
-
-Fallback on unsupported browsers: copy-to-clipboard with a toast confirmation.
+Rating determines display sort order (highest first) and pruning priority (lowest pruned first when exceeding MAX_ARCS).
 
 ---
 
 ## Data Model
 
-### New Types
+### Types
 
 ```typescript
 // Personality
@@ -425,92 +456,76 @@ type PersonalityTrait =
   | 'loyal'
   | 'ambitious';
 
-interface PersonalityEffect {
-  channel: string; // e.g. 'training_speed', 'combat_attack'
-  modifier: number; // e.g. +0.10 or -0.05
+interface CrewPersonality {
+  trait1: PersonalityTrait;
+  trait2: PersonalityTrait;
 }
 
-// Chronicle
-interface ChronicleEntry {
-  gameTime: number;
-  type: LogEntryType;
-  message: string;
-  shipName: string;
-  locationId?: string;
-  emotionalWeight: number;
-  involvedActors: string[];
-}
+// Chronicle (19 event types)
+type ChronicleEventType =
+  | 'hired'
+  | 'death'
+  | 'near_death'
+  | 'skill_milestone'
+  | 'role_change'
+  | 'combat_victory'
+  | 'negotiation_save'
+  | 'rescue_participant'
+  | 'stranded'
+  | 'gravity_assist_master'
+  | 'contract_milestone'
+  | 'crew_departed'
+  | 'boarding_survived'
+  | 'close_call'
+  | 'first_visit'
+  | 'mining_bonanza'
+  | 'ship_maiden_voyage'
+  | 'relationship_formed'
+  | 'comrade_lost';
 
-// Relationships
-interface Bond {
-  crewIdA: string;
-  crewIdB: string;
-  strength: number;
-  sharedDays: number;
-  sharedCombat: number;
-}
-
-// Arc Detection
-type ArcPatternId =
-  | 'survivor'
+// Arc Detection (12 arc types)
+type ArcType =
   | 'rags_to_riches'
-  | 'old_reliable'
+  | 'survivor'
+  | 'iron_crew'
   | 'legend_pilot'
   | 'rescue_hero'
-  | 'battle_brothers'
-  | 'mentor_protege'
+  | 'old_reliable'
   | 'cursed_ship'
   | 'lucky_ship'
   | 'from_ashes'
   | 'frontier_pioneer'
-  | 'iron_crew';
+  | 'battle_brothers'
+  | 'mentor_protege';
 
-interface DetectedArc {
-  patternId: ArcPatternId;
-  primaryActorId: string;
-  secondaryActorId?: string;
-  score: number; // 0.0-1.0
-  contributingEntries: number[]; // indices into actor's chronicle
-}
-
-// Stories
-type StoryStatus = 'active' | 'dismissed';
-
-interface Story {
-  id: string; // unique story ID
-  arc: DetectedArc;
-  title: string; // rendered title
-  narrative: string; // rendered narrative text
-  rating: number; // composite rating for sorting/pruning
-  detectedAt: number; // gameTime when first detected
-  status: StoryStatus;
-}
-
-// GameData additions
-interface GameData {
-  // ... existing fields ...
-  chronicles: Record<string, ChronicleEntry[]>; // actor ID → entries
-  bonds: Bond[];
-  stories: Story[];
-  lastArcDetectionTime: number; // gameTime of last detection run
+// Story state stored in GameData
+interface StoryState {
+  detectedArcs: StoryArc[];
+  dismissedArcIds: string[]; // format: "arcType:actorId"
+  lastScanGameTime: number;
+  deadCrewArchive?: DeadCrewArchive[];
 }
 ```
 
+### Extensions to Existing Types
+
+All new fields are optional — no save migration needed:
+
+- `CrewMember`: `personality?: CrewPersonality`, `chronicle?: ChronicleEntry[]`, `relationships?: CrewRelationship[]`
+- `Ship`: `chronicle?: ChronicleEntry[]`
+- `GameData`: `stories?: StoryState`
+
 ### Save Data Sizing
 
-Estimated maximum save data contribution:
+| Component         | Count                   | Avg Size         | Total       |
+| ----------------- | ----------------------- | ---------------- | ----------- |
+| Chronicles        | ~25 actors × 50 entries | ~200 bytes/entry | ~250 KB     |
+| Dead crew archive | ~20 entries             | ~10 KB each      | ~200 KB     |
+| Story arcs        | 30 active               | ~1 KB each       | ~30 KB      |
+| Dismissed IDs     | 100 keys                | ~30 bytes each   | ~3 KB       |
+| **Total**         |                         |                  | **~483 KB** |
 
-| Component  | Count                    | Avg Size         | Total       |
-| ---------- | ------------------------ | ---------------- | ----------- |
-| Chronicles | ~20 actors x 50 entries  | ~200 bytes/entry | ~200 KB     |
-| Bonds      | ~50 pairs                | ~80 bytes/bond   | ~4 KB       |
-| Stories    | 30 active + 30 dismissed | ~800 bytes/story | ~48 KB      |
-| Metadata   | —                        | —                | ~1 KB       |
-| **Total**  |                          |                  | **~253 KB** |
-
-With JSON overhead and worst-case string lengths, the ceiling is approximately **280 KB**. This fits comfortably within localStorage limits (~5 MB) alongside the existing save data.
-
-Personality traits add zero bytes to save data — they are computed deterministically from crew IDs.
+Fits comfortably within localStorage limits (~5 MB). Personality traits add zero save bytes — computed from crew IDs.
 
 ---
 
@@ -518,55 +533,79 @@ Personality traits add zero bytes to save data — they are computed determinist
 
 ### Existing Systems Modified
 
-| System        | File                               | Change                                                                                                                                                                                    |
-| ------------- | ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Log System    | `src/logSystem.ts`                 | After `addLog()`, call `addChronicleEntry()` to evaluate and store chronicle-worthy events                                                                                                |
-| Game Tick     | `src/gameTick.ts`                  | Call `updateBonds()` every tick (bond strength accrual/decay). Call `runArcDetection()` every 480 ticks                                                                                   |
-| Catch-Up      | `src/catchUpReportBuilder.ts`      | After catch-up tick processing, trigger arc detection for the offline period                                                                                                              |
-| Crew Hiring   | `src/crewHiring.ts`                | No change — personality derived from ID at render time                                                                                                                                    |
-| Combat System | `src/combatSystem.ts`              | No change to logic — chronicle entries created via the log system hook                                                                                                                    |
-| Crew Death    | `src/gameTick.ts` (death handling) | After removing dead crew, fire `comrade_lost` chronicle entries for bonded crew                                                                                                           |
-| Models        | `src/models/index.ts`              | Add `ChronicleEntry`, `Bond`, `Story`, `DetectedArc`, `PersonalityTrait`, `ArcPatternId`, `StoryStatus` types. Add `chronicles`, `bonds`, `stories`, `lastArcDetectionTime` to `GameData` |
-| Storage       | `src/storage.ts`                   | Add migration for new `GameData` fields (empty defaults). Bump `CURRENT_SAVE_VERSION`                                                                                                     |
-| Renderer      | `src/ui/renderer.ts`               | Add Stories tab to tab list. Mount `storiesTab` component                                                                                                                                 |
-| Crew Tab      | `src/ui/crewTab.ts`                | Display personality traits on crew profile cards (two trait badges)                                                                                                                       |
+| System         | File                          | Change                                                                 |
+| -------------- | ----------------------------- | ---------------------------------------------------------------------- |
+| Event Bus      | `src/gameEvents.ts`           | Event type definitions (no game-system imports)                        |
+| Game Tick      | `src/gameTick.ts`             | Near-death detection, periodic arc scan trigger, repair trait modifier |
+| Catch-Up       | `src/catchUpReportBuilder.ts` | Trigger arc detection after catch-up, add new stories to report        |
+| Combat         | `src/combatSystem.ts`         | Apply combat_attack and evasion trait modifiers                        |
+| Encounters     | `src/encounterSystem.ts`      | Apply encounter_rate and negotiation trait modifiers                   |
+| Skill Training | `src/skillProgression.ts`     | Apply training_speed trait modifier                                    |
+| Mining         | `src/miningSystem.ts`         | Apply mining_yield trait modifier                                      |
+| Contracts      | `src/contractExec.ts`         | Apply trade_income trait modifier, departure_resistance grace period   |
+| Crew Roles     | `src/crewRoles.ts`            | Apply salary_expectation trait modifier, `getTotalCrewSkills()`        |
+| Crew Death     | `src/crewDeath.ts`            | Emit `crew_death` event before crew removal                            |
+| Models         | `src/models/index.ts`         | New types, optional field extensions, `COMBAT_EVENT_TYPES` constant    |
+| Renderer       | `src/ui/renderer.ts`          | Wire up Stories tab callbacks                                          |
+| Crew Tab       | `src/ui/crewTab.ts`           | Display personality trait badges and arc modifier indicators           |
+| Catch-Up UI    | `src/ui/catchUpReport.ts`     | "New Stories" section in catch-up modal                                |
+| Gamepedia      | `src/gamepediaData.ts`        | Fleet Chronicles article                                               |
+| Utils          | `src/utils.ts`                | Shared `hashString()` function (DJB2 variant)                          |
 
 ### New Files
 
-| File                        | Purpose                                                            |
-| --------------------------- | ------------------------------------------------------------------ |
-| `src/chronicleSystem.ts`    | Chronicle entry creation, filtering, storage, pruning              |
-| `src/personalitySystem.ts`  | Trait derivation from ID hash, effect lookup, modifier application |
-| `src/arcDetector.ts`        | Pattern definitions, scoring functions, detection scheduling       |
-| `src/narrativeGenerator.ts` | Template assembly, personality flavor injection                    |
-| `src/relationshipSystem.ts` | Bond tracking, strength updates, comrade_lost events               |
-| `src/storySystem.ts`        | Story lifecycle management, rating, pruning                        |
-| `src/ui/storiesTab.ts`      | Stories tab component (mount-once/update-on-tick pattern)          |
-| `src/ui/storyCard.ts`       | Individual story card rendering                                    |
-| `src/ui/storyShareModal.ts` | Text copy and PNG export modal                                     |
-| `src/narrativeTemplates.ts` | Static template data for all 12 arc patterns                       |
+| File                        | Purpose                                                                                      |
+| --------------------------- | -------------------------------------------------------------------------------------------- |
+| `src/chronicleSystem.ts`    | Chronicle event handling, entry creation, pruning, relationship tracking, dead crew archival |
+| `src/personalitySystem.ts`  | Trait generation from ID hash, effect lookup, modifier application                           |
+| `src/arcDetector.ts`        | Arc detection orchestration, effect bonuses, dismissal, storage management                   |
+| `src/arcPatterns.ts`        | 12 individual arc pattern implementations                                                    |
+| `src/narrativeGenerator.ts` | Template-based story text synthesis with personality flavoring                               |
+| `src/ui/storiesTab.ts`      | Stories tab component (mount-once/update-on-tick pattern)                                    |
 
-### Systems NOT Modified
+---
 
-- **Skill progression** (`src/skillProgression.ts`): Personality modifiers to `training_speed` are applied as a multiplier at the point of use, not by changing the skill system's formulas.
-- **Quest system** (`src/questSystem.ts`): Trade income modifiers from personality are applied at payment time via the existing bonus pipeline.
-- **Navigation** (`src/navigation.ts`): No changes — storytelling is observational, not interventional.
-- **Mining** (`src/miningSystem.ts`): Personality yield modifiers applied at extraction time via modifier lookup.
+## UI: Stories Tab
+
+File: `src/ui/storiesTab.ts`
+
+### Structure
+
+The Stories tab follows the mount-once/update-on-tick component pattern with three sections:
+
+1. **Active Stories** (top): Cards sorted by rating (highest first). The highest-rated card auto-expands its narrative on creation. Each card shows title, star rating, actor name, collapsible narrative text, and action buttons (Read/Collapse, Share, Dismiss).
+
+2. **Crew Chronicles** (middle): Per-crew summary — name, personality trait badges (with tooltip descriptions), and event stats (total events, near-deaths, combat, milestones).
+
+3. **Ship Histories** (bottom): Per-ship milestone summary — name and event stats (total events, crew lost, combat, rescues).
+
+### Reconciliation
+
+Each section uses a `Map<id, refs>` to track mounted DOM elements. On each update:
+
+- New items are appended
+- Removed items are deleted from the DOM
+- Existing items are patched in-place (textContent updates, not DOM rebuilds)
+- Shallow hash comparison (`id:chronicle.length:name`) prevents unnecessary patches
+
+### Tab Notification
+
+A badge on the "Stories" tab header signals when new arcs are detected (similar to the log unread count pattern).
 
 ---
 
 ## Design Decisions
 
-1. **Observation, not intervention**: The storytelling system observes and narrates; it never changes gameplay outcomes. A "cursed ship" arc does not make the ship more likely to be attacked — it just recognizes the pattern.
+1. **Observation, not intervention**: The storytelling system observes and narrates; it never changes gameplay outcomes. A "cursed ship" arc does not make the ship more likely to be attacked — it just recognizes the pattern. Arc bonuses are small (1-5%) and trace back to simulated events.
 
-2. **Deterministic personality**: Traits are derived from ID hashes, not stored. This means personality survives save corruption, costs zero storage, and is always consistent. The tradeoff is that players cannot choose or reroll traits.
+2. **Deterministic personality**: Traits are derived from ID hashes, not stored. This means personality survives save corruption, costs zero storage, and is always consistent.
 
-3. **Template-based narration**: Hand-authored templates instead of procedural generation. This keeps text quality high and output predictable. The system's expressiveness comes from combining templates with personality-colored flavor text, not from generating novel sentences.
+3. **Template-based narration**: Hand-authored templates instead of procedural generation. Expressiveness comes from combining templates with personality-colored flavor text, not from generating novel sentences.
 
-4. **Generous detection, strict curation**: The arc detector is tuned to find patterns relatively often (every few game days of active play), but the 30-story cap and rating-based pruning ensure only the best stories persist. Players should discover stories regularly but not be overwhelmed.
+4. **Event bus over log hooks**: The chronicle system subscribes to typed events via the event bus, not via hooks on `addLog()`. This provides type safety (narrowed event types per handler), decoupling, and cleaner integration with the game event architecture.
 
-5. **Chronicle-first, not log-first**: Chronicles are a separate data structure from the event log. The log is a rolling window (200 entries, pruned by age); chronicles are per-actor (50 entries, pruned by emotional weight). This lets stories reference events that have long since fallen out of the log.
+5. **Per-actor storage**: Chronicles live on each actor (`crew.chronicle[]`, `ship.chronicle[]`) rather than in a global `GameData.chronicles` map. This keeps data locality natural and simplifies serialization.
 
-6. **Bonds decay when separated**: Crew relationships weaken when crew are on different ships. This creates a soft incentive to keep partnerships together and makes the "Brothers in Arms" arc feel earned — you had to keep those two together through real danger.
+6. **Dead crew preservation**: When crew die, their chronicle and key metadata are archived in `StoryState.deadCrewArchive` so arc detection can still recognize their stories. This prevents narratively interesting deaths from being lost.
 
-7. **PNG export over screenshot**: Canvas-rendered PNG gives consistent styling across devices and avoids the complexity and quality issues of DOM-to-image libraries. The tradeoff is manual layout code, but story cards have a fixed, simple structure.
+7. **Thresholds from game systems**: All detection thresholds derive from existing game systems (skill ranks, orbital distances, relationship tiers) rather than arbitrary magic numbers. This keeps the storytelling system grounded in the simulation.

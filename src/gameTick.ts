@@ -39,6 +39,7 @@ import {
   applyProvisionsTick,
   getCrewHealthEfficiency,
 } from './provisionsSystem';
+import { getTraitModifier } from './personalitySystem';
 import {
   processCrewDeaths,
   recordCrewDamage,
@@ -1046,6 +1047,8 @@ function applyRepairTick(ship: Ship): boolean {
   let totalRepairPoints = 0;
   for (const eng of repairCrew) {
     let points = calculateRepairPoints(eng);
+    // Personality trait modifier: meticulous +10%
+    points *= getTraitModifier(eng, 'repair_speed');
     // Health efficiency — injured/starving crew repair slower
     points *= getCrewHealthEfficiency(eng.health);
     // Pool bonus: +5% repair speed at 25%

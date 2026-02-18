@@ -1,5 +1,5 @@
 import type { StoryArc, ArcType, PersonalityTrait } from './models';
-// Personality traits are used via NarrativeContext.trait1/trait2 for flavor text
+import { hashString } from './utils';
 
 /**
  * Narrative Generator
@@ -23,16 +23,6 @@ interface NarrativeContext {
   entryCount: number;
   detectedAt: number;
   rating: number;
-}
-
-// ── Utilities ────────────────────────────────────────────────────
-
-function simpleHash(str: string): number {
-  let hash = 0;
-  for (let i = 0; i < str.length; i++) {
-    hash = ((hash << 5) - hash + str.charCodeAt(i)) | 0;
-  }
-  return Math.abs(hash);
 }
 
 // ── Personality Flavor ───────────────────────────────────────────
@@ -287,7 +277,7 @@ export function generateNarrative(arc: StoryArc): string {
   }
 
   // Pick template deterministically from arc ID
-  const idx = simpleHash(arc.id) % templates.length;
+  const idx = hashString(arc.id) % templates.length;
   let text = templates[idx](ctx);
 
   // Append trait flavor if available

@@ -7,6 +7,7 @@ import type {
   Ship,
   MasteryPool,
 } from './models';
+import { getTraitModifier } from './personalitySystem';
 
 export interface CrewRoleDefinition {
   role: CrewRole;
@@ -278,7 +279,9 @@ export function getPrimarySkillForRole(role: CrewRole): SkillId | null {
 export function getCrewSalaryPerTick(crew: CrewMember): number {
   const roleDef = getCrewRoleDefinition(crew.role);
   if (!roleDef) return 0;
-  return roleDef.salary * calculateSalaryMultiplier(crew.skills);
+  // Personality trait: ambitious crew expect higher salary (+10%)
+  const salaryMod = getTraitModifier(crew, 'salary_expectation');
+  return roleDef.salary * calculateSalaryMultiplier(crew.skills) * salaryMod;
 }
 
 /**
@@ -291,6 +294,16 @@ export function calculateShipSalaryPerTick(ship: Ship): number {
     total += getCrewSalaryPerTick(crew);
   }
   return total;
+}
+
+/** Sum of a crew member's four skill values. */
+export function getTotalCrewSkills(crew: CrewMember): number {
+  return (
+    crew.skills.piloting +
+    crew.skills.mining +
+    crew.skills.commerce +
+    crew.skills.repairs
+  );
 }
 
 /**

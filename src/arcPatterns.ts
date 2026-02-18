@@ -1,12 +1,13 @@
 import type {
   ChronicleEntry,
-  ChronicleEventType,
   CrewMember,
   Ship,
   ArcType,
   GameData,
 } from './models';
+import { COMBAT_EVENT_TYPES } from './models';
 import { SKILL_RANKS } from './skillRanks';
+import { getTotalCrewSkills } from './crewRoles';
 
 /**
  * Arc Pattern Definitions
@@ -40,27 +41,6 @@ export interface ArcPattern {
 }
 
 // ── Shared helpers ───────────────────────────────────────────────
-
-/**
- * Chronicle event types that represent combat encounters.
- * Shared across arc patterns and chronicle system to avoid duplication.
- */
-export const COMBAT_EVENT_TYPES: readonly ChronicleEventType[] = [
-  'combat_victory',
-  'boarding_survived',
-  'close_call',
-  'negotiation_save',
-];
-
-/** Sum of a crew member's four skill values. */
-export function getTotalCrewSkills(crew: CrewMember): number {
-  return (
-    crew.skills.piloting +
-    crew.skills.mining +
-    crew.skills.commerce +
-    crew.skills.repairs
-  );
-}
 
 /**
  * Convert a skill rank name to a star rating for story arcs.

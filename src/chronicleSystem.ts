@@ -5,9 +5,23 @@ import type {
   GameData,
   Ship,
 } from './models';
+import { COMBAT_EVENT_TYPES } from './models';
 import { on } from './gameEvents';
-import type { GameEvent } from './gameEvents';
-import { COMBAT_EVENT_TYPES, getTotalCrewSkills } from './arcPatterns';
+import type {
+  CrewHiredEvent,
+  CrewDeathEvent,
+  CrewDepartedEvent,
+  CrewNearDeathEvent,
+  CrewSkillMilestoneEvent,
+  CrewRoleChangeEvent,
+  EncounterResolvedEvent,
+  ShipStrandedEvent,
+  ShipRescuedEvent,
+  ContractCompletedEvent,
+  FirstVisitEvent,
+  GravityAssistEvent,
+} from './gameEvents';
+import { getTotalCrewSkills } from './crewRoles';
 import { SKILL_RANKS } from './skillRanks';
 
 /**
@@ -190,8 +204,7 @@ function updateRelationships(
 
 // ── Event Handlers ──────────────────────────────────────────────
 
-function handleCrewHired(gameData: GameData, event: GameEvent): void {
-  if (event.type !== 'crew_hired') return;
+function handleCrewHired(gameData: GameData, event: CrewHiredEvent): void {
   const { crew, ship, locationId } = event;
 
   const totalSkills = getTotalCrewSkills(crew);
@@ -216,8 +229,7 @@ function handleCrewHired(gameData: GameData, event: GameEvent): void {
   addCrewChronicle(crew, entry);
 }
 
-function handleCrewDeath(gameData: GameData, event: GameEvent): void {
-  if (event.type !== 'crew_death') return;
+function handleCrewDeath(gameData: GameData, event: CrewDeathEvent): void {
   const { crew, ship, cause } = event;
 
   const serviceDuration = gameData.gameTime - crew.hiredAt;
@@ -282,10 +294,64 @@ function handleCrewDeath(gameData: GameData, event: GameEvent): void {
       addCrewChronicle(otherCrew, lossEntry);
     }
   }
+
+  // Archive crew chronicle so arc detection can still find them
+  archiveDeadCrew(gameData, crew, ship);
 }
 
-function handleCrewDeparted(gameData: GameData, event: GameEvent): void {
-  if (event.type !== 'crew_departed') return;
+/** Maximum dead crew archives to retain */
+const MAX_DEAD_CREW_ARCHIVE = 20;
+
+/**
+ * Preserve a dead crew member's chronicle and key metadata so arc detection
+ * can still evaluate them after they are spliced from the ship.
+ */
+function archiveDeadCrew(
+  gameData: GameData,
+  crew: CrewMember,
+  ship: Ship
+): void {
+  if (!crew.chronicle || crew.chronicle.length === 0) return;
+
+  if (!gameData.stories) {
+    gameData.stories = {
+      detectedArcs: [],
+      dismissedArcIds: [],
+      lastScanGameTime: 0,
+    };
+  }
+  if (!gameData.stories.deadCrewArchive) {
+    gameData.stories.deadCrewArchive = [];
+  }
+
+  const archive = gameData.stories.deadCrewArchive;
+
+  // Don't archive the same crew twice
+  if (archive.some((a) => a.id === crew.id)) return;
+
+  archive.push({
+    id: crew.id,
+    name: crew.name,
+    role: crew.role,
+    skills: { ...crew.skills },
+    personality: crew.personality,
+    relationships: crew.relationships?.map((r) => ({ ...r })),
+    chronicle: [...crew.chronicle],
+    diedAt: gameData.gameTime,
+    shipId: ship.id,
+    shipName: ship.name,
+  });
+
+  // Cap the archive — prune oldest entries first
+  while (archive.length > MAX_DEAD_CREW_ARCHIVE) {
+    archive.shift();
+  }
+}
+
+function handleCrewDeparted(
+  gameData: GameData,
+  event: CrewDepartedEvent
+): void {
   const { crew, ship, serviceDuration, unpaidTicks } = event;
 
   const entry = makeEntry({
@@ -305,8 +371,7 @@ function handleCrewDeparted(gameData: GameData, event: GameEvent): void {
   addCrewChronicle(crew, entry);
 }
 
-function handleNearDeath(gameData: GameData, event: GameEvent): void {
-  if (event.type !== 'crew_near_death') return;
+function handleNearDeath(gameData: GameData, event: CrewNearDeathEvent): void {
   const { crew, ship, healthRemaining, cause } = event;
 
   const entry = makeEntry({
@@ -326,8 +391,10 @@ function handleNearDeath(gameData: GameData, event: GameEvent): void {
   addCrewChronicle(crew, entry);
 }
 
-function handleSkillMilestone(gameData: GameData, event: GameEvent): void {
-  if (event.type !== 'crew_skill_milestone') return;
+function handleSkillMilestone(
+  gameData: GameData,
+  event: CrewSkillMilestoneEvent
+): void {
   const { crew, ship, skill, newLevel, newRank } = event;
 
   const entry = makeEntry({
@@ -349,8 +416,10 @@ function handleSkillMilestone(gameData: GameData, event: GameEvent): void {
   addCrewChronicle(crew, entry);
 }
 
-function handleRoleChange(gameData: GameData, event: GameEvent): void {
-  if (event.type !== 'crew_role_change') return;
+function handleRoleChange(
+  gameData: GameData,
+  event: CrewRoleChangeEvent
+): void {
   const { crew, ship, oldRole, newRole } = event;
 
   const entry = makeEntry({
@@ -367,8 +436,10 @@ function handleRoleChange(gameData: GameData, event: GameEvent): void {
   addCrewChronicle(crew, entry);
 }
 
-function handleEncounterResolved(gameData: GameData, event: GameEvent): void {
-  if (event.type !== 'encounter_resolved') return;
+function handleEncounterResolved(
+  gameData: GameData,
+  event: EncounterResolvedEvent
+): void {
   const { result, ship } = event;
 
   // Only chronicle the more dramatic encounter outcomes
@@ -507,8 +578,10 @@ function handleEncounterResolved(gameData: GameData, event: GameEvent): void {
   }
 }
 
-function handleShipStranded(gameData: GameData, event: GameEvent): void {
-  if (event.type !== 'ship_stranded') return;
+function handleShipStranded(
+  gameData: GameData,
+  event: ShipStrandedEvent
+): void {
   const { ship, locationId, provisionsDays } = event;
 
   const entry = makeEntry({
@@ -540,8 +613,7 @@ function handleShipStranded(gameData: GameData, event: GameEvent): void {
   }
 }
 
-function handleShipRescued(gameData: GameData, event: GameEvent): void {
-  if (event.type !== 'ship_rescued') return;
+function handleShipRescued(gameData: GameData, event: ShipRescuedEvent): void {
   const { rescuerShip, strandedShip, fuelDelivered } = event;
 
   // Rescuer crew get hero entries
@@ -578,12 +650,15 @@ function handleShipRescued(gameData: GameData, event: GameEvent): void {
   addShipChronicle(rescuerShip, rescuerShipEntry);
 }
 
-function handleContractCompleted(gameData: GameData, event: GameEvent): void {
-  if (event.type !== 'contract_completed') return;
+function handleContractCompleted(
+  gameData: GameData,
+  event: ContractCompletedEvent
+): void {
   const { ship, questTitle, tripsCompleted, totalCreditsEarned } = event;
 
-  // Only chronicle multi-trip contracts (significant achievements)
-  if (tripsCompleted < 3) return;
+  // Chronicle every completed contract — single-trip rescues and
+  // deliveries are significant achievements, not just multi-trip routes.
+  // Emotional weight scales with trip count so multi-trip routes rate higher.
 
   const entry = makeEntry({
     gameData,
@@ -591,7 +666,7 @@ function handleContractCompleted(gameData: GameData, event: GameEvent): void {
     actorId: ship.id,
     actorType: 'ship',
     ship,
-    emotionalWeight: 2,
+    emotionalWeight: Math.min(3, 1 + Math.floor(tripsCompleted / 3)),
     tags: ['contract', 'achievement'],
     details: {
       questTitle,
@@ -603,8 +678,7 @@ function handleContractCompleted(gameData: GameData, event: GameEvent): void {
   addShipChronicle(ship, entry);
 }
 
-function handleFirstVisit(gameData: GameData, event: GameEvent): void {
-  if (event.type !== 'first_visit') return;
+function handleFirstVisit(gameData: GameData, event: FirstVisitEvent): void {
   const { ship, locationId, locationName, distanceFromEarth } = event;
 
   // Ship chronicle
@@ -644,8 +718,10 @@ function handleFirstVisit(gameData: GameData, event: GameEvent): void {
   }
 }
 
-function handleGravityAssist(gameData: GameData, event: GameEvent): void {
-  if (event.type !== 'gravity_assist') return;
+function handleGravityAssist(
+  gameData: GameData,
+  event: GravityAssistEvent
+): void {
   const { ship, pilotName, pilotId, bodyName, fuelSaved, success } = event;
 
   if (!success) return; // Only chronicle successes

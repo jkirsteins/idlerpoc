@@ -37,6 +37,7 @@ import {
   getCommercePoolPaymentBonus,
 } from './masterySystem';
 import { getBestCrewPool } from './crewRoles';
+import { getTraitModifier } from './personalitySystem';
 
 /**
  * Contract Execution
@@ -140,12 +141,27 @@ function injectRescueQuests(gameData: GameData): void {
 }
 
 /**
- * Remove unpaid crew on docking
+ * Base grace period before unpaid crew depart (in ticks).
+ * Crew tolerate ~3 days of unpaid wages before leaving.
+ * Personality traits modify this: loyal crew stay longer (+25%),
+ * idealistic crew leave sooner (-10%).
+ */
+const DEPARTURE_GRACE_TICKS = 3 * TICKS_PER_DAY;
+
+/**
+ * Remove unpaid crew on docking.
+ * Crew with departure_resistance trait get a longer grace period.
  */
 function removeUnpaidCrew(gameData: GameData, ship: Ship): void {
-  const unpaidCrew = ship.crew.filter((c) => c.unpaidTicks > 0 && !c.isCaptain);
+  const departing = ship.crew.filter((c) => {
+    if (c.unpaidTicks <= 0 || c.isCaptain) return false;
+    // Apply departure resistance trait modifier (loyal: +25%, idealistic: -10%)
+    const resistanceMod = getTraitModifier(c, 'departure_resistance');
+    const threshold = Math.round(DEPARTURE_GRACE_TICKS * resistanceMod);
+    return c.unpaidTicks >= threshold;
+  });
 
-  for (const crew of unpaidCrew) {
+  for (const crew of departing) {
     const crewIndex = ship.crew.indexOf(crew);
     if (crewIndex !== -1) {
       ship.crew.splice(crewIndex, 1);
@@ -178,7 +194,14 @@ function addCredits(gameData: GameData, amount: number, ship?: Ship): number {
     ? 1 + getCommercePoolPaymentBonus(getBestCrewPool(ship.crew, 'commerce'))
     : 1.0;
 
-  const boosted = Math.round(amount * auraMultiplier * commercePoolMultiplier);
+  // Personality trait trade income modifier (best trader on ship)
+  const tradeIncomeMod = ship
+    ? Math.max(...ship.crew.map((c) => getTraitModifier(c, 'trade_income')))
+    : 1.0;
+
+  const boosted = Math.round(
+    amount * auraMultiplier * commercePoolMultiplier * tradeIncomeMod
+  );
   gameData.credits += boosted;
   gameData.lifetimeCreditsEarned += boosted;
   getFinancials(gameData).incomeContracts += boosted;

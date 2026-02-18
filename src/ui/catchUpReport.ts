@@ -422,10 +422,20 @@ export function renderCatchUpReport(
 
       const stars =
         '\u2605'.repeat(arc.rating) + '\u2606'.repeat(5 - arc.rating);
-      storyLine.innerHTML =
-        `<span style="color:#e94560;font-weight:bold">${arc.title}</span> ` +
-        `<span style="color:#ffc107">${stars}</span> ` +
-        `<span style="color:#888">— ${arc.actorName}</span>`;
+
+      const titleSpan = document.createElement('span');
+      titleSpan.textContent = arc.title;
+      titleSpan.style.cssText = 'color:#e94560;font-weight:bold';
+
+      const starSpan = document.createElement('span');
+      starSpan.textContent = ` ${stars} `;
+      starSpan.style.color = '#ffc107';
+
+      const actorSpan = document.createElement('span');
+      actorSpan.textContent = `— ${arc.actorName}`;
+      actorSpan.style.color = '#888';
+
+      storyLine.append(titleSpan, starSpan, actorSpan);
 
       storiesSection.appendChild(storyLine);
     }

@@ -1,4 +1,5 @@
 import type { CrewMember, CrewPersonality, PersonalityTrait } from './models';
+import { hashString } from './utils';
 
 /**
  * Personality System
@@ -21,18 +22,6 @@ const ALL_TRAITS: PersonalityTrait[] = [
   'loyal',
   'ambitious',
 ];
-
-/**
- * Simple deterministic hash of a string to a number.
- * Uses DJB2 algorithm variant for stable, well-distributed output.
- */
-function hashString(str: string): number {
-  let hash = 5381;
-  for (let i = 0; i < str.length; i++) {
-    hash = ((hash << 5) + hash + str.charCodeAt(i)) | 0;
-  }
-  return Math.abs(hash);
-}
 
 /**
  * Generate a deterministic personality from a crew member's ID.

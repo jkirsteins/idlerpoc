@@ -307,6 +307,17 @@ export type ChronicleEventType =
   | 'relationship_formed'
   | 'comrade_lost';
 
+/**
+ * Chronicle event types that represent combat encounters.
+ * Shared across arc patterns, chronicle system, and UI.
+ */
+export const COMBAT_EVENT_TYPES: readonly ChronicleEventType[] = [
+  'combat_victory',
+  'boarding_survived',
+  'close_call',
+  'negotiation_save',
+];
+
 export interface ChronicleEntry {
   gameTime: number;
   type: ChronicleEventType;
@@ -349,10 +360,28 @@ export interface StoryArc {
   rating: number; // 1-5 drama rating
 }
 
+/**
+ * Minimal snapshot of a dead crew member preserved for arc detection.
+ * Stored in StoryState so chronicles survive crew removal.
+ */
+export interface DeadCrewArchive {
+  id: string;
+  name: string;
+  role: CrewRole;
+  skills: CrewSkills;
+  personality?: CrewPersonality;
+  relationships?: CrewRelationship[];
+  chronicle: ChronicleEntry[];
+  diedAt: number;
+  shipId: string;
+  shipName: string;
+}
+
 export interface StoryState {
   detectedArcs: StoryArc[];
   dismissedArcIds: string[];
   lastScanGameTime: number;
+  deadCrewArchive?: DeadCrewArchive[];
 }
 
 export interface CrewRelationship {

@@ -43,6 +43,8 @@ import {
 import type { MasterySectionRefs } from './crewMasterySection';
 import { attachDynamicTooltip } from './components/tooltip';
 import type { TooltipHandle } from './components/tooltip';
+import { getTraitDisplayName, getTraitDescription } from '../personalitySystem';
+import { getArcModifier } from '../arcDetector';
 
 // ─── Pure helpers (no DOM) ─────────────────────────────────────────
 
@@ -482,6 +484,90 @@ function updateCargoItem(
   }
 }
 
+// ─── Personality trait section helpers ─────────────────────────────
+
+interface TraitSectionRefs {
+  section: HTMLElement;
+  trait1Badge: HTMLElement;
+  trait2Badge: HTMLElement;
+  arcBonusEl: HTMLElement;
+}
+
+function createTraitSection(): TraitSectionRefs {
+  const section = document.createElement('div');
+  section.style.cssText =
+    'display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap;font-size:0.85rem;';
+  section.style.display = 'none';
+
+  const traitLabel = document.createElement('span');
+  traitLabel.textContent = 'Personality:';
+  traitLabel.style.cssText = 'color:#888;white-space:nowrap;';
+  section.appendChild(traitLabel);
+
+  const badgeCss =
+    'padding:0.15rem 0.4rem;border-radius:3px;background:#2a2a4a;' +
+    'color:#c0c0e0;border:1px solid #444;white-space:nowrap;cursor:help;';
+
+  const trait1Badge = document.createElement('span');
+  trait1Badge.style.cssText = badgeCss;
+  section.appendChild(trait1Badge);
+
+  const trait2Badge = document.createElement('span');
+  trait2Badge.style.cssText = badgeCss;
+  section.appendChild(trait2Badge);
+
+  const arcBonusEl = document.createElement('span');
+  arcBonusEl.style.cssText =
+    'padding:0.15rem 0.4rem;border-radius:3px;background:#1a1a2e;' +
+    'color:#e94560;border:1px solid #e94560;white-space:nowrap;cursor:help;' +
+    'font-size:0.8rem;display:none;';
+  section.appendChild(arcBonusEl);
+
+  return { section, trait1Badge, trait2Badge, arcBonusEl };
+}
+
+function updateTraitSection(
+  refs: TraitSectionRefs,
+  crew: CrewMember,
+  gameData: GameData
+): void {
+  if (crew.personality) {
+    refs.section.style.display = '';
+    const t1Name = getTraitDisplayName(crew.personality.trait1);
+    if (refs.trait1Badge.textContent !== t1Name) {
+      refs.trait1Badge.textContent = t1Name;
+      refs.trait1Badge.title = getTraitDescription(crew.personality.trait1);
+    }
+    const t2Name = getTraitDisplayName(crew.personality.trait2);
+    if (refs.trait2Badge.textContent !== t2Name) {
+      refs.trait2Badge.textContent = t2Name;
+      refs.trait2Badge.title = getTraitDescription(crew.personality.trait2);
+    }
+  } else {
+    refs.section.style.display = 'none';
+  }
+
+  const arcMod = getArcModifier(gameData, crew.id, 'training_speed');
+  const arcCombat = getArcModifier(gameData, crew.id, 'combat_attack');
+  const hasArcBonus = arcMod > 1.0 || arcCombat > 1.0;
+  if (hasArcBonus) {
+    const parts: string[] = [];
+    if (arcMod > 1.0)
+      parts.push(`+${Math.round((arcMod - 1) * 100)}% training`);
+    if (arcCombat > 1.0)
+      parts.push(`+${Math.round((arcCombat - 1) * 100)}% combat`);
+    const arcText = parts.join(', ');
+    if (refs.arcBonusEl.textContent !== arcText) {
+      refs.arcBonusEl.textContent = arcText;
+      refs.arcBonusEl.title =
+        'Story arc bonus — earned from Fleet Chronicle achievements';
+    }
+    refs.arcBonusEl.style.display = '';
+  } else {
+    refs.arcBonusEl.style.display = 'none';
+  }
+}
+
 // ─── Main createCrewTab factory ───────────────────────────────────
 
 export function createCrewTab(
@@ -666,6 +752,10 @@ export function createCrewTab(
   serviceSection.appendChild(serviceOrigin);
 
   detailPanel.appendChild(serviceSection);
+
+  // ── Personality traits row ──
+  const traitRefs = createTraitSection();
+  detailPanel.appendChild(traitRefs.section);
 
   // Transfer section created later after training div
 
@@ -1233,6 +1323,9 @@ export function createCrewTab(
       serviceOrigin.textContent = '';
       serviceSeparator3.style.display = 'none';
     }
+
+    // ── Personality traits + arc modifiers ──
+    updateTraitSection(traitRefs, crew, gameData);
 
     // ── Transfer section (Row 6) ──
     if (gameData.ships.length <= 1) {

@@ -1,9 +1,9 @@
 import type { GameData, StoryArc, CrewMember, Ship } from '../models';
+import { COMBAT_EVENT_TYPES } from '../models';
 import type { Component } from './component';
 import { getActiveArcs } from '../arcDetector';
 import { generateNarrative } from '../narrativeGenerator';
 import { getTraitDisplayName, getTraitDescription } from '../personalitySystem';
-import { COMBAT_EVENT_TYPES } from '../arcPatterns';
 
 /**
  * Stories Tab
@@ -174,10 +174,13 @@ export function createStoriesTab(
     }
 
     // Add new / update existing
+    // Arcs are sorted by rating (highest first) — auto-expand the top card
+    const highestArcId = arcs.length > 0 ? arcs[0].id : null;
     for (const arc of arcs) {
       const card = storyCardMap.get(arc.id);
       if (!card) {
-        const el = createStoryCard(arc, callbacks);
+        const isHighest = arc.id === highestArcId;
+        const el = createStoryCard(arc, callbacks, isHighest);
         storyList.appendChild(el.container);
         storyCardMap.set(arc.id, el);
       } else {
@@ -280,7 +283,8 @@ export function createStoriesTab(
 
 function createStoryCard(
   arc: StoryArc,
-  callbacks: StoriesTabCallbacks
+  callbacks: StoriesTabCallbacks,
+  autoExpand: boolean = false
 ): {
   container: HTMLElement;
   el: HTMLElement;
@@ -330,7 +334,8 @@ function createStoryCard(
   const narrativeEl = document.createElement('div');
   narrativeEl.className = 'story-narrative';
   narrativeEl.style.cssText =
-    'font-size:0.85rem;color:#c0c0d0;line-height:1.5;display:none;margin-bottom:0.5rem;';
+    'font-size:0.85rem;color:#c0c0d0;line-height:1.5;margin-bottom:0.5rem;' +
+    (autoExpand ? '' : 'display:none;');
   narrativeEl.textContent = generateNarrative(arc);
   card.appendChild(narrativeEl);
 
@@ -340,11 +345,11 @@ function createStoryCard(
 
   const readBtn = document.createElement('button');
   readBtn.className = 'story-btn';
-  readBtn.textContent = 'Read';
+  readBtn.textContent = autoExpand ? 'Collapse' : 'Read';
   readBtn.style.cssText =
     'padding:0.25rem 0.5rem;font-size:0.8rem;cursor:pointer;' +
     'background:#2a2a4a;border:1px solid #444;color:#c0c0d0;border-radius:3px;';
-  let expanded = false;
+  let expanded = autoExpand;
   readBtn.addEventListener('click', () => {
     expanded = !expanded;
     narrativeEl.style.display = expanded ? '' : 'none';

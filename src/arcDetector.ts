@@ -1,4 +1,4 @@
-import type { GameData, StoryArc, ArcType, Ship } from './models';
+import type { GameData, StoryArc, ArcType, Ship, CrewMember } from './models';
 import { ALL_ARC_PATTERNS, type ArcMatch } from './arcPatterns';
 import { generateId } from './utils';
 
@@ -131,6 +131,41 @@ export function detectArcs(gameData: GameData): StoryArc[] {
     }
   }
 
+  // Scan dead crew archives
+  const deadArchive = stories.deadCrewArchive ?? [];
+  for (const dead of deadArchive) {
+    if (dead.chronicle.length === 0) continue;
+
+    for (const pattern of ALL_ARC_PATTERNS) {
+      if (pattern.actorType !== 'crew' && pattern.actorType !== 'both')
+        continue;
+
+      // Cast archive to CrewMember-compatible shape for pattern detection
+      const match = pattern.detect(
+        dead.chronicle,
+        dead as unknown as CrewMember,
+        gameData
+      );
+      if (!match) continue;
+
+      const key = `${pattern.arcType}:${dead.id}`;
+      if (existingKeys.has(key) || dismissedKeys.has(key)) continue;
+
+      // Find the ship this crew served on (may still exist)
+      const ship = gameData.ships.find((s) => s.id === dead.shipId);
+      const arc = matchToArc(
+        match,
+        pattern.arcType,
+        dead.id,
+        dead.name,
+        ship,
+        gameData
+      );
+      newArcs.push(arc);
+      existingKeys.add(key);
+    }
+  }
+
   // Add new arcs to the story state
   if (newArcs.length > 0) {
     stories.detectedArcs.push(...newArcs);
@@ -237,7 +272,7 @@ function matchToArc(
   arcType: StoryArc['arcType'],
   actorId: string,
   actorName: string,
-  ship: Ship,
+  ship: Ship | undefined,
   gameData: GameData
 ): StoryArc {
   return {
@@ -246,7 +281,7 @@ function matchToArc(
     title: match.title,
     actorId,
     actorName,
-    shipId: ship.id,
+    shipId: ship?.id,
     entries: match.entries,
     detectedAt: gameData.gameTime,
     emotionalArc: match.emotionalArc,

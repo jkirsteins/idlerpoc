@@ -30,6 +30,19 @@ export function getDistanceBetween(
   return Math.abs(locA.distanceFromEarth - locB.distanceFromEarth);
 }
 
+/**
+ * Deterministic string hash (DJB2 variant).
+ * Returns a non-negative integer, well-distributed for short strings.
+ * Used for personality generation and template selection.
+ */
+export function hashString(str: string): number {
+  let hash = 5381;
+  for (let i = 0; i < str.length; i++) {
+    hash = ((hash << 5) + hash + str.charCodeAt(i)) | 0;
+  }
+  return Math.abs(hash);
+}
+
 /** Format a trade route name: "Origin ↔ Destination" (bidirectional). */
 export function formatTradeRouteName(
   originName: string,
