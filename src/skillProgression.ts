@@ -15,6 +15,7 @@ import { getSpecializationMultiplier } from './skillRanks';
 import { getCrewHealthEfficiency } from './provisionsSystem';
 import { getTraitModifier } from './personalitySystem';
 import { emit } from './gameEvents';
+import { getArcModifier } from './arcDetector';
 
 /**
  * Direct Skill Training System
@@ -165,7 +166,8 @@ export function applyTraining(
 export function applyPassiveTraining(
   ship: Ship,
   trainingMultiplier: number = 1.0,
-  excludeJobTypes?: ReadonlySet<JobSlotType>
+  excludeJobTypes?: ReadonlySet<JobSlotType>,
+  gameData?: GameData
 ): SkillUpResult[] {
   const skillUps: SkillUpResult[] = [];
 
@@ -179,7 +181,12 @@ export function applyPassiveTraining(
     if (training) {
       // traitMod already applied inside calculateTickTraining
       const healthEfficiency = getCrewHealthEfficiency(crew.health);
-      const gain = training.gain * trainingMultiplier * healthEfficiency;
+      // Arc modifier: crew with training-related story arcs get a small bonus
+      const arcMod = gameData
+        ? getArcModifier(gameData, crew.id, 'training_speed')
+        : 1.0;
+      const gain =
+        training.gain * trainingMultiplier * healthEfficiency * arcMod;
       const skillUp = applyTraining(crew, training.skill, gain);
       if (skillUp) {
         skillUps.push(skillUp);

@@ -1,8 +1,9 @@
-import type { GameData, StoryArc } from '../models';
+import type { GameData, StoryArc, CrewMember, Ship } from '../models';
 import type { Component } from './component';
 import { getActiveArcs } from '../arcDetector';
 import { generateNarrative } from '../narrativeGenerator';
 import { getTraitDisplayName, getTraitDescription } from '../personalitySystem';
+import { COMBAT_EVENT_TYPES } from '../arcPatterns';
 
 /**
  * Stories Tab
@@ -12,7 +13,11 @@ import { getTraitDisplayName, getTraitDescription } from '../personalitySystem';
  * - Crew chronicle summaries
  * - Ship history milestones
  *
- * Follows the same pattern as logTab, crewTab, etc.
+ * Follows the Component pattern (see component.ts):
+ * - Container element created once, never replaced
+ * - update() patches in-place using stable element references
+ * - Variable-length lists reconciled via Map<id, refs>
+ * - Never uses replaceChildren() or while-clear loops
  */
 
 export interface StoriesTabCallbacks {
@@ -74,6 +79,11 @@ export function createStoriesTab(
   crewHeading.style.marginBottom = '0.5rem';
   crewSection.appendChild(crewHeading);
 
+  const noCrewMsg = document.createElement('p');
+  noCrewMsg.textContent = 'No crew chronicles yet.';
+  noCrewMsg.style.cssText = 'color:#666;font-style:italic;';
+  crewSection.appendChild(noCrewMsg);
+
   const crewList = document.createElement('div');
   crewList.className = 'crew-chronicle-list';
   crewSection.appendChild(crewList);
@@ -90,95 +100,173 @@ export function createStoriesTab(
   shipHeading.style.marginBottom = '0.5rem';
   shipSection.appendChild(shipHeading);
 
+  const noShipMsg = document.createElement('p');
+  noShipMsg.textContent = 'No ship histories yet.';
+  noShipMsg.style.cssText = 'color:#666;font-style:italic;';
+  shipSection.appendChild(noShipMsg);
+
   const shipList = document.createElement('div');
   shipList.className = 'ship-history-list';
   shipSection.appendChild(shipList);
 
   container.appendChild(shipSection);
 
-  // --- State for shallow comparison ---
-  let lastArcCount = -1;
-  let lastCrewCount = -1;
-  let lastShipCount = -1;
-  let lastArcIds = '';
-  let lastCrewChronicleHash = '';
-  let lastShipChronicleHash = '';
+  // --- Stable references for reconciliation ---
 
-  // Stable references for story cards
+  // Story cards: Map<arcId, {el, refs}>
   const storyCardMap = new Map<
     string,
-    { el: HTMLElement; expanded: boolean }
+    {
+      el: HTMLElement;
+      titleEl: HTMLElement;
+      ratingEl: HTMLElement;
+      actorEl: HTMLElement;
+      narrativeEl: HTMLElement;
+      expanded: boolean;
+    }
   >();
 
+  // Crew chronicle rows: Map<crewId, {el, refs}>
+  interface CrewRowRefs {
+    el: HTMLElement;
+    nameEl: HTMLElement;
+    traitEl: HTMLElement;
+    statsEl: HTMLElement;
+    lastHash: string;
+  }
+  const crewRowMap = new Map<string, CrewRowRefs>();
+
+  // Ship history rows: Map<shipId, {el, refs}>
+  interface ShipRowRefs {
+    el: HTMLElement;
+    nameEl: HTMLElement;
+    statsEl: HTMLElement;
+    lastHash: string;
+  }
+  const shipRowMap = new Map<string, ShipRowRefs>();
+
+  // Previous state for shallow comparison
+  let lastArcIds = '';
+
   function update(gd: GameData): void {
-    // --- Active Stories ---
+    updateStoryCards(gd);
+    updateCrewChronicles(gd);
+    updateShipHistories(gd);
+  }
+
+  function updateStoryCards(gd: GameData): void {
     const arcs = getActiveArcs(gd);
     const arcIds = arcs.map((a) => a.id).join(',');
 
-    if (arcIds !== lastArcIds || arcs.length !== lastArcCount) {
-      lastArcIds = arcIds;
-      lastArcCount = arcs.length;
+    if (arcIds === lastArcIds) return;
+    lastArcIds = arcIds;
 
-      noStoriesMsg.style.display = arcs.length === 0 ? '' : 'none';
+    noStoriesMsg.style.display = arcs.length === 0 ? '' : 'none';
 
-      // Reconcile story cards
-      const currentIds = new Set(arcs.map((a) => a.id));
+    const currentIds = new Set(arcs.map((a) => a.id));
 
-      // Remove departed
-      for (const [id, card] of storyCardMap) {
-        if (!currentIds.has(id)) {
-          card.el.remove();
-          storyCardMap.delete(id);
-        }
-      }
-
-      // Add/update
-      for (const arc of arcs) {
-        let card = storyCardMap.get(arc.id);
-        if (!card) {
-          const el = createStoryCard(arc, callbacks);
-          storyList.appendChild(el);
-          card = { el, expanded: false };
-          storyCardMap.set(arc.id, card);
-        } else {
-          updateStoryCard(card.el, arc);
-        }
+    // Remove departed cards
+    for (const [id, card] of storyCardMap) {
+      if (!currentIds.has(id)) {
+        card.el.remove();
+        storyCardMap.delete(id);
       }
     }
 
-    // --- Crew Chronicles ---
+    // Add new / update existing
+    for (const arc of arcs) {
+      const card = storyCardMap.get(arc.id);
+      if (!card) {
+        const el = createStoryCard(arc, callbacks);
+        storyList.appendChild(el.container);
+        storyCardMap.set(arc.id, el);
+      } else {
+        // Patch in-place
+        if (card.titleEl.textContent !== arc.title) {
+          card.titleEl.textContent = arc.title;
+        }
+        const stars =
+          '\u2605'.repeat(arc.rating) + '\u2606'.repeat(5 - arc.rating);
+        if (card.ratingEl.textContent !== stars) {
+          card.ratingEl.textContent = stars;
+        }
+        if (card.actorEl.textContent !== arc.actorName) {
+          card.actorEl.textContent = arc.actorName;
+        }
+      }
+    }
+  }
+
+  function updateCrewChronicles(gd: GameData): void {
     const allCrew = gd.ships.flatMap((s) => s.crew);
     const crewWithChronicle = allCrew.filter(
       (c) => c.chronicle && c.chronicle.length > 0
     );
-    const crewHash = crewWithChronicle
-      .map((c) => `${c.id}:${c.chronicle!.length}`)
-      .join(',');
 
-    if (
-      crewHash !== lastCrewChronicleHash ||
-      crewWithChronicle.length !== lastCrewCount
-    ) {
-      lastCrewChronicleHash = crewHash;
-      lastCrewCount = crewWithChronicle.length;
-      updateCrewChronicles(crewList, crewWithChronicle, gd);
+    noCrewMsg.style.display = crewWithChronicle.length === 0 ? '' : 'none';
+
+    const activeIds = new Set(crewWithChronicle.map((c) => c.id));
+
+    // Remove departed crew
+    for (const [id, row] of crewRowMap) {
+      if (!activeIds.has(id)) {
+        row.el.remove();
+        crewRowMap.delete(id);
+      }
     }
 
-    // --- Ship Histories ---
+    // Add new / update existing
+    for (const member of crewWithChronicle) {
+      const chronicle = member.chronicle!;
+      const hash = `${member.id}:${chronicle.length}:${member.name}`;
+
+      let row = crewRowMap.get(member.id);
+      if (!row) {
+        row = createCrewRow(member);
+        crewList.appendChild(row.el);
+        crewRowMap.set(member.id, row);
+      }
+
+      if (row.lastHash !== hash) {
+        row.lastHash = hash;
+        patchCrewRow(row, member, chronicle);
+      }
+    }
+  }
+
+  function updateShipHistories(gd: GameData): void {
     const shipsWithChronicle = gd.ships.filter(
       (s) => s.chronicle && s.chronicle.length > 0
     );
-    const shipHash = shipsWithChronicle
-      .map((s) => `${s.id}:${s.chronicle!.length}`)
-      .join(',');
 
-    if (
-      shipHash !== lastShipChronicleHash ||
-      shipsWithChronicle.length !== lastShipCount
-    ) {
-      lastShipChronicleHash = shipHash;
-      lastShipCount = shipsWithChronicle.length;
-      updateShipHistories(shipList, shipsWithChronicle, gd);
+    noShipMsg.style.display = shipsWithChronicle.length === 0 ? '' : 'none';
+
+    const activeIds = new Set(shipsWithChronicle.map((s) => s.id));
+
+    // Remove departed ships
+    for (const [id, row] of shipRowMap) {
+      if (!activeIds.has(id)) {
+        row.el.remove();
+        shipRowMap.delete(id);
+      }
+    }
+
+    // Add new / update existing
+    for (const ship of shipsWithChronicle) {
+      const chronicle = ship.chronicle!;
+      const hash = `${ship.id}:${chronicle.length}:${ship.name}`;
+
+      let row = shipRowMap.get(ship.id);
+      if (!row) {
+        row = createShipRow(ship);
+        shipList.appendChild(row.el);
+        shipRowMap.set(ship.id, row);
+      }
+
+      if (row.lastHash !== hash) {
+        row.lastHash = hash;
+        patchShipRow(row, ship, chronicle);
+      }
     }
   }
 
@@ -188,12 +276,20 @@ export function createStoriesTab(
   return { el: container, update };
 }
 
-// ── Story Card ──────────────────────────────────────────────────
+// ── Story Card (mount-once per arc) ─────────────────────────────
 
 function createStoryCard(
   arc: StoryArc,
   callbacks: StoriesTabCallbacks
-): HTMLElement {
+): {
+  container: HTMLElement;
+  el: HTMLElement;
+  titleEl: HTMLElement;
+  ratingEl: HTMLElement;
+  actorEl: HTMLElement;
+  narrativeEl: HTMLElement;
+  expanded: boolean;
+} {
   const card = document.createElement('div');
   card.className = 'story-card';
   card.dataset.arcId = arc.id;
@@ -248,10 +344,11 @@ function createStoryCard(
   readBtn.style.cssText =
     'padding:0.25rem 0.5rem;font-size:0.8rem;cursor:pointer;' +
     'background:#2a2a4a;border:1px solid #444;color:#c0c0d0;border-radius:3px;';
+  let expanded = false;
   readBtn.addEventListener('click', () => {
-    const isHidden = narrativeEl.style.display === 'none';
-    narrativeEl.style.display = isHidden ? '' : 'none';
-    readBtn.textContent = isHidden ? 'Collapse' : 'Read';
+    expanded = !expanded;
+    narrativeEl.style.display = expanded ? '' : 'none';
+    readBtn.textContent = expanded ? 'Collapse' : 'Read';
   });
   actionsEl.appendChild(readBtn);
 
@@ -275,152 +372,140 @@ function createStoryCard(
 
   card.appendChild(actionsEl);
 
-  return card;
+  return {
+    container: card,
+    el: card,
+    titleEl,
+    ratingEl,
+    actorEl,
+    narrativeEl,
+    expanded,
+  };
 }
 
-function updateStoryCard(el: HTMLElement, arc: StoryArc): void {
-  const titleEl = el.querySelector('.story-title');
-  if (titleEl && titleEl.textContent !== arc.title) {
-    titleEl.textContent = arc.title;
+// ── Crew Chronicle Row (mount-once per crew) ────────────────────
+
+function createCrewRow(member: CrewMember): {
+  el: HTMLElement;
+  nameEl: HTMLElement;
+  traitEl: HTMLElement;
+  statsEl: HTMLElement;
+  lastHash: string;
+} {
+  const row = document.createElement('div');
+  row.style.cssText =
+    'padding:0.5rem;margin-bottom:0.5rem;background:#16162a;border-radius:4px;';
+
+  const nameRow = document.createElement('div');
+  nameRow.style.cssText =
+    'display:flex;justify-content:space-between;align-items:center;';
+
+  const nameEl = document.createElement('strong');
+  nameEl.textContent = member.name;
+  nameEl.style.color = '#c0c0e0';
+  nameRow.appendChild(nameEl);
+
+  const traitEl = document.createElement('span');
+  traitEl.style.cssText = 'font-size:0.8rem;color:#8888aa;';
+  if (member.personality) {
+    traitEl.textContent = `${getTraitDisplayName(member.personality.trait1)}, ${getTraitDisplayName(member.personality.trait2)}`;
+    traitEl.title = `${getTraitDescription(member.personality.trait1)} | ${getTraitDescription(member.personality.trait2)}`;
   }
-  const ratingEl = el.querySelector('.story-rating');
-  if (ratingEl) {
-    const stars = '\u2605'.repeat(arc.rating) + '\u2606'.repeat(5 - arc.rating);
-    if (ratingEl.textContent !== stars) {
-      ratingEl.textContent = stars;
+  nameRow.appendChild(traitEl);
+
+  row.appendChild(nameRow);
+
+  const statsEl = document.createElement('div');
+  statsEl.style.cssText = 'font-size:0.8rem;color:#888;margin-top:0.25rem;';
+  row.appendChild(statsEl);
+
+  return { el: row, nameEl, traitEl, statsEl, lastHash: '' };
+}
+
+function patchCrewRow(
+  row: { nameEl: HTMLElement; traitEl: HTMLElement; statsEl: HTMLElement },
+  member: CrewMember,
+  chronicle: NonNullable<CrewMember['chronicle']>
+): void {
+  if (row.nameEl.textContent !== member.name) {
+    row.nameEl.textContent = member.name;
+  }
+
+  if (member.personality) {
+    const traitText = `${getTraitDisplayName(member.personality.trait1)}, ${getTraitDisplayName(member.personality.trait2)}`;
+    if (row.traitEl.textContent !== traitText) {
+      row.traitEl.textContent = traitText;
+      row.traitEl.title = `${getTraitDescription(member.personality.trait1)} | ${getTraitDescription(member.personality.trait2)}`;
     }
   }
-}
 
-// ── Crew Chronicles ─────────────────────────────────────────────
+  const nearDeaths = chronicle.filter((e) => e.type === 'near_death').length;
+  const combats = chronicle.filter((e) =>
+    COMBAT_EVENT_TYPES.includes(e.type)
+  ).length;
+  const milestones = chronicle.filter(
+    (e) => e.type === 'skill_milestone'
+  ).length;
 
-import type { CrewMember, Ship } from '../models';
+  const parts: string[] = [`${chronicle.length} events`];
+  if (nearDeaths > 0) parts.push(`${nearDeaths} near-death`);
+  if (combats > 0) parts.push(`${combats} combat`);
+  if (milestones > 0) parts.push(`${milestones} milestones`);
 
-function updateCrewChronicles(
-  container: HTMLElement,
-  crew: CrewMember[],
-  _gameData: GameData
-): void {
-  // Clear and rebuild (crew chronicles change infrequently)
-  while (container.lastChild) container.removeChild(container.lastChild);
-
-  if (crew.length === 0) {
-    const msg = document.createElement('p');
-    msg.textContent = 'No crew chronicles yet.';
-    msg.style.cssText = 'color:#666;font-style:italic;';
-    container.appendChild(msg);
-    return;
-  }
-
-  for (const member of crew) {
-    const chronicle = member.chronicle;
-    if (!chronicle || chronicle.length === 0) continue;
-
-    const row = document.createElement('div');
-    row.style.cssText =
-      'padding:0.5rem;margin-bottom:0.5rem;background:#16162a;border-radius:4px;';
-
-    // Name and personality
-    const nameRow = document.createElement('div');
-    nameRow.style.cssText =
-      'display:flex;justify-content:space-between;align-items:center;';
-
-    const nameEl = document.createElement('strong');
-    nameEl.textContent = member.name;
-    nameEl.style.color = '#c0c0e0';
-    nameRow.appendChild(nameEl);
-
-    if (member.personality) {
-      const traitEl = document.createElement('span');
-      traitEl.textContent = `${getTraitDisplayName(member.personality.trait1)}, ${getTraitDisplayName(member.personality.trait2)}`;
-      traitEl.style.cssText = 'font-size:0.8rem;color:#8888aa;';
-      traitEl.title = `${getTraitDescription(member.personality.trait1)} | ${getTraitDescription(member.personality.trait2)}`;
-      nameRow.appendChild(traitEl);
-    }
-
-    row.appendChild(nameRow);
-
-    // Stats summary
-    const stats = document.createElement('div');
-    stats.style.cssText = 'font-size:0.8rem;color:#888;margin-top:0.25rem;';
-
-    const nearDeaths = chronicle.filter((e) => e.type === 'near_death').length;
-    const combats = chronicle.filter(
-      (e) =>
-        e.type === 'combat_victory' ||
-        e.type === 'boarding_survived' ||
-        e.type === 'close_call'
-    ).length;
-    const milestones = chronicle.filter(
-      (e) => e.type === 'skill_milestone'
-    ).length;
-
-    const parts: string[] = [];
-    parts.push(`${chronicle.length} events`);
-    if (nearDeaths > 0) parts.push(`${nearDeaths} near-death`);
-    if (combats > 0) parts.push(`${combats} combat`);
-    if (milestones > 0) parts.push(`${milestones} milestones`);
-
-    stats.textContent = parts.join(' \u00b7 ');
-    row.appendChild(stats);
-
-    container.appendChild(row);
+  const statsText = parts.join(' \u00b7 ');
+  if (row.statsEl.textContent !== statsText) {
+    row.statsEl.textContent = statsText;
   }
 }
 
-// ── Ship Histories ──────────────────────────────────────────────
+// ── Ship History Row (mount-once per ship) ──────────────────────
 
-function updateShipHistories(
-  container: HTMLElement,
-  ships: Ship[],
-  _gameData: GameData
+function createShipRow(ship: Ship): {
+  el: HTMLElement;
+  nameEl: HTMLElement;
+  statsEl: HTMLElement;
+  lastHash: string;
+} {
+  const row = document.createElement('div');
+  row.style.cssText =
+    'padding:0.5rem;margin-bottom:0.5rem;background:#16162a;border-radius:4px;';
+
+  const nameEl = document.createElement('strong');
+  nameEl.textContent = ship.name;
+  nameEl.style.color = '#c0c0e0';
+  row.appendChild(nameEl);
+
+  const statsEl = document.createElement('div');
+  statsEl.style.cssText = 'font-size:0.8rem;color:#888;margin-top:0.25rem;';
+  row.appendChild(statsEl);
+
+  return { el: row, nameEl, statsEl, lastHash: '' };
+}
+
+function patchShipRow(
+  row: { nameEl: HTMLElement; statsEl: HTMLElement },
+  ship: Ship,
+  chronicle: NonNullable<Ship['chronicle']>
 ): void {
-  while (container.lastChild) container.removeChild(container.lastChild);
-
-  if (ships.length === 0) {
-    const msg = document.createElement('p');
-    msg.textContent = 'No ship histories yet.';
-    msg.style.cssText = 'color:#666;font-style:italic;';
-    container.appendChild(msg);
-    return;
+  if (row.nameEl.textContent !== ship.name) {
+    row.nameEl.textContent = ship.name;
   }
 
-  for (const ship of ships) {
-    const chronicle = ship.chronicle;
-    if (!chronicle || chronicle.length === 0) continue;
+  const deaths = chronicle.filter((e) => e.type === 'death').length;
+  const combats = chronicle.filter((e) =>
+    COMBAT_EVENT_TYPES.includes(e.type)
+  ).length;
+  const rescues = chronicle.filter(
+    (e) => e.type === 'rescue_participant'
+  ).length;
 
-    const row = document.createElement('div');
-    row.style.cssText =
-      'padding:0.5rem;margin-bottom:0.5rem;background:#16162a;border-radius:4px;';
+  const parts: string[] = [`${chronicle.length} events`];
+  if (deaths > 0) parts.push(`${deaths} crew lost`);
+  if (combats > 0) parts.push(`${combats} combat`);
+  if (rescues > 0) parts.push(`${rescues} rescues`);
 
-    const nameEl = document.createElement('strong');
-    nameEl.textContent = ship.name;
-    nameEl.style.color = '#c0c0e0';
-    row.appendChild(nameEl);
-
-    const stats = document.createElement('div');
-    stats.style.cssText = 'font-size:0.8rem;color:#888;margin-top:0.25rem;';
-
-    const deaths = chronicle.filter((e) => e.type === 'death').length;
-    const combats = chronicle.filter(
-      (e) =>
-        e.type === 'combat_victory' ||
-        e.type === 'boarding_survived' ||
-        e.type === 'close_call'
-    ).length;
-    const rescues = chronicle.filter(
-      (e) => e.type === 'rescue_participant'
-    ).length;
-
-    const parts: string[] = [];
-    parts.push(`${chronicle.length} events`);
-    if (deaths > 0) parts.push(`${deaths} crew lost`);
-    if (combats > 0) parts.push(`${combats} combat`);
-    if (rescues > 0) parts.push(`${rescues} rescues`);
-
-    stats.textContent = parts.join(' \u00b7 ');
-    row.appendChild(stats);
-
-    container.appendChild(row);
+  const statsText = parts.join(' \u00b7 ');
+  if (row.statsEl.textContent !== statsText) {
+    row.statsEl.textContent = statsText;
   }
 }

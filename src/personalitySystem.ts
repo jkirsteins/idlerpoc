@@ -94,7 +94,6 @@ const TRAIT_EFFECTS: Record<
   },
   gregarious: {
     negotiation: 0.1,
-    // Solo task penalty omitted — no clear single mechanic to map to
   },
   meticulous: {
     repair_speed: 0.1,
@@ -102,7 +101,6 @@ const TRAIT_EFFECTS: Record<
   },
   pragmatic: {
     trade_income: 0.05,
-    // Gravity assist penalty would require plumbing; deferred
   },
   idealistic: {
     morale_recovery: 0.1,

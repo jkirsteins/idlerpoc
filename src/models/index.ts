@@ -325,7 +325,6 @@ export type ArcType =
   | 'survivor'
   | 'iron_crew'
   | 'legend_pilot'
-  | 'merchant_prince'
   | 'rescue_hero'
   | 'old_reliable'
   | 'cursed_ship'

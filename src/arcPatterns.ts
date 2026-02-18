@@ -1,10 +1,12 @@
 import type {
   ChronicleEntry,
+  ChronicleEventType,
   CrewMember,
   Ship,
   ArcType,
   GameData,
 } from './models';
+import { SKILL_RANKS } from './skillRanks';
 
 /**
  * Arc Pattern Definitions
@@ -12,6 +14,9 @@ import type {
  * Each pattern scans an actor's chronicle for qualifying event sequences
  * that form a narratively interesting arc. Patterns return null if the
  * arc conditions are not met.
+ *
+ * Design principle: thresholds derive from game systems (skill ranks,
+ * world distances, chronicle structure) rather than arbitrary constants.
  *
  * See docs/emergent-storytelling.md for the full pattern catalog.
  */
@@ -33,6 +38,57 @@ export interface ArcPattern {
     gameData: GameData
   ) => ArcMatch | null;
 }
+
+// ── Shared helpers ───────────────────────────────────────────────
+
+/**
+ * Chronicle event types that represent combat encounters.
+ * Shared across arc patterns and chronicle system to avoid duplication.
+ */
+export const COMBAT_EVENT_TYPES: readonly ChronicleEventType[] = [
+  'combat_victory',
+  'boarding_survived',
+  'close_call',
+  'negotiation_save',
+];
+
+/** Sum of a crew member's four skill values. */
+export function getTotalCrewSkills(crew: CrewMember): number {
+  return (
+    crew.skills.piloting +
+    crew.skills.mining +
+    crew.skills.commerce +
+    crew.skills.repairs
+  );
+}
+
+/**
+ * Convert a skill rank name to a star rating for story arcs.
+ * Derived from the rank's index in SKILL_RANKS: rating = ceil(index / 2).
+ * Returns null for ranks below Competent (index 4) — too early for a story.
+ */
+function rankToRating(rankName: string): number | null {
+  const rank = SKILL_RANKS.find((r) => r.name === rankName);
+  if (!rank || rank.index < 4) return null;
+  return Math.min(5, Math.ceil(rank.index / 2));
+}
+
+/**
+ * Threshold for "started with low skills" in rags_to_riches pattern.
+ * Derived from skill system: total skills below the Green rank threshold
+ * across all 4 skills means the crew was essentially untrained at hire.
+ */
+const LOW_SKILL_THRESHOLD = SKILL_RANKS[1].minLevel * 4;
+
+/**
+ * Frontier distance thresholds derived from solar system geography.
+ * Mars orbit (~55M km) is the minimum for frontier status.
+ * Asteroid belt (~265M km) marks deep-space exploration.
+ * Jupiter system (~588M km) is the outer edge of the game world.
+ */
+const FRONTIER_MIN_KM = 50_000_000;
+const FRONTIER_DEEP_KM = 250_000_000;
+const FRONTIER_OUTER_KM = 550_000_000;
 
 // ── Crew Patterns ───────────────────────────────────────────────
 
@@ -65,6 +121,7 @@ const survivorPattern: ArcPattern = {
 
 /**
  * Rags to Riches: Hired with low skills, achieved a named rank.
+ * Uses SKILL_RANKS thresholds rather than hardcoded values.
  */
 const ragsToRichesPattern: ArcPattern = {
   arcType: 'rags_to_riches',
@@ -75,19 +132,12 @@ const ragsToRichesPattern: ArcPattern = {
     if (!hired || milestones.length === 0) return null;
 
     const startSkill = (hired.details.totalSkills as number) ?? 0;
-    if (startSkill > 10) return null; // Must have started low
+    if (startSkill > LOW_SKILL_THRESHOLD) return null;
 
     const bestMilestone = milestones[milestones.length - 1];
     const endRank = (bestMilestone.details.newRank as string) ?? '';
 
-    const rankTiers: Record<string, number> = {
-      Competent: 2,
-      Proficient: 3,
-      Skilled: 4,
-      Expert: 4,
-      Master: 5,
-    };
-    const rating = rankTiers[endRank];
+    const rating = rankToRating(endRank);
     if (!rating) return null;
 
     return {
@@ -101,7 +151,7 @@ const ragsToRichesPattern: ArcPattern = {
 };
 
 /**
- * Old Reliable: Longest-serving crew with significant contract completions.
+ * Old Reliable: Longest-serving crew with significant variety of experiences.
  */
 const oldReliablePattern: ArcPattern = {
   arcType: 'old_reliable',
@@ -115,23 +165,15 @@ const oldReliablePattern: ArcPattern = {
     if (entries.some((e) => e.type === 'death')) return null;
 
     // Check for variety of experiences
-    const combatEntries = entries.filter(
-      (e) =>
-        e.type === 'combat_victory' ||
-        e.type === 'boarding_survived' ||
-        e.type === 'close_call' ||
-        e.type === 'negotiation_save'
+    const combatEntries = entries.filter((e) =>
+      COMBAT_EVENT_TYPES.includes(e.type)
     );
     const skillEntries = entries.filter((e) => e.type === 'skill_milestone');
 
     const totalExperiences = combatEntries.length + skillEntries.length;
     if (totalExperiences < 5) return null;
 
-    const totalSkills =
-      crew.skills.piloting +
-      crew.skills.mining +
-      crew.skills.commerce +
-      crew.skills.repairs;
+    const totalSkills = getTotalCrewSkills(crew);
 
     return {
       entries: [
@@ -379,6 +421,8 @@ const fromAshesPattern: ArcPattern = {
 
 /**
  * Frontier Pioneer: First ship to reach a distant location.
+ * Distance thresholds derived from the solar system geography:
+ *   Mars orbit (~55M km), Asteroid Belt (~265M km), Jupiter (~588M km).
  */
 const frontierPioneerPattern: ArcPattern = {
   arcType: 'frontier_pioneer',
@@ -395,10 +439,13 @@ const frontierPioneerPattern: ArcPattern = {
     });
 
     const distance = (farthest.details.distanceFromEarth as number) ?? 0;
-    // Only interesting for far locations (Mars+, ~55M km minimum)
-    if (distance < 50_000_000) return null;
+    if (distance < FRONTIER_MIN_KM) return null;
 
     const locationName = (farthest.details.locationName as string) ?? 'unknown';
+
+    // Rating from orbital band: Mars=2, Asteroid Belt=3, Jupiter+=4
+    const rating =
+      distance > FRONTIER_OUTER_KM ? 4 : distance > FRONTIER_DEEP_KM ? 3 : 2;
 
     return {
       entries: [farthest],
@@ -408,7 +455,7 @@ const frontierPioneerPattern: ArcPattern = {
         distanceFromEarth: Math.round(distance),
       },
       title: `Pioneer of ${locationName}`,
-      rating: distance > 500_000_000 ? 4 : distance > 200_000_000 ? 3 : 2,
+      rating,
     };
   },
 };

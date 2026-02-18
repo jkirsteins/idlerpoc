@@ -32,6 +32,7 @@ import { recordCrewDamage } from './crewDeath';
 import { getPilotingPoolEvasionBonus } from './masterySystem';
 import { emit } from './gameEvents';
 import { getTraitModifier } from './personalitySystem';
+import { getArcModifier } from './arcDetector';
 
 /**
  * Combat System
@@ -249,7 +250,7 @@ export function attemptNegotiation(ship: Ship): {
  * Calculate the ship's total defense score from equipment, crew, and mass.
  * All inputs from existing game systems.
  */
-export function calculateDefenseScore(ship: Ship): number {
+export function calculateDefenseScore(ship: Ship, gameData?: GameData): number {
   let defenseScore = 0;
 
   // 1. Point Defense equipment (only when powered)
@@ -292,6 +293,11 @@ export function calculateDefenseScore(ship: Ship): number {
 
     // Personality trait modifier: reckless +10%, meticulous -5%
     crewCombat *= getTraitModifier(crew, 'combat_attack');
+
+    // Arc modifier: crew with combat-related story arcs get a small bonus
+    if (gameData) {
+      crewCombat *= getArcModifier(gameData, crew.id, 'combat_attack');
+    }
 
     // Health modifier
     crewCombat *= crew.health / 100;
@@ -733,7 +739,7 @@ export function resolveEncounter(
   }
 
   // Step 3: Assess combat odds with variance
-  const baseDefense = calculateDefenseScore(ship);
+  const baseDefense = calculateDefenseScore(ship, gameData);
   const basePirateAttack =
     threatLevel * COMBAT_CONSTANTS.PIRATE_ATTACK_MULTIPLIER;
 

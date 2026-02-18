@@ -837,7 +837,8 @@ function applyShipTick(gameData: GameData, ship: Ship): boolean {
     const skillUps = applyPassiveTraining(
       ship,
       trainingMultiplier,
-      inactiveJobs
+      inactiveJobs,
+      gameData
     );
     if (skillUps.length > 0) {
       logSkillUps(

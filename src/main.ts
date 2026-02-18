@@ -1104,6 +1104,21 @@ const callbacks: RendererCallbacks = {
     }
   },
 
+  onDismissStory: (arcId: string) => {
+    if (state.phase !== 'playing') return;
+    dismissArc(state.gameData, arcId);
+    saveGame(state.gameData);
+  },
+
+  onShareStory: (arcId: string) => {
+    if (state.phase !== 'playing') return;
+    const arc = state.gameData.stories?.detectedArcs.find(
+      (a) => a.id === arcId
+    );
+    if (!arc) return;
+    void shareStory(arc);
+  },
+
   onTransferCrew: (crewId: string, fromShipId: string, toShipId: string) => {
     if (state.phase !== 'playing') return;
 
@@ -1307,22 +1322,6 @@ const callbacks: RendererCallbacks = {
       saveGame(state.gameData);
       renderApp();
     }
-  },
-
-  onDismissStory: (arcId: string) => {
-    if (state.phase !== 'playing') return;
-    dismissArc(state.gameData, arcId);
-    saveGame(state.gameData);
-    renderApp();
-  },
-
-  onShareStory: (arcId: string) => {
-    if (state.phase !== 'playing') return;
-    const arc = state.gameData.stories?.detectedArcs.find(
-      (a) => a.id === arcId
-    );
-    if (!arc) return;
-    void shareStory(arc);
   },
 };
 

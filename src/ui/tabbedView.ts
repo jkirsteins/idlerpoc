@@ -13,9 +13,10 @@ import { createFinancesTab } from './financesTab';
 import { createLogTab } from './logTab';
 import { createSettingsTab } from './settingsTab';
 import { createGamepediaTab } from './gamepediaTab';
-import { createStoriesTab } from './storiesTab';
 import { createStationTab } from './stationTab';
 import { createNavigationView } from './navigationView';
+import { createStoriesTab } from './storiesTab';
+import { getActiveArcs } from '../arcDetector';
 import { formatCredits } from '../formatting';
 import { calculateDailyLedger } from '../dailyLedger';
 import {
@@ -32,6 +33,9 @@ let creditDeltaTimeout: number | null = null;
 
 // Track last viewed log entry count for unread badge
 let lastViewedLogCount = 0;
+
+// Track last seen stories count for new-stories badge
+let lastSeenStoriesCount = 0;
 
 export interface TabbedViewState {
   gameData: GameData;
@@ -55,6 +59,7 @@ export function createTabbedView(
   previousCredits = null;
   creditDeltaTimeout = null;
   lastViewedLogCount = 0;
+  lastSeenStoriesCount = 0;
 
   const container = document.createElement('div');
   container.className = 'tabbed-view';
@@ -359,6 +364,11 @@ export function createTabbedView(
 
   function updateTabBar(gameData: GameData) {
     const unreadCount = Math.max(0, gameData.log.length - lastViewedLogCount);
+    const currentStoriesCount = getActiveArcs(gameData).length;
+    const newStoriesCount = Math.max(
+      0,
+      currentStoriesCount - lastSeenStoriesCount
+    );
 
     for (const ref of tabButtonRefs) {
       if (ref.tab === currentTab) {
@@ -369,11 +379,7 @@ export function createTabbedView(
 
       let badgeCount = 0;
       if (ref.tab === 'log') badgeCount = unreadCount;
-      if (ref.tab === 'stories') {
-        const arcCount = gameData.stories?.detectedArcs.length ?? 0;
-        if (arcCount > 0 && currentTab !== 'stories') badgeCount = arcCount;
-      }
-
+      if (ref.tab === 'stories') badgeCount = newStoriesCount;
       if (badgeCount > 0) {
         ref.badge.textContent = badgeCount.toString();
         ref.badge.style.display = '';
@@ -730,6 +736,9 @@ export function createTabbedView(
 
     if (currentTab === 'log') {
       lastViewedLogCount = gameData.log.length;
+    }
+    if (currentTab === 'stories') {
+      lastSeenStoriesCount = getActiveArcs(gameData).length;
     }
 
     // Ensure the active tab exists (lazy creation on first visit)

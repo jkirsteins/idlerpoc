@@ -247,12 +247,6 @@ const NARRATIVE_TEMPLATES: Record<ArcType, TemplateFunc[]> = {
       return `Loss is part of the deep black. What matters is what comes after. The crew of ${ctx.actorName} chose to keep flying, and they haven't stopped since.`;
     },
   ],
-
-  merchant_prince: [
-    (ctx) => {
-      return `${ctx.actorName}'s ledger tells the story better than words: a trading empire built one contract at a time.`;
-    },
-  ],
 };
 
 // ── Public API ───────────────────────────────────────────────────

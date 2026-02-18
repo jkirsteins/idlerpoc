@@ -7,6 +7,8 @@ import type {
 } from './models';
 import { on } from './gameEvents';
 import type { GameEvent } from './gameEvents';
+import { COMBAT_EVENT_TYPES, getTotalCrewSkills } from './arcPatterns';
+import { SKILL_RANKS } from './skillRanks';
 
 /**
  * Chronicle System
@@ -115,22 +117,37 @@ function getShipLocationId(ship: Ship): string | undefined {
 }
 
 /**
+ * Mentor skill gap threshold: derived from one full rank span at the
+ * Competent level (SKILL_RANKS index 4 → 5 span = Able.minLevel - Competent.minLevel).
+ * This means two crew need roughly one rank of skill difference to form a
+ * mentor relationship rather than battle_brother.
+ */
+const MENTOR_SKILL_GAP = SKILL_RANKS[5].minLevel - SKILL_RANKS[4].minLevel; // 10
+
+/**
+ * Base bond gain for non-combat shared events.
+ * Combat events scale from the entry's emotional weight instead.
+ */
+const BASE_BOND_GAIN = 5;
+
+/**
  * Update crew relationships when a chronicle-worthy event involves
  * multiple crew on the same ship.
+ *
+ * Bond gain is derived from event intensity: combat events use
+ * abs(emotionalWeight) × 3, while other events use BASE_BOND_GAIN.
  */
 function updateRelationships(
   ship: Ship,
   eventType: ChronicleEventType,
+  emotionalWeight: number,
   excludeCrewId?: string
 ): void {
-  const combatEvents: ChronicleEventType[] = [
-    'combat_victory',
-    'boarding_survived',
-    'close_call',
-    'negotiation_save',
-  ];
-  const isCombatEvent = combatEvents.includes(eventType);
-  const bondGain = isCombatEvent ? 10 : 5;
+  const isCombatEvent = COMBAT_EVENT_TYPES.includes(eventType);
+  // Combat bond gain scales with event drama; non-combat uses flat base
+  const bondGain = isCombatEvent
+    ? Math.max(BASE_BOND_GAIN, Math.abs(emotionalWeight) * 3)
+    : BASE_BOND_GAIN;
 
   if (ship.crew.length < 2) return;
 
@@ -157,17 +174,9 @@ function updateRelationships(
 
       // Update bond type based on thresholds
       if (rel.bond >= 50) {
-        const totalA =
-          crewA.skills.piloting +
-          crewA.skills.mining +
-          crewA.skills.commerce +
-          crewA.skills.repairs;
-        const totalB =
-          crewB.skills.piloting +
-          crewB.skills.mining +
-          crewB.skills.commerce +
-          crewB.skills.repairs;
-        if (Math.abs(totalA - totalB) > 20) {
+        const totalA = getTotalCrewSkills(crewA);
+        const totalB = getTotalCrewSkills(crewB);
+        if (Math.abs(totalA - totalB) > MENTOR_SKILL_GAP) {
           rel.bondType = 'mentor';
         } else {
           rel.bondType = 'battle_brother';
@@ -185,11 +194,7 @@ function handleCrewHired(gameData: GameData, event: GameEvent): void {
   if (event.type !== 'crew_hired') return;
   const { crew, ship, locationId } = event;
 
-  const totalSkills =
-    crew.skills.piloting +
-    crew.skills.mining +
-    crew.skills.commerce +
-    crew.skills.repairs;
+  const totalSkills = getTotalCrewSkills(crew);
 
   const entry = makeEntry({
     gameData,
@@ -216,11 +221,7 @@ function handleCrewDeath(gameData: GameData, event: GameEvent): void {
   const { crew, ship, cause } = event;
 
   const serviceDuration = gameData.gameTime - crew.hiredAt;
-  const totalSkills =
-    crew.skills.piloting +
-    crew.skills.mining +
-    crew.skills.commerce +
-    crew.skills.repairs;
+  const totalSkills = getTotalCrewSkills(crew);
 
   const entry = makeEntry({
     gameData,
@@ -404,7 +405,7 @@ function handleEncounterResolved(gameData: GameData, event: GameEvent): void {
         },
       });
       addShipChronicle(ship, shipEntry);
-      updateRelationships(ship, 'combat_victory');
+      updateRelationships(ship, 'combat_victory', 2);
       break;
     }
     case 'boarding': {
@@ -440,7 +441,7 @@ function handleEncounterResolved(gameData: GameData, event: GameEvent): void {
         },
       });
       addShipChronicle(ship, shipEntry);
-      updateRelationships(ship, 'boarding_survived');
+      updateRelationships(ship, 'boarding_survived', -2);
       break;
     }
     case 'fled': {
@@ -472,7 +473,7 @@ function handleEncounterResolved(gameData: GameData, event: GameEvent): void {
         details: { threatLevel: result.threatLevel },
       });
       addShipChronicle(ship, shipEntry);
-      updateRelationships(ship, 'close_call');
+      updateRelationships(ship, 'close_call', -1);
       break;
     }
     case 'negotiated': {
@@ -496,7 +497,7 @@ function handleEncounterResolved(gameData: GameData, event: GameEvent): void {
           addCrewChronicle(negotiator, entry);
         }
       }
-      updateRelationships(ship, 'negotiation_save');
+      updateRelationships(ship, 'negotiation_save', 1);
       break;
     }
     case 'evaded':

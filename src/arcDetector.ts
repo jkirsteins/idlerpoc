@@ -1,4 +1,4 @@
-import type { GameData, StoryArc, Ship } from './models';
+import type { GameData, StoryArc, ArcType, Ship } from './models';
 import { ALL_ARC_PATTERNS, type ArcMatch } from './arcPatterns';
 import { generateId } from './utils';
 
@@ -21,6 +21,33 @@ export const ARC_SCAN_INTERVAL = 480;
 
 /** Maximum detected arcs to retain */
 const MAX_ARCS = 30;
+
+/**
+ * Maximum dismissed arc keys to retain.
+ * Prevents unbounded growth from long playthroughs.
+ */
+const MAX_DISMISSED_IDS = 100;
+
+/**
+ * Arc type → gameplay effect mapping.
+ * Each active arc grants a small multiplier bonus (rating * 0.01, so 1-5%)
+ * to the associated effect. The bonus derives from the arc's rating, which
+ * itself is computed from chronicle event analysis — so this traces back to
+ * simulated gameplay events rather than being an arbitrary flat bonus.
+ */
+const ARC_EFFECT_MAP: Partial<
+  Record<ArcType, { effect: string; label: string }>
+> = {
+  survivor: { effect: 'health_recovery', label: 'Health recovery' },
+  rags_to_riches: { effect: 'training_speed', label: 'Training speed' },
+  old_reliable: { effect: 'training_speed', label: 'Training speed' },
+  legend_pilot: { effect: 'fuel_efficiency', label: 'Fuel efficiency' },
+  battle_brothers: { effect: 'combat_attack', label: 'Combat effectiveness' },
+  mentor_protege: { effect: 'training_speed', label: 'Training speed' },
+  lucky_ship: { effect: 'evasion', label: 'Evasion chance' },
+  from_ashes: { effect: 'training_speed', label: 'Crew training speed' },
+  iron_crew: { effect: 'combat_attack', label: 'Combat resolve' },
+};
 
 /**
  * Ensure the stories state object exists on gameData.
@@ -104,9 +131,6 @@ export function detectArcs(gameData: GameData): StoryArc[] {
     }
   }
 
-  // Also check deceased crew (no longer on any ship) — scan chronicles
-  // that were preserved. For now, we only scan living crew and active ships.
-
   // Add new arcs to the story state
   if (newArcs.length > 0) {
     stories.detectedArcs.push(...newArcs);
@@ -131,13 +155,13 @@ export function shouldRunArcScan(gameData: GameData): boolean {
   const stories = gameData.stories;
   if (!stories) return gameData.gameTime >= ARC_SCAN_INTERVAL;
 
-  return (
-    gameData.gameTime - stories.lastScanGameTime >= ARC_SCAN_INTERVAL * 180
-  );
+  return gameData.gameTime - stories.lastScanGameTime >= ARC_SCAN_INTERVAL;
 }
 
 /**
  * Dismiss an arc (player doesn't want to see it anymore).
+ * Prunes the dismissed list if it exceeds MAX_DISMISSED_IDS to prevent
+ * unbounded growth in long playthroughs.
  */
 export function dismissArc(gameData: GameData, arcId: string): void {
   const stories = ensureStories(gameData);
@@ -145,6 +169,12 @@ export function dismissArc(gameData: GameData, arcId: string): void {
   if (arc) {
     stories.dismissedArcIds.push(arcKey(arc));
     stories.detectedArcs = stories.detectedArcs.filter((a) => a.id !== arcId);
+
+    // Prune oldest dismissed entries if list grows too large
+    if (stories.dismissedArcIds.length > MAX_DISMISSED_IDS) {
+      stories.dismissedArcIds =
+        stories.dismissedArcIds.slice(-MAX_DISMISSED_IDS);
+    }
   }
 }
 
@@ -163,6 +193,37 @@ export function getActiveArcs(gameData: GameData): StoryArc[] {
 export function getFeaturedArc(gameData: GameData): StoryArc | null {
   const arcs = getActiveArcs(gameData);
   return arcs.length > 0 ? arcs[0] : null;
+}
+
+/**
+ * Get a gameplay multiplier for a specific effect from active story arcs
+ * on a given actor (crew member or ship).
+ *
+ * Returns a multiplier (e.g. 1.03 for +3%). The bonus per arc is
+ * `rating * 0.01` — a 3-star arc gives +3%, a 5-star gives +5%.
+ * Rating itself derives from chronicle event analysis, so the bonus
+ * traces back to simulated gameplay events.
+ *
+ * Multiple arcs of different types with the same effect stack additively.
+ */
+export function getArcModifier(
+  gameData: GameData,
+  actorId: string,
+  effect: string
+): number {
+  const stories = gameData.stories;
+  if (!stories) return 1.0;
+
+  let totalBonus = 0;
+  for (const arc of stories.detectedArcs) {
+    if (arc.actorId !== actorId) continue;
+    const mapping = ARC_EFFECT_MAP[arc.arcType];
+    if (mapping && mapping.effect === effect) {
+      totalBonus += arc.rating * 0.01;
+    }
+  }
+
+  return 1.0 + totalBonus;
 }
 
 // ── Helpers ──────────────────────────────────────────────────────
