@@ -38,6 +38,11 @@ import {
   getMiningRouteActionOptions,
   getSelectedMiningAction,
 } from '../miningRoute';
+import {
+  createActionRadioCards,
+  type ActionValue,
+  type ActionCardRefs,
+} from './actionRadioCards';
 export interface MiningPanelCallbacks {
   onStartMiningRoute: (sellLocationId: string, mineLocationId?: string) => void;
   onCancelMiningRoute: () => void;
@@ -73,15 +78,7 @@ interface MiningStatusRefs {
   activeRouteProfitSpan: HTMLSpanElement;
   goSellNowBtn: HTMLButtonElement;
   routeActionGroup: HTMLDivElement;
-  routeActionCards: Map<
-    'continue' | 'pause' | 'abandon',
-    {
-      card: HTMLLabelElement;
-      radio: HTMLInputElement;
-      labelEl: HTMLElement;
-      descEl: HTMLElement;
-    }
-  >;
+  routeActionCards: Map<ActionValue, ActionCardRefs>;
   setupRouteContainer: HTMLDivElement;
   setupRouteLabel: HTMLDivElement;
   noTradeMsg: HTMLDivElement;
@@ -279,49 +276,12 @@ export function createMiningPanel(callbacks: MiningPanelCallbacks): {
     activeRouteContainer.appendChild(goSellNowBtn);
 
     // Route action radio cards (continue / pause on sell / abandon on sell)
-    const routeActionGroup = document.createElement('div');
-    routeActionGroup.className = 'action-radio-group';
-    routeActionGroup.style.cssText = 'margin-top: 0.5rem; display: none;';
-    const routeActionCards = new Map<
-      'continue' | 'pause' | 'abandon',
-      {
-        card: HTMLLabelElement;
-        radio: HTMLInputElement;
-        labelEl: HTMLElement;
-        descEl: HTMLElement;
-      }
-    >();
-
-    const radioName = `mining-route-action-${Date.now()}`;
-    for (const value of ['continue', 'pause', 'abandon'] as const) {
-      const card = document.createElement('label');
-      card.className = 'action-radio-card action-radio-card--default';
-
-      const radio = document.createElement('input');
-      radio.type = 'radio';
-      radio.name = radioName;
-      radio.value = value;
-      radio.addEventListener('change', () => {
-        if (value === 'continue') cb.onSetMiningPendingAction(null);
-        else cb.onSetMiningPendingAction(value);
+    const { groupEl: routeActionGroup, cardRefs: routeActionCards } =
+      createActionRadioCards((action) => {
+        if (action === 'continue') cb.onSetMiningPendingAction(null);
+        else cb.onSetMiningPendingAction(action);
       });
-      card.appendChild(radio);
-
-      const textWrap = document.createElement('div');
-      textWrap.className = 'action-radio-text';
-
-      const labelEl = document.createElement('div');
-      labelEl.className = 'action-radio-label';
-      textWrap.appendChild(labelEl);
-
-      const descEl = document.createElement('div');
-      descEl.className = 'action-radio-desc';
-      textWrap.appendChild(descEl);
-
-      card.appendChild(textWrap);
-      routeActionGroup.appendChild(card);
-      routeActionCards.set(value, { card, radio, labelEl, descEl });
-    }
+    routeActionGroup.style.cssText = 'margin-top: 0.5rem; display: none;';
 
     activeRouteContainer.appendChild(routeActionGroup);
     routeSection.appendChild(activeRouteContainer);
