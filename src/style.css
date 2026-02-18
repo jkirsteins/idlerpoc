@@ -134,7 +134,7 @@ body {
 .swarm-layout {
   display: grid;
   grid-template-columns: 280px 1fr 50%;
-  grid-template-rows: auto 0 1fr auto;
+  grid-template-rows: auto auto 1fr auto;
   grid-template-areas:
     'header header header'
     'mobile-header mobile-header mobile-header'
@@ -3782,7 +3782,6 @@ button:disabled:hover {
   /* Swarm layout: hide right sidebar, 2-column */
   .swarm-layout {
     grid-template-columns: 240px 1fr;
-    grid-template-rows: auto 0 1fr auto;
     grid-template-areas:
       'header header'
       'mobile-header mobile-header'
@@ -3848,19 +3847,18 @@ button:disabled:hover {
     display: flex;
     grid-area: mobile-header;
     align-items: center;
-    gap: 12px;
     padding: 8px 12px;
     background: rgba(0, 0, 0, 0.4);
     border-radius: 0;
-    border-bottom: 1px solid #333;
+    border-bottom: 1px solid var(--border-color, #2a2a3a);
     flex-wrap: wrap;
     gap: 8px 12px;
   }
 
   .swarm-mobile-header .mobile-hamburger {
     background: transparent;
-    border: 1px solid #555;
-    color: #eee;
+    border: 1px solid var(--border-color, #2a2a3a);
+    color: var(--text-primary, #eee);
     font-size: 20px;
     padding: 10px 12px;
     border-radius: 4px;
@@ -3872,7 +3870,7 @@ button:disabled:hover {
 
   .swarm-mobile-header .mobile-hamburger:hover {
     background: rgba(255, 255, 255, 0.1);
-    border-color: #888;
+    border-color: var(--text-muted, #888);
   }
 
   .swarm-mobile-header .mobile-header-stat {
@@ -3884,22 +3882,22 @@ button:disabled:hover {
   }
 
   .swarm-mobile-header .mobile-header-label {
-    color: #888;
+    color: var(--text-muted, #888);
     font-size: 10px;
     font-weight: 600;
     text-transform: uppercase;
   }
 
   .swarm-mobile-header .mobile-header-value {
-    color: #4a9eff;
+    color: var(--accent-blue, #4a9eff);
     font-weight: 700;
     font-size: 13px;
   }
 
   .swarm-mobile-header .mobile-header-playpause {
     background: rgba(74, 158, 255, 0.2);
-    border: 1px solid #4a9eff;
-    color: #4a9eff;
+    border: 1px solid var(--accent-blue, #4a9eff);
+    color: var(--accent-blue, #4a9eff);
     font-size: 16px;
     padding: 10px 14px;
     border-radius: 4px;
@@ -3925,7 +3923,7 @@ button:disabled:hover {
   }
 
   .swarm-mobile-header .mobile-header-date {
-    color: #4a9eff;
+    color: var(--accent-blue, #4a9eff);
     font-size: 11px;
     font-weight: 600;
     white-space: nowrap;
@@ -3958,7 +3956,7 @@ button:disabled:hover {
     bottom: 0;
     width: 280px;
     max-width: 85vw;
-    background: #0d0d18;
+    background: var(--bg-container, #0d0d18);
     z-index: 9999;
     transform: translateX(-100%);
     transition: transform 0.3s ease;
@@ -3976,8 +3974,8 @@ button:disabled:hover {
     top: 12px;
     right: 12px;
     background: transparent;
-    border: 1px solid #555;
-    color: #aaa;
+    border: 1px solid var(--border-color, #2a2a3a);
+    color: var(--text-secondary, #aaa);
     font-size: 18px;
     padding: 8px 12px;
     border-radius: 4px;
@@ -3989,11 +3987,13 @@ button:disabled:hover {
 
   .swarm-drawer-close:hover {
     background: rgba(255, 255, 255, 0.1);
-    color: #eee;
+    color: var(--text-primary, #eee);
   }
 
   .swarm-drawer .left-sidebar {
-    display: flex !important;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
     max-height: none;
     background: transparent;
     padding: 0;

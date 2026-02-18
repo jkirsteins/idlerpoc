@@ -40,6 +40,34 @@ interface RendererState {
 }
 
 // ============================================================================
+// SHARED HELPERS
+// ============================================================================
+
+/** Compute the current year number from game time and home planet day length. */
+function getGameYear(gameData: GameData): number {
+  const homePlanet = gameData.planets.find(
+    (p) => p.id === gameData.homePlanetId
+  );
+  const asimovDayLength = homePlanet?.dayLengthTicks ?? 480;
+  return Math.floor(gameData.gameTime / asimovDayLength) + 1;
+}
+
+/** Compute year progress (0–1) from game time and home planet day length. */
+function getYearProgress(gameData: GameData): {
+  progress: number;
+  elapsedHours: number;
+} {
+  const homePlanet = gameData.planets.find(
+    (p) => p.id === gameData.homePlanetId
+  );
+  const asimovDayLength = homePlanet?.dayLengthTicks ?? 480;
+  const progress = (gameData.gameTime % asimovDayLength) / asimovDayLength;
+  const elapsedHours =
+    (gameData.gameTime % asimovDayLength) / SWARM_CONSTANTS.TICKS_PER_HOUR;
+  return { progress, elapsedHours };
+}
+
+// ============================================================================
 // MAIN RENDER FUNCTION - Mount Once
 // ============================================================================
 
@@ -69,14 +97,31 @@ export function render(
   const layout = document.createElement('div');
   layout.className = 'swarm-layout';
 
-  // Mount all components
+  // Mount all components — single sidebar instance shared between grid & drawer
   const header = createHeader(gameData, callbacks);
   const leftSidebar = createLeftSidebar(gameData);
   const mainPanel = createMainPanel(gameData, state, callbacks);
   const rightSidebar = createRightSidebar(gameData);
   const footer = createFooter(gameData, callbacks);
   const mobileHeader = createMobileHeader(gameData, callbacks);
-  const { drawer, overlay } = createMobileDrawer(gameData);
+
+  // Drawer overlay + container (inside layout for automatic cleanup)
+  const overlay = document.createElement('div');
+  overlay.className = 'swarm-drawer-overlay';
+
+  const drawerEl = document.createElement('div');
+  drawerEl.className = 'swarm-drawer';
+
+  const closeBtn = document.createElement('button');
+  closeBtn.className = 'swarm-drawer-close';
+  closeBtn.textContent = '\u2715'; // ✕
+  closeBtn.setAttribute('aria-label', 'Close sidebar');
+  drawerEl.appendChild(closeBtn);
+
+  // Drawer sidebar placeholder — sidebar el is reparented here on open
+  const drawerContent = document.createElement('div');
+  drawerContent.className = 'swarm-drawer-content';
+  drawerEl.appendChild(drawerContent);
 
   // Append all to layout (grid areas assigned via CSS class selectors)
   layout.appendChild(header.el);
@@ -85,30 +130,40 @@ export function render(
   layout.appendChild(mainPanel.el);
   layout.appendChild(rightSidebar.el);
   layout.appendChild(footer.el);
+  // Fixed-position elements work regardless of DOM ancestry
+  layout.appendChild(overlay);
+  layout.appendChild(drawerEl);
 
-  // Drawer and overlay are fixed-position, appended to body
-  document.body.appendChild(overlay);
-  document.body.appendChild(drawer.el);
+  // Helpers to open/close drawer — reparent sidebar el between grid and drawer
+  function openDrawer() {
+    drawerContent.appendChild(leftSidebar.el);
+    drawerEl.classList.add('open');
+    overlay.classList.add('open');
+  }
+
+  function closeDrawer() {
+    drawerEl.classList.remove('open');
+    overlay.classList.remove('open');
+    // Return sidebar to grid position (appendChild detaches from old parent)
+    layout.insertBefore(leftSidebar.el, mainPanel.el);
+  }
 
   // Wire hamburger to drawer
   mobileHeader.el
     .querySelector('.mobile-hamburger')
-    ?.addEventListener('click', () => {
-      drawer.el.classList.add('open');
-      overlay.classList.add('open');
-    });
+    ?.addEventListener('click', openDrawer);
 
-  overlay.addEventListener('click', () => {
-    drawer.el.classList.remove('open');
-    overlay.classList.remove('open');
-  });
+  overlay.addEventListener('click', closeDrawer);
+  closeBtn.addEventListener('click', closeDrawer);
 
-  drawer.el
-    .querySelector('.swarm-drawer-close')
-    ?.addEventListener('click', () => {
-      drawer.el.classList.remove('open');
-      overlay.classList.remove('open');
-    });
+  // Close drawer on breakpoint cross to prevent stale open state
+  const mobileQuery = window.matchMedia('(max-width: 900px)');
+  const handleBreakpointChange = (e: MediaQueryListEvent) => {
+    if (!e.matches) {
+      closeDrawer();
+    }
+  };
+  mobileQuery.addEventListener('change', handleBreakpointChange);
 
   container.appendChild(layout);
 
@@ -163,12 +218,11 @@ export function render(
     };
   }
 
-  // Store reference for updates
+  // Store reference for updates — single sidebar instance, no drawer duplication
   const update = (gd: GameData) => {
     header.update(gd);
     mobileHeader.update(gd);
     leftSidebar.update(gd);
-    drawer.update(gd);
     mainPanel.update(gd);
     rightSidebar.update(gd);
     footer.update(gd);
@@ -179,9 +233,8 @@ export function render(
   return {
     update,
     destroy: () => {
+      mobileQuery.removeEventListener('change', handleBreakpointChange);
       container.innerHTML = '';
-      overlay.remove();
-      drawer.el.remove();
       _currentLayout = null;
     },
   };
@@ -370,16 +423,9 @@ function createLeftSidebar(_gameData: GameData): Component {
   return {
     el,
     update: (gameData: GameData) => {
-      // Get home planet (Asimov) - year is based on its rotation
-      const homePlanet = gameData.planets.find(
-        (p) => p.id === gameData.homePlanetId
-      );
-      const asimovDayLength = homePlanet?.dayLengthTicks ?? 480;
-
-      // Year = orbits around Asimov (1 rotation = 1 year)
-      const years = Math.floor(gameData.gameTime / asimovDayLength) + 1;
-      const yearProgress =
-        (gameData.gameTime % asimovDayLength) / asimovDayLength;
+      const years = getGameYear(gameData);
+      const { progress: yearProgress, elapsedHours } =
+        getYearProgress(gameData);
 
       yearDisplay.textContent = `Year ${years}`;
       progressBar.style.width = `${yearProgress * 100}%`;
@@ -397,10 +443,7 @@ function createLeftSidebar(_gameData: GameData): Component {
       }
       progressBar.style.backgroundColor = color;
 
-      const elapsedTicksInYear = gameData.gameTime % asimovDayLength;
-      const elapsedHoursInYear =
-        elapsedTicksInYear / SWARM_CONSTANTS.TICKS_PER_HOUR;
-      dayLabel.textContent = `${(yearProgress * 100).toFixed(1)}% - ${elapsedHoursInYear.toFixed(1)}h elapsed`;
+      dayLabel.textContent = `${(yearProgress * 100).toFixed(1)}% - ${elapsedHours.toFixed(1)}h elapsed`;
 
       // Update swarm stats
       const aggregates = calculateSwarmAggregates(gameData.swarm);
@@ -1185,57 +1228,13 @@ function createMobileHeader(
   return {
     el,
     update: (gameData: GameData) => {
-      const homePlanet = gameData.planets.find(
-        (p) => p.id === gameData.homePlanetId
-      );
-      const asimovDayLength = homePlanet?.dayLengthTicks ?? 480;
-      const years = Math.floor(gameData.gameTime / asimovDayLength) + 1;
-
+      const years = getGameYear(gameData);
       const aggregates = calculateSwarmAggregates(gameData.swarm);
 
       yearValueEl.textContent = String(years);
       workersValueEl.textContent = String(aggregates.totalWorkers);
       queensValueEl.textContent = String(aggregates.totalQueens);
     },
-  };
-}
-
-// ============================================================================
-// MOBILE DRAWER - Sidebar content accessible via hamburger on mobile
-// ============================================================================
-
-function createMobileDrawer(gameData: GameData): {
-  drawer: Component;
-  overlay: HTMLElement;
-} {
-  // Overlay backdrop
-  const overlay = document.createElement('div');
-  overlay.className = 'swarm-drawer-overlay';
-
-  // Drawer container
-  const el = document.createElement('div');
-  el.className = 'swarm-drawer';
-
-  // Close button
-  const closeBtn = document.createElement('button');
-  closeBtn.className = 'swarm-drawer-close';
-  closeBtn.textContent = '\u2715'; // ✕
-  closeBtn.setAttribute('aria-label', 'Close sidebar');
-  el.appendChild(closeBtn);
-
-  // Clone left sidebar content into drawer
-  const drawerSidebar = createLeftSidebar(gameData);
-  drawerSidebar.el.classList.add('left-sidebar');
-  el.appendChild(drawerSidebar.el);
-
-  return {
-    drawer: {
-      el,
-      update: (gd: GameData) => {
-        drawerSidebar.update(gd);
-      },
-    },
-    overlay,
   };
 }
 
