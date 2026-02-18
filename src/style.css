@@ -203,6 +203,21 @@ body {
   padding-bottom: 0.5rem;
 }
 
+/* Map tab button — hidden on desktop where right sidebar is visible */
+.map-tab-button {
+  display: none;
+}
+
+/* Map tab inline container — gives the reparented sidebar proper height */
+.map-tab-inline .right-sidebar {
+  display: flex;
+  flex-direction: column;
+  border-left: none;
+  border-radius: 6px;
+  overflow: hidden;
+  height: min(500px, 60vh);
+}
+
 /* Mobile header bar - hidden on desktop, shown at <=900px */
 .swarm-mobile-header {
   grid-area: mobile-header;
@@ -3791,6 +3806,11 @@ button:disabled:hover {
 
   .swarm-layout > .right-sidebar {
     display: none;
+  }
+
+  /* Show Map tab button when right sidebar is hidden */
+  .map-tab-button {
+    display: inline-block;
   }
 }
 

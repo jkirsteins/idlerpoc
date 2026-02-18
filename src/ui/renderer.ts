@@ -33,7 +33,7 @@ export interface RendererCallbacks {
   onResetGame: () => void;
 }
 
-export type TabId = 'swarm' | 'planet' | 'system' | 'log';
+export type TabId = 'swarm' | 'planet' | 'system' | 'map' | 'log';
 
 interface RendererState {
   activeTab: TabId;
@@ -99,8 +99,13 @@ export function render(
   // Mount all components — single sidebar instance shared between grid & drawer
   const header = createHeader(gameData, callbacks);
   const leftSidebar = createLeftSidebar(gameData);
-  const mainPanel = createMainPanel(gameData, state, callbacks);
   const rightSidebar = createRightSidebar(gameData);
+  const mainPanel = createMainPanel(
+    gameData,
+    state,
+    callbacks,
+    rightSidebar.el
+  );
   const footer = createFooter(gameData, callbacks);
   const mobileHeader = createMobileHeader(gameData, callbacks);
 
@@ -474,7 +479,8 @@ function createLeftSidebar(_gameData: GameData): Component<TickSnapshot> {
 function createMainPanel(
   _gameData: GameData,
   state: RendererState,
-  callbacks: RendererCallbacks
+  callbacks: RendererCallbacks,
+  rightSidebarEl: HTMLElement
 ): Component {
   const el = document.createElement('main');
   el.className = 'main-panel';
@@ -489,6 +495,7 @@ function createMainPanel(
     { id: 'swarm', label: 'Swarm' },
     { id: 'planet', label: 'Planet' },
     { id: 'system', label: 'System' },
+    { id: 'map', label: 'Map' },
     { id: 'log', label: 'Log' },
   ];
 
@@ -527,6 +534,24 @@ function createMainPanel(
     contentContainer.appendChild(content);
   }
 
+  // Map tab holds the reparented right sidebar — styled for inline display
+  const mapTabContent = tabContents.get('map')!;
+  mapTabContent.className = 'map-tab-inline';
+  // The map tab button is hidden on desktop (right sidebar visible there)
+  const mapTabBtn = tabButtons.get('map')!;
+  mapTabBtn.className = 'map-tab-button';
+
+  // Reparent the right sidebar content into / out of the map tab
+  function syncMapTab(activeTab: TabId) {
+    if (activeTab === 'map') {
+      // Move right sidebar content into the map tab
+      if (!mapTabContent.contains(rightSidebarEl)) {
+        mapTabContent.appendChild(rightSidebarEl);
+        rightSidebarEl.style.display = '';
+      }
+    }
+  }
+
   // Now add onclick handlers that reference tabContents
   for (const { id } of tabs) {
     const btn = tabButtons.get(id);
@@ -547,6 +572,7 @@ function createMainPanel(
         for (const [tabId, content] of tabContents) {
           content.style.display = tabId === id ? 'block' : 'none';
         }
+        syncMapTab(id);
       };
     }
   }
@@ -563,10 +589,10 @@ function createMainPanel(
   return {
     el,
     update: (gameData: GameData) => {
-      // Update tab content based on active tab
+      // Update tab content based on active tab (skip 'map' — managed via reparenting)
       const activeTab = state.activeTab;
       for (const [id, content] of tabContents) {
-        if (id === activeTab) {
+        if (id === activeTab && id !== 'map') {
           content.innerHTML = getTabContent(id, gameData, callbacks);
         }
       }
@@ -586,10 +612,10 @@ function getTabContent(
       return createPlanetTabContent(gameData);
     case 'system':
       return createSystemTabContent(gameData);
+    case 'map':
+      return ''; // Map tab content managed via DOM reparenting, not innerHTML
     case 'log':
       return createLogTabContent(gameData);
-    default:
-      return '';
   }
 }
 
