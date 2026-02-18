@@ -126,6 +126,99 @@ body {
   margin-bottom: 20px;
 }
 
+/* ============================================================================
+   SWARM LAYOUT - 3-column grid (left sidebar | main | right sidebar)
+   Styles moved from inline JS so CSS media queries can override them.
+   ============================================================================ */
+
+.swarm-layout {
+  display: grid;
+  grid-template-columns: 280px 1fr 50%;
+  grid-template-rows: auto 0 1fr auto;
+  grid-template-areas:
+    'header header header'
+    'mobile-header mobile-header mobile-header'
+    'left main right'
+    'footer footer footer';
+  height: 100%;
+  background: var(--bg-void, #050508);
+  color: var(--text-primary, #e0e0e0);
+  font-family: var(--font-body, system-ui, sans-serif);
+}
+
+.swarm-layout > .left-sidebar {
+  grid-area: left;
+  background: var(--bg-panel, #0a0a12);
+  border-right: 1px solid var(--border-color, #2a2a3a);
+  padding: 1rem;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.swarm-layout > .right-sidebar {
+  grid-area: right;
+  background: var(--bg-panel, #0a0a12);
+  border-left: 1px solid var(--border-color, #2a2a3a);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.swarm-layout > .main-panel {
+  grid-area: main;
+  padding: 1rem;
+  overflow-y: auto;
+  background: var(--bg-void, #050508);
+  min-width: 0;
+}
+
+.swarm-header {
+  grid-area: header;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  background: var(--bg-panel, #0a0a12);
+  border-bottom: 1px solid var(--border-color, #2a2a3a);
+}
+
+.swarm-footer {
+  grid-area: footer;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  background: var(--bg-panel, #0a0a12);
+  border-top: 1px solid var(--border-color, #2a2a3a);
+}
+
+/* Swarm tab bar */
+.swarm-tab-bar {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+  border-bottom: 1px solid var(--border-color, #2a2a3a);
+  padding-bottom: 0.5rem;
+}
+
+/* Mobile header bar - hidden on desktop, shown at <=900px */
+.swarm-mobile-header {
+  grid-area: mobile-header;
+  display: none;
+}
+
+/* Mobile drawer overlay - hidden on desktop */
+.swarm-drawer-overlay {
+  display: none;
+}
+
+/* Mobile drawer - hidden on desktop */
+.swarm-drawer {
+  display: none;
+}
+
 /* Ship Capabilities Grid */
 .ship-capabilities-grid {
   display: grid;
@@ -3685,10 +3778,38 @@ button:disabled:hover {
   .ship-header {
     display: block;
   }
+
+  /* Swarm layout: hide right sidebar, 2-column */
+  .swarm-layout {
+    grid-template-columns: 240px 1fr;
+    grid-template-rows: auto 0 1fr auto;
+    grid-template-areas:
+      'header header'
+      'mobile-header mobile-header'
+      'left main'
+      'footer footer';
+  }
+
+  .swarm-layout > .right-sidebar {
+    display: none;
+  }
 }
 
 /* --- Small tablet / large phone: <= 900px --- */
 @media (max-width: 900px) {
+  /* Allow body to scroll on mobile */
+  body {
+    overflow: auto;
+    overflow-x: hidden;
+    height: auto;
+    min-height: 100vh;
+    padding: 0;
+  }
+
+  #app {
+    max-width: 100%;
+  }
+
   .game-content-grid {
     grid-template-columns: 1fr;
   }
@@ -3697,6 +3818,236 @@ button:disabled:hover {
   .left-sidebar,
   .right-sidebar {
     display: none;
+  }
+
+  /* Swarm layout: single column, hide sidebars, show mobile header */
+  .swarm-layout {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto 1fr auto;
+    grid-template-areas:
+      'header'
+      'mobile-header'
+      'main'
+      'footer';
+    height: auto;
+    min-height: 100vh;
+  }
+
+  .swarm-layout > .left-sidebar,
+  .swarm-layout > .right-sidebar {
+    display: none;
+  }
+
+  .swarm-layout > .main-panel {
+    max-height: none;
+    overflow-y: visible;
+  }
+
+  /* Show the mobile header bar in swarm layout */
+  .swarm-mobile-header {
+    display: flex;
+    grid-area: mobile-header;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 12px;
+    background: rgba(0, 0, 0, 0.4);
+    border-radius: 0;
+    border-bottom: 1px solid #333;
+    flex-wrap: wrap;
+    gap: 8px 12px;
+  }
+
+  .swarm-mobile-header .mobile-hamburger {
+    background: transparent;
+    border: 1px solid #555;
+    color: #eee;
+    font-size: 20px;
+    padding: 10px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    flex-shrink: 0;
+    line-height: 1;
+    min-height: 44px;
+  }
+
+  .swarm-mobile-header .mobile-hamburger:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: #888;
+  }
+
+  .swarm-mobile-header .mobile-header-stat {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
+    white-space: nowrap;
+  }
+
+  .swarm-mobile-header .mobile-header-label {
+    color: #888;
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+  }
+
+  .swarm-mobile-header .mobile-header-value {
+    color: #4a9eff;
+    font-weight: 700;
+    font-size: 13px;
+  }
+
+  .swarm-mobile-header .mobile-header-playpause {
+    background: rgba(74, 158, 255, 0.2);
+    border: 1px solid #4a9eff;
+    color: #4a9eff;
+    font-size: 16px;
+    padding: 10px 14px;
+    border-radius: 4px;
+    cursor: pointer;
+    flex-shrink: 0;
+    line-height: 1;
+    min-height: 44px;
+    margin-left: auto;
+  }
+
+  .swarm-mobile-header .mobile-header-playpause:hover {
+    background: rgba(74, 158, 255, 0.3);
+  }
+
+  .swarm-mobile-header .mobile-header-info-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-basis: 100%;
+    padding-top: 6px;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    gap: 8px;
+  }
+
+  .swarm-mobile-header .mobile-header-date {
+    color: #4a9eff;
+    font-size: 11px;
+    font-weight: 600;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  /* Swarm mobile drawer overlay */
+  .swarm-drawer-overlay {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    z-index: 9998;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+  }
+
+  .swarm-drawer-overlay.open {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  /* Swarm mobile drawer */
+  .swarm-drawer {
+    display: block;
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 280px;
+    max-width: 85vw;
+    background: #0d0d18;
+    z-index: 9999;
+    transform: translateX(-100%);
+    transition: transform 0.3s ease;
+    overflow-y: auto;
+    padding: 16px;
+    box-shadow: 4px 0 20px rgba(0, 0, 0, 0.5);
+  }
+
+  .swarm-drawer.open {
+    transform: translateX(0);
+  }
+
+  .swarm-drawer-close {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    background: transparent;
+    border: 1px solid #555;
+    color: #aaa;
+    font-size: 18px;
+    padding: 8px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    line-height: 1;
+    z-index: 1;
+    min-height: 44px;
+  }
+
+  .swarm-drawer-close:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: #eee;
+  }
+
+  .swarm-drawer .left-sidebar {
+    display: flex !important;
+    max-height: none;
+    background: transparent;
+    padding: 0;
+    margin-top: 36px;
+    border-right: none;
+  }
+
+  /* Swarm header: compact on mobile */
+  .swarm-header {
+    padding: 0.5rem 0.75rem;
+  }
+
+  .swarm-header h1 {
+    font-size: 1rem;
+  }
+
+  .swarm-header img {
+    height: 28px;
+  }
+
+  /* Swarm footer: hide on mobile (space savings) */
+  .swarm-footer {
+    display: none;
+  }
+
+  /* Swarm main panel: prevent horizontal overflow, allow table scroll */
+  .swarm-layout > .main-panel {
+    overflow-x: hidden;
+  }
+
+  .swarm-layout > .main-panel table {
+    font-size: 0.78rem;
+  }
+
+  /* Swarm main panel tabs: horizontal scroll, touch targets */
+  .swarm-tab-bar {
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    flex-wrap: nowrap;
+    gap: 4px;
+  }
+
+  .swarm-tab-bar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .swarm-tab-bar button {
+    min-height: 44px;
+    padding: 0.5rem 1rem;
+    flex-shrink: 0;
+    white-space: nowrap;
+    font-size: 13px;
   }
 
   /* Show mobile header bar */
@@ -4254,6 +4605,46 @@ button:disabled:hover {
 
 /* --- Phone: <= 600px --- */
 @media (max-width: 600px) {
+  /* Swarm layout: tighter padding */
+  .swarm-header {
+    padding: 0.4rem 0.5rem;
+  }
+
+  .swarm-header h1 {
+    font-size: 0.9rem;
+  }
+
+  .swarm-header img {
+    height: 24px;
+  }
+
+  .swarm-layout > .main-panel {
+    padding: 0.5rem;
+  }
+
+  .swarm-mobile-header {
+    gap: 6px 8px;
+    padding: 6px 8px;
+  }
+
+  .swarm-mobile-header .mobile-header-stat {
+    font-size: 11px;
+  }
+
+  .swarm-mobile-header .mobile-header-value {
+    font-size: 12px;
+  }
+
+  .swarm-mobile-header .mobile-header-info-row {
+    font-size: 10px;
+    padding-top: 4px;
+    gap: 6px;
+  }
+
+  .swarm-mobile-header .mobile-header-date {
+    font-size: 10px;
+  }
+
   .getting-started-banner {
     flex-wrap: wrap;
     gap: 8px;

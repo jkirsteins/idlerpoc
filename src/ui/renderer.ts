@@ -65,22 +65,9 @@ export function render(
   // Clear container once on initial mount
   container.innerHTML = '';
 
-  // Create main layout container
+  // Create main layout container (styles in style.css for responsive overrides)
   const layout = document.createElement('div');
   layout.className = 'swarm-layout';
-  layout.style.cssText = `
-    display: grid;
-    grid-template-columns: 280px 1fr 50%;
-    grid-template-rows: auto 1fr auto;
-    grid-template-areas:
-      'header header header'
-      'left main right'
-      'footer footer footer';
-    height: 100%;
-    background: var(--bg-void, #050508);
-    color: var(--text-primary, #e0e0e0);
-    font-family: var(--font-body, system-ui, sans-serif);
-  `;
 
   // Mount all components
   const header = createHeader(gameData, callbacks);
@@ -88,20 +75,40 @@ export function render(
   const mainPanel = createMainPanel(gameData, state, callbacks);
   const rightSidebar = createRightSidebar(gameData);
   const footer = createFooter(gameData, callbacks);
+  const mobileHeader = createMobileHeader(gameData, callbacks);
+  const { drawer, overlay } = createMobileDrawer(gameData);
 
-  // Set grid areas
-  header.el.style.gridArea = 'header';
-  leftSidebar.el.style.gridArea = 'left';
-  mainPanel.el.style.gridArea = 'main';
-  rightSidebar.el.style.gridArea = 'right';
-  footer.el.style.gridArea = 'footer';
-
-  // Append all to layout
+  // Append all to layout (grid areas assigned via CSS class selectors)
   layout.appendChild(header.el);
+  layout.appendChild(mobileHeader.el);
   layout.appendChild(leftSidebar.el);
   layout.appendChild(mainPanel.el);
   layout.appendChild(rightSidebar.el);
   layout.appendChild(footer.el);
+
+  // Drawer and overlay are fixed-position, appended to body
+  document.body.appendChild(overlay);
+  document.body.appendChild(drawer.el);
+
+  // Wire hamburger to drawer
+  mobileHeader.el
+    .querySelector('.mobile-hamburger')
+    ?.addEventListener('click', () => {
+      drawer.el.classList.add('open');
+      overlay.classList.add('open');
+    });
+
+  overlay.addEventListener('click', () => {
+    drawer.el.classList.remove('open');
+    overlay.classList.remove('open');
+  });
+
+  drawer.el
+    .querySelector('.swarm-drawer-close')
+    ?.addEventListener('click', () => {
+      drawer.el.classList.remove('open');
+      overlay.classList.remove('open');
+    });
 
   container.appendChild(layout);
 
@@ -159,7 +166,9 @@ export function render(
   // Store reference for updates
   const update = (gd: GameData) => {
     header.update(gd);
+    mobileHeader.update(gd);
     leftSidebar.update(gd);
+    drawer.update(gd);
     mainPanel.update(gd);
     rightSidebar.update(gd);
     footer.update(gd);
@@ -171,6 +180,8 @@ export function render(
     update,
     destroy: () => {
       container.innerHTML = '';
+      overlay.remove();
+      drawer.el.remove();
       _currentLayout = null;
     },
   };
@@ -185,14 +196,7 @@ function createHeader(
   _callbacks: RendererCallbacks
 ): Component {
   const el = document.createElement('header');
-  el.style.cssText = `
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 0.75rem 1rem;
-    background: var(--bg-panel, #0a0a12);
-    border-bottom: 1px solid var(--border-color, #2a2a3a);
-  `;
+  el.className = 'swarm-header';
 
   // Logo
   const logoContainer = document.createElement('div');
@@ -247,15 +251,6 @@ function createHeader(
 function createLeftSidebar(_gameData: GameData): Component {
   const el = document.createElement('aside');
   el.className = 'left-sidebar';
-  el.style.cssText = `
-    background: var(--bg-panel, #0a0a12);
-    border-right: 1px solid var(--border-color, #2a2a3a);
-    padding: 1rem;
-    overflow-y: auto;
-    display: flex;
-    flex-direction: column;
-    gap: 1.5rem;
-  `;
 
   // Day/Year Display Section
   const timeSection = document.createElement('div');
@@ -445,21 +440,10 @@ function createMainPanel(
 ): Component {
   const el = document.createElement('main');
   el.className = 'main-panel';
-  el.style.cssText = `
-    padding: 1rem;
-    overflow-y: auto;
-    background: var(--bg-void, #050508);
-  `;
 
   // Tab buttons container
   const tabsContainer = document.createElement('div');
-  tabsContainer.style.cssText = `
-    display: flex;
-    gap: 0.5rem;
-    margin-bottom: 1rem;
-    border-bottom: 1px solid var(--border-color, #2a2a3a);
-    padding-bottom: 0.5rem;
-  `;
+  tabsContainer.className = 'swarm-tab-bar';
 
   const tabButtons = new Map<TabId, HTMLButtonElement>();
 
@@ -938,13 +922,6 @@ type MapViewMode = 'system' | 'local' | 'planet';
 function createRightSidebar(gameData: GameData): Component {
   const el = document.createElement('aside');
   el.className = 'right-sidebar';
-  el.style.cssText = `
-    background: var(--bg-panel, #0a0a12);
-    border-left: 1px solid var(--border-color, #2a2a3a);
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
-  `;
 
   // View state
   let viewMode: MapViewMode = 'system';
@@ -1128,14 +1105,7 @@ function createFooter(
   _callbacks: RendererCallbacks
 ): Component {
   const el = document.createElement('footer');
-  el.style.cssText = `
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    padding: 0.75rem 1rem;
-    background: var(--bg-panel, #0a0a12);
-    border-top: 1px solid var(--border-color, #2a2a3a);
-  `;
+  el.className = 'swarm-footer';
 
   // Center: Status
   const status = document.createElement('div');
@@ -1147,6 +1117,125 @@ function createFooter(
   return {
     el,
     update: (_gameData: GameData) => {},
+  };
+}
+
+// ============================================================================
+// MOBILE HEADER COMPONENT - Glance-level stats for <=900px
+// ============================================================================
+
+function createMobileHeader(
+  _gameData: GameData,
+  callbacks: RendererCallbacks
+): Component {
+  const el = document.createElement('div');
+  el.className = 'swarm-mobile-header';
+
+  // Hamburger button
+  const hamburger = document.createElement('button');
+  hamburger.className = 'mobile-hamburger';
+  hamburger.textContent = '\u2630'; // ☰
+  hamburger.setAttribute('aria-label', 'Open sidebar');
+  el.appendChild(hamburger);
+
+  // Year stat
+  const yearStat = document.createElement('div');
+  yearStat.className = 'mobile-header-stat';
+  yearStat.innerHTML =
+    '<span class="mobile-header-label">Year</span>' +
+    '<span class="mobile-header-value">1</span>';
+  el.appendChild(yearStat);
+
+  // Workers stat
+  const workersStat = document.createElement('div');
+  workersStat.className = 'mobile-header-stat';
+  workersStat.innerHTML =
+    '<span class="mobile-header-label">Workers</span>' +
+    '<span class="mobile-header-value">0</span>';
+  el.appendChild(workersStat);
+
+  // Queens stat
+  const queensStat = document.createElement('div');
+  queensStat.className = 'mobile-header-stat';
+  queensStat.innerHTML =
+    '<span class="mobile-header-label">Queens</span>' +
+    '<span class="mobile-header-value">0</span>';
+  el.appendChild(queensStat);
+
+  // Play/Pause button
+  const playPause = document.createElement('button');
+  playPause.className = 'mobile-header-playpause';
+  playPause.textContent = '\u23F8'; // ⏸
+  playPause.setAttribute('aria-label', 'Toggle pause');
+  playPause.addEventListener('click', () => {
+    callbacks.onTogglePause();
+  });
+  el.appendChild(playPause);
+
+  const yearValueEl = yearStat.querySelector(
+    '.mobile-header-value'
+  ) as HTMLElement;
+  const workersValueEl = workersStat.querySelector(
+    '.mobile-header-value'
+  ) as HTMLElement;
+  const queensValueEl = queensStat.querySelector(
+    '.mobile-header-value'
+  ) as HTMLElement;
+
+  return {
+    el,
+    update: (gameData: GameData) => {
+      const homePlanet = gameData.planets.find(
+        (p) => p.id === gameData.homePlanetId
+      );
+      const asimovDayLength = homePlanet?.dayLengthTicks ?? 480;
+      const years = Math.floor(gameData.gameTime / asimovDayLength) + 1;
+
+      const aggregates = calculateSwarmAggregates(gameData.swarm);
+
+      yearValueEl.textContent = String(years);
+      workersValueEl.textContent = String(aggregates.totalWorkers);
+      queensValueEl.textContent = String(aggregates.totalQueens);
+    },
+  };
+}
+
+// ============================================================================
+// MOBILE DRAWER - Sidebar content accessible via hamburger on mobile
+// ============================================================================
+
+function createMobileDrawer(gameData: GameData): {
+  drawer: Component;
+  overlay: HTMLElement;
+} {
+  // Overlay backdrop
+  const overlay = document.createElement('div');
+  overlay.className = 'swarm-drawer-overlay';
+
+  // Drawer container
+  const el = document.createElement('div');
+  el.className = 'swarm-drawer';
+
+  // Close button
+  const closeBtn = document.createElement('button');
+  closeBtn.className = 'swarm-drawer-close';
+  closeBtn.textContent = '\u2715'; // ✕
+  closeBtn.setAttribute('aria-label', 'Close sidebar');
+  el.appendChild(closeBtn);
+
+  // Clone left sidebar content into drawer
+  const drawerSidebar = createLeftSidebar(gameData);
+  drawerSidebar.el.classList.add('left-sidebar');
+  el.appendChild(drawerSidebar.el);
+
+  return {
+    drawer: {
+      el,
+      update: (gd: GameData) => {
+        drawerSidebar.update(gd);
+      },
+    },
+    overlay,
   };
 }
 
