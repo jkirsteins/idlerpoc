@@ -1019,6 +1019,8 @@ function backfillMiningData(gameData: GameData): void {
     ];
 
     // Backfill miningRoute
+    // (pendingAction?: 'pause' | 'abandon' and status: 'paused' added later;
+    //  both are additive/optional — no explicit backfill needed)
     if (ship.miningRoute === undefined) {
       ship.miningRoute = null;
     }

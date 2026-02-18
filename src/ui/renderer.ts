@@ -107,6 +107,9 @@ export interface RendererCallbacks {
   onSellAllOre: () => void;
   onStartMiningRoute: (sellLocationId: string) => void;
   onCancelMiningRoute: () => void;
+  onGoSellNow: () => void;
+  onSetMiningPendingAction: (action: 'pause' | 'abandon' | null) => void;
+  onResumeMiningRoute: () => void;
   onSelectMiningOre: (oreId: string | null) => void;
   onSpendPoolXp?: (
     crewId: string,
@@ -433,6 +436,9 @@ function mountPlayingLayout(
       onSellAllOre: callbacks.onSellAllOre,
       onStartMiningRoute: callbacks.onStartMiningRoute,
       onCancelMiningRoute: callbacks.onCancelMiningRoute,
+      onGoSellNow: callbacks.onGoSellNow,
+      onSetMiningPendingAction: callbacks.onSetMiningPendingAction,
+      onResumeMiningRoute: callbacks.onResumeMiningRoute,
       onSelectMiningOre: callbacks.onSelectMiningOre,
       onSpendPoolXp: callbacks.onSpendPoolXp,
       onImportState: callbacks.onImportState,

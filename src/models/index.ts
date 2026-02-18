@@ -403,10 +403,11 @@ export interface ActiveContract {
 export interface MiningRoute {
   mineLocationId: string; // Asteroid belt / mine location
   sellLocationId: string; // Trade station to sell ore
-  status: 'mining' | 'selling' | 'returning'; // Current phase
+  status: 'mining' | 'selling' | 'returning' | 'paused'; // Current phase
   totalTrips: number; // Round-trips completed
   totalCreditsEarned: number; // Lifetime ore sale earnings
   assignedAt: number; // gameTime when route was set up
+  pendingAction?: 'pause' | 'abandon'; // Deferred action — applied on next sell arrival
 }
 
 export type LogEntryType =

@@ -62,12 +62,26 @@ function getShipActivity(ship: Ship, gd: GameData): ShipActivity {
       (l) => l.id === ship.miningRoute!.mineLocationId
     );
     const mineName = mineLocation?.name ?? ship.miningRoute.mineLocationId;
+    const pendingSuffix =
+      ship.miningRoute.pendingAction === 'pause'
+        ? ' — pausing'
+        : ship.miningRoute.pendingAction === 'abandon'
+          ? ' — abandoning'
+          : '';
     if (phase === 'mining') {
-      return { label: `Mining at ${mineName}`, color: '#ffd700' };
+      return {
+        label: `Mining at ${mineName}${pendingSuffix}`,
+        color: '#ffd700',
+      };
     } else if (phase === 'selling') {
-      return { label: 'Mining (selling ore)', color: '#ffd700' };
+      return {
+        label: `Mining (selling ore)${pendingSuffix}`,
+        color: '#ffd700',
+      };
+    } else if (phase === 'paused') {
+      return { label: 'Mining — paused', color: '#ffa500' };
     } else {
-      return { label: 'Mining (returning)', color: '#ffd700' };
+      return { label: `Mining (returning)${pendingSuffix}`, color: '#ffd700' };
     }
   }
 
@@ -121,6 +135,8 @@ function getShipActivityConcise(ship: Ship, _gd: GameData): ShipActivity {
       return { label: 'Mining', color: '#ffd700' };
     } else if (phase === 'selling') {
       return { label: 'Selling', color: '#4ade80' };
+    } else if (phase === 'paused') {
+      return { label: 'Paused', color: '#ffa500' };
     } else {
       return { label: 'Returning', color: '#ffa500' };
     }

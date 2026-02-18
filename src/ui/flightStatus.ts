@@ -14,13 +14,12 @@ import {
   getThreatLevel,
   getThreatNarrative,
 } from '../encounterSystem';
+import {
+  getMiningRouteActionOptions,
+  getSelectedMiningAction,
+} from '../miningRoute';
 import type { Component } from './component';
-
-// Radio-group selection values (shared with workTab)
-type ActiveAction = 'continue' | 'pause' | 'abandon';
-
-// Unique radio-group name counter to avoid conflicts between instances
-let radioGroupCounter = 0;
+import { createActionRadioCards, type ActionValue } from './actionRadioCards';
 
 /**
  * Callbacks for station-arrival actions (continue/pause/abandon).
@@ -29,15 +28,7 @@ export interface FlightStatusCallbacks {
   onContinue: () => void;
   onPause: () => void;
   onAbandon: () => void;
-}
-
-// ── Refs for radio cards ──
-interface RadioCardRefs {
-  card: HTMLLabelElement;
-  radio: HTMLInputElement;
-  labelEl: HTMLElement;
-  descEl: HTMLElement;
-  warnEl: HTMLElement;
+  onSetMiningPendingAction: (action: 'pause' | 'abandon' | null) => void;
 }
 
 /**
@@ -116,53 +107,28 @@ export function createFlightStatusComponent(
   container.appendChild(flightSection);
 
   // ── Station action radio group (stable refs, patched in-place) ──
-  const radioGroupName = `flight-action-${++radioGroupCounter}`;
-  const radioGroupEl = document.createElement('div');
-  radioGroupEl.className = 'action-radio-group';
-  radioGroupEl.style.display = 'none';
-  const radioCardRefs = new Map<ActiveAction, RadioCardRefs>();
-
-  for (const value of ['continue', 'pause', 'abandon'] as ActiveAction[]) {
-    const card = document.createElement('label');
-    card.className = 'action-radio-card action-radio-card--default';
-
-    const radio = document.createElement('input');
-    radio.type = 'radio';
-    radio.name = radioGroupName;
-    radio.value = value;
-    radio.addEventListener('change', () => handleRadioSelect(value));
-    card.appendChild(radio);
-
-    const textWrap = document.createElement('div');
-    textWrap.className = 'action-radio-text';
-
-    const labelEl = document.createElement('div');
-    labelEl.className = 'action-radio-label';
-    textWrap.appendChild(labelEl);
-
-    const descEl = document.createElement('div');
-    descEl.className = 'action-radio-desc';
-    textWrap.appendChild(descEl);
-
-    const warnEl = document.createElement('div');
-    warnEl.className = 'action-radio-warn';
-    warnEl.style.display = 'none';
-    textWrap.appendChild(warnEl);
-
-    card.appendChild(textWrap);
-    radioGroupEl.appendChild(card);
-    radioCardRefs.set(value, { card, radio, labelEl, descEl, warnEl });
-  }
-
+  const { groupEl: radioGroupEl, cardRefs: radioCardRefs } =
+    createActionRadioCards(handleRadioSelect);
   container.appendChild(radioGroupEl);
 
-  function handleRadioSelect(action: ActiveAction) {
-    if (action === 'continue') {
-      callbacks.onContinue();
-    } else if (action === 'pause') {
-      callbacks.onPause();
-    } else if (action === 'abandon') {
-      callbacks.onAbandon();
+  /** Which system owns the radio group, derived from update(). */
+  let radioContext: 'contract' | 'mining' | 'hidden' = 'hidden';
+
+  function handleRadioSelect(action: ActionValue) {
+    if (radioContext === 'mining') {
+      if (action === 'continue') {
+        callbacks.onSetMiningPendingAction(null);
+      } else {
+        callbacks.onSetMiningPendingAction(action);
+      }
+    } else if (radioContext === 'contract') {
+      if (action === 'continue') {
+        callbacks.onContinue();
+      } else if (action === 'pause') {
+        callbacks.onPause();
+      } else if (action === 'abandon') {
+        callbacks.onAbandon();
+      }
     }
   }
 
@@ -280,19 +246,19 @@ export function createFlightStatusComponent(
     }
   }
 
-  // ── Update: radio group ──
-  function updateRadioGroup(ship: Ship) {
+  // ── Update: radio group (contract) ──
+  function updateRadioGroupContract(ship: Ship) {
     const activeContract = ship.activeContract;
     if (!activeContract) return;
 
-    const selectedAction: ActiveAction = activeContract.abandonRequested
+    const selectedAction: ActionValue = activeContract.abandonRequested
       ? 'abandon'
       : activeContract.paused
         ? 'pause'
         : 'continue';
 
     const optionData: Record<
-      ActiveAction,
+      ActionValue,
       { label: string; desc: string; warn?: string; style: string }
     > = {
       continue: {
@@ -315,6 +281,28 @@ export function createFlightStatusComponent(
       },
     };
 
+    applyRadioData(optionData, selectedAction);
+  }
+
+  // ── Update: radio group (mining route) ──
+  function updateRadioGroupMining(ship: Ship) {
+    const route = ship.miningRoute;
+    if (!route) return;
+
+    const selectedAction: ActionValue = getSelectedMiningAction(route);
+    const optionData = getMiningRouteActionOptions(route);
+
+    applyRadioData(optionData, selectedAction);
+  }
+
+  /** Apply option data to the shared radio card elements. */
+  function applyRadioData(
+    optionData: Record<
+      ActionValue,
+      { label: string; desc: string; warn?: string; style: string }
+    >,
+    selectedAction: ActionValue
+  ) {
     for (const [action, refs] of radioCardRefs) {
       const data = optionData[action];
       const isSelected = selectedAction === action;
@@ -348,22 +336,32 @@ export function createFlightStatusComponent(
       flightSection.style.display = 'none';
     }
 
-    // Show radio buttons when:
-    // - ship has an active contract AND
-    // - ship is in flight (including paused-while-in-flight) AND
-    // - the contract requires more than one trip (single-trip contracts
-    //   complete on arrival so continue/pause/abandon choices are meaningless)
+    // Show radio buttons when in flight with either:
+    // - an active contract (multi-trip), or
+    // - an active mining route (selling/returning transit)
     const activeContract = ship.activeContract;
-    const showActions =
+    const miningRoute = ship.miningRoute;
+    const showContractActions =
       !!activeContract &&
       ship.location.status === 'in_flight' &&
       !!flight &&
       activeContract.quest.tripsRequired !== 1;
+    const showMiningActions =
+      !!miningRoute &&
+      ship.location.status === 'in_flight' &&
+      !!flight &&
+      (miningRoute.status === 'selling' || miningRoute.status === 'returning');
 
-    if (showActions) {
+    if (showContractActions) {
+      radioContext = 'contract';
       radioGroupEl.style.display = '';
-      updateRadioGroup(ship);
+      updateRadioGroupContract(ship);
+    } else if (showMiningActions) {
+      radioContext = 'mining';
+      radioGroupEl.style.display = '';
+      updateRadioGroupMining(ship);
     } else {
+      radioContext = 'hidden';
       radioGroupEl.style.display = 'none';
     }
   }
