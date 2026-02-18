@@ -508,9 +508,31 @@ export function setupMapZoomPan(
       const clampedWidth = initialViewBox.width / clampedZoom;
       const clampedHeight = initialViewBox.height / clampedZoom;
 
-      // Keep SVG midpoint fixed
-      viewBoxX = pinchMidpointSvg.x - clampedWidth / 2;
-      viewBoxY = pinchMidpointSvg.y - clampedHeight / 2;
+      // Keep pinchMidpointSvg fixed under the current finger midpoint
+      // (accounts for both zoom change and finger movement during pinch)
+      const mid = getPointerMidpoint();
+      const rect = container.getBoundingClientRect();
+      const relX = mid.x - rect.left;
+      const relY = mid.y - rect.top;
+      const cAspect = rect.width / rect.height;
+      const sAspect = clampedWidth / clampedHeight;
+      let svgPxW: number;
+      let svgPxH: number;
+      let offX = 0;
+      let offY = 0;
+      if (cAspect > sAspect) {
+        svgPxH = rect.height;
+        svgPxW = svgPxH * sAspect;
+        offX = (rect.width - svgPxW) / 2;
+      } else {
+        svgPxW = rect.width;
+        svgPxH = svgPxW / sAspect;
+        offY = (rect.height - svgPxH) / 2;
+      }
+      const fx = (relX - offX) / svgPxW;
+      const fy = (relY - offY) / svgPxH;
+      viewBoxX = pinchMidpointSvg.x - fx * clampedWidth;
+      viewBoxY = pinchMidpointSvg.y - fy * clampedHeight;
       viewBoxWidth = clampedWidth;
       viewBoxHeight = clampedHeight;
 
