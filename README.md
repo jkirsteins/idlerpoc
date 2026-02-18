@@ -194,9 +194,9 @@ ESLint enforces code complexity guardrails to stop the bleeding — thresholds a
 
 | Rule                     | Threshold | Purpose                      |
 | ------------------------ | --------- | ---------------------------- |
-| `complexity`             | 110       | Cyclomatic complexity per fn |
-| `max-lines`              | 2175      | Lines per file               |
-| `max-lines-per-function` | 1510      | Lines per function           |
+| `complexity`             | 112       | Cyclomatic complexity per fn |
+| `max-lines`              | 2500      | Lines per file               |
+| `max-lines-per-function` | 1260      | Lines per function           |
 | `max-depth`              | 9         | Nesting depth                |
 | `max-params`             | 7         | Parameters per function      |
 
