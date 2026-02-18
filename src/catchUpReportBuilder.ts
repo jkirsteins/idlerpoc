@@ -322,10 +322,29 @@ export function buildCatchUpReport(
 
     const gravityAssists = gravityAssistsByShip.get(ship.name);
 
-    // Count power management changes during absence
-    const powerChanges = newLogs.filter(
+    // Count and detail power management changes during absence
+    const powerLogs = newLogs.filter(
       (l) => l.type === 'power_change' && l.shipName === ship.name
-    ).length;
+    );
+    const powerChanges = powerLogs.length;
+    let powerOnNames: string[] | undefined;
+    let powerOffNames: string[] | undefined;
+    if (powerChanges > 0) {
+      const onSet = new Set<string>();
+      const offSet = new Set<string>();
+      for (const log of powerLogs) {
+        const onMatch = log.message.match(/Powered on: ([^.]+)/);
+        if (onMatch) {
+          for (const name of onMatch[1].split(', ')) onSet.add(name.trim());
+        }
+        const offMatch = log.message.match(/Powered off: ([^.]+)/);
+        if (offMatch) {
+          for (const name of offMatch[1].split(', ')) offSet.add(name.trim());
+        }
+      }
+      if (onSet.size > 0) powerOnNames = [...onSet];
+      if (offSet.size > 0) powerOffNames = [...offSet];
+    }
 
     shipSummaries.push({
       shipId: ship.id,
@@ -335,6 +354,8 @@ export function buildCatchUpReport(
       contractInfo,
       gravityAssists,
       powerChanges: powerChanges > 0 ? powerChanges : undefined,
+      powerOnNames,
+      powerOffNames,
     });
   }
 

@@ -1,4 +1,4 @@
-import type { GameData, Room, JobSlot, EquipmentPowerMode } from '../models';
+import type { GameData, Room, JobSlot } from '../models';
 import { getActiveShip } from '../models';
 import { getShipClass } from '../shipClasses';
 import { getRoomDefinition } from '../rooms';
@@ -8,12 +8,14 @@ import { computePowerStatus } from '../powerSystem';
 import { computeOxygenStatus } from '../lifeSupportSystem';
 import {
   getEquipmentDefinition,
-  getCategoryLabel,
   getEffectiveRadiationShielding,
   getEffectiveHeatDissipation,
 } from '../equipment';
-import { canSetPowerModeOn } from '../powerManagement';
-import { getPowerRuleDescription } from '../powerPriorities';
+import {
+  createEquipmentSection,
+  updateEquipmentSection,
+  type EquipmentSectionRefs,
+} from './equipmentSection';
 import { calculateRepairPoints } from '../crewRoles';
 import { calculateDefenseScore } from '../combatSystem';
 import { getCommandBonusBreakdown } from '../captainBonus';
@@ -211,6 +213,45 @@ export function createShipTab(
   // ── Profitability section slot ──
   const profitabilitySlot = document.createElement('div');
 
+  // ── Ship actions bar (mount-once: undock / dock / navigate / refuel) ──
+  const actionsBar = document.createElement('div');
+  actionsBar.className = 'ship-actions-bar';
+  actionsBar.style.cssText =
+    'display:flex;gap:6px;flex-wrap:wrap;margin-bottom:0.75rem;padding:0.4rem 0.5rem;background:rgba(0,0,0,0.2);border:1px solid #333;border-radius:4px;align-items:center';
+
+  const actionsLabel = document.createElement('span');
+  actionsLabel.textContent = 'Actions:';
+  actionsLabel.style.cssText =
+    'font-size:0.75rem;color:#888;white-space:nowrap;margin-right:2px';
+  actionsBar.appendChild(actionsLabel);
+
+  const undockBtn = document.createElement('button');
+  undockBtn.className = 'small-button';
+  undockBtn.textContent = 'Undock';
+  undockBtn.addEventListener('click', callbacks.onUndock);
+  actionsBar.appendChild(undockBtn);
+
+  const dockBtn = document.createElement('button');
+  dockBtn.className = 'small-button';
+  dockBtn.addEventListener('click', callbacks.onDock);
+  actionsBar.appendChild(dockBtn);
+
+  const navActionBtn = document.createElement('button');
+  navActionBtn.className = 'small-button';
+  navActionBtn.textContent = 'Navigate';
+  navActionBtn.addEventListener('click', callbacks.onToggleNavigation);
+  actionsBar.appendChild(navActionBtn);
+
+  const refuelActionBtn = document.createElement('button');
+  refuelActionBtn.className = 'small-button';
+  refuelActionBtn.textContent = 'Refuel';
+  refuelActionBtn.addEventListener('click', callbacks.onBuyFuel);
+  actionsBar.appendChild(refuelActionBtn);
+
+  let lastActionsStatus = '';
+  let lastHelmOk = false;
+  let lastFuelFull = false;
+
   // ── Stat bar slots (leaf helpers, re-rendered via slot pattern) ──
   const fuelBarSlot = document.createElement('div');
   const provisionsBarSlot = document.createElement('div');
@@ -242,7 +283,8 @@ export function createShipTab(
   // ── Gravity status slot ──
   const gravityStatusSlot = document.createElement('div');
 
-  // ── Equipment section slot ──
+  // ── Equipment section (mount-once) ──
+  let equipmentSectionRefs: EquipmentSectionRefs | null = null;
   const equipmentSectionSlot = document.createElement('div');
 
   // ── Unassigned crew section ──
@@ -272,6 +314,7 @@ export function createShipTab(
   // Assemble ship content
   shipContent.append(
     profitabilitySlot,
+    actionsBar,
     fuelBarSlot,
     provisionsBarSlot,
     powerBarSlot,
@@ -957,6 +1000,45 @@ export function createShipTab(
       profitabilitySlot.removeChild(profitabilitySlot.firstChild);
     profitabilitySlot.appendChild(renderProfitabilitySection(gameData));
 
+    // ── Ship actions bar (update in-place) ──
+    {
+      const status = ship.location.status;
+      const helmOk = isHelmManned(ship);
+      const fuelFull = ship.fuelKg >= ship.maxFuelKg;
+      if (
+        status !== lastActionsStatus ||
+        helmOk !== lastHelmOk ||
+        fuelFull !== lastFuelFull
+      ) {
+        const isDocked = status === 'docked';
+        const isOrbiting = status === 'orbiting';
+        const isInFlight = status === 'in_flight';
+
+        // Show the bar when docked or orbiting (has relevant actions)
+        actionsBar.style.display = isDocked || isOrbiting ? 'flex' : 'none';
+
+        // Undock: only when docked
+        undockBtn.style.display = isDocked ? '' : 'none';
+        undockBtn.disabled = !helmOk;
+        undockBtn.title = helmOk ? '' : 'Helm must be staffed before undocking';
+
+        // Dock: when orbiting or in flight
+        dockBtn.style.display = isOrbiting || isInFlight ? '' : 'none';
+        dockBtn.textContent = isOrbiting ? 'Dock' : 'Dock at Nearest Port';
+
+        // Navigate: when docked or orbiting
+        navActionBtn.style.display = isDocked || isOrbiting ? '' : 'none';
+        navActionBtn.disabled = !helmOk;
+
+        // Refuel: when docked and not full
+        refuelActionBtn.style.display = isDocked && !fuelFull ? '' : 'none';
+
+        lastActionsStatus = status;
+        lastHelmOk = helmOk;
+        lastFuelFull = fuelFull;
+      }
+    }
+
     // ── Stat bars (leaf helpers via slot divs) ──
     if (fuelBarSlot.firstChild) fuelBarSlot.removeChild(fuelBarSlot.firstChild);
     fuelBarSlot.appendChild(renderFuelBar(gameData));
@@ -1044,10 +1126,13 @@ export function createShipTab(
       gravityStatusSlot.removeChild(gravityStatusSlot.firstChild);
     gravityStatusSlot.appendChild(renderGravityStatus(gameData));
 
-    // ── Equipment section (leaf helper via slot) ──
-    if (equipmentSectionSlot.firstChild)
-      equipmentSectionSlot.removeChild(equipmentSectionSlot.firstChild);
-    equipmentSectionSlot.appendChild(renderEquipmentSection(gameData));
+    // ── Equipment section (mount-once / update-on-tick) ──
+    if (!equipmentSectionRefs) {
+      equipmentSectionRefs = createEquipmentSection(gameData);
+      equipmentSectionSlot.appendChild(equipmentSectionRefs.el);
+    } else {
+      updateEquipmentSection(equipmentSectionRefs, gameData);
+    }
 
     // ── Unassigned crew section (reconciled with Map) ──
     const unassigned = getUnassignedCrew(ship);
@@ -2106,189 +2191,6 @@ function renderGravityStatus(gameData: GameData): HTMLElement {
 
   exposureLine.appendChild(exposureValue);
   section.appendChild(exposureLine);
-
-  return section;
-}
-
-// ── Equipment section ────────────────────────────────────────────
-
-function renderEquipmentSection(gameData: GameData): HTMLElement {
-  const ship = getActiveShip(gameData);
-  const shipClass = getShipClass(ship.classId);
-  const section = document.createElement('div');
-  section.className = 'equipment-section';
-
-  const title = document.createElement('h3');
-  const maxSlots = shipClass?.equipmentSlotDefs.length ?? 0;
-  const usedSlots = ship.equipment.length;
-  title.textContent = `Equipment (${usedSlots}/${maxSlots} slots)`;
-  section.appendChild(title);
-
-  const equipmentList = document.createElement('div');
-  equipmentList.className = 'equipment-list';
-
-  for (const equipment of ship.equipment) {
-    const equipDef = getEquipmentDefinition(equipment.definitionId);
-    if (!equipDef) continue;
-
-    const item = document.createElement('div');
-    item.className = 'equipment-item';
-    if (!equipment.powered) {
-      item.style.opacity = '0.6';
-    }
-
-    const icon = document.createElement('div');
-    icon.className = 'equipment-icon';
-    icon.textContent = equipDef.icon;
-    item.appendChild(icon);
-
-    const info = document.createElement('div');
-    info.className = 'equipment-info';
-
-    const nameRow = document.createElement('div');
-    nameRow.className = 'equipment-name';
-    nameRow.style.display = 'flex';
-    nameRow.style.alignItems = 'center';
-    nameRow.style.gap = '0.4em';
-
-    // Power indicator dot
-    const powerDot = document.createElement('span');
-    powerDot.style.display = 'inline-block';
-    powerDot.style.width = '8px';
-    powerDot.style.height = '8px';
-    powerDot.style.borderRadius = '50%';
-    powerDot.style.flexShrink = '0';
-    powerDot.style.backgroundColor = equipment.powered ? '#4caf50' : '#666';
-    nameRow.appendChild(powerDot);
-
-    const nameText = document.createElement('span');
-    nameText.textContent = equipDef.name;
-    nameRow.appendChild(nameText);
-
-    const categoryTag = document.createElement('span');
-    categoryTag.textContent = getCategoryLabel(equipDef.category);
-    categoryTag.style.fontSize = '0.65em';
-    categoryTag.style.padding = '0.1em 0.4em';
-    categoryTag.style.borderRadius = '3px';
-    categoryTag.style.fontWeight = 'bold';
-    if (equipDef.category === 'defense') {
-      categoryTag.style.background = 'rgba(248, 113, 113, 0.2)';
-      categoryTag.style.color = '#f87171';
-    } else {
-      categoryTag.style.background = 'rgba(255, 255, 255, 0.1)';
-      categoryTag.style.color = '#888';
-    }
-    nameRow.appendChild(categoryTag);
-
-    info.appendChild(nameRow);
-
-    // Power draw + mode toggle row
-    const powerRow = document.createElement('div');
-    powerRow.style.display = 'flex';
-    powerRow.style.alignItems = 'center';
-    powerRow.style.gap = '0.5em';
-    powerRow.style.marginTop = '0.15em';
-
-    const power = document.createElement('span');
-    power.className = 'equipment-power';
-    power.textContent = `${equipDef.powerDraw} kW`;
-    powerRow.appendChild(power);
-
-    // 3-state power mode toggle: Off / Auto / On
-    const modeToggle = document.createElement('div');
-    modeToggle.style.display = 'inline-flex';
-    modeToggle.style.borderRadius = '3px';
-    modeToggle.style.overflow = 'hidden';
-    modeToggle.style.border = '1px solid rgba(255,255,255,0.15)';
-    modeToggle.style.fontSize = '0.7em';
-    modeToggle.style.marginLeft = 'auto';
-
-    const modes: { label: string; value: EquipmentPowerMode }[] = [
-      { label: 'Off', value: 'off' },
-      { label: 'Auto', value: 'auto' },
-      { label: 'On', value: 'on' },
-    ];
-
-    for (const mode of modes) {
-      const btn = document.createElement('button');
-      btn.textContent = mode.label;
-      btn.style.border = 'none';
-      btn.style.padding = '2px 6px';
-      btn.style.cursor = 'pointer';
-      btn.style.fontSize = 'inherit';
-      btn.style.minWidth = '32px';
-
-      if (equipment.powerMode === mode.value) {
-        btn.style.background =
-          mode.value === 'off'
-            ? '#666'
-            : mode.value === 'auto'
-              ? '#0f3460'
-              : '#2e7d32';
-        btn.style.color = '#eee';
-        btn.style.fontWeight = 'bold';
-      } else {
-        btn.style.background = 'rgba(0,0,0,0.3)';
-        btn.style.color = '#888';
-      }
-
-      btn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        if (mode.value === 'on') {
-          const check = canSetPowerModeOn(ship, gameData, equipment.id);
-          if (!check.allowed) {
-            // Brief visual feedback — flash the button red
-            btn.style.background = '#8b0000';
-            btn.title = check.reason ?? 'Insufficient power';
-            setTimeout(() => {
-              btn.style.background = 'rgba(0,0,0,0.3)';
-            }, 600);
-            return;
-          }
-        }
-        equipment.powerMode = mode.value;
-      });
-
-      modeToggle.appendChild(btn);
-    }
-
-    // Tooltip showing the AI rule description
-    const ruleDesc = getPowerRuleDescription(equipment.definitionId);
-    const modeLabel =
-      equipment.powerMode === 'auto'
-        ? `Auto: ${ruleDesc}`
-        : equipment.powerMode === 'on'
-          ? 'Forced on (manual)'
-          : 'Forced off (manual)';
-    attachTooltip(modeToggle, { content: modeLabel, followMouse: false });
-
-    powerRow.appendChild(modeToggle);
-    info.appendChild(powerRow);
-
-    item.appendChild(info);
-
-    if (equipDef.hasDegradation) {
-      const degradationBar = renderStatBar({
-        label: 'Wear',
-        percentage: equipment.degradation,
-        valueLabel: `${equipment.degradation.toFixed(1)}%`,
-        colorClass:
-          equipment.degradation >= 75
-            ? 'bar-danger'
-            : equipment.degradation >= 50
-              ? 'bar-warning'
-              : 'bar-good',
-        mode: 'full',
-      });
-      degradationBar.style.fontSize = '0.85em';
-      degradationBar.style.marginTop = '0.25em';
-      info.appendChild(degradationBar);
-    }
-
-    equipmentList.appendChild(item);
-  }
-
-  section.appendChild(equipmentList);
 
   return section;
 }

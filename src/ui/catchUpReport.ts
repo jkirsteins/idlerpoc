@@ -307,9 +307,17 @@ export function renderCatchUpReport(
 
       // Power management changes (if any)
       if (summary.powerChanges && summary.powerChanges > 0) {
+        const details: string[] = [];
+        if (summary.powerOnNames && summary.powerOnNames.length > 0) {
+          details.push(`on: ${summary.powerOnNames.join(', ')}`);
+        }
+        if (summary.powerOffNames && summary.powerOffNames.length > 0) {
+          details.push(`off: ${summary.powerOffNames.join(', ')}`);
+        }
+        const detailStr = details.length > 0 ? ` (${details.join('; ')})` : '';
         const powerLine = document.createElement('div');
         powerLine.className = 'catchup-ship-event';
-        powerLine.textContent = `Made ${summary.powerChanges} power management adjustment${summary.powerChanges > 1 ? 's' : ''}`;
+        powerLine.textContent = `${summary.powerChanges} power adjustment${summary.powerChanges > 1 ? 's' : ''}${detailStr}`;
         powerLine.style.color = '#888';
         powerLine.style.paddingLeft = '0.75rem';
         powerLine.style.fontSize = '0.85rem';
