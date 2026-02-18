@@ -168,7 +168,7 @@ npm run dev
   - Catch-up report modal summarizing encounters that occurred while away
   - Encounter cooldown prevents rapid consecutive encounters per ship
 - **Event Log**: Rolling log of the most recent 200 events (departures, arrivals, payments, contract completions, encounters); older entries pruned automatically
-- **Power Management**: Automated priority-based power allocation managed by the helm pilot. Equipment has three power modes (Off/Auto/On) — in Auto mode, the ship AI powers equipment contextually (shields during flight, mining gear at mines, life support always). When power is constrained, lower-priority equipment is shed first. Pilot skill provides up to +10% effective power budget
+- **Power Management**: Automated priority-based power allocation managed by the helm pilot. Equipment has three power modes (Off/Auto/On) — in Auto mode, the ship AI powers equipment contextually (shields during flight, mining gear at mines, medical station when undocked, life support always). When power is constrained, lower-priority equipment is shed first. Overloading the grid (force-on beyond budget) causes accelerated equipment degradation. Pilot skill provides up to +10% effective power budget and earns mastery XP from managing power constraints
 - **Resource Tracking**: Monitor credits, fuel, oxygen, crew count, and power consumption
 - **Daily Ledger**: Fleet-wide financial overview with 7-day rolling income average, projected crew/fuel expenses per day, net income rate, and runway indicator. Appears in header bar, left sidebar, and Fleet Performance Dashboard
 - **Equipment Trading**: Buy and sell crew equipment at stations with trade services (50% sell value)

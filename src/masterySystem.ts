@@ -531,3 +531,9 @@ export function tradeRouteMasteryKey(
 export function gravityAssistMasteryKey(bodyId: string): string {
   return `ga:${bodyId}`;
 }
+
+/** Mastery key for power management under piloting skill. */
+export const POWER_MANAGEMENT_MASTERY_KEY = 'pm:power-management';
+
+/** Base mastery XP awarded per power shed event (equipment turned off due to budget). */
+export const POWER_SHED_MASTERY_XP = 3;

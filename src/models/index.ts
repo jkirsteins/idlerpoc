@@ -582,6 +582,10 @@ export interface CatchUpShipSummary {
   gravityAssists?: CatchUpGravityAssistStats;
   crewHighlights?: LogEntry[];
   powerChanges?: number;
+  /** Equipment names that were powered on during absence (deduplicated). */
+  powerOnNames?: string[];
+  /** Equipment names that were powered off during absence (deduplicated). */
+  powerOffNames?: string[];
 }
 
 export interface CatchUpReport {

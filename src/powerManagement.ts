@@ -1,10 +1,15 @@
 import type { Ship, GameData, EquipmentInstance } from './models';
 import { getEquipmentDefinition } from './equipment';
-import { getEngineDefinition } from './engines';
-import { getRoomDefinition } from './rooms';
-import { isRoomStaffed, getCrewForJobType } from './jobSlots';
+import { getCrewForJobType } from './jobSlots';
 import { getPowerPriorityRule } from './powerPriorities';
+import { computePowerBase } from './powerSystem';
 import { addLog } from './logSystem';
+import {
+  awardMasteryXp,
+  POWER_MANAGEMENT_MASTERY_KEY,
+  POWER_SHED_MASTERY_XP,
+} from './masterySystem';
+import { countPilotingMasteryItems } from './contractExec';
 
 /** Per-equipment pilot power efficiency bonus per skill point (0.1% per point). */
 const PILOTING_POWER_BONUS_PER_POINT = 0.001;
@@ -19,39 +24,11 @@ interface PowerCandidate {
 
 /**
  * Compute the equipment power budget: total output minus room draw and engine self-draw.
- * Optionally applies the helm piloting bonus.
+ * Applies the helm piloting bonus to stretch effective output.
+ * Delegates to computePowerBase for output/room/engine calculations (single source of truth).
  */
-function computeEquipmentPowerBudget(ship: Ship): number {
-  const engineDef = getEngineDefinition(ship.engine.definitionId);
-  const isDocked = ship.location.status === 'docked';
-
-  // Total power output
-  let totalOutput = 0;
-  if (isDocked) {
-    totalOutput = engineDef.powerOutput;
-  } else if (ship.engine.state === 'online' && ship.fuelKg > 0) {
-    totalOutput = engineDef.powerOutput;
-  }
-  // warming_up or off with no berth = 0 output
-
-  // Room draw
-  let roomDraw = 0;
-  for (const room of ship.rooms) {
-    const roomDef = getRoomDefinition(room.type);
-    if (!roomDef) continue;
-    const isActive =
-      roomDef.alwaysPowered ||
-      (isRoomStaffed(ship, room.id) && room.state === 'operational');
-    if (isActive) {
-      roomDraw += roomDef.powerDraw;
-    }
-  }
-
-  // Engine self-draw
-  let engineSelfDraw = 0;
-  if (ship.engine.state === 'online') {
-    engineSelfDraw = engineDef.selfPowerDraw;
-  }
+export function computeEquipmentPowerBudget(ship: Ship): number {
+  const base = computePowerBase(ship);
 
   // Helm piloting bonus stretches effective output
   const helmCrew = getCrewForJobType(ship, 'helm');
@@ -63,7 +40,7 @@ function computeEquipmentPowerBudget(ship: Ship): number {
   }
   const pilotingBonus = 1 + bestPiloting * PILOTING_POWER_BONUS_PER_POINT;
 
-  return totalOutput * pilotingBonus - roomDraw - engineSelfDraw;
+  return base.totalOutput * pilotingBonus - base.roomDraw - base.engineSelfDraw;
 }
 
 /**
@@ -169,6 +146,42 @@ export function applyPowerManagement(ship: Ship, gameData: GameData): void {
       turnedOff.push(candidate.equipmentName);
     }
     candidate.equipment.powered = false;
+  }
+
+  // Power overload degradation: when budget is negative (force-on/critical items
+  // exceed available power), powered degradable equipment wears faster.
+  // The overload ratio drives accelerated degradation — emergent consequence
+  // rather than a flat penalty.
+  if (remainingBudget < 0 && budget > 0) {
+    const overloadRatio = Math.abs(remainingBudget) / budget;
+    const overloadDegradation = 0.01 * overloadRatio;
+    for (const candidate of poweredOn) {
+      const eqDef = getEquipmentDefinition(candidate.equipment.definitionId);
+      if (eqDef?.hasDegradation && candidate.equipment.degradation < 100) {
+        candidate.equipment.degradation = Math.min(
+          100,
+          candidate.equipment.degradation + overloadDegradation
+        );
+      }
+    }
+  }
+
+  // Award piloting mastery XP when the pilot actively sheds equipment
+  if (poweredOff.length > 0) {
+    const helmCrew = getCrewForJobType(ship, 'helm');
+    if (helmCrew.length > 0) {
+      const bestPilot = helmCrew.reduce((best, c) =>
+        c.skills.piloting > best.skills.piloting ? c : best
+      );
+      const totalItems = countPilotingMasteryItems(gameData) + 1; // +1 for power-management item
+      awardMasteryXp(
+        bestPilot.mastery.piloting,
+        POWER_MANAGEMENT_MASTERY_KEY,
+        POWER_SHED_MASTERY_XP,
+        Math.floor(bestPilot.skills.piloting),
+        totalItems
+      );
+    }
   }
 
   // Log changes if any
