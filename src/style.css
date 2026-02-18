@@ -4571,6 +4571,11 @@ button:disabled:hover {
     gap: 8px;
   }
 
+  /* Equipment power row: keep toggle next to kW label */
+  .equipment-mode-toggle {
+    margin-left: 0 !important;
+  }
+
   /* Cargo items: wrap */
   .cargo-item {
     flex-wrap: wrap;

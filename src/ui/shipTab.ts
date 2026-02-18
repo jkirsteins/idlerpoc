@@ -213,6 +213,45 @@ export function createShipTab(
   // ── Profitability section slot ──
   const profitabilitySlot = document.createElement('div');
 
+  // ── Ship actions bar (mount-once: undock / dock / navigate / refuel) ──
+  const actionsBar = document.createElement('div');
+  actionsBar.className = 'ship-actions-bar';
+  actionsBar.style.cssText =
+    'display:flex;gap:6px;flex-wrap:wrap;margin-bottom:0.75rem;padding:0.4rem 0.5rem;background:rgba(0,0,0,0.2);border:1px solid #333;border-radius:4px;align-items:center';
+
+  const actionsLabel = document.createElement('span');
+  actionsLabel.textContent = 'Actions:';
+  actionsLabel.style.cssText =
+    'font-size:0.75rem;color:#888;white-space:nowrap;margin-right:2px';
+  actionsBar.appendChild(actionsLabel);
+
+  const undockBtn = document.createElement('button');
+  undockBtn.className = 'small-button';
+  undockBtn.textContent = 'Undock';
+  undockBtn.addEventListener('click', callbacks.onUndock);
+  actionsBar.appendChild(undockBtn);
+
+  const dockBtn = document.createElement('button');
+  dockBtn.className = 'small-button';
+  dockBtn.addEventListener('click', callbacks.onDock);
+  actionsBar.appendChild(dockBtn);
+
+  const navActionBtn = document.createElement('button');
+  navActionBtn.className = 'small-button';
+  navActionBtn.textContent = 'Navigate';
+  navActionBtn.addEventListener('click', callbacks.onToggleNavigation);
+  actionsBar.appendChild(navActionBtn);
+
+  const refuelActionBtn = document.createElement('button');
+  refuelActionBtn.className = 'small-button';
+  refuelActionBtn.textContent = 'Refuel';
+  refuelActionBtn.addEventListener('click', callbacks.onBuyFuel);
+  actionsBar.appendChild(refuelActionBtn);
+
+  let lastActionsStatus = '';
+  let lastHelmOk = false;
+  let lastFuelFull = false;
+
   // ── Stat bar slots (leaf helpers, re-rendered via slot pattern) ──
   const fuelBarSlot = document.createElement('div');
   const provisionsBarSlot = document.createElement('div');
@@ -275,6 +314,7 @@ export function createShipTab(
   // Assemble ship content
   shipContent.append(
     profitabilitySlot,
+    actionsBar,
     fuelBarSlot,
     provisionsBarSlot,
     powerBarSlot,
@@ -959,6 +999,45 @@ export function createShipTab(
     if (profitabilitySlot.firstChild)
       profitabilitySlot.removeChild(profitabilitySlot.firstChild);
     profitabilitySlot.appendChild(renderProfitabilitySection(gameData));
+
+    // ── Ship actions bar (update in-place) ──
+    {
+      const status = ship.location.status;
+      const helmOk = isHelmManned(ship);
+      const fuelFull = ship.fuelKg >= ship.maxFuelKg;
+      if (
+        status !== lastActionsStatus ||
+        helmOk !== lastHelmOk ||
+        fuelFull !== lastFuelFull
+      ) {
+        const isDocked = status === 'docked';
+        const isOrbiting = status === 'orbiting';
+        const isInFlight = status === 'in_flight';
+
+        // Show the bar when docked or orbiting (has relevant actions)
+        actionsBar.style.display = isDocked || isOrbiting ? 'flex' : 'none';
+
+        // Undock: only when docked
+        undockBtn.style.display = isDocked ? '' : 'none';
+        undockBtn.disabled = !helmOk;
+        undockBtn.title = helmOk ? '' : 'Helm must be staffed before undocking';
+
+        // Dock: when orbiting or in flight
+        dockBtn.style.display = isOrbiting || isInFlight ? '' : 'none';
+        dockBtn.textContent = isOrbiting ? 'Dock' : 'Dock at Nearest Port';
+
+        // Navigate: when docked or orbiting
+        navActionBtn.style.display = isDocked || isOrbiting ? '' : 'none';
+        navActionBtn.disabled = !helmOk;
+
+        // Refuel: when docked and not full
+        refuelActionBtn.style.display = isDocked && !fuelFull ? '' : 'none';
+
+        lastActionsStatus = status;
+        lastHelmOk = helmOk;
+        lastFuelFull = fuelFull;
+      }
+    }
 
     // ── Stat bars (leaf helpers via slot divs) ──
     if (fuelBarSlot.firstChild) fuelBarSlot.removeChild(fuelBarSlot.firstChild);

@@ -142,6 +142,7 @@ function createEquipmentItem(
 
   // Power draw + mode toggle row
   const powerRow = document.createElement('div');
+  powerRow.className = 'equipment-power-row';
   powerRow.style.cssText =
     'display:flex;align-items:center;gap:0.5em;margin-top:0.15em';
 
@@ -152,6 +153,7 @@ function createEquipmentItem(
 
   // 3-state power mode toggle: Off / Auto / On
   const modeToggle = document.createElement('div');
+  modeToggle.className = 'equipment-mode-toggle';
   modeToggle.style.cssText =
     'display:inline-flex;border-radius:3px;overflow:hidden;border:1px solid rgba(255,255,255,0.15);font-size:0.7em;margin-left:auto';
 
