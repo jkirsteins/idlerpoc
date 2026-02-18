@@ -165,12 +165,28 @@ export function createPlanetLocalComponent(
   const bodyLayer = document.createElementNS(SVG_NS, 'g');
   svg.appendChild(bodyLayer);
 
+  // Interactive planet group — tapping drills into zone map
+  const planetGroup = document.createElementNS(SVG_NS, 'g');
+  planetGroup.style.cursor = 'pointer';
+  bodyLayer.appendChild(planetGroup);
+
+  const planetHitArea = document.createElementNS(SVG_NS, 'circle');
+  planetHitArea.setAttribute('cx', '0');
+  planetHitArea.setAttribute('cy', '0');
+  planetHitArea.setAttribute('r', '20');
+  planetHitArea.setAttribute('fill', 'transparent');
+  planetGroup.appendChild(planetHitArea);
+
   const planetDot = document.createElementNS(SVG_NS, 'path');
   planetDot.setAttribute('d', createHexPath(0, 0, 12));
   planetDot.setAttribute('fill', '#48dbfb');
   planetDot.setAttribute('stroke', '#00e5ff');
   planetDot.setAttribute('stroke-width', '2');
-  bodyLayer.appendChild(planetDot);
+  planetGroup.appendChild(planetDot);
+
+  const planetTooltip = document.createElementNS(SVG_NS, 'title');
+  planetTooltip.textContent = 'View zones';
+  planetGroup.appendChild(planetTooltip);
 
   const planetLabel = document.createElementNS(SVG_NS, 'text');
   planetLabel.setAttribute('x', '0');
@@ -182,6 +198,12 @@ export function createPlanetLocalComponent(
 
   const moonMarkers: MoonMarker[] = [];
   let currentPlanetId: string | null = null;
+
+  planetGroup.addEventListener('click', () => {
+    if (callbacks.onViewZones && currentPlanetId) {
+      callbacks.onViewZones(currentPlanetId);
+    }
+  });
 
   viewZonesBtn.onclick = () => {
     if (callbacks.onViewZones && currentPlanetId) {

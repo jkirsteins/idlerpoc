@@ -33,10 +33,37 @@ export interface RendererCallbacks {
   onResetGame: () => void;
 }
 
-export type TabId = 'swarm' | 'planet' | 'system' | 'log';
+export type TabId = 'swarm' | 'planet' | 'system' | 'map' | 'log';
 
 interface RendererState {
   activeTab: TabId;
+}
+
+// ============================================================================
+// SHARED HELPERS
+// ============================================================================
+
+/** Pre-computed per-tick values shared across components. */
+interface TickSnapshot {
+  gameData: GameData;
+  year: number;
+  yearProgress: number;
+  elapsedHours: number;
+  aggregates: ReturnType<typeof calculateSwarmAggregates>;
+}
+
+/** Compute snapshot once per tick — avoids duplicate planet lookups and aggregate scans. */
+function computeTickSnapshot(gameData: GameData): TickSnapshot {
+  const homePlanet = gameData.planets.find(
+    (p) => p.id === gameData.homePlanetId
+  );
+  const asimovDayLength = homePlanet?.dayLengthTicks ?? 480;
+  const year = Math.floor(gameData.gameTime / asimovDayLength) + 1;
+  const yearProgress = (gameData.gameTime % asimovDayLength) / asimovDayLength;
+  const elapsedHours =
+    (gameData.gameTime % asimovDayLength) / SWARM_CONSTANTS.TICKS_PER_HOUR;
+  const aggregates = calculateSwarmAggregates(gameData.swarm);
+  return { gameData, year, yearProgress, elapsedHours, aggregates };
 }
 
 // ============================================================================
@@ -65,43 +92,82 @@ export function render(
   // Clear container once on initial mount
   container.innerHTML = '';
 
-  // Create main layout container
+  // Create main layout container (styles in style.css for responsive overrides)
   const layout = document.createElement('div');
   layout.className = 'swarm-layout';
-  layout.style.cssText = `
-    display: grid;
-    grid-template-columns: 280px 1fr 50%;
-    grid-template-rows: auto 1fr auto;
-    grid-template-areas:
-      'header header header'
-      'left main right'
-      'footer footer footer';
-    height: 100%;
-    background: var(--bg-void, #050508);
-    color: var(--text-primary, #e0e0e0);
-    font-family: var(--font-body, system-ui, sans-serif);
-  `;
 
-  // Mount all components
+  // Mount all components — single sidebar instance shared between grid & drawer
   const header = createHeader(gameData, callbacks);
   const leftSidebar = createLeftSidebar(gameData);
-  const mainPanel = createMainPanel(gameData, state, callbacks);
   const rightSidebar = createRightSidebar(gameData);
+  const mainPanel = createMainPanel(
+    gameData,
+    state,
+    callbacks,
+    rightSidebar.el
+  );
   const footer = createFooter(gameData, callbacks);
+  const mobileHeader = createMobileHeader(gameData, callbacks);
 
-  // Set grid areas
-  header.el.style.gridArea = 'header';
-  leftSidebar.el.style.gridArea = 'left';
-  mainPanel.el.style.gridArea = 'main';
-  rightSidebar.el.style.gridArea = 'right';
-  footer.el.style.gridArea = 'footer';
+  // Drawer overlay + container (inside layout for automatic cleanup)
+  const overlay = document.createElement('div');
+  overlay.className = 'swarm-drawer-overlay';
 
-  // Append all to layout
+  const drawerEl = document.createElement('div');
+  drawerEl.className = 'swarm-drawer';
+
+  const closeBtn = document.createElement('button');
+  closeBtn.className = 'swarm-drawer-close';
+  closeBtn.textContent = '\u2715'; // ✕
+  closeBtn.setAttribute('aria-label', 'Close sidebar');
+  drawerEl.appendChild(closeBtn);
+
+  // Drawer sidebar placeholder — sidebar el is reparented here on open
+  const drawerContent = document.createElement('div');
+  drawerContent.className = 'swarm-drawer-content';
+  drawerEl.appendChild(drawerContent);
+
+  // Append all to layout (grid areas assigned via CSS class selectors)
   layout.appendChild(header.el);
+  layout.appendChild(mobileHeader.el);
   layout.appendChild(leftSidebar.el);
   layout.appendChild(mainPanel.el);
   layout.appendChild(rightSidebar.el);
   layout.appendChild(footer.el);
+  // Fixed-position elements work regardless of DOM ancestry
+  layout.appendChild(overlay);
+  layout.appendChild(drawerEl);
+
+  // Helpers to open/close drawer — reparent sidebar el between grid and drawer
+  function openDrawer() {
+    drawerContent.appendChild(leftSidebar.el);
+    drawerEl.classList.add('open');
+    overlay.classList.add('open');
+  }
+
+  function closeDrawer() {
+    drawerEl.classList.remove('open');
+    overlay.classList.remove('open');
+    // Return sidebar to grid position (appendChild detaches from old parent)
+    layout.insertBefore(leftSidebar.el, mainPanel.el);
+  }
+
+  // Wire hamburger to drawer
+  mobileHeader.el
+    .querySelector('.mobile-hamburger')
+    ?.addEventListener('click', openDrawer);
+
+  overlay.addEventListener('click', closeDrawer);
+  closeBtn.addEventListener('click', closeDrawer);
+
+  // Close drawer on breakpoint cross to prevent stale open state
+  const mobileQuery = window.matchMedia('(max-width: 900px)');
+  const handleBreakpointChange = (e: MediaQueryListEvent) => {
+    if (!e.matches) {
+      closeDrawer();
+    }
+  };
+  mobileQuery.addEventListener('change', handleBreakpointChange);
 
   container.appendChild(layout);
 
@@ -156,10 +222,12 @@ export function render(
     };
   }
 
-  // Store reference for updates
+  // Store reference for updates — snapshot computed once, shared across components
   const update = (gd: GameData) => {
+    const snapshot = computeTickSnapshot(gd);
     header.update(gd);
-    leftSidebar.update(gd);
+    mobileHeader.update(snapshot);
+    leftSidebar.update(snapshot);
     mainPanel.update(gd);
     rightSidebar.update(gd);
     footer.update(gd);
@@ -170,6 +238,7 @@ export function render(
   return {
     update,
     destroy: () => {
+      mobileQuery.removeEventListener('change', handleBreakpointChange);
       container.innerHTML = '';
       _currentLayout = null;
     },
@@ -185,14 +254,7 @@ function createHeader(
   _callbacks: RendererCallbacks
 ): Component {
   const el = document.createElement('header');
-  el.style.cssText = `
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 0.75rem 1rem;
-    background: var(--bg-panel, #0a0a12);
-    border-bottom: 1px solid var(--border-color, #2a2a3a);
-  `;
+  el.className = 'swarm-header';
 
   // Logo
   const logoContainer = document.createElement('div');
@@ -244,18 +306,9 @@ function createHeader(
 // LEFT SIDEBAR COMPONENT - Day Progress & Swarm Stats
 // ============================================================================
 
-function createLeftSidebar(_gameData: GameData): Component {
+function createLeftSidebar(_gameData: GameData): Component<TickSnapshot> {
   const el = document.createElement('aside');
   el.className = 'left-sidebar';
-  el.style.cssText = `
-    background: var(--bg-panel, #0a0a12);
-    border-right: 1px solid var(--border-color, #2a2a3a);
-    padding: 1rem;
-    overflow-y: auto;
-    display: flex;
-    flex-direction: column;
-    gap: 1.5rem;
-  `;
 
   // Day/Year Display Section
   const timeSection = document.createElement('div');
@@ -374,19 +427,10 @@ function createLeftSidebar(_gameData: GameData): Component {
 
   return {
     el,
-    update: (gameData: GameData) => {
-      // Get home planet (Asimov) - year is based on its rotation
-      const homePlanet = gameData.planets.find(
-        (p) => p.id === gameData.homePlanetId
-      );
-      const asimovDayLength = homePlanet?.dayLengthTicks ?? 480;
+    update: (snapshot: TickSnapshot) => {
+      const { year, yearProgress, elapsedHours, aggregates } = snapshot;
 
-      // Year = orbits around Asimov (1 rotation = 1 year)
-      const years = Math.floor(gameData.gameTime / asimovDayLength) + 1;
-      const yearProgress =
-        (gameData.gameTime % asimovDayLength) / asimovDayLength;
-
-      yearDisplay.textContent = `Year ${years}`;
+      yearDisplay.textContent = `Year ${year}`;
       progressBar.style.width = `${yearProgress * 100}%`;
 
       // Color gradient through the year
@@ -402,13 +446,7 @@ function createLeftSidebar(_gameData: GameData): Component {
       }
       progressBar.style.backgroundColor = color;
 
-      const elapsedTicksInYear = gameData.gameTime % asimovDayLength;
-      const elapsedHoursInYear =
-        elapsedTicksInYear / SWARM_CONSTANTS.TICKS_PER_HOUR;
-      dayLabel.textContent = `${(yearProgress * 100).toFixed(1)}% - ${elapsedHoursInYear.toFixed(1)}h elapsed`;
-
-      // Update swarm stats
-      const aggregates = calculateSwarmAggregates(gameData.swarm);
+      dayLabel.textContent = `${(yearProgress * 100).toFixed(1)}% - ${elapsedHours.toFixed(1)}h elapsed`;
 
       (workersEl.lastChild as HTMLElement).textContent = String(
         aggregates.totalWorkers
@@ -441,25 +479,15 @@ function createLeftSidebar(_gameData: GameData): Component {
 function createMainPanel(
   _gameData: GameData,
   state: RendererState,
-  callbacks: RendererCallbacks
+  callbacks: RendererCallbacks,
+  rightSidebarEl: HTMLElement
 ): Component {
   const el = document.createElement('main');
   el.className = 'main-panel';
-  el.style.cssText = `
-    padding: 1rem;
-    overflow-y: auto;
-    background: var(--bg-void, #050508);
-  `;
 
   // Tab buttons container
   const tabsContainer = document.createElement('div');
-  tabsContainer.style.cssText = `
-    display: flex;
-    gap: 0.5rem;
-    margin-bottom: 1rem;
-    border-bottom: 1px solid var(--border-color, #2a2a3a);
-    padding-bottom: 0.5rem;
-  `;
+  tabsContainer.className = 'swarm-tab-bar';
 
   const tabButtons = new Map<TabId, HTMLButtonElement>();
 
@@ -467,6 +495,7 @@ function createMainPanel(
     { id: 'swarm', label: 'Swarm' },
     { id: 'planet', label: 'Planet' },
     { id: 'system', label: 'System' },
+    { id: 'map', label: 'Map' },
     { id: 'log', label: 'Log' },
   ];
 
@@ -505,6 +534,24 @@ function createMainPanel(
     contentContainer.appendChild(content);
   }
 
+  // Map tab holds the reparented right sidebar — styled for inline display
+  const mapTabContent = tabContents.get('map')!;
+  mapTabContent.className = 'map-tab-inline';
+  // The map tab button is hidden on desktop (right sidebar visible there)
+  const mapTabBtn = tabButtons.get('map')!;
+  mapTabBtn.className = 'map-tab-button';
+
+  // Reparent the right sidebar content into / out of the map tab
+  function syncMapTab(activeTab: TabId) {
+    if (activeTab === 'map') {
+      // Move right sidebar content into the map tab
+      if (!mapTabContent.contains(rightSidebarEl)) {
+        mapTabContent.appendChild(rightSidebarEl);
+        rightSidebarEl.style.display = '';
+      }
+    }
+  }
+
   // Now add onclick handlers that reference tabContents
   for (const { id } of tabs) {
     const btn = tabButtons.get(id);
@@ -525,6 +572,7 @@ function createMainPanel(
         for (const [tabId, content] of tabContents) {
           content.style.display = tabId === id ? 'block' : 'none';
         }
+        syncMapTab(id);
       };
     }
   }
@@ -541,10 +589,10 @@ function createMainPanel(
   return {
     el,
     update: (gameData: GameData) => {
-      // Update tab content based on active tab
+      // Update tab content based on active tab (skip 'map' — managed via reparenting)
       const activeTab = state.activeTab;
       for (const [id, content] of tabContents) {
-        if (id === activeTab) {
+        if (id === activeTab && id !== 'map') {
           content.innerHTML = getTabContent(id, gameData, callbacks);
         }
       }
@@ -564,10 +612,10 @@ function getTabContent(
       return createPlanetTabContent(gameData);
     case 'system':
       return createSystemTabContent(gameData);
+    case 'map':
+      return ''; // Map tab content managed via DOM reparenting, not innerHTML
     case 'log':
       return createLogTabContent(gameData);
-    default:
-      return '';
   }
 }
 
@@ -938,13 +986,6 @@ type MapViewMode = 'system' | 'local' | 'planet';
 function createRightSidebar(gameData: GameData): Component {
   const el = document.createElement('aside');
   el.className = 'right-sidebar';
-  el.style.cssText = `
-    background: var(--bg-panel, #0a0a12);
-    border-left: 1px solid var(--border-color, #2a2a3a);
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
-  `;
 
   // View state
   let viewMode: MapViewMode = 'system';
@@ -1128,14 +1169,7 @@ function createFooter(
   _callbacks: RendererCallbacks
 ): Component {
   const el = document.createElement('footer');
-  el.style.cssText = `
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    padding: 0.75rem 1rem;
-    background: var(--bg-panel, #0a0a12);
-    border-top: 1px solid var(--border-color, #2a2a3a);
-  `;
+  el.className = 'swarm-footer';
 
   // Center: Status
   const status = document.createElement('div');
@@ -1147,6 +1181,78 @@ function createFooter(
   return {
     el,
     update: (_gameData: GameData) => {},
+  };
+}
+
+// ============================================================================
+// MOBILE HEADER COMPONENT - Glance-level stats for <=900px
+// ============================================================================
+
+function createMobileHeader(
+  _gameData: GameData,
+  callbacks: RendererCallbacks
+): Component<TickSnapshot> {
+  const el = document.createElement('div');
+  el.className = 'swarm-mobile-header';
+
+  // Hamburger button
+  const hamburger = document.createElement('button');
+  hamburger.className = 'mobile-hamburger';
+  hamburger.textContent = '\u2630'; // ☰
+  hamburger.setAttribute('aria-label', 'Open sidebar');
+  el.appendChild(hamburger);
+
+  // Year stat
+  const yearStat = document.createElement('div');
+  yearStat.className = 'mobile-header-stat';
+  yearStat.innerHTML =
+    '<span class="mobile-header-label">Year</span>' +
+    '<span class="mobile-header-value">1</span>';
+  el.appendChild(yearStat);
+
+  // Workers stat
+  const workersStat = document.createElement('div');
+  workersStat.className = 'mobile-header-stat';
+  workersStat.innerHTML =
+    '<span class="mobile-header-label">Workers</span>' +
+    '<span class="mobile-header-value">0</span>';
+  el.appendChild(workersStat);
+
+  // Queens stat
+  const queensStat = document.createElement('div');
+  queensStat.className = 'mobile-header-stat';
+  queensStat.innerHTML =
+    '<span class="mobile-header-label">Queens</span>' +
+    '<span class="mobile-header-value">0</span>';
+  el.appendChild(queensStat);
+
+  // Play/Pause button
+  const playPause = document.createElement('button');
+  playPause.className = 'mobile-header-playpause';
+  playPause.textContent = '\u23F8'; // ⏸
+  playPause.setAttribute('aria-label', 'Toggle pause');
+  playPause.addEventListener('click', () => {
+    callbacks.onTogglePause();
+  });
+  el.appendChild(playPause);
+
+  const yearValueEl = yearStat.querySelector(
+    '.mobile-header-value'
+  ) as HTMLElement;
+  const workersValueEl = workersStat.querySelector(
+    '.mobile-header-value'
+  ) as HTMLElement;
+  const queensValueEl = queensStat.querySelector(
+    '.mobile-header-value'
+  ) as HTMLElement;
+
+  return {
+    el,
+    update: (snapshot: TickSnapshot) => {
+      yearValueEl.textContent = String(snapshot.year);
+      workersValueEl.textContent = String(snapshot.aggregates.totalWorkers);
+      queensValueEl.textContent = String(snapshot.aggregates.totalQueens);
+    },
   };
 }
 
