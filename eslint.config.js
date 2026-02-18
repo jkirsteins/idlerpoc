@@ -79,7 +79,7 @@ export default tseslint.config(
       // Thresholds are set just above current maximums so existing code
       // passes as-is, but new code can't get worse. Tighten over time.
       complexity: ['warn', 112],
-      'max-lines': ['warn', 2500],
+      'max-lines': ['warn', 2400],
       'max-lines-per-function': ['warn', { max: 1260 }],
       'max-depth': ['warn', 9],
       'max-params': ['warn', 7],
