@@ -361,16 +361,24 @@ export interface StoryArc {
 }
 
 /**
+ * Minimal crew shape required by arc pattern detection.
+ * Both CrewMember and DeadCrewArchive satisfy this interface,
+ * eliminating the need for unsafe casts in arc detection.
+ */
+export interface ArcCrewActor {
+  id: string;
+  name: string;
+  skills: CrewSkills;
+  relationships?: CrewRelationship[];
+}
+
+/**
  * Minimal snapshot of a dead crew member preserved for arc detection.
  * Stored in StoryState so chronicles survive crew removal.
  */
-export interface DeadCrewArchive {
-  id: string;
-  name: string;
+export interface DeadCrewArchive extends ArcCrewActor {
   role: CrewRole;
-  skills: CrewSkills;
   personality?: CrewPersonality;
-  relationships?: CrewRelationship[];
   chronicle: ChronicleEntry[];
   diedAt: number;
   shipId: string;

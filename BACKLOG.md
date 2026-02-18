@@ -197,6 +197,15 @@ Remaining follow-up:
 - **Story Arc Completion**: Track when an arc's conditions are no longer met (e.g., survivor dies) and mark it as complete with an epilogue.
 - **Seasonal/Timed Arcs**: Detect patterns tied to game time milestones (e.g., "first year anniversary" for long-serving crew).
 - **Player-Written Annotations**: Allow players to add their own notes/captions to detected story arcs.
+- **Relationship Depth**: Relationship system has no bond decay, no cap on number of relationships per crew, and no gameplay effects beyond triggering arc patterns. Consider bond decay over time when crew are separated, relationship caps per crew member, and morale effects from strong/broken bonds.
+- **Arc Re-evaluation**: Once an arc is detected, it is never re-evaluated for a higher-quality version (e.g., a 2-star survivor who later accumulates 4 near-deaths stays at 2 stars). Consider periodic re-evaluation or upgrade logic.
+- **Narrative Metadata Clobbering**: When multi-entry arcs select chronicle entries for metadata, only the first/last entry's details propagate. Could capture richer metadata across all matched entries.
+- **PNG Export Polish**: `storyCard.ts` image export uses hardcoded monospace font (may not be available on all systems) and hardcoded game title. Should use font detection with fallbacks and derive the title from game state.
+- **Arc Modifier Stat Tooltips**: Personality trait and arc modifier bonuses are shown as badges in the Crew tab but not included as line items in stat tooltip breakdowns (combat score, training rate, evasion, etc.). Players looking at "why is my training rate X?" in a tooltip won't see the arc contribution. Depends on innerHTML refactoring (see UI Architecture section).
+
+## UI Architecture Improvements
+
+- **innerHTML Refactoring**: ~60 `innerHTML` instances across 12 files (`fleetTab.ts`, `shipTab.ts`, `financesTab.ts`, `tooltip.ts`, etc.) predate the mount-once/update-on-tick pattern guidance. Should be replaced with `textContent`/`innerText` on stable element references per CLAUDE.md. Heaviest offenders: `fleetTab.ts` (~15), `shipTab.ts` (~15), `financesTab.ts` (~11), `tooltip.ts` (3 instances which also carry XSS risk via arbitrary HTML strings). The `tooltip.ts` instances are the highest priority since `attachDynamicTooltip.updateContent()` sets `innerHTML` with caller-provided strings.
 
 ## Other Known Gaps
 

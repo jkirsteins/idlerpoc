@@ -1,6 +1,6 @@
 import type {
   ChronicleEntry,
-  CrewMember,
+  ArcCrewActor,
   Ship,
   ArcType,
   GameData,
@@ -35,7 +35,7 @@ export interface ArcPattern {
   actorType: 'crew' | 'ship' | 'both';
   detect: (
     entries: ChronicleEntry[],
-    actor: CrewMember | Ship,
+    actor: ArcCrewActor | Ship,
     gameData: GameData
   ) => ArcMatch | null;
 }
@@ -137,7 +137,7 @@ const oldReliablePattern: ArcPattern = {
   arcType: 'old_reliable',
   actorType: 'crew',
   detect: (entries, actor) => {
-    const crew = actor as CrewMember;
+    const crew = actor as ArcCrewActor;
     const hired = entries.find((e) => e.type === 'hired');
     if (!hired) return null;
 
@@ -236,7 +236,7 @@ const battleBrothersPattern: ArcPattern = {
   arcType: 'battle_brothers',
   actorType: 'crew',
   detect: (entries, actor) => {
-    const crew = actor as CrewMember;
+    const crew = actor as ArcCrewActor;
     if (!crew.relationships) return null;
 
     const battleBonds = crew.relationships.filter(
@@ -277,7 +277,7 @@ const mentorProtegePattern: ArcPattern = {
   arcType: 'mentor_protege',
   actorType: 'crew',
   detect: (entries, actor) => {
-    const crew = actor as CrewMember;
+    const crew = actor as ArcCrewActor;
     if (!crew.relationships) return null;
 
     const mentorBonds = crew.relationships.filter(

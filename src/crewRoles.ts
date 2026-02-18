@@ -296,8 +296,8 @@ export function calculateShipSalaryPerTick(ship: Ship): number {
   return total;
 }
 
-/** Sum of a crew member's four skill values. */
-export function getTotalCrewSkills(crew: CrewMember): number {
+/** Sum of a crew member's four skill values. Accepts any object with skills. */
+export function getTotalCrewSkills(crew: { skills: CrewSkills }): number {
   return (
     crew.skills.piloting +
     crew.skills.mining +

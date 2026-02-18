@@ -1,4 +1,4 @@
-import type { GameData, StoryArc, ArcType, Ship, CrewMember } from './models';
+import type { GameData, StoryArc, ArcType, Ship } from './models';
 import { ALL_ARC_PATTERNS, type ArcMatch } from './arcPatterns';
 import { generateId } from './utils';
 
@@ -140,12 +140,8 @@ export function detectArcs(gameData: GameData): StoryArc[] {
       if (pattern.actorType !== 'crew' && pattern.actorType !== 'both')
         continue;
 
-      // Cast archive to CrewMember-compatible shape for pattern detection
-      const match = pattern.detect(
-        dead.chronicle,
-        dead as unknown as CrewMember,
-        gameData
-      );
+      // DeadCrewArchive satisfies ArcCrewActor — no cast needed
+      const match = pattern.detect(dead.chronicle, dead, gameData);
       if (!match) continue;
 
       const key = `${pattern.arcType}:${dead.id}`;
@@ -175,6 +171,8 @@ export function detectArcs(gameData: GameData): StoryArc[] {
       stories.detectedArcs.sort((a, b) => b.rating - a.rating);
       stories.detectedArcs.length = MAX_ARCS;
     }
+
+    invalidateArcModifierCache();
   }
 
   stories.lastScanGameTime = gameData.gameTime;
@@ -204,6 +202,7 @@ export function dismissArc(gameData: GameData, arcId: string): void {
   if (arc) {
     stories.dismissedArcIds.push(arcKey(arc));
     stories.detectedArcs = stories.detectedArcs.filter((a) => a.id !== arcId);
+    invalidateArcModifierCache();
 
     // Prune oldest dismissed entries if list grows too large
     if (stories.dismissedArcIds.length > MAX_DISMISSED_IDS) {
@@ -230,6 +229,26 @@ export function getFeaturedArc(gameData: GameData): StoryArc | null {
   return arcs.length > 0 ? arcs[0] : null;
 }
 
+// ── Arc modifier cache ───────────────────────────────────────────
+// Precomputed lookup: "actorId:effect" → bonus (additive, not yet 1.0-based).
+// Rebuilt lazily when arcs change (detection or dismissal).
+let arcModifierCache: Map<string, number> | null = null;
+
+function invalidateArcModifierCache(): void {
+  arcModifierCache = null;
+}
+
+function buildArcModifierCache(arcs: StoryArc[]): Map<string, number> {
+  const map = new Map<string, number>();
+  for (const arc of arcs) {
+    const mapping = ARC_EFFECT_MAP[arc.arcType];
+    if (!mapping) continue;
+    const key = `${arc.actorId}:${mapping.effect}`;
+    map.set(key, (map.get(key) ?? 0) + arc.rating * 0.01);
+  }
+  return map;
+}
+
 /**
  * Get a gameplay multiplier for a specific effect from active story arcs
  * on a given actor (crew member or ship).
@@ -240,6 +259,7 @@ export function getFeaturedArc(gameData: GameData): StoryArc | null {
  * traces back to simulated gameplay events.
  *
  * Multiple arcs of different types with the same effect stack additively.
+ * Results are cached and rebuilt only when arcs are detected or dismissed.
  */
 export function getArcModifier(
   gameData: GameData,
@@ -247,18 +267,14 @@ export function getArcModifier(
   effect: string
 ): number {
   const stories = gameData.stories;
-  if (!stories) return 1.0;
+  if (!stories || stories.detectedArcs.length === 0) return 1.0;
 
-  let totalBonus = 0;
-  for (const arc of stories.detectedArcs) {
-    if (arc.actorId !== actorId) continue;
-    const mapping = ARC_EFFECT_MAP[arc.arcType];
-    if (mapping && mapping.effect === effect) {
-      totalBonus += arc.rating * 0.01;
-    }
+  if (!arcModifierCache) {
+    arcModifierCache = buildArcModifierCache(stories.detectedArcs);
   }
 
-  return 1.0 + totalBonus;
+  const bonus = arcModifierCache.get(`${actorId}:${effect}`) ?? 0;
+  return 1.0 + bonus;
 }
 
 // ── Helpers ──────────────────────────────────────────────────────

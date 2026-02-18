@@ -194,7 +194,10 @@ function addCredits(gameData: GameData, amount: number, ship?: Ship): number {
     ? 1 + getCommercePoolPaymentBonus(getBestCrewPool(ship.crew, 'commerce'))
     : 1.0;
 
-  // Personality trait trade income modifier (best trader on ship)
+  // Personality trait trade income modifier.
+  // Uses the best trader on the ship because contract payments are a ship-level
+  // action (the deal is negotiated once for the whole crew, not per-person).
+  // This differs from per-crew effects like combat_attack or training_speed.
   const tradeIncomeMod = ship
     ? Math.max(...ship.crew.map((c) => getTraitModifier(c, 'trade_income')))
     : 1.0;
