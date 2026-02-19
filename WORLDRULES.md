@@ -33,15 +33,44 @@ All TRAPPIST-1 planets share remarkably similar densities — about 8% less dens
 
 ## Swarm Biology
 
+### Alien Metabolism (Universal Model)
+
+All swarm organisms share the same energy→health lifecycle cascade. This is the foundational model — every new alien type must implement it.
+
+**Resource Pools**:
+
+- **Energy Pool** (`energy: { current, max }`): Depletes per tick by `metabolismPerTick`. Refueled by consuming biomass. When empty, triggers health drain.
+- **Health Pool** (`health: { current, max }`): Only depletes when energy reaches 0. Drains at `hpDecayPerTickAtZeroEnergy`. When empty, organism dies.
+
+**Per-tick cascade**:
+
+```
+1. energy -= metabolismPerTick          (always)
+2. refuel energy from available biomass  (if possible)
+3. if energy == 0: health -= hpDecayPerTickAtZeroEnergy
+4. if health == 0: die
+```
+
+**Rate derivation** — metabolism rates are derived from pool sizes and depletion durations, never hardcoded:
+
+```
+metabolismPerTick = energyMax / depletionTicks
+hpDecayPerTickAtZeroEnergy = healthMax / hpDepletionTicks
+```
+
+This ensures tuning is done via meaningful durations (how long to starve, how long to die), with per-tick rates calculated once at entity creation.
+
+**When adding a new organism type**: Define pool sizes and depletion durations as named constants in `SWARM_CONSTANTS`. Derive per-tick rates in the factory function. Store derived rates on the entity instance so tooltips can display them.
+
 ### The Queen
 
 The queen is the neural center of the swarm:
 
 - **Immobile**: Embedded underground for safety
-- **Immortal**: Cannot die from age (but can starve)
+- **Immortal**: Cannot die from age (but can starve via energy→health cascade)
 - **Neural Hub**: Coordinates all workers via pheromone/chemical signals
 - **Reproductive Engine**: Converts energy into eggs
-- **Metabolic Core**: Consumes biomass constantly to survive
+- **Metabolic Core**: Energy depletes over ~1 year; health drains over ~7 years at zero energy
 
 **Base Neural Capacity**: 20 workers
 
@@ -52,9 +81,9 @@ The queen is the neural center of the swarm:
 
 Workers are the swarm's hands and sensors:
 
-- **Autonomous**: Self-maintain via cargo system
+- **Autonomous**: Self-maintain by consuming cargo to refuel energy
 - **Controlled**: Receive orders from queen via command queue
-- **Mortal**: Die from starvation or age (health degradation)
+- **Mortal**: Die from starvation (energy→health cascade). No natural aging.
 - **Skilled**: Improve at foraging through practice
 
 **Lifecycle**:
@@ -62,18 +91,24 @@ Workers are the swarm's hands and sensors:
 1. **Egg** (10 ticks): Queen lays using energy
 2. **Incubation** (30 ticks): Develops in protected chamber
 3. **Maturation** (15 ticks): Larval stage, minimal activity
-4. **Worker** (275 ticks lifespan): Gathers biomass, follows orders
+4. **Worker** (no fixed lifespan): Lives until energy starvation kills it
 
-**Cargo System**:
+**Resource Pools** (follows universal metabolism model):
+
+- Energy: max 10, depletes in 100 ticks without food
+- Health: max 100, depletes in 20 ticks at zero energy
+- Spawns with full energy — can immediately start gathering
+
+**Cargo System** (purely for biomass delivery):
 
 - Workers carry physical biomass (max 10 units)
-- Must gather → transport → unload to queen
-- Self-consume from cargo for metabolism (0.1/tick)
-- Starvation if cargo empty and no queen access
+- Gather → transport → unload to queen
+- Self-maintenance: consume from cargo to refuel energy (at metabolism rate)
+- Cargo is not the worker's food source — energy is. Cargo feeds energy.
 
 **States**:
 
-- `self_maintenance`: Consuming from personal cargo
+- `self_maintenance`: Consuming from cargo to refuel energy
 - `gathering`: Filling cargo from zone
 - `idle_empty`: No orders, empty cargo
 - `idle_cargo_full`: Queen full, can't unload
@@ -81,15 +116,19 @@ Workers are the swarm's hands and sensors:
 ### Energy Flow
 
 ```
-Biomass (Surface Lichen) → Worker Cargo → Queen → Eggs → Workers
+Biomass (Surface Lichen)
+    → Worker Cargo (gathering)
+    → Worker Energy (self-maintenance, metabolism rate)
+    → Surplus cargo delivered to Queen Energy
+    → Queen Energy → Eggs → Workers
 ```
 
 **Conversion**: 1 Biomass = 1 Energy (v1)
 
-**Metabolic Costs**:
+**Metabolic Costs** (derived from constants, not hardcoded):
 
-- Worker self-maintenance: 0.1 energy/tick
-- Queen survival: 0.5 energy/tick
+- Worker energy drain: `WORKER_ENERGY_MAX / WORKER_ENERGY_DEPLETION_TICKS` = 0.1/tick
+- Queen energy drain: derived from alien type (`energyToZeroYears`)
 - Egg production: 10 energy per egg
 
 ---
@@ -248,22 +287,23 @@ Workers (pull and execute)
 
 ### Order Assignment
 
-Queen evaluates every 10 ticks:
+Orders are assigned via two mechanisms:
 
-1. Rank available workers by foraging skill
-2. Fill gathering orders with highest-skilled first
-3. Assign idle to remaining workers
-4. Re-evaluate on directive change
+1. **Event-driven** (immediate): When a worker hatches, the queen assigns it an order via the `worker_hatched` event bus. No waiting for the next evaluation cycle.
+2. **Periodic re-evaluation** (every 10 ticks): Queen re-evaluates all idle workers, ranking by foraging skill, assigning gathering orders to highest-skilled first.
 
 ### Worker Decision Loop
 
-Each tick:
+Each tick (follows universal metabolism cascade):
 
-1. Self-maintenance (consume 0.1 from cargo)
-2. If starving: emergency gather (ignore orders)
-3. If cargo < max and order = gather: gather food
-4. If cargo >= max: attempt unload to queen
-5. If queen full: idle with cargo full
+1. Energy depletes by `metabolismPerTick`
+2. If energy < max and has cargo: consume from cargo to refuel energy
+3. If energy = 0: health depletes by `hpDecayPerTickAtZeroEnergy`
+4. If health = 0: die
+5. Execute order:
+   - If order = gather and cargo < max: gather biomass into cargo
+   - If cargo = max: deliver to queen
+   - If queen full: idle with cargo full
 
 ---
 
