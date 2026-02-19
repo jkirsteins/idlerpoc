@@ -139,14 +139,15 @@ export function calculateStarvationDeaths(
   result.deaths = workersToKill.length;
 
   // Calculate biomass recovered
-  const biomassPerWorker = 5; // Cost to spawn a worker
   result.biomassRecovered =
     workersToKill.length *
-    biomassPerWorker *
+    SWARM_CONSTANTS.WORKER_RECYCLE_BIOMASS *
     SWARM_CONSTANTS.RECYCLE_EFFICIENCY;
 
-  // Count starving workers (health < 50)
-  result.workersStarving = workers.filter((w) => w.health < 50).length;
+  // Count starving workers
+  result.workersStarving = workers.filter(
+    (w) => w.health < SWARM_CONSTANTS.WORKER_STARVING_HEALTH_THRESHOLD
+  ).length;
 
   return result;
 }
@@ -183,22 +184,18 @@ export function calculateEquilibrium(
   const balance = calculateEnergyBalance(workers, queens, currentEfficiency);
 
   let trend: 'growing' | 'shrinking' | 'stable';
-  if (balance.net > 2) {
+  if (balance.net > SWARM_CONSTANTS.EQUILIBRIUM_TREND_THRESHOLD) {
     trend = 'growing';
-  } else if (balance.net < -2) {
+  } else if (balance.net < -SWARM_CONSTANTS.EQUILIBRIUM_TREND_THRESHOLD) {
     trend = 'shrinking';
   } else {
     trend = 'stable';
   }
 
   // Estimate target population
-  // At equilibrium: production = consumption
-  // gathering_workers * rate * efficiency = total_workers * upkeep + queen_cost
-  // Approximate: W * base_rate * 0.5 * efficiency ≈ W * upkeep
-  // This gives us: efficiency ≈ upkeep / (base_rate * 0.5)
-
-  const targetLoad = 1.2; // Slight overshoot is stable
-  const targetPopulation = Math.floor(neuralCapacity * targetLoad);
+  const targetPopulation = Math.floor(
+    neuralCapacity * SWARM_CONSTANTS.EQUILIBRIUM_TARGET_LOAD
+  );
 
   return {
     stable: trend === 'stable',
@@ -208,7 +205,8 @@ export function calculateEquilibrium(
     estimatedDaysToEquilibrium:
       trend === 'stable'
         ? 0
-        : Math.abs(currentPopulation - targetPopulation) / 10,
+        : Math.abs(currentPopulation - targetPopulation) /
+          SWARM_CONSTANTS.EQUILIBRIUM_CONVERGENCE_RATE,
   };
 }
 

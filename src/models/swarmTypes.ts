@@ -393,6 +393,10 @@ export const SWARM_CONSTANTS = {
   WORKER_HEALTH_DECAY: 0.36, // Dies at ~275 ticks
   WORKER_CARGO_MAX: 10,
   WORKER_UPKEEP_ENERGY: 0.1,
+  WORKER_BOOTSTRAP_TICKS: 5, // Ticks of upkeep energy a hatchling spawns with
+  WORKER_STARVATION_DAMAGE: 5, // Health lost per tick when starving
+  WORKER_STARVING_HEALTH_THRESHOLD: 50, // Below this health, worker counts as "starving"
+  WORKER_RECYCLE_BIOMASS: 5, // Biomass recovered when a worker dies
 
   // Energy costs
   EGG_COST: 10,
@@ -404,11 +408,24 @@ export const SWARM_CONSTANTS = {
   // Gathering
   BASE_GATHER_RATE: 0.2,
 
+  // Skill progression tuning (shared by foraging and brood skills)
+  SKILL_ACTIVITY_MULTIPLIER: 10, // Scales activity into skill gain units
+  SKILL_GAIN_DIVISOR: 1_000_000, // Scales raw skill gain into usable range
+  MASTERY_XP_PER_FOOD_UNIT: 10, // Mastery XP awarded per unit of food gathered
+
   // Neural capacity
   QUEEN_BASE_CAPACITY: 20,
   OVERLOAD_EXPONENT: 4,
   STARVATION_COEFFICIENT: 0.5,
   RECYCLE_EFFICIENCY: 0.7,
+
+  // Equilibrium / catch-up
+  EQUILIBRIUM_TARGET_LOAD: 1.2, // Slight neural overshoot is stable
+  CATCHUP_GROWTH_RATE: 0.1, // Fraction of gap closed per day during catch-up
+  CATCHUP_OVERCAPACITY_THRESHOLD: 1.5, // Above this × target, population crashes
+  CATCHUP_DEATH_RATE: 0.2, // Fraction of excess killed per day during crash
+  EQUILIBRIUM_TREND_THRESHOLD: 2, // Net energy above/below this = growing/shrinking
+  EQUILIBRIUM_CONVERGENCE_RATE: 10, // Workers per day toward equilibrium
 
   // Time
   TICKS_PER_DAY: 480,

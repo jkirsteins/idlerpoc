@@ -192,8 +192,11 @@ export function processQueenLaying(
       const skillGain =
         calculateSkillGainRate(queen.broodSkill) *
         SWARM_CONSTANTS.BROOD_XP_PER_LAY *
-        10;
-      queen.broodSkill = Math.min(100, queen.broodSkill + skillGain / 1000000);
+        SWARM_CONSTANTS.SKILL_ACTIVITY_MULTIPLIER;
+      queen.broodSkill = Math.min(
+        100,
+        queen.broodSkill + skillGain / SWARM_CONSTANTS.SKILL_GAIN_DIVISOR
+      );
 
       // Find nursery and create egg
       const nursery = getNurseryForQueen(queen, structures);
@@ -330,7 +333,9 @@ export function getEggProgress(egg: Egg, queen: Queen | undefined): number {
 export function createWorker(queenId: string, _gameTime: number): Worker {
   // Bootstrap cargo: enough upkeep energy for a few ticks so the
   // hatchling can survive until its first gather cycle completes.
-  const bootstrapCargo = SWARM_CONSTANTS.WORKER_UPKEEP_ENERGY * 5;
+  const bootstrapCargo =
+    SWARM_CONSTANTS.WORKER_UPKEEP_ENERGY *
+    SWARM_CONSTANTS.WORKER_BOOTSTRAP_TICKS;
 
   return {
     id: `worker-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
@@ -453,7 +458,7 @@ export function processWorkerTick(
     worker.state = 'self_maintenance';
   } else {
     // Starvation - take health damage
-    worker.health -= 5; // Damage per tick when starving
+    worker.health -= SWARM_CONSTANTS.WORKER_STARVATION_DAMAGE;
     result.starvationDamage = true;
 
     if (worker.health <= 0) {

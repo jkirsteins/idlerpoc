@@ -10,6 +10,7 @@ import {
   assignOrders,
   calculateSwarmAggregates,
   createLogEntry,
+  createWorker,
 } from './swarmSystem';
 import { gainForagingSkill, gainMasteryXp } from './foragingSystem';
 import {
@@ -389,14 +390,7 @@ function processBatchedCatchUp(
   for (const egg of eggsToHatch) {
     const queen = swarm.queens.find((q) => q.id === egg.queenId);
     if (queen) {
-      swarm.workers.push({
-        id: `worker-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-        queenId: queen.id,
-        state: 'idle_empty',
-        health: SWARM_CONSTANTS.WORKER_HEALTH_MAX,
-        cargo: { current: 0, max: SWARM_CONSTANTS.WORKER_CARGO_MAX },
-        skills: { foraging: 0, mastery: { surfaceLichen: 0 } },
-      });
+      swarm.workers.push(createWorker(queen.id, data.gameTime));
       queen.broodMastery.worker += SWARM_CONSTANTS.EGG_HATCH_MASTERY_XP;
       result.workersHatched++;
       result.eggsHatched++;
@@ -409,34 +403,35 @@ function processBatchedCatchUp(
   const daysElapsed = elapsedTicks / SWARM_CONSTANTS.TICKS_PER_DAY;
 
   // Target: slightly over capacity for stability
-  const targetWorkers = Math.floor(neuralCapacity * 1.2);
+  const targetWorkers = Math.floor(
+    neuralCapacity * SWARM_CONSTANTS.EQUILIBRIUM_TARGET_LOAD
+  );
   const currentWorkers = swarm.workers.length;
 
   if (currentWorkers < targetWorkers) {
     // Population growth
-    const growthRate = 0.1; // 10% per day toward target
     const newWorkers = Math.floor(
-      (targetWorkers - currentWorkers) * growthRate * daysElapsed
+      (targetWorkers - currentWorkers) *
+        SWARM_CONSTANTS.CATCHUP_GROWTH_RATE *
+        daysElapsed
     );
 
     for (let i = 0; i < newWorkers; i++) {
       const queen = swarm.queens[0];
       if (queen) {
-        swarm.workers.push({
-          id: `worker-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-          queenId: queen.id,
-          state: 'idle_empty',
-          health: SWARM_CONSTANTS.WORKER_HEALTH_MAX,
-          cargo: { current: 0, max: SWARM_CONSTANTS.WORKER_CARGO_MAX },
-          skills: { foraging: 0, mastery: { surfaceLichen: 0 } },
-        });
+        swarm.workers.push(createWorker(queen.id, data.gameTime));
         result.workersHatched++;
       }
     }
-  } else if (currentWorkers > targetWorkers * 1.5) {
+  } else if (
+    currentWorkers >
+    targetWorkers * SWARM_CONSTANTS.CATCHUP_OVERCAPACITY_THRESHOLD
+  ) {
     // Population crash from overcapacity
     const deaths = Math.floor(
-      (currentWorkers - targetWorkers) * 0.2 * daysElapsed
+      (currentWorkers - targetWorkers) *
+        SWARM_CONSTANTS.CATCHUP_DEATH_RATE *
+        daysElapsed
     );
     const actualDeaths = Math.min(deaths, swarm.workers.length);
 
