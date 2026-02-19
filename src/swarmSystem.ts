@@ -15,6 +15,7 @@ import {
   DEFAULT_QUEEN_ALIEN_TYPE_ID,
   getQueenMetabolismProfile,
 } from './alienTypes';
+import { onSwarm } from './swarmEvents';
 
 // ============================================================================
 // QUEEN OPERATIONS
@@ -331,19 +332,30 @@ export function getEggProgress(egg: Egg, queen: Queen | undefined): number {
 // ============================================================================
 
 export function createWorker(queenId: string, _gameTime: number): Worker {
-  // Bootstrap cargo: enough upkeep energy for a few ticks so the
-  // hatchling can survive until its first gather cycle completes.
-  const bootstrapCargo =
-    SWARM_CONSTANTS.WORKER_UPKEEP_ENERGY *
-    SWARM_CONSTANTS.WORKER_BOOTSTRAP_TICKS;
+  // Derive metabolism rates from pool sizes and depletion durations
+  const metabolismPerTick =
+    SWARM_CONSTANTS.WORKER_ENERGY_MAX /
+    SWARM_CONSTANTS.WORKER_ENERGY_DEPLETION_TICKS;
+  const hpDecayPerTickAtZeroEnergy =
+    SWARM_CONSTANTS.WORKER_HEALTH_MAX /
+    SWARM_CONSTANTS.WORKER_HP_DEPLETION_TICKS_AT_ZERO_ENERGY;
 
   return {
     id: `worker-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
     queenId,
     state: 'idle_empty',
-    health: SWARM_CONSTANTS.WORKER_HEALTH_MAX,
+    energy: {
+      current: SWARM_CONSTANTS.WORKER_ENERGY_MAX,
+      max: SWARM_CONSTANTS.WORKER_ENERGY_MAX,
+    },
+    health: {
+      current: SWARM_CONSTANTS.WORKER_HEALTH_MAX,
+      max: SWARM_CONSTANTS.WORKER_HEALTH_MAX,
+    },
+    metabolismPerTick,
+    hpDecayPerTickAtZeroEnergy,
     cargo: {
-      current: bootstrapCargo,
+      current: 0,
       max: SWARM_CONSTANTS.WORKER_CARGO_MAX,
     },
     skills: {
@@ -452,24 +464,41 @@ export function processWorkerTick(
     starvationDamage: false,
   };
 
-  // 1. Self-maintenance (highest priority)
-  if (worker.cargo.current >= SWARM_CONSTANTS.WORKER_UPKEEP_ENERGY) {
-    worker.cargo.current -= SWARM_CONSTANTS.WORKER_UPKEEP_ENERGY;
+  // 1. Energy depletes by metabolism (always, like queen)
+  worker.energy.current = Math.max(
+    0,
+    worker.energy.current - worker.metabolismPerTick
+  );
+
+  // 2. Self-maintenance: refuel energy from cargo (eat what metabolism costs)
+  if (worker.energy.current < worker.energy.max && worker.cargo.current > 0) {
+    const needed = worker.metabolismPerTick;
+    const consumed = Math.min(needed, worker.cargo.current);
+    worker.energy.current = Math.min(
+      worker.energy.current + consumed,
+      worker.energy.max
+    );
+    worker.cargo.current -= consumed;
     worker.state = 'self_maintenance';
-  } else {
-    // Starvation - take health damage
-    worker.health -= SWARM_CONSTANTS.WORKER_STARVATION_DAMAGE;
+  }
+
+  // 3. If energy=0, health depletes (starvation cascade, mirrors queen)
+  if (worker.energy.current <= 0) {
+    worker.health.current = Math.max(
+      0,
+      worker.health.current - worker.hpDecayPerTickAtZeroEnergy
+    );
     result.starvationDamage = true;
 
-    if (worker.health <= 0) {
+    if (worker.health.current <= 0) {
       result.died = true;
       return result;
     }
   }
 
-  // 2. Execute order
+  // 4. Execute order
   if (!worker.order) {
-    worker.state = 'idle_empty';
+    worker.state = worker.cargo.current > 0 ? 'idle_cargo_full' : 'idle_empty';
     return result;
   }
 
@@ -477,10 +506,8 @@ export function processWorkerTick(
   if (orderType === 'gather_biomass') {
     processGatherOrder(worker, queen, result);
   } else if (orderType === 'idle') {
-    // Just self-maintenance already done
     worker.state = worker.cargo.current > 0 ? 'idle_cargo_full' : 'idle_empty';
   } else {
-    // Future order types not yet implemented: combat, explore_zone, build_structure
     worker.state = 'idle_empty';
   }
 
@@ -629,4 +656,24 @@ export function createLogEntry(
     message,
     data,
   };
+}
+
+// ============================================================================
+// EVENT HANDLERS
+// ============================================================================
+
+/**
+ * Register swarm system event handlers.
+ * Called once at application startup from main.ts.
+ */
+export function initSwarmEvents(): void {
+  // When a worker hatches, immediately assign it an order from the queen's
+  // command queue so it can start working on its first tick.
+  onSwarm('worker_hatched', (_gameData, event) => {
+    if (event.type !== 'worker_hatched') return;
+    const { worker, queen } = event;
+    if (queen.commandQueue.length > 0) {
+      worker.order = queen.commandQueue[0];
+    }
+  });
 }

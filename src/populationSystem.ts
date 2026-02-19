@@ -41,7 +41,7 @@ export function calculateMetabolicRates(
   workers: Worker[],
   queens: Queen[]
 ): MetabolicRates {
-  const workerUpkeep = workers.length * SWARM_CONSTANTS.WORKER_UPKEEP_ENERGY;
+  const workerUpkeep = workers.reduce((sum, w) => sum + w.metabolismPerTick, 0);
   const queenUpkeep = queens.reduce(
     (sum, queen) => sum + queen.metabolismPerTick,
     0
@@ -126,14 +126,20 @@ export function calculateStarvationDeaths(
   }
 
   // Calculate potential deaths from energy deficit
-  const upkeepPerWorker = SWARM_CONSTANTS.WORKER_UPKEEP_ENERGY;
+  const upkeepPerWorker =
+    workers.length > 0
+      ? workers[0].metabolismPerTick
+      : SWARM_CONSTANTS.WORKER_ENERGY_MAX /
+        SWARM_CONSTANTS.WORKER_ENERGY_DEPLETION_TICKS;
   const potentialDeaths = Math.min(
     workers.length,
     SWARM_CONSTANTS.STARVATION_COEFFICIENT * (energyDeficit / upkeepPerWorker)
   );
 
   // Kill workers with lowest health first
-  const sortedWorkers = [...workers].sort((a, b) => a.health - b.health);
+  const sortedWorkers = [...workers].sort(
+    (a, b) => a.health.current - b.health.current
+  );
   const workersToKill = sortedWorkers.slice(0, Math.floor(potentialDeaths));
 
   result.deaths = workersToKill.length;
@@ -144,10 +150,8 @@ export function calculateStarvationDeaths(
     SWARM_CONSTANTS.WORKER_RECYCLE_BIOMASS *
     SWARM_CONSTANTS.RECYCLE_EFFICIENCY;
 
-  // Count starving workers
-  result.workersStarving = workers.filter(
-    (w) => w.health < SWARM_CONSTANTS.WORKER_STARVING_HEALTH_THRESHOLD
-  ).length;
+  // Count starving workers (energy depleted)
+  result.workersStarving = workers.filter((w) => w.energy.current <= 0).length;
 
   return result;
 }

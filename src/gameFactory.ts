@@ -218,6 +218,53 @@ export function loadGame(saveData: string): GameData | null {
       }
     }
 
+    // Backfill worker energy pool and metabolism for old saves
+    for (const worker of parsed.swarm.workers) {
+      const w = worker as unknown as Record<string, unknown>;
+      if (!worker.energy || typeof worker.energy !== 'object') {
+        worker.energy = {
+          current: SWARM_CONSTANTS.WORKER_ENERGY_MAX,
+          max: SWARM_CONSTANTS.WORKER_ENERGY_MAX,
+        };
+      }
+      if (
+        !worker.health ||
+        typeof worker.health !== 'object' ||
+        !('current' in worker.health)
+      ) {
+        // Migrate from old number health to EnergyPool
+        const oldHealth =
+          typeof w.health === 'number'
+            ? w.health
+            : SWARM_CONSTANTS.WORKER_HEALTH_MAX;
+        worker.health = {
+          current: Math.max(
+            0,
+            Math.min(SWARM_CONSTANTS.WORKER_HEALTH_MAX, oldHealth)
+          ),
+          max: SWARM_CONSTANTS.WORKER_HEALTH_MAX,
+        };
+      }
+      if (
+        typeof worker.metabolismPerTick !== 'number' ||
+        !Number.isFinite(worker.metabolismPerTick) ||
+        worker.metabolismPerTick <= 0
+      ) {
+        worker.metabolismPerTick =
+          SWARM_CONSTANTS.WORKER_ENERGY_MAX /
+          SWARM_CONSTANTS.WORKER_ENERGY_DEPLETION_TICKS;
+      }
+      if (
+        typeof worker.hpDecayPerTickAtZeroEnergy !== 'number' ||
+        !Number.isFinite(worker.hpDecayPerTickAtZeroEnergy) ||
+        worker.hpDecayPerTickAtZeroEnergy <= 0
+      ) {
+        worker.hpDecayPerTickAtZeroEnergy =
+          SWARM_CONSTANTS.WORKER_HEALTH_MAX /
+          SWARM_CONSTANTS.WORKER_HP_DEPLETION_TICKS_AT_ZERO_ENERGY;
+      }
+    }
+
     // Ensure at least one nursery exists (for old saves that had no structures)
     if (
       parsed.swarm.structures.length === 0 &&

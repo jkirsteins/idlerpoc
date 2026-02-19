@@ -13,6 +13,7 @@ import {
   createWorker,
 } from './swarmSystem';
 import { gainForagingSkill, gainMasteryXp } from './foragingSystem';
+import { emitSwarm } from './swarmEvents';
 import {
   calculateTotalNeuralCapacity,
   calculateNeuralLoad,
@@ -197,7 +198,7 @@ function processSingleTick(data: GameData): SingleTickResult {
   for (const egg of data.swarm.eggs) {
     const queen = swarm.queens.find((q) => q.id === egg.queenId);
     const gestationResult = processEggGestation(egg, queen, data.gameTime);
-    if (gestationResult.hatched && gestationResult.worker) {
+    if (gestationResult.hatched && gestationResult.worker && queen) {
       swarm.workers.push(gestationResult.worker);
       result.workersHatched++;
       result.eggsHatched++;
@@ -208,6 +209,12 @@ function processSingleTick(data: GameData): SingleTickResult {
           eggId: egg.id,
         })
       );
+      // Notify subscribers (queen assigns orders immediately)
+      emitSwarm(data, {
+        type: 'worker_hatched',
+        worker: gestationResult.worker,
+        queen,
+      });
     }
   }
   for (const egg of eggsToRemove) {
@@ -215,7 +222,7 @@ function processSingleTick(data: GameData): SingleTickResult {
     if (index > -1) data.swarm.eggs.splice(index, 1);
   }
 
-  // 4. Process workers
+  // 4. Process workers (energy→health cascade handled inside processWorkerTick)
   const workersToRemove: Worker[] = [];
 
   for (const worker of swarm.workers) {
@@ -226,15 +233,7 @@ function processSingleTick(data: GameData): SingleTickResult {
       continue;
     }
 
-    // Health decay
-    worker.health -= SWARM_CONSTANTS.WORKER_HEALTH_DECAY;
-    if (worker.health <= 0) {
-      workersToRemove.push(worker);
-      result.workersDied++;
-      continue;
-    }
-
-    // Process worker tick
+    // Process worker tick (energy depletion, self-maintenance, orders)
     const tickResult = processWorkerTick(worker, queen);
 
     if (tickResult.died) {
@@ -286,7 +285,7 @@ function processSingleTick(data: GameData): SingleTickResult {
 
     // Kill starving workers
     const sortedWorkers = [...swarm.workers].sort(
-      (a, b) => a.health - b.health
+      (a, b) => a.health.current - b.health.current
     );
     const workersToStarve = sortedWorkers.slice(0, starvationResult.deaths);
 

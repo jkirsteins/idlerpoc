@@ -4,7 +4,7 @@ import './style.css';
 import { SWARM_CONSTANTS, type GameData } from './models/swarmTypes';
 import { createNewGame, loadGame, saveGame } from './gameFactory';
 import { applyTick } from './gameTickSwarm';
-import { triggerManualLay } from './swarmSystem';
+import { triggerManualLay, initSwarmEvents } from './swarmSystem';
 import { render, type Renderer } from './ui/renderer';
 
 const app = document.getElementById('app')!;
@@ -72,6 +72,9 @@ function computeCatchUpTicks(elapsedSeconds: number): number {
 // ============================================================================
 
 function init(): void {
+  // Register cross-module event handlers
+  initSwarmEvents();
+
   // Try to load saved game
   const savedData = localStorage.getItem('swarmSave');
 
