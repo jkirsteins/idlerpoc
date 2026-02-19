@@ -328,13 +328,17 @@ export function getEggProgress(egg: Egg, queen: Queen | undefined): number {
 // ============================================================================
 
 export function createWorker(queenId: string, _gameTime: number): Worker {
+  // Bootstrap cargo: enough upkeep energy for a few ticks so the
+  // hatchling can survive until its first gather cycle completes.
+  const bootstrapCargo = SWARM_CONSTANTS.WORKER_UPKEEP_ENERGY * 5;
+
   return {
     id: `worker-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
     queenId,
     state: 'idle_empty',
     health: SWARM_CONSTANTS.WORKER_HEALTH_MAX,
     cargo: {
-      current: 0,
+      current: bootstrapCargo,
       max: SWARM_CONSTANTS.WORKER_CARGO_MAX,
     },
     skills: {
