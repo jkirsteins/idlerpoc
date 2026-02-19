@@ -234,6 +234,9 @@ export function triggerManualLay(
 ): void {
   const ep = queen.eggProduction;
 
+  // Always enable auto-lay when manually clicking
+  ep.enabled = true;
+
   if (ep.isLaying) {
     // Speed up active laying — halve remaining ticks (min 1)
     ep.layingTicksRemaining = Math.max(

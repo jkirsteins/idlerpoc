@@ -193,11 +193,13 @@ function processSingleTick(data: GameData): SingleTickResult {
 
   // 3b. Process egg gestation (independent of queen laying)
   const eggsToRemove: Egg[] = [];
+  const newlyHatchedIds = new Set<string>();
   for (const egg of data.swarm.eggs) {
     const queen = swarm.queens.find((q) => q.id === egg.queenId);
     const gestationResult = processEggGestation(egg, queen, data.gameTime);
     if (gestationResult.hatched && gestationResult.worker) {
       swarm.workers.push(gestationResult.worker);
+      newlyHatchedIds.add(gestationResult.worker.id);
       result.workersHatched++;
       result.eggsHatched++;
       eggsToRemove.push(egg);
@@ -214,10 +216,12 @@ function processSingleTick(data: GameData): SingleTickResult {
     if (index > -1) data.swarm.eggs.splice(index, 1);
   }
 
-  // 4. Process workers
+  // 4. Process workers (skip newly hatched — they get a grace tick)
   const workersToRemove: Worker[] = [];
 
   for (const worker of swarm.workers) {
+    if (newlyHatchedIds.has(worker.id)) continue;
+
     const queen = swarm.queens.find((q) => q.id === worker.queenId);
     if (!queen) {
       // Orphaned worker - remove

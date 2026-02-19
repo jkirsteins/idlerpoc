@@ -540,7 +540,7 @@ function createMainPanel(
 
   // Tab content container
   const contentContainer = document.createElement('div');
-  contentContainer.style.cssText = 'min-height: 400px;';
+  contentContainer.style.cssText = 'flex: 1; overflow-y: auto; min-height: 0;';
 
   const tabContents = new Map<TabId, HTMLElement>();
 

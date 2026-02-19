@@ -19,6 +19,7 @@ body {
   width: 100%;
   margin: 0 auto;
   overflow-x: hidden;
+  height: 100vh;
 }
 
 .game-container {
@@ -172,6 +173,8 @@ body {
   overflow-y: auto;
   background: var(--bg-void, #050508);
   min-width: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .swarm-header {
@@ -3859,7 +3862,7 @@ button:disabled:hover {
 
   .swarm-layout > .main-panel {
     max-height: none;
-    overflow-y: visible;
+    overflow-y: auto;
   }
 
   /* Show the mobile header bar in swarm layout */
