@@ -447,7 +447,7 @@ function onLayEgg(): void {
 
   const queen = gameData.swarm.queens[0];
   if (queen) {
-    triggerManualLay(queen);
+    triggerManualLay(queen, gameData.swarm.eggs, gameData.swarm.structures);
   }
 }
 

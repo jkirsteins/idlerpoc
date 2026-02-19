@@ -160,7 +160,8 @@ export function processQueenLaying(
   structures: Structure[]
 ): Egg | null {
   const ep = queen.eggProduction;
-  if (!ep.enabled && !ep.isLaying) return null;
+  if (!ep.enabled && !ep.isLaying && ep.cooldownTicksRemaining <= 0)
+    return null;
 
   // Handle cooldown
   if (ep.cooldownTicksRemaining > 0) {
@@ -204,8 +205,8 @@ export function processQueenLaying(
     return null;
   }
 
-  // Not laying, not in cooldown — try to start
-  if (!ep.enabled) return null;
+  // Not laying, not in cooldown — try to start (auto or manual)
+  if (!ep.enabled && !ep.manualCooldown) return null;
 
   // Check nursery space
   const nursery = getNurseryForQueen(queen, structures);
@@ -226,10 +227,22 @@ export function processQueenLaying(
 
 // --- Manual lay trigger (called by UI button) ---
 
-export function triggerManualLay(queen: Queen): void {
+export function triggerManualLay(
+  queen: Queen,
+  eggs: Egg[],
+  structures: Structure[]
+): void {
   const ep = queen.eggProduction;
 
-  if (ep.isLaying) return; // Can't speed up laying itself
+  if (ep.isLaying) {
+    // Speed up active laying — halve remaining ticks (min 1)
+    ep.layingTicksRemaining = Math.max(
+      1,
+      Math.floor(ep.layingTicksRemaining / 2)
+    );
+    ep.manualCooldown = true;
+    return;
+  }
 
   if (ep.cooldownTicksRemaining > 0) {
     // Shorten cooldown to manual value
@@ -238,10 +251,20 @@ export function triggerManualLay(queen: Queen): void {
       SWARM_CONSTANTS.EGG_MANUAL_COOLDOWN_TICKS
     );
     ep.manualCooldown = true;
-  } else {
-    // Ready to lay — mark as manual so cooldown after is shorter
-    ep.manualCooldown = true;
+    return;
   }
+
+  // Ready to lay — start immediately
+  const nursery = getNurseryForQueen(queen, structures);
+  if (!nursery) return;
+  if (getNurseryAvailableSpace(nursery, eggs) <= 0) return;
+  if (queen.energy.current < SWARM_CONSTANTS.EGG_COST) return;
+
+  queen.energy.current -= SWARM_CONSTANTS.EGG_COST;
+  ep.isLaying = true;
+  ep.layingTicksRemaining = Math.ceil(getEffectiveLayingTicks(queen));
+  ep.layingProgress = 0;
+  ep.manualCooldown = true;
 }
 
 // --- Egg gestation (Phase B: independent egg processing) ---

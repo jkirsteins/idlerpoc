@@ -699,11 +699,12 @@ function createSwarmTabContent(
     layingStatusColor = '#4caf50';
   }
 
-  // Lay Egg button disabled state
+  // Lay Egg button: enabled during laying (speed up) or cooldown (shorten),
+  // or when ready to start a new lay
   const canLayEgg =
-    !ep.isLaying &&
-    queen.energy.current >= SWARM_CONSTANTS.EGG_COST &&
-    nurserySpace > 0;
+    ep.isLaying ||
+    ep.cooldownTicksRemaining > 0 ||
+    (queen.energy.current >= SWARM_CONSTANTS.EGG_COST && nurserySpace > 0);
   const layBtnStyle = canLayEgg
     ? 'background: var(--accent-cyan, #00e5ff); color: #0a0a0f; cursor: pointer;'
     : 'background: #1a1a2a; color: #555; cursor: not-allowed;';
@@ -822,9 +823,9 @@ function createSwarmTabContent(
               font-weight: 600;
               ${layBtnStyle}
             "
-            title="Lay an egg now (shorter cooldown than auto)"
+            title="${ep.isLaying ? 'Speed up current lay' : ep.cooldownTicksRemaining > 0 ? 'Shorten cooldown' : 'Lay an egg now'}"
           >
-            Lay Egg
+            ${ep.isLaying ? 'Speed Up' : ep.cooldownTicksRemaining > 0 ? 'Speed Up' : 'Lay Egg'}
           </button>
         </div>
         <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.5rem;">
