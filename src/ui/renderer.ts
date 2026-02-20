@@ -896,10 +896,20 @@ function renderQueenEconomySection(queen: Queen, workers: Worker[]): string {
     etaHtml = `<div style="color: #4caf50; white-space: nowrap;">Full in ${formatTicksDualTime(Math.ceil(ticksToFull))}</div>`;
   }
 
+  const storedColor =
+    queen.energy.current > queen.energy.max * 0.4
+      ? '#4caf50'
+      : queen.energy.current > queen.energy.max * 0.15
+        ? '#ffc107'
+        : '#ff4444';
+
   return `
     <div style="font-size: 0.82rem; color: var(--text-secondary, #888); display: flex; flex-direction: column; gap: 0.2rem;">
       <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
-        <span style="white-space: nowrap;">Income: <span style="color: #4caf50;">${incomePerDay.toFixed(1)}</span>/day</span>
+        <span style="white-space: nowrap;">Stored: <span style="color: ${storedColor}; font-weight: bold;">${queen.energy.current.toFixed(1)}</span> / ${queen.energy.max.toFixed(0)} biomass</span>
+      </div>
+      <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+        <span style="white-space: nowrap;">Gathering: <span style="color: #4caf50;">${incomePerDay.toFixed(1)}</span>/day</span>
         <span style="white-space: nowrap;">Metabolism: <span style="color: #ffc107;">${metabolismPerDay.toFixed(1)}</span>/day</span>
         <span style="white-space: nowrap;">Net: <span style="color: ${netColor}; font-weight: bold;">${netSign}${netPerDay.toFixed(1)}</span>/day</span>
       </div>
