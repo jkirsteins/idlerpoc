@@ -192,6 +192,17 @@ Implementation references:
 - Flight time estimation: `estimateFlightDurationTicks()` in `src/flightPhysics.ts`
 - Provisions survival: `getProvisionsSurvivalTicks()` in `src/provisionsSystem.ts`
 
+# Alien Type Implementation
+
+**Every swarm organism must implement the universal metabolism model via the shared `Organism` interface and `processMetabolismCascade()` function.** See `WORLDRULES.md § Alien Metabolism (Universal Model)` for the authoritative specification.
+
+Non-negotiable rules:
+
+- **Never write metabolism logic inline.** All organisms call `processMetabolismCascade()` from `src/metabolismCascade.ts`. No copy-pasting the cascade into per-type tick functions.
+- **Never write biomass directly to an energy pool.** Biomass intake always goes to `biomassBuffer`. The cascade converts buffer → energy. If you find yourself writing `queen.energy.current += biomass`, stop — that bypasses the buffer.
+- **Every organism has all three pools.** Energy, health, and biomass buffer. If an organism appears to not need one (e.g. "the queen doesn't gather, so she doesn't need a buffer"), that's a misunderstanding — raise it, don't work around it.
+- **Organism-specific intake is separate from the cascade.** Workers replenish their buffer from cargo. Queens receive buffer from worker deliveries. These are pre-cascade steps, not part of `processMetabolismCascade()`.
+
 # Additional rules
 
 - Consult README for project scope before starting work. See if any other markdown files (\*.md pattern, in root and in docs/ folder) might be relevant. If so, read them.

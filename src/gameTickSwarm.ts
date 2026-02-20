@@ -11,7 +11,9 @@ import {
   calculateSwarmAggregates,
   createLogEntry,
   createWorker,
+  queenReceiveBiomass,
 } from './swarmSystem';
+import { processMetabolismCascade } from './metabolismCascade';
 import { gainForagingSkill, gainMasteryXp } from './foragingSystem';
 import { emitSwarm } from './swarmEvents';
 import {
@@ -143,32 +145,22 @@ function processSingleTick(data: GameData): SingleTickResult {
   // 2. Calculate swarm aggregates (for future use)
   void calculateSwarmAggregates(swarm);
 
-  // 3. Process each queen
+  // 3. Process each queen (universal metabolism cascade)
   for (const queen of swarm.queens) {
-    queen.energy.current = Math.max(
-      0,
-      queen.energy.current - queen.metabolismPerTick
-    );
+    const cascadeResult = processMetabolismCascade(queen);
 
-    if (queen.energy.current <= 0) {
-      queen.health.current = Math.max(
-        0,
-        queen.health.current - queen.hpDecayPerTickAtZeroEnergy
+    if (cascadeResult.died) {
+      result.queensDied++;
+      result.logEntries.push(
+        createLogEntry('queen_died', `Queen died from starvation`, {
+          queenId: queen.id,
+        })
       );
-
-      if (queen.health.current <= 0) {
-        result.queensDied++;
-        result.logEntries.push(
-          createLogEntry('queen_died', `Queen died from starvation`, {
-            queenId: queen.id,
-          })
-        );
-        const queenIndex = swarm.queens.indexOf(queen);
-        if (queenIndex > -1) {
-          swarm.queens.splice(queenIndex, 1);
-        }
-        continue;
+      const queenIndex = swarm.queens.indexOf(queen);
+      if (queenIndex > -1) {
+        swarm.queens.splice(queenIndex, 1);
       }
+      continue;
     }
 
     // Egg laying (queen action with cooldown)
@@ -297,15 +289,12 @@ function processSingleTick(data: GameData): SingleTickResult {
       }
     }
 
-    // Add biomass from recycling
+    // Add biomass from recycling (into queen biomass buffers, not energy directly)
     if (starvationResult.biomassRecovered > 0) {
       // Distribute to queens proportionally
       for (const queen of swarm.queens) {
         const share = starvationResult.biomassRecovered / swarm.queens.length;
-        queen.energy.current = Math.min(
-          queen.energy.current + share,
-          queen.energy.max
-        );
+        queenReceiveBiomass(queen, share);
       }
     }
   }

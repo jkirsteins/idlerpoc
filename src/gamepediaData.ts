@@ -2731,7 +2731,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
       {
         heading: 'Energy Cost',
         paragraphs: [
-          "Each egg costs 10 energy to lay. If the queen's energy drops below this threshold, laying pauses automatically until energy is restored through worker gathering. This creates a natural feedback loop: more workers gather more energy, enabling more eggs, producing more workers — until the energy economy reaches equilibrium.",
+          "Each egg costs 10 energy to lay. If the queen's energy drops below this threshold, laying pauses automatically until energy is restored through the [[swarm-metabolism|metabolism cascade]] (biomass buffer → energy). This creates a natural feedback loop: more workers gather more biomass, feeding the queen's buffer, enabling more eggs, producing more workers — until the energy economy reaches equilibrium.",
         ],
       },
       {
@@ -2751,6 +2751,64 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
         ],
       },
     ],
-    relatedArticles: ['skill-system', 'mastery-system'],
+    relatedArticles: ['skill-system', 'mastery-system', 'swarm-metabolism'],
+  },
+  {
+    id: 'swarm-metabolism',
+    title: 'Metabolism & Energy Cascade',
+    category: 'Core Systems',
+    summary:
+      'How all swarm organisms stay alive: the universal energy, biomass buffer, and health system shared by queens and workers alike.',
+    sections: [
+      {
+        paragraphs: [
+          'Every organism in the swarm — queens and workers — shares the same metabolism system. This universal lifecycle cascade governs energy consumption, food digestion, starvation, and death. No organism is exempt.',
+        ],
+      },
+      {
+        heading: 'Three Resource Pools',
+        paragraphs: [
+          'Every organism has three internal pools:',
+          'Energy — metabolic fuel that depletes every tick. When empty, health starts to drain. Restored by digesting biomass from the buffer.',
+          'Biomass Buffer — internal food storage. Automatically converted to energy each tick. How it gets filled differs: workers replenish from cargo, queens receive deliveries from workers.',
+          'Health — structural integrity. Only drains when energy is completely empty (starvation). When health reaches zero, the organism dies.',
+        ],
+        table: {
+          headers: ['Pool', 'Queen', 'Worker'],
+          rows: [
+            ['Energy', '100 max', '10 max'],
+            ['Biomass Buffer', '100 max', '2 max'],
+            ['Health', '100 max', '100 max'],
+          ],
+        },
+      },
+      {
+        heading: 'The Cascade',
+        paragraphs: [
+          'Each tick, every organism processes the same four steps in order:',
+          "1. Energy depletes by the organism's metabolism rate (always, even if buffer is full).",
+          '2. Biomass buffer is digested to refuel energy (up to the deficit). This happens automatically — no player action needed.',
+          '3. If energy is empty, health drains at the starvation rate.',
+          '4. If health reaches zero, the organism dies.',
+          "The queen's metabolism rate is very slow (energy lasts about 1 year without food). Workers burn energy much faster (about 100 ticks without food). This means workers die quickly when food runs out, while the queen can survive extended droughts.",
+        ],
+      },
+      {
+        heading: 'Biomass Flow',
+        paragraphs: [
+          "Biomass flows through the swarm in a chain: zones produce surface lichen, workers gather it into cargo, workers eat from cargo to fill their own biomass buffer, and workers deliver surplus cargo to the queen's biomass buffer.",
+          'Workers prioritize self-maintenance: they fill their internal buffer from cargo before delivering the rest to the queen. This means workers stay alive at the cost of slightly slower queen feeding.',
+          "If the queen's biomass buffer is full, workers with full cargo will wait idle until space opens up.",
+        ],
+      },
+      {
+        heading: 'Starvation & Death',
+        paragraphs: [
+          "When an organism's energy reaches zero and its biomass buffer is empty, health begins to drain. Workers die after about 20 ticks of starvation. The queen is more resilient, taking about 7 years to die from health drain alone.",
+          "Dead workers are partially recycled — their biomass is returned to the queen's buffer, providing a small recovery during population crashes.",
+        ],
+      },
+    ],
+    relatedArticles: ['egg-production'],
   },
 ];

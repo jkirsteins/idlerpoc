@@ -149,6 +149,18 @@ export function loadGame(saveData: string): GameData | null {
         queen.hpDecayPerTickAtZeroEnergy = profile.hpDecayPerTickAtZeroEnergy;
       }
 
+      // Backfill biomass buffer (universal metabolism model)
+      const qRaw = queen as unknown as Record<string, unknown>;
+      if (!qRaw.biomassBuffer || typeof qRaw.biomassBuffer !== 'object') {
+        // For existing saves: seed the buffer from a portion of current energy
+        // so queens don't suddenly have empty buffers after migration
+        const bufferMax = SWARM_CONSTANTS.QUEEN_BIOMASS_BUFFER_MAX;
+        queen.biomassBuffer = {
+          current: Math.min(queen.energy.current, bufferMax),
+          max: bufferMax,
+        };
+      }
+
       // Backfill brood skill/mastery for old saves
       if (typeof queen.broodSkill !== 'number') {
         queen.broodSkill = 0;
@@ -214,9 +226,18 @@ export function loadGame(saveData: string): GameData | null {
       }
     }
 
-    // Backfill worker energy pool and metabolism for old saves
+    // Backfill worker fields for old saves
     for (const worker of parsed.swarm.workers) {
       const w = worker as unknown as Record<string, unknown>;
+
+      // Backfill biomass buffer (universal metabolism model)
+      if (!w.biomassBuffer || typeof w.biomassBuffer !== 'object') {
+        const bufferMax = SWARM_CONSTANTS.WORKER_BIOMASS_BUFFER_MAX;
+        worker.biomassBuffer = {
+          current: bufferMax, // Start full so workers don't starve on load
+          max: bufferMax,
+        };
+      }
       if (!worker.energy || typeof worker.energy !== 'object') {
         worker.energy = {
           current: SWARM_CONSTANTS.WORKER_ENERGY_MAX,

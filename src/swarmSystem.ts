@@ -15,6 +15,7 @@ import {
   DEFAULT_QUEEN_ALIEN_TYPE_ID,
   getQueenMetabolismProfile,
 } from './alienTypes';
+import { processMetabolismCascade } from './metabolismCascade';
 import { onSwarm } from './swarmEvents';
 
 // ============================================================================
@@ -53,6 +54,10 @@ export function createQueen(zoneId: string, yearTicks: number): Queen {
       current: 100,
       max: 100,
     },
+    biomassBuffer: {
+      current: SWARM_CONSTANTS.QUEEN_BIOMASS_BUFFER_MAX,
+      max: SWARM_CONSTANTS.QUEEN_BIOMASS_BUFFER_MAX,
+    },
     metabolismPerTick: profile.metabolismPerTick,
     hpDecayPerTickAtZeroEnergy: profile.hpDecayPerTickAtZeroEnergy,
   };
@@ -77,13 +82,13 @@ export function toggleEggProduction(queen: Queen, enabled: boolean): void {
 }
 
 export function canQueenAcceptBiomass(queen: Queen): boolean {
-  return queen.energy.current < queen.energy.max;
+  return queen.biomassBuffer.current < queen.biomassBuffer.max;
 }
 
 export function queenReceiveBiomass(queen: Queen, amount: number): void {
-  queen.energy.current = Math.min(
-    queen.energy.current + amount,
-    queen.energy.max
+  queen.biomassBuffer.current = Math.min(
+    queen.biomassBuffer.current + amount,
+    queen.biomassBuffer.max
   );
 }
 
@@ -348,6 +353,10 @@ export function createWorker(queenId: string, _gameTime: number): Worker {
       current: SWARM_CONSTANTS.WORKER_HEALTH_MAX,
       max: SWARM_CONSTANTS.WORKER_HEALTH_MAX,
     },
+    biomassBuffer: {
+      current: SWARM_CONSTANTS.WORKER_BIOMASS_BUFFER_MAX,
+      max: SWARM_CONSTANTS.WORKER_BIOMASS_BUFFER_MAX,
+    },
     metabolismPerTick,
     hpDecayPerTickAtZeroEnergy,
     cargo: {
@@ -460,39 +469,29 @@ export function processWorkerTick(
     starvationDamage: false,
   };
 
-  // 1. Energy depletes by metabolism (always, like queen)
-  worker.energy.current = Math.max(
-    0,
-    worker.energy.current - worker.metabolismPerTick
-  );
-
-  // 2. Self-maintenance: refuel energy from cargo (eat what metabolism costs)
-  if (worker.energy.current < worker.energy.max && worker.cargo.current > 0) {
-    const needed = worker.metabolismPerTick;
-    const consumed = Math.min(needed, worker.cargo.current);
-    worker.energy.current = Math.min(
-      worker.energy.current + consumed,
-      worker.energy.max
-    );
-    worker.cargo.current -= consumed;
+  // Pre-cascade: Replenish biomass buffer from cargo (worker-specific intake)
+  if (
+    worker.biomassBuffer.current < worker.biomassBuffer.max &&
+    worker.cargo.current > 0
+  ) {
+    const bufferDeficit =
+      worker.biomassBuffer.max - worker.biomassBuffer.current;
+    const transferred = Math.min(bufferDeficit, worker.cargo.current);
+    worker.biomassBuffer.current += transferred;
+    worker.cargo.current -= transferred;
     worker.state = 'self_maintenance';
   }
 
-  // 3. If energy=0, health depletes (starvation cascade, mirrors queen)
-  if (worker.energy.current <= 0) {
-    worker.health.current = Math.max(
-      0,
-      worker.health.current - worker.hpDecayPerTickAtZeroEnergy
-    );
-    result.starvationDamage = true;
+  // Universal metabolism cascade (shared with all organisms)
+  const cascadeResult = processMetabolismCascade(worker);
+  result.starvationDamage = cascadeResult.starvationDamage;
 
-    if (worker.health.current <= 0) {
-      result.died = true;
-      return result;
-    }
+  if (cascadeResult.died) {
+    result.died = true;
+    return result;
   }
 
-  // 4. Execute order
+  // Execute order
   if (!worker.order) {
     worker.state = worker.cargo.current > 0 ? 'idle_cargo_full' : 'idle_empty';
     return result;

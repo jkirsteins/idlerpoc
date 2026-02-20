@@ -680,6 +680,10 @@ function createSwarmTabContent(
     queen.energy.max > 0 ? (queen.energy.current / queen.energy.max) * 100 : 0;
   const healthPct =
     queen.health.max > 0 ? (queen.health.current / queen.health.max) * 100 : 0;
+  const biomassPct =
+    queen.biomassBuffer.max > 0
+      ? (queen.biomassBuffer.current / queen.biomassBuffer.max) * 100
+      : 0;
 
   // Egg production status
   const ep = queen.eggProduction;
@@ -762,6 +766,12 @@ function createSwarmTabContent(
             <div class="stat-bar__label">Energy ${queen.energy.current.toFixed(1)} / ${queen.energy.max.toFixed(0)}</div>
             <div class="stat-bar__track">
               <div class="stat-bar__fill ${energyPct > 40 ? 'bar-good' : energyPct > 15 ? 'bar-warning' : 'bar-danger'}" style="width: ${Math.max(0, Math.min(100, energyPct))}%;"></div>
+            </div>
+          </div>
+          <div class="stat-bar stat-bar--compact">
+            <div class="stat-bar__label">Biomass Buffer ${queen.biomassBuffer.current.toFixed(1)} / ${queen.biomassBuffer.max.toFixed(0)}</div>
+            <div class="stat-bar__track">
+              <div class="stat-bar__fill ${biomassPct > 40 ? 'bar-good' : biomassPct > 15 ? 'bar-warning' : 'bar-danger'}" style="width: ${Math.max(0, Math.min(100, biomassPct))}%;"></div>
             </div>
           </div>
           <div class="stat-bar stat-bar--compact">
@@ -886,27 +896,31 @@ function renderQueenEconomySection(queen: Queen, workers: Worker[]): string {
     netPerDay > 0 ? '#4caf50' : netPerDay < 0 ? '#ff4444' : '#888';
   const netSign = netPerDay > 0 ? '+' : '';
 
-  // ETA: time to depletion or time to full
+  // Total stored = biomass buffer + energy (both represent food reserves)
+  const totalStored = queen.biomassBuffer.current + queen.energy.current;
+  const totalCapacity = queen.biomassBuffer.max + queen.energy.max;
+
+  // ETA: time to depletion or time to full (based on total reserves)
   let etaHtml = '';
-  if (balance.net < 0 && queen.energy.current > 0) {
-    const ticksToEmpty = queen.energy.current / Math.abs(balance.net);
+  if (balance.net < 0 && totalStored > 0) {
+    const ticksToEmpty = totalStored / Math.abs(balance.net);
     etaHtml = `<div style="color: #ff4444; white-space: nowrap;">Depletes in ${formatTicksDualTime(Math.ceil(ticksToEmpty))}</div>`;
-  } else if (balance.net > 0 && queen.energy.current < queen.energy.max) {
-    const ticksToFull = (queen.energy.max - queen.energy.current) / balance.net;
+  } else if (balance.net > 0 && totalStored < totalCapacity) {
+    const ticksToFull = (totalCapacity - totalStored) / balance.net;
     etaHtml = `<div style="color: #4caf50; white-space: nowrap;">Full in ${formatTicksDualTime(Math.ceil(ticksToFull))}</div>`;
   }
 
   const storedColor =
-    queen.energy.current > queen.energy.max * 0.4
+    totalStored > totalCapacity * 0.4
       ? '#4caf50'
-      : queen.energy.current > queen.energy.max * 0.15
+      : totalStored > totalCapacity * 0.15
         ? '#ffc107'
         : '#ff4444';
 
   return `
     <div style="font-size: 0.82rem; color: var(--text-secondary, #888); display: flex; flex-direction: column; gap: 0.2rem;">
       <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
-        <span style="white-space: nowrap;">Stored: <span style="color: ${storedColor}; font-weight: bold;">${queen.energy.current.toFixed(1)}</span> / ${queen.energy.max.toFixed(0)} biomass</span>
+        <span style="white-space: nowrap;">Reserves: <span style="color: ${storedColor}; font-weight: bold;">${totalStored.toFixed(1)}</span> / ${totalCapacity.toFixed(0)} biomass</span>
       </div>
       <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
         <span style="white-space: nowrap;">Gathering: <span style="color: #4caf50;">${incomePerDay.toFixed(1)}</span>/day</span>

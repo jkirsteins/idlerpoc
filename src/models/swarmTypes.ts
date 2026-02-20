@@ -9,6 +9,27 @@ export interface EnergyPool {
   max: number;
 }
 
+export interface BiomassBuffer {
+  current: number;
+  max: number;
+}
+
+/**
+ * Universal organism interface — every swarm organism MUST implement this.
+ * See WORLDRULES.md § Alien Metabolism (Universal Model).
+ *
+ * The three pools (energy, health, biomassBuffer) and two metabolism rates
+ * are required on every organism. The shared processMetabolismCascade()
+ * function operates on this interface.
+ */
+export interface Organism {
+  energy: EnergyPool;
+  health: EnergyPool;
+  biomassBuffer: BiomassBuffer;
+  metabolismPerTick: number;
+  hpDecayPerTickAtZeroEnergy: number;
+}
+
 // Single resource for v1 - Energy (converted from biomass)
 export interface Resources {
   energy: EnergyPool;
@@ -64,22 +85,14 @@ export interface WorkerPosition {
   moving: boolean;
 }
 
-export interface Worker {
+export interface Worker extends Organism {
   id: string;
   queenId: string; // Which queen controls this worker
 
   // State
   state: WorkerState;
 
-  // Resource pools (mirror queen's energy→health cascade)
-  energy: EnergyPool; // Depletes per tick; refueled by consuming cargo
-  health: EnergyPool; // Only depletes when energy reaches 0
-
-  // Derived metabolism rates (calculated once at creation)
-  metabolismPerTick: number; // Energy drained per tick
-  hpDecayPerTickAtZeroEnergy: number; // Health drained per tick when energy=0
-
-  // Cargo system (purely for delivery to queen)
+  // Cargo system (purely for biomass transport — separate from internal biomassBuffer)
   cargo: WorkerCargo;
 
   // Skills
@@ -152,7 +165,7 @@ export interface WorkerOrder {
   issuedAt: number;
 }
 
-export interface Queen {
+export interface Queen extends Organism {
   id: string;
   locationZoneId: string; // Where embedded
   alienTypeId: string;
@@ -170,12 +183,6 @@ export interface Queen {
   broodMastery: {
     worker: number; // XP for worker egg type (reduces gestation time)
   };
-
-  // Resources
-  energy: EnergyPool;
-  health: EnergyPool;
-  metabolismPerTick: number;
-  hpDecayPerTickAtZeroEnergy: number;
 
   // Position
   position?: { x: number; y: number }; // Within zone
@@ -394,13 +401,17 @@ export const SWARM_CONSTANTS = {
   BROOD_XP_PER_LAY: 1, // Activity amount for brood skill gain
   EGG_HATCH_MASTERY_XP: 10, // Mastery XP per hatch
 
-  // Worker lifecycle (energy→health cascade mirrors queen)
+  // Worker lifecycle (universal metabolism cascade)
   WORKER_HEALTH_MAX: 100,
   WORKER_ENERGY_MAX: 10, // Energy pool size (spawns full)
+  WORKER_BIOMASS_BUFFER_MAX: 2, // Internal food storage (refueled from cargo)
   WORKER_ENERGY_DEPLETION_TICKS: 100, // Ticks to fully deplete energy with no food
   WORKER_HP_DEPLETION_TICKS_AT_ZERO_ENERGY: 20, // Ticks to die once energy=0
   WORKER_CARGO_MAX: 10,
   WORKER_RECYCLE_BIOMASS: 5, // Biomass recovered when a worker dies
+
+  // Queen biomass buffer (universal metabolism cascade)
+  QUEEN_BIOMASS_BUFFER_MAX: 100, // Royal food chamber capacity
 
   // Energy costs
   EGG_COST: 10,

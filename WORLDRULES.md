@@ -35,21 +35,26 @@ All TRAPPIST-1 planets share remarkably similar densities — about 8% less dens
 
 ### Alien Metabolism (Universal Model)
 
-All swarm organisms share the same energy→health lifecycle cascade. This is the foundational model — every new alien type must implement it.
+All swarm organisms share the same lifecycle cascade. **Every organism type MUST have all three resource pools and implement all four cascade steps. No organism is exempt — including the queen.**
 
-**Resource Pools**:
+**Required Resource Pools** — every organism has all three:
 
-- **Energy Pool** (`energy: { current, max }`): Depletes per tick by `metabolismPerTick`. Refueled by consuming biomass. When empty, triggers health drain.
-- **Health Pool** (`health: { current, max }`): Only depletes when energy reaches 0. Drains at `hpDecayPerTickAtZeroEnergy`. When empty, organism dies.
+| Pool               | Interface                      | Purpose                                                                                                                                   | Required            |
+| ------------------ | ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------- | ------------------- |
+| **Energy**         | `energy: EnergyPool`           | Metabolic fuel. Depletes per tick by `metabolismPerTick`. When empty, triggers health drain.                                              | YES — all organisms |
+| **Health**         | `health: EnergyPool`           | Structural integrity. Only depletes when energy reaches 0. Drains at `hpDecayPerTickAtZeroEnergy`. When empty, organism dies.             | YES — all organisms |
+| **Biomass Buffer** | `biomassBuffer: BiomassBuffer` | Internal food storage. Consumed to refuel energy. Filled by organism-specific intake (worker: from cargo; queen: from worker deliveries). | YES — all organisms |
 
-**Per-tick cascade**:
+**Per-tick cascade** (shared `processMetabolismCascade()` function — never reimplement per type):
 
 ```
-1. energy -= metabolismPerTick          (always)
-2. refuel energy from available biomass  (if possible)
+1. energy -= metabolismPerTick                              (always)
+2. refuel energy from biomassBuffer up to energy deficit    (if buffer has biomass)
 3. if energy == 0: health -= hpDecayPerTickAtZeroEnergy
 4. if health == 0: die
 ```
+
+Step 2 converts biomass buffer → energy each tick. The conversion restores up to the full energy deficit (instant digestion). **Biomass intake (how the buffer gets filled) is separate from the cascade** and differs per organism type — but the cascade itself is identical for all organisms.
 
 **Rate derivation** — metabolism rates are derived from pool sizes and depletion durations, never hardcoded:
 
@@ -60,17 +65,25 @@ hpDecayPerTickAtZeroEnergy = healthMax / hpDepletionTicks
 
 This ensures tuning is done via meaningful durations (how long to starve, how long to die), with per-tick rates calculated once at entity creation.
 
-**When adding a new organism type**: Define pool sizes and depletion durations as named constants in `SWARM_CONSTANTS`. Derive per-tick rates in the factory function. Store derived rates on the entity instance so tooltips can display them.
+**New organism type checklist** — verify ALL of these when adding any organism:
+
+- [ ] Implements `Organism` interface (energy + health + biomassBuffer + metabolism rates)
+- [ ] Factory function initializes all three pools with explicit max values
+- [ ] Tick function calls shared `processMetabolismCascade()` — never inline the cascade
+- [ ] Biomass intake writes to `biomassBuffer`, never directly to `energy`
+- [ ] UI displays all three pools (energy, health, biomass buffer)
+- [ ] Constants for pool sizes and depletion durations defined in `SWARM_CONSTANTS`
 
 ### The Queen
 
-The queen is the neural center of the swarm:
+The queen is the neural center of the swarm. **Follows the universal metabolism model** (energy, health, biomass buffer — same cascade as all organisms).
 
 - **Immobile**: Embedded underground for safety
 - **Immortal**: Cannot die from age (but can starve via energy→health cascade)
 - **Neural Hub**: Coordinates all workers via pheromone/chemical signals
 - **Reproductive Engine**: Converts energy into eggs
 - **Metabolic Core**: Energy depletes over ~1 year; health drains over ~7 years at zero energy
+- **Biomass Buffer**: Workers deliver biomass to the queen's internal buffer (the royal food chamber). The cascade converts buffer → energy each tick. The queen has no cargo — she is immobile and receives food from workers.
 
 **Base Neural Capacity**: 20 workers
 
@@ -79,9 +92,9 @@ The queen is the neural center of the swarm:
 
 ### Workers
 
-Workers are the swarm's hands and sensors:
+Workers are the swarm's hands and sensors. **Follows the universal metabolism model** (energy, health, biomass buffer — same cascade as all organisms).
 
-- **Autonomous**: Self-maintain by consuming cargo to refuel energy
+- **Autonomous**: Self-maintain by consuming biomass buffer to refuel energy
 - **Controlled**: Receive orders from queen via command queue
 - **Mortal**: Die from starvation (energy→health cascade). No natural aging.
 - **Skilled**: Improve at foraging through practice
@@ -97,18 +110,19 @@ Workers are the swarm's hands and sensors:
 
 - Energy: max 10, depletes in 100 ticks without food
 - Health: max 100, depletes in 20 ticks at zero energy
-- Spawns with full energy — can immediately start gathering
+- Biomass Buffer: max 2, internal food storage (refueled from cargo)
+- Spawns with full energy and full biomass buffer — can immediately start gathering
 
-**Cargo System** (purely for biomass delivery):
+**Cargo System** (purely for biomass transport — separate from internal biomass buffer):
 
-- Workers carry physical biomass (max 10 units)
-- Gather → transport → unload to queen
-- Self-maintenance: consume from cargo to refuel energy (at metabolism rate)
-- Cargo is not the worker's food source — energy is. Cargo feeds energy.
+- Workers carry physical biomass externally (max 10 units)
+- Gather → transport → unload to queen's biomass buffer
+- Workers replenish their own biomass buffer from cargo (separate from the universal cascade)
+- Cargo is the backpack. Biomass buffer is the stomach. Energy is the fuel.
 
 **States**:
 
-- `self_maintenance`: Consuming from cargo to refuel energy
+- `self_maintenance`: Replenishing biomass buffer from cargo
 - `gathering`: Filling cargo from zone
 - `idle_empty`: No orders, empty cargo
 - `idle_cargo_full`: Queen full, can't unload
@@ -117,10 +131,12 @@ Workers are the swarm's hands and sensors:
 
 ```
 Biomass (Surface Lichen)
-    → Worker Cargo (gathering)
-    → Worker Energy (self-maintenance, metabolism rate)
-    → Surplus cargo delivered to Queen Energy
-    → Queen Energy → Eggs → Workers
+    → Worker Cargo (gathering — external transport)
+    → Worker Biomass Buffer (self-maintenance — internal food storage)
+    → Worker Energy (universal cascade — buffer→energy conversion)
+    → Surplus cargo delivered to Queen Biomass Buffer
+    → Queen Energy (universal cascade — buffer→energy conversion)
+    → Eggs → Workers
 ```
 
 **Conversion**: 1 Biomass = 1 Energy (v1)
@@ -294,16 +310,18 @@ Orders are assigned via two mechanisms:
 
 ### Worker Decision Loop
 
-Each tick (follows universal metabolism cascade):
+Each tick:
 
-1. Energy depletes by `metabolismPerTick`
-2. If energy < max and has cargo: consume from cargo to refuel energy
-3. If energy = 0: health depletes by `hpDecayPerTickAtZeroEnergy`
-4. If health = 0: die
-5. Execute order:
+1. **Cargo → biomass buffer** (worker-specific): replenish internal buffer from cargo
+2. **Universal metabolism cascade** (shared with all organisms):
+   a. Energy depletes by `metabolismPerTick`
+   b. Refuel energy from biomass buffer (up to deficit)
+   c. If energy = 0: health depletes by `hpDecayPerTickAtZeroEnergy`
+   d. If health = 0: die
+3. **Execute order**:
    - If order = gather and cargo < max: gather biomass into cargo
-   - If cargo = max: deliver to queen
-   - If queen full: idle with cargo full
+   - If cargo = max: deliver to queen's biomass buffer
+   - If queen's buffer full: idle with cargo full
 
 ---
 
