@@ -46,11 +46,15 @@ function getTraitFlavor(
     reckless: {
       survivor: 'Some say they go looking for trouble. They might be right.',
       battle_brothers: 'Two adrenaline junkies, twice the chaos.',
+      maiden_voyage: 'They pushed the engines past spec the whole way.',
+      first_blood: 'They grinned. This is what they signed up for.',
     },
     cautious: {
       legend_pilot: 'Every maneuver calculated to the decimal.',
       frontier_pioneer:
         'They checked the numbers three times before committing.',
+      maiden_voyage: 'Every system nominal. Every check passed.',
+      first_blood: "They didn't sleep well that night.",
     },
     gregarious: {
       mentor_protege: 'Teaching comes naturally to those who love to talk.',
@@ -67,10 +71,14 @@ function getTraitFlavor(
     },
     ambitious: {
       rags_to_riches: 'They always knew they were destined for more.',
+      maiden_voyage: 'Already planning the next route before docking.',
+      first_blood: 'They reviewed the combat logs. Looking for an edge.',
     },
     sardonic: {
       cursed_ship: '"Another day, another catastrophe," they say with a grin.',
       survivor: '"Is that all you\'ve got?" they asked the void.',
+      maiden_voyage: 'They called it "the galaxy\'s most expensive milk run."',
+      first_blood: '"Well, that was fun," they said. They did not mean it.',
     },
     idealistic: {
       rescue_hero: 'Every life saved reaffirms their belief in the mission.',
@@ -235,6 +243,33 @@ const NARRATIVE_TEMPLATES: Record<ArcType, TemplateFunc[]> = {
     },
     (ctx) => {
       return `Loss is part of the deep black. What matters is what comes after. The crew of ${ctx.actorName} chose to keep flying, and they haven't stopped since.`;
+    },
+  ],
+
+  // ── First-Chapter Arcs (personality-forked, see Phase 3) ──
+
+  maiden_voyage: [
+    (ctx) => {
+      return `${ctx.shipName ?? 'The ship'} completed her first run. ${ctx.actorName} at the helm, cargo delivered, credits earned. Every legend starts somewhere.`;
+    },
+    (ctx) => {
+      return `First contract done. ${ctx.actorName} brought ${ctx.shipName ?? 'the ship'} home without a scratch. The dockmaster barely looked up. They will, eventually.`;
+    },
+    (ctx) => {
+      return `The maiden run is in the books. ${ctx.actorName} and the ${ctx.shipName ?? 'ship'} — a story that's just beginning.`;
+    },
+  ],
+
+  first_blood: [
+    (ctx) => {
+      const outcome = ctx.metadata.outcome ?? 'survived';
+      return `The void isn't empty after all. ${ctx.actorName} learned that the hard way. ${outcome === 'victory' ? 'They won.' : outcome === 'negotiated' ? 'They talked their way out.' : 'They survived.'} First time for everything.`;
+    },
+    (ctx) => {
+      return `${ctx.actorName}'s first encounter with pirates. The training manuals don't quite prepare you for the real thing.`;
+    },
+    (ctx) => {
+      return `Before today, danger was theoretical for ${ctx.actorName}. Not anymore.`;
     },
   ],
 };

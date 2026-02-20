@@ -7,6 +7,7 @@ import type {
 import {
   formatDuration,
   formatRealDuration,
+  formatGameDate,
   GAME_SECONDS_PER_TICK,
 } from '../timeSystem';
 import { formatMass } from '../formatting';
@@ -446,6 +447,38 @@ export function renderCatchUpReport(
     storiesSection.appendChild(hint);
 
     container.appendChild(storiesSection);
+  }
+
+  // Commentary highlights from catch-up
+  if (report.commentaryHighlights && report.commentaryHighlights.length > 0) {
+    const commentarySection = document.createElement('div');
+    commentarySection.className = 'catchup-commentary';
+    commentarySection.style.marginTop = '1rem';
+
+    const commentaryHeader = document.createElement('h4');
+    commentaryHeader.textContent = "Ship's Log";
+    commentaryHeader.style.color = '#4a9eff';
+    commentaryHeader.style.marginBottom = '0.5rem';
+    commentarySection.appendChild(commentaryHeader);
+
+    for (const entry of report.commentaryHighlights) {
+      const line = document.createElement('div');
+      line.style.cssText = 'padding:0.3rem 0;font-size:0.85rem;color:#c0c0d0;';
+
+      const dateSpan = document.createElement('span');
+      dateSpan.style.cssText =
+        'color:#4a9eff;font-weight:bold;margin-right:0.5rem;';
+      dateSpan.textContent = formatGameDate(entry.gameTime);
+      line.appendChild(dateSpan);
+
+      const textSpan = document.createElement('span');
+      textSpan.textContent = entry.text;
+      line.appendChild(textSpan);
+
+      commentarySection.appendChild(line);
+    }
+
+    container.appendChild(commentarySection);
   }
 
   // Dismiss button

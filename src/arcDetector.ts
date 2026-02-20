@@ -1,4 +1,5 @@
 import type { GameData, StoryArc, ArcType, Ship } from './models';
+import { FIRST_CHAPTER_ARC_TYPES } from './models';
 import { ALL_ARC_PATTERNS, type ArcMatch } from './arcPatterns';
 import { generateId } from './utils';
 
@@ -165,6 +166,31 @@ export function detectArcs(gameData: GameData): StoryArc[] {
   // Add new arcs to the story state
   if (newArcs.length > 0) {
     stories.detectedArcs.push(...newArcs);
+
+    // Auto-dismiss first-chapter arcs when a "real" arc fires for the same actor.
+    // E.g. when a survivor arc fires, dismiss the first_blood arc for that crew.
+    const realArcActorIds = new Set(
+      newArcs
+        .filter((a) => !FIRST_CHAPTER_ARC_TYPES.has(a.arcType))
+        .map((a) => a.actorId)
+    );
+    if (realArcActorIds.size > 0) {
+      const toDismiss = stories.detectedArcs.filter(
+        (a) =>
+          FIRST_CHAPTER_ARC_TYPES.has(a.arcType) &&
+          realArcActorIds.has(a.actorId)
+      );
+      for (const arc of toDismiss) {
+        stories.dismissedArcIds.push(arcKey(arc));
+      }
+      stories.detectedArcs = stories.detectedArcs.filter(
+        (a) =>
+          !(
+            FIRST_CHAPTER_ARC_TYPES.has(a.arcType) &&
+            realArcActorIds.has(a.actorId)
+          )
+      );
+    }
 
     // Prune to MAX_ARCS, keeping highest-rated
     if (stories.detectedArcs.length > MAX_ARCS) {

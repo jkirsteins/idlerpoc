@@ -43,7 +43,12 @@ import {
 import type { MasterySectionRefs } from './crewMasterySection';
 import { attachDynamicTooltip } from './components/tooltip';
 import type { TooltipHandle } from './components/tooltip';
-import { getTraitDisplayName, getTraitDescription } from '../personalitySystem';
+import {
+  getTraitDisplayName,
+  getTraitDescription,
+  getCrewDynamic,
+  getChemistryLabel,
+} from '../personalitySystem';
 import { getArcModifier } from '../arcDetector';
 
 // ─── Pure helpers (no DOM) ─────────────────────────────────────────
@@ -491,6 +496,7 @@ interface TraitSectionRefs {
   trait1Badge: HTMLElement;
   trait2Badge: HTMLElement;
   arcBonusEl: HTMLElement;
+  dynamicEl: HTMLElement;
 }
 
 function createTraitSection(): TraitSectionRefs {
@@ -523,7 +529,12 @@ function createTraitSection(): TraitSectionRefs {
     'font-size:0.8rem;display:none;';
   section.appendChild(arcBonusEl);
 
-  return { section, trait1Badge, trait2Badge, arcBonusEl };
+  const dynamicEl = document.createElement('span');
+  dynamicEl.style.cssText =
+    'font-size:0.8rem;color:#888;white-space:nowrap;display:none;';
+  section.appendChild(dynamicEl);
+
+  return { section, trait1Badge, trait2Badge, arcBonusEl, dynamicEl };
 }
 
 function updateTraitSection(
@@ -565,6 +576,37 @@ function updateTraitSection(
     refs.arcBonusEl.style.display = '';
   } else {
     refs.arcBonusEl.style.display = 'none';
+  }
+
+  // Show interpersonal dynamic with shipmates
+  const ship = gameData.ships.find((s) => s.crew.some((c) => c.id === crew.id));
+  if (ship && ship.crew.length >= 2 && crew.personality) {
+    const otherCrew = ship.crew.find((c) => c.id !== crew.id && c.personality);
+    if (otherCrew) {
+      const dynamic = getCrewDynamic(crew, otherCrew);
+      if (dynamic.type !== 'neutral') {
+        const pair =
+          dynamic.type === 'friction'
+            ? dynamic.frictionPairs[0]
+            : dynamic.synergyPairs[0];
+        const label = pair ? getChemistryLabel(pair[0], pair[1]) : null;
+        const icon = dynamic.type === 'friction' ? '\u26A1' : '\u2728';
+        const color = dynamic.type === 'friction' ? '#e94560' : '#4caf50';
+        const dynamicText = `${icon} ${label ?? dynamic.type} w/ ${otherCrew.name}`;
+        if (refs.dynamicEl.textContent !== dynamicText) {
+          refs.dynamicEl.textContent = dynamicText;
+          refs.dynamicEl.style.color = color;
+          refs.dynamicEl.title = `${dynamic.type === 'friction' ? 'Friction' : 'Synergy'} — personality chemistry with ${otherCrew.name}`;
+        }
+        refs.dynamicEl.style.display = '';
+      } else {
+        refs.dynamicEl.style.display = 'none';
+      }
+    } else {
+      refs.dynamicEl.style.display = 'none';
+    }
+  } else {
+    refs.dynamicEl.style.display = 'none';
   }
 }
 

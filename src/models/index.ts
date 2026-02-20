@@ -286,6 +286,38 @@ export interface CrewPersonality {
   trait2: PersonalityTrait;
 }
 
+// ─── Trait Chemistry Types ──────────────────────────────────────
+
+export type ChemistryType = 'friction' | 'synergy' | 'neutral';
+
+export interface CrewDynamic {
+  type: ChemistryType;
+  strength: number; // 0-1: fraction of cross-trait pairings that matched
+  frictionPairs: Array<[PersonalityTrait, PersonalityTrait]>;
+  synergyPairs: Array<[PersonalityTrait, PersonalityTrait]>;
+}
+
+// ─── Commentary Types ───────────────────────────────────────────
+
+export type CommentaryTrigger =
+  | 'interpersonal'
+  | 'repetition'
+  | 'solo_crew'
+  | 'post_combat'
+  | 'low_resources'
+  | 'ship_bond'
+  | 'first_flight'
+  | 'idle_docked';
+
+export interface CommentaryEntry {
+  gameTime: number;
+  crewId: string;
+  crewName: string;
+  shipId: string;
+  text: string;
+  trigger: CommentaryTrigger;
+}
+
 export type ChronicleEventType =
   | 'hired'
   | 'death'
@@ -343,7 +375,20 @@ export type ArcType =
   | 'from_ashes'
   | 'frontier_pioneer'
   | 'battle_brothers'
-  | 'mentor_protege';
+  | 'mentor_protege'
+  | 'maiden_voyage'
+  | 'first_blood';
+
+/** Arc types that represent early-game "first chapter" stories. */
+const _FIRST_CHAPTER: Record<string, true> = {
+  maiden_voyage: true,
+  first_blood: true,
+};
+export const FIRST_CHAPTER_ARC_TYPES = {
+  has(arcType: ArcType): boolean {
+    return arcType in _FIRST_CHAPTER;
+  },
+};
 
 export interface StoryArc {
   id: string;
@@ -390,6 +435,13 @@ export interface StoryState {
   dismissedArcIds: string[];
   lastScanGameTime: number;
   deadCrewArchive?: DeadCrewArchive[];
+  commentary?: CommentaryEntry[];
+  lastCommentaryGameTime?: number;
+  /** Per-ship cooldowns: maps shipId to { trigger, gameTime } for dedup. */
+  lastTriggerByShip?: Record<
+    string,
+    { trigger: CommentaryTrigger; gameTime: number }
+  >;
 }
 
 export interface CrewRelationship {
@@ -421,6 +473,7 @@ export interface CrewMember {
   personality?: CrewPersonality; // narrative traits with light mechanical effects
   chronicle?: ChronicleEntry[]; // persistent story-relevant event history (capped at 50)
   relationships?: CrewRelationship[]; // dynamic crew-crew bonds from shared experiences
+  shipAffinity?: number; // ticks spent on current ship — drives narrative bond + small repair bonus
 }
 
 export interface Room {
@@ -730,6 +783,7 @@ export interface CatchUpReport {
   shipSummaries: CatchUpShipSummary[]; // per-ship consolidated summaries
   logHighlights: LogEntry[]; // notable log entries (skill-ups, etc.) from the idle period
   newStories?: StoryArc[]; // story arcs detected during catch-up
+  commentaryHighlights?: CommentaryEntry[]; // crew commentary generated during catch-up
 }
 
 /** Snapshot of lifetime earnings and expenses at the end of a game day, for rolling averages. */

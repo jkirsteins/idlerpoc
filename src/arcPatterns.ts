@@ -481,9 +481,78 @@ const ironCrewPattern: ArcPattern = {
   },
 };
 
+// ── First-Chapter Patterns (low-threshold early-game arcs) ──────
+
+/**
+ * Maiden Voyage: Ship completes its first contract.
+ * Fires on the very first contract_milestone in a ship's chronicle.
+ * Always rated 1 star — this is a "chapter 1" that gets auto-dismissed
+ * when a real ship arc fires.
+ */
+const maidenVoyagePattern: ArcPattern = {
+  arcType: 'maiden_voyage',
+  actorType: 'ship',
+  detect: (entries) => {
+    const milestones = entries.filter((e) => e.type === 'contract_milestone');
+    if (milestones.length < 1) return null;
+
+    const first = milestones[0];
+    return {
+      entries: [first],
+      emotionalArc: [1],
+      metadata: {
+        routeName: (first.details.title as string) ?? 'first run',
+        outcome: 'completed',
+      },
+      title: 'Maiden Voyage',
+      rating: 1,
+    };
+  },
+};
+
+/**
+ * First Blood: Crew member's first combat encounter (any outcome).
+ * Fires when any combat event appears in a crew member's chronicle.
+ * Always rated 1 star — auto-dismissed when survivor, old_reliable, etc. fire.
+ */
+const firstBloodPattern: ArcPattern = {
+  arcType: 'first_blood',
+  actorType: 'crew',
+  detect: (entries) => {
+    const combatEvents = entries.filter((e) =>
+      COMBAT_EVENT_TYPES.includes(e.type)
+    );
+    if (combatEvents.length < 1) return null;
+
+    // Must not have died
+    if (entries.some((e) => e.type === 'death')) return null;
+
+    const first = combatEvents[0];
+    const outcome =
+      first.type === 'combat_victory'
+        ? 'victory'
+        : first.type === 'negotiation_save'
+          ? 'negotiated'
+          : first.type === 'close_call'
+            ? 'fled'
+            : 'survived';
+
+    return {
+      entries: [first],
+      emotionalArc: [first.emotionalWeight],
+      metadata: { outcome },
+      title: 'First Blood',
+      rating: 1,
+    };
+  },
+};
+
 // ── Pattern Registry ────────────────────────────────────────────
 
 export const ALL_ARC_PATTERNS: ArcPattern[] = [
+  // First-chapter patterns (check first so they seed early)
+  maidenVoyagePattern,
+  firstBloodPattern,
   // Crew patterns
   survivorPattern,
   ragsToRichesPattern,
@@ -498,4 +567,107 @@ export const ALL_ARC_PATTERNS: ArcPattern[] = [
   fromAshesPattern,
   frontierPioneerPattern,
   ironCrewPattern,
+];
+
+// ── Arc Gallery (for dimmed/locked display) ─────────────────────
+
+export interface ArcGalleryEntry {
+  arcType: ArcType;
+  title: string;
+  hint: string;
+  actorType: 'crew' | 'ship';
+}
+
+/**
+ * All possible arc types with display metadata for the "Possible Stories"
+ * gallery in the Stories tab. Shown dimmed/locked before the player earns them.
+ */
+export const ARC_GALLERY: ArcGalleryEntry[] = [
+  // First-chapter arcs
+  {
+    arcType: 'maiden_voyage',
+    title: 'Maiden Voyage',
+    hint: 'Complete your first contract.',
+    actorType: 'ship',
+  },
+  {
+    arcType: 'first_blood',
+    title: 'First Blood',
+    hint: 'Survive your first combat encounter.',
+    actorType: 'crew',
+  },
+  // Crew arcs
+  {
+    arcType: 'survivor',
+    title: 'Survivor',
+    hint: 'Cheat death and live to tell the tale.',
+    actorType: 'crew',
+  },
+  {
+    arcType: 'rags_to_riches',
+    title: 'Rags to Riches',
+    hint: 'Rise from nothing to a named rank.',
+    actorType: 'crew',
+  },
+  {
+    arcType: 'old_reliable',
+    title: 'Old Reliable',
+    hint: 'Serve through thick and thin.',
+    actorType: 'crew',
+  },
+  {
+    arcType: 'legend_pilot',
+    title: 'Navigator Legend',
+    hint: 'Master the art of gravity assists.',
+    actorType: 'crew',
+  },
+  {
+    arcType: 'rescue_hero',
+    title: 'Rescue Hero',
+    hint: 'Answer the call when ships are stranded.',
+    actorType: 'crew',
+  },
+  {
+    arcType: 'battle_brothers',
+    title: 'Brothers in Arms',
+    hint: 'Forge an unbreakable bond through shared combat.',
+    actorType: 'crew',
+  },
+  {
+    arcType: 'mentor_protege',
+    title: 'Mentor & Protege',
+    hint: 'Grow under the guidance of a skilled mentor.',
+    actorType: 'crew',
+  },
+  // Ship arcs
+  {
+    arcType: 'cursed_ship',
+    title: 'Cursed Ship',
+    hint: 'Some ships attract more than their share of trouble.',
+    actorType: 'ship',
+  },
+  {
+    arcType: 'lucky_ship',
+    title: 'Lucky Ship',
+    hint: 'Fortune favors the bold — and this ship.',
+    actorType: 'ship',
+  },
+  {
+    arcType: 'from_ashes',
+    title: 'From the Ashes',
+    hint: 'Lose crew, then rebuild and succeed.',
+    actorType: 'ship',
+  },
+  {
+    arcType: 'frontier_pioneer',
+    title: 'Frontier Pioneer',
+    hint: 'Be the first to reach the outer system.',
+    actorType: 'ship',
+  },
+  {
+    arcType: 'iron_crew',
+    title: 'Iron Crew',
+    hint: 'Endure loss and keep flying.',
+    actorType: 'ship',
+  },
 ];

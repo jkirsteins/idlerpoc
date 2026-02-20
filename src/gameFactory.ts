@@ -218,10 +218,12 @@ function createStartingShip(
 
   const rooms: Room[] = shipClass.rooms.map((roomType) => createRoom(roomType));
 
-  // Create initial crew — just the captain, solo on the helm
+  // Create initial crew — captain and a starting pilot for interpersonal narrative
   const crew: CrewMember[] = [];
   const captain = createCrewMember(captainName, 'captain', true);
   crew.push(captain);
+  const pilot = createCrewMember(generateCrewName(), 'pilot', false, 0);
+  crew.push(pilot);
 
   const { equipmentSlots, equipment } = createShipEquipment(shipClassId);
   const engine = createEngineInstance(shipClassId);

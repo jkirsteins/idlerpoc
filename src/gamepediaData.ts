@@ -2708,7 +2708,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
         heading: 'How Stories Are Detected',
         paragraphs: [
           "The chronicle system watches for patterns in your fleet's history. Every notable event — [[encounters|combat outcomes]], [[crew-death|crew deaths]], [[contracts|contract completions]], [[rescue-missions|rescues]], [[skill-system|skill milestones]] — is recorded in each crew member's personal chronicle. Once enough events accumulate to match a recognizable story pattern, a new Fleet Chronicle is detected.",
-          'Detection runs automatically during play and after returning from an absence. The system checks for twelve story patterns:',
+          'Detection runs automatically during play and after returning from an absence. The system checks for fourteen story patterns:',
         ],
         table: {
           headers: ['Pattern', 'What Triggers It'],
@@ -2761,6 +2761,14 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
               'The Iron Crew',
               'A ship keeps the same crew for 30+ days with 10+ completed contracts and zero losses',
             ],
+            [
+              'Maiden Voyage',
+              'A ship completes its first [[contracts|contract]] — a personality-forked first chapter',
+            ],
+            [
+              'First Blood',
+              'A crew member experiences their first [[encounters|combat encounter]] — auto-replaced when a fuller arc fires',
+            ],
           ],
         },
       },
@@ -2803,6 +2811,34 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
         },
       },
       {
+        heading: 'Personality Chemistry',
+        paragraphs: [
+          "Crew personalities don't exist in isolation. When two crew share a ship, their traits interact — creating friction, synergy, or neutral coexistence. A reckless pilot paired with a cautious engineer creates tension (risk tolerance clash). Two loyal crew members develop deep mutual commitment.",
+          "Chemistry drives the Ship's Log commentary. As crew spend more time together, friction pairs develop grudging respect and synergy pairs deepen into real trust. After 15+ shared experiences, the tone of interpersonal commentary evolves — raw clashes soften, and appreciation grows.",
+        ],
+      },
+      {
+        heading: "Ship's Log",
+        paragraphs: [
+          "The Ship's Log in the Stories tab shows personality-voiced commentary from your crew. These aren't mechanical event reports — they're personal observations about life aboard ship. A reckless pilot might complain about a cautious co-pilot's triple-checks. A loyal crew member might refuse a transfer offer.",
+          'Commentary responds to the current situation: interpersonal dynamics, combat aftermath, low resources, idle time docked, and crew-ship bond milestones. New entries appear every few minutes of gameplay, building a living record of crew life between major events.',
+        ],
+      },
+      {
+        heading: 'First Chapters',
+        paragraphs: [
+          "Two early-game story patterns fire quickly to introduce the chronicle system: Maiden Voyage (when a ship completes its first contract) and First Blood (when a crew member experiences their first combat). These are short, personality-forked stories — a reckless pilot's first battle reads very differently from a cautious one's.",
+          'First Chapters are automatically replaced when a fuller story arc fires for the same crew member or ship. They serve as narrative seeds that hint at the stories to come.',
+        ],
+      },
+      {
+        heading: 'Ship Bond',
+        paragraphs: [
+          'Crew members develop familiarity with their ship over time. After enough days aboard, this bond provides a small repair speed bonus (up to +5% after 30 days) — they know every bolt and circuit. Transferring to a new ship resets the bond.',
+          "The bond also generates personality-colored commentary milestones. A meticulous crew member keeps personal maintenance notes. A sardonic one gives the ship affectionate nicknames. These appear in the Ship's Log at 7, 30, and 90 day milestones.",
+        ],
+      },
+      {
         heading: 'Personality and Narration',
         paragraphs: [
           "Beyond gameplay effects, traits color the narrative text in each chronicle. A stoic survivor's story is told with quiet understatement. A sardonic survivor's story is told with dark humor. The same events produce different stories depending on who experienced them.",
@@ -2812,7 +2848,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
       {
         heading: 'Finding and Reading Stories',
         paragraphs: [
-          'Detected stories appear in the Stories tab. Each story card shows the title, the crew member or ship involved, a narrative summary, and a rating based on how dramatic the underlying events were.',
+          'Detected stories appear in the Stories tab. Each story card shows the title, the crew member or ship involved, a narrative summary, and a rating based on how dramatic the underlying events were. Below active stories, the Possible Stories gallery shows all story types that can emerge — dimmed until discovered.',
           'The fleet keeps up to 30 active stories. When new stories are detected and the list is full, the lowest-rated story is automatically archived to make room. You can also dismiss stories manually — dismissed stories move to an archive section where they can still be read.',
         ],
       },

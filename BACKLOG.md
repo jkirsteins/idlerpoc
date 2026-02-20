@@ -192,16 +192,19 @@ Remaining follow-up:
 
 - **LLM-Enhanced Narrative**: Use an LLM API to generate richer, more varied narrative text for detected story arcs instead of template-based synthesis. Would require API key configuration and rate limiting.
 - **Faction Reputation Arcs**: Track player reputation with the three factions (Terran Alliance, Free Traders Guild, Kreth Collective) and generate story arcs based on faction standing changes (e.g., "from outlaw to ally").
-- **Crew Diary Entries**: Periodic first-person log entries from crew members, colored by their personality traits. Would add flavor between major arc events.
+- ~~**Crew Diary Entries**~~: **DONE** — Implemented as the Commentary System (Ship's Log). Periodic personality-voiced situational commentary appears in the Stories tab, triggered by interpersonal dynamics, combat, resources, ship bond milestones, and more. See `src/commentarySystem.ts`.
 - **Cross-Ship Story Arcs**: Detect patterns that span multiple ships in the fleet (e.g., crew transferred from a cursed ship to a lucky one, fleet-wide rescue coordination).
 - **Story Arc Completion**: Track when an arc's conditions are no longer met (e.g., survivor dies) and mark it as complete with an epilogue.
 - **Seasonal/Timed Arcs**: Detect patterns tied to game time milestones (e.g., "first year anniversary" for long-serving crew).
 - **Player-Written Annotations**: Allow players to add their own notes/captions to detected story arcs.
-- **Relationship Depth**: Relationship system has no bond decay, no cap on number of relationships per crew, and no gameplay effects beyond triggering arc patterns. Consider bond decay over time when crew are separated, relationship caps per crew member, and morale effects from strong/broken bonds.
+- **Relationship Depth**: Bond decay over time when crew are separated, relationship caps per crew member, and morale effects from strong/broken bonds. Note: trait chemistry (friction/synergy) and evolving interpersonal commentary are now implemented — this item covers deeper mechanical effects.
 - **Arc Re-evaluation**: Once an arc is detected, it is never re-evaluated for a higher-quality version (e.g., a 2-star survivor who later accumulates 4 near-deaths stays at 2 stars). Consider periodic re-evaluation or upgrade logic.
 - **Narrative Metadata Clobbering**: When multi-entry arcs select chronicle entries for metadata, only the first/last entry's details propagate. Could capture richer metadata across all matched entries.
 - **PNG Export Polish**: `storyCard.ts` image export uses hardcoded monospace font (may not be available on all systems) and hardcoded game title. Should use font detection with fallbacks and derive the title from game state.
 - **Arc Modifier Stat Tooltips**: Personality trait and arc modifier bonuses are shown as badges in the Crew tab but not included as line items in stat tooltip breakdowns (combat score, training rate, evasion, etc.). Players looking at "why is my training rate X?" in a tooltip won't see the arc contribution. Depends on innerHTML refactoring (see UI Architecture section).
+- **Commentary in Right Sidebar**: Show latest Ship's Log entry in the right sidebar as a "latest dispatch" teaser. Currently commentary is only visible in the Stories tab.
+- **Narrative Origin Callbacks**: When a real arc fires for a crew who had a first-chapter arc, reference the origin in the narrative (e.g., "You saw it on that first run to Luna..."). Requires storing the origin seed on the first-chapter arc and passing it to the narrative generator.
+- **More Ship Bond Milestones**: Current bond system has 3 milestones (7/30/90 days). Could add more milestones at longer intervals, plus personality-specific mechanical effects beyond repair speed (e.g., loyal crew gets evasion bonus from bond, ambitious crew gets training bonus).
 
 ## UI Architecture Improvements
 

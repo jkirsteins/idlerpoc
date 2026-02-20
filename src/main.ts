@@ -859,6 +859,7 @@ const callbacks: RendererCallbacks = {
     crew.hiredAt = state.gameData.gameTime;
     crew.boardedShipAt = state.gameData.gameTime;
     crew.hiredLocation = dockedAt;
+    crew.shipAffinity = 0;
 
     ship.crew.push(crew);
 
@@ -1150,6 +1151,7 @@ const callbacks: RendererCallbacks = {
 
     // Add to target ship — update service timestamp
     crew.boardedShipAt = state.gameData.gameTime;
+    crew.shipAffinity = 0; // Reset bond when transferring
     toShip.crew.push(crew);
 
     addLog(

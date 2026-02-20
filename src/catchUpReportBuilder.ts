@@ -482,6 +482,11 @@ export function buildCatchUpReport(
   // Run arc detection after all catch-up ticks to find new stories
   const newStories = detectArcs(gameData);
 
+  // Collect commentary generated during catch-up (max 5 highlights)
+  const allCommentary = gameData.stories?.commentary ?? [];
+  const commentaryHighlights =
+    allCommentary.length > 0 ? allCommentary.slice(-5) : undefined;
+
   return {
     totalTicks,
     elapsedRealSeconds,
@@ -491,5 +496,6 @@ export function buildCatchUpReport(
     shipSummaries: filteredSummaries,
     logHighlights,
     newStories: newStories.length > 0 ? newStories : undefined,
+    commentaryHighlights,
   };
 }

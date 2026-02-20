@@ -39,7 +39,7 @@ import {
   applyProvisionsTick,
   getCrewHealthEfficiency,
 } from './provisionsSystem';
-import { getTraitModifier } from './personalitySystem';
+import { getTraitModifier, getShipAffinityModifier } from './personalitySystem';
 import {
   processCrewDeaths,
   recordCrewDamage,
@@ -76,6 +76,11 @@ import { getBestCrewPool } from './crewRoles';
 import { computePowerStatus } from './powerSystem';
 import { applyPowerManagement } from './powerManagement';
 import { detectArcs, shouldRunArcScan } from './arcDetector';
+import {
+  shouldRunCommentary,
+  checkCommentary,
+  addCommentaryEntry,
+} from './commentarySystem';
 
 /**
  * Determine which job slot types should NOT train passively given the
@@ -943,6 +948,12 @@ function applyShipTick(gameData: GameData, ship: Ship): boolean {
     changed = true;
   }
 
+  // Ship affinity: crew gain familiarity with their current ship over time.
+  // Drives narrative bond descriptions and a small emergent repair speed bonus.
+  for (const crew of ship.crew) {
+    crew.shipAffinity = (crew.shipAffinity ?? 0) + 1;
+  }
+
   emitNearDeathEvents(gameData, ship, healthSnapshot);
 
   // Crew death check — runs after all health modifications (radiation, oxygen,
@@ -1049,6 +1060,8 @@ function applyRepairTick(ship: Ship): boolean {
     let points = calculateRepairPoints(eng);
     // Personality trait modifier: meticulous +10%
     points *= getTraitModifier(eng, 'repair_speed');
+    // Ship affinity: familiarity bonus (+5% max after 30 days)
+    points *= getShipAffinityModifier(eng);
     // Health efficiency — injured/starving crew repair slower
     points *= getCrewHealthEfficiency(eng.health);
     // Pool bonus: +5% repair speed at 25%
@@ -1122,6 +1135,14 @@ export function applyTick(
   // Periodic arc detection (~every game day)
   if (shouldRunArcScan(gameData)) {
     detectArcs(gameData);
+  }
+
+  // Periodic personality commentary (~every half game day)
+  if (shouldRunCommentary(gameData)) {
+    const entry = checkCommentary(gameData);
+    if (entry) {
+      addCommentaryEntry(gameData, entry);
+    }
   }
 
   return changed;

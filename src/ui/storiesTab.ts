@@ -1,9 +1,18 @@
-import type { GameData, StoryArc, CrewMember, Ship } from '../models';
+import type {
+  GameData,
+  StoryArc,
+  ArcType,
+  CrewMember,
+  Ship,
+  CommentaryEntry,
+} from '../models';
 import { COMBAT_EVENT_TYPES } from '../models';
 import type { Component } from './component';
 import { getActiveArcs } from '../arcDetector';
 import { generateNarrative } from '../narrativeGenerator';
 import { getTraitDisplayName, getTraitDescription } from '../personalitySystem';
+import { formatGameDate } from '../timeSystem';
+import { ARC_GALLERY, type ArcGalleryEntry } from '../arcPatterns';
 
 /**
  * Stories Tab
@@ -46,6 +55,28 @@ export function createStoriesTab(
   subtitle.style.fontSize = '0.85rem';
   container.appendChild(subtitle);
 
+  // --- Ship's Log Section (commentary) ---
+  const logSection = document.createElement('div');
+  logSection.className = 'ships-log-section';
+  logSection.style.marginBottom = '1.5rem';
+
+  const logHeading = document.createElement('h4');
+  logHeading.textContent = "Ship's Log";
+  logHeading.style.marginBottom = '0.5rem';
+  logSection.appendChild(logHeading);
+
+  const noLogMsg = document.createElement('p');
+  noLogMsg.textContent =
+    'Your crew is settling in. Personal observations will appear here as they experience life aboard.';
+  noLogMsg.style.cssText = 'color:#666;font-style:italic;font-size:0.85rem;';
+  logSection.appendChild(noLogMsg);
+
+  const logList = document.createElement('div');
+  logList.className = 'ships-log-list';
+  logSection.appendChild(logList);
+
+  container.appendChild(logSection);
+
   // --- Active Stories Section ---
   const storiesSection = document.createElement('div');
   storiesSection.className = 'stories-section';
@@ -68,6 +99,39 @@ export function createStoriesTab(
   storiesSection.appendChild(storyList);
 
   container.appendChild(storiesSection);
+
+  // --- Possible Stories Gallery (dimmed/locked) ---
+  const gallerySection = document.createElement('div');
+  gallerySection.className = 'arc-gallery-section';
+  gallerySection.style.marginTop = '1.5rem';
+
+  const galleryHeading = document.createElement('h4');
+  galleryHeading.textContent = 'Possible Stories';
+  galleryHeading.style.marginBottom = '0.5rem';
+  gallerySection.appendChild(galleryHeading);
+
+  const gallerySubtitle = document.createElement('p');
+  gallerySubtitle.style.cssText =
+    'color:#666;font-size:0.8rem;margin-bottom:0.75rem;';
+  gallerySubtitle.textContent =
+    "These stories can emerge from your fleet's experiences.";
+  gallerySection.appendChild(gallerySubtitle);
+
+  const galleryList = document.createElement('div');
+  galleryList.className = 'arc-gallery-list';
+  galleryList.style.cssText = 'display:flex;flex-wrap:wrap;gap:0.5rem;';
+  gallerySection.appendChild(galleryList);
+
+  // Pre-create gallery cards (static, patched for seen/unseen state)
+  const galleryCardMap = new Map<ArcType, { el: HTMLElement; seen: boolean }>();
+
+  for (const entry of ARC_GALLERY) {
+    const card = createGalleryCard(entry);
+    galleryList.appendChild(card.el);
+    galleryCardMap.set(entry.arcType, card);
+  }
+
+  container.appendChild(gallerySection);
 
   // --- Crew Chronicles Section ---
   const crewSection = document.createElement('div');
@@ -145,13 +209,83 @@ export function createStoriesTab(
   }
   const shipRowMap = new Map<string, ShipRowRefs>();
 
+  // Commentary log entries: Map<index, {el, refs}>
+  const logEntryMap = new Map<number, HTMLElement>();
+  let lastCommentaryCount = 0;
+
+  /** Max visible commentary entries in the Ship's Log. */
+  const MAX_VISIBLE_LOG = 8;
+
   // Previous state for shallow comparison
   let lastArcIds = '';
 
   function update(gd: GameData): void {
+    updateShipsLog(gd);
     updateStoryCards(gd);
+    updateGallery(gd);
     updateCrewChronicles(gd);
     updateShipHistories(gd);
+  }
+
+  function updateShipsLog(gd: GameData): void {
+    const commentary = gd.stories?.commentary ?? [];
+    if (commentary.length === lastCommentaryCount) return;
+    lastCommentaryCount = commentary.length;
+
+    noLogMsg.style.display = commentary.length === 0 ? '' : 'none';
+
+    // Show the most recent entries (newest first)
+    const visible = commentary.slice(-MAX_VISIBLE_LOG).reverse();
+
+    // Remove entries that are no longer in the visible window
+    const visibleGameTimes = new Set(visible.map((e) => e.gameTime));
+    for (const [gt, el] of logEntryMap) {
+      if (!visibleGameTimes.has(gt)) {
+        el.remove();
+        logEntryMap.delete(gt);
+      }
+    }
+
+    // Add new entries (prepend = newest at top)
+    for (let i = visible.length - 1; i >= 0; i--) {
+      const entry = visible[i];
+      if (logEntryMap.has(entry.gameTime)) continue;
+
+      const el = createLogEntry(entry);
+      // Insert at the correct position (index i from top)
+      if (logList.children[i]) {
+        logList.insertBefore(el, logList.children[i]);
+      } else {
+        logList.appendChild(el);
+      }
+      logEntryMap.set(entry.gameTime, el);
+    }
+  }
+
+  function updateGallery(gd: GameData): void {
+    // Build set of arc types the player has seen (active or dismissed)
+    const seenTypes = new Set<ArcType>();
+    for (const arc of gd.stories?.detectedArcs ?? []) {
+      seenTypes.add(arc.arcType);
+    }
+    for (const key of gd.stories?.dismissedArcIds ?? []) {
+      const arcType = key.split(':')[0] as ArcType;
+      seenTypes.add(arcType);
+    }
+
+    // Update each gallery card's dimmed/seen state
+    for (const [arcType, card] of galleryCardMap) {
+      const nowSeen = seenTypes.has(arcType);
+      if (nowSeen !== card.seen) {
+        card.seen = nowSeen;
+        card.el.style.opacity = nowSeen ? '0.3' : '0.5';
+        if (nowSeen) {
+          card.el.style.textDecoration = 'line-through';
+        } else {
+          card.el.style.textDecoration = '';
+        }
+      }
+    }
   }
 
   function updateStoryCards(gd: GameData): void {
@@ -513,4 +647,62 @@ function patchShipRow(
   if (row.statsEl.textContent !== statsText) {
     row.statsEl.textContent = statsText;
   }
+}
+
+// ── Gallery Card (mount-once per arc type) ──────────────────────
+
+function createGalleryCard(entry: ArcGalleryEntry): {
+  el: HTMLElement;
+  seen: boolean;
+} {
+  const card = document.createElement('div');
+  card.style.cssText =
+    'display:inline-flex;align-items:center;gap:0.4rem;padding:0.3rem 0.6rem;' +
+    'background:#16162a;border:1px solid #2a2a3e;border-radius:4px;' +
+    'opacity:0.5;font-size:0.78rem;white-space:nowrap;';
+  card.title = entry.hint;
+
+  // Lock icon
+  const lockIcon = document.createElement('span');
+  lockIcon.textContent = '\u{1F512}';
+  lockIcon.style.fontSize = '0.7rem';
+  card.appendChild(lockIcon);
+
+  // Arc title
+  const titleSpan = document.createElement('span');
+  titleSpan.textContent = entry.title;
+  titleSpan.style.color = '#8888aa';
+  card.appendChild(titleSpan);
+
+  // Actor type badge
+  const badge = document.createElement('span');
+  badge.textContent = entry.actorType === 'crew' ? 'crew' : 'ship';
+  badge.style.cssText =
+    'font-size:0.65rem;color:#555;border:1px solid #333;border-radius:2px;' +
+    'padding:0 0.2rem;';
+  card.appendChild(badge);
+
+  return { el: card, seen: false };
+}
+
+// ── Commentary Log Entry ────────────────────────────────────────
+
+function createLogEntry(entry: CommentaryEntry): HTMLElement {
+  const el = document.createElement('div');
+  el.style.cssText =
+    'padding:0.4rem 0.6rem;margin-bottom:0.4rem;background:#16162a;' +
+    'border-left:2px solid #4a9eff;border-radius:3px;font-size:0.85rem;line-height:1.4;';
+
+  const dateSpan = document.createElement('span');
+  dateSpan.style.cssText =
+    'color:#4a9eff;font-weight:bold;margin-right:0.5rem;white-space:nowrap;';
+  dateSpan.textContent = formatGameDate(entry.gameTime);
+  el.appendChild(dateSpan);
+
+  const textSpan = document.createElement('span');
+  textSpan.style.color = '#c0c0d0';
+  textSpan.textContent = entry.text;
+  el.appendChild(textSpan);
+
+  return el;
 }
