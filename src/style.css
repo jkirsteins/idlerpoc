@@ -390,6 +390,7 @@ button {
   cursor: pointer;
   font-size: 14px;
   transition: background 0.2s;
+  touch-action: manipulation; /* Prevent double-tap zoom on mobile */
 }
 
 button:hover {
