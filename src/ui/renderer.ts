@@ -1,7 +1,13 @@
 // Swarm Game Renderer - Component-based architecture
 // Follows mount-once / update-on-tick pattern from component.ts
 
-import { SWARM_CONSTANTS, type GameData, type Egg } from '../models/swarmTypes';
+import {
+  SWARM_CONSTANTS,
+  type GameData,
+  type Egg,
+  type Worker,
+  type Queen,
+} from '../models/swarmTypes';
 import {
   calculateSwarmAggregates,
   getEggProgress,
@@ -16,6 +22,12 @@ import {
   formatPressureIndex,
 } from '../formatting';
 import { derivePlanetAtmosphere } from '../planetAtmosphere';
+import {
+  calculateEnergyBalance,
+  calculateCoordinationEfficiency,
+  calculateNeuralLoad,
+} from '../populationSystem';
+import { formatTicksDualTime } from '../timeSystem';
 import type { Component } from './component';
 import { createOrreryComponent, type OrreryCallbacks } from './orreryComponent';
 import {
@@ -758,9 +770,7 @@ function createSwarmTabContent(
               <div class="stat-bar__fill ${healthPct > 40 ? 'bar-good' : healthPct > 15 ? 'bar-warning' : 'bar-danger'}" style="width: ${Math.max(0, Math.min(100, healthPct))}%;"></div>
             </div>
           </div>
-          <div style="font-size: 0.82rem; color: var(--text-secondary, #888);">
-            Metabolism: ${queen.metabolismPerTick.toFixed(4)} energy/s
-          </div>
+          ${renderQueenEconomySection(queen, gameData.swarm.workers)}
         </div>
       </div>
 
@@ -857,6 +867,46 @@ function createSwarmTabContent(
   `;
 }
 
+function getWorkerGatherRate(worker: Worker): number {
+  const skillMod = 1 + worker.skills.foraging / 100;
+  const masteryMod = 1 + worker.skills.mastery.surfaceLichen / 200;
+  return SWARM_CONSTANTS.BASE_GATHER_RATE * skillMod * masteryMod;
+}
+
+function renderQueenEconomySection(queen: Queen, workers: Worker[]): string {
+  const neuralLoad = calculateNeuralLoad(workers.length, queen.neuralCapacity);
+  const efficiency = calculateCoordinationEfficiency(neuralLoad);
+  const balance = calculateEnergyBalance(workers, [queen], efficiency);
+
+  const incomePerDay = balance.production * SWARM_CONSTANTS.TICKS_PER_DAY;
+  const metabolismPerDay = balance.consumption * SWARM_CONSTANTS.TICKS_PER_DAY;
+  const netPerDay = balance.net * SWARM_CONSTANTS.TICKS_PER_DAY;
+
+  const netColor =
+    netPerDay > 0 ? '#4caf50' : netPerDay < 0 ? '#ff4444' : '#888';
+  const netSign = netPerDay > 0 ? '+' : '';
+
+  // ETA: time to depletion or time to full
+  let etaHtml = '';
+  if (balance.net < 0 && queen.energy.current > 0) {
+    const ticksToEmpty = queen.energy.current / Math.abs(balance.net);
+    etaHtml = `<div style="color: #ff4444; white-space: nowrap;">Depletes in ${formatTicksDualTime(Math.ceil(ticksToEmpty))}</div>`;
+  } else if (balance.net > 0 && queen.energy.current < queen.energy.max) {
+    const ticksToFull = (queen.energy.max - queen.energy.current) / balance.net;
+    etaHtml = `<div style="color: #4caf50; white-space: nowrap;">Full in ${formatTicksDualTime(Math.ceil(ticksToFull))}</div>`;
+  }
+
+  return `
+    <div style="font-size: 0.82rem; color: var(--text-secondary, #888); display: flex; flex-direction: column; gap: 0.2rem;">
+      <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+        <span style="white-space: nowrap;">Income: <span style="color: #4caf50;">${incomePerDay.toFixed(1)}</span>/day</span>
+        <span style="white-space: nowrap;">Metabolism: <span style="color: #ffc107;">${metabolismPerDay.toFixed(1)}</span>/day</span>
+        <span style="white-space: nowrap;">Net: <span style="color: ${netColor}; font-weight: bold;">${netSign}${netPerDay.toFixed(1)}</span>/day</span>
+      </div>
+      ${etaHtml}
+    </div>`;
+}
+
 function renderWorkerActivitySection(gameData: GameData): string {
   const aggregates = calculateSwarmAggregates(gameData.swarm);
   const total = aggregates.totalWorkers;
@@ -873,9 +923,32 @@ function renderWorkerActivitySection(gameData: GameData): string {
   const lines: string[] = [];
 
   if (states.gathering > 0) {
-    lines.push(`<div style="display: flex; justify-content: space-between; align-items: center;">
+    // Find the gathering worker closest to delivering (most cargo)
+    const gatheringWorkers = gameData.swarm.workers.filter(
+      (w) => w.state === 'gathering'
+    );
+    let nextDeliveryHtml = '';
+    if (gatheringWorkers.length > 0) {
+      let minTicksToFull = Infinity;
+      for (const w of gatheringWorkers) {
+        const remaining = w.cargo.max - w.cargo.current;
+        if (remaining > 0) {
+          const rate = getWorkerGatherRate(w);
+          const ticks = remaining / rate;
+          if (ticks < minTicksToFull) minTicksToFull = ticks;
+        }
+      }
+      if (minTicksToFull < Infinity) {
+        nextDeliveryHtml = `<span style="color: var(--text-secondary, #888); font-size: 0.8rem; white-space: nowrap;">next delivery ~${formatTicksDualTime(Math.ceil(minTicksToFull))}</span>`;
+      }
+    }
+
+    lines.push(`<div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.25rem;">
       <span style="color: #4caf50; white-space: nowrap;">Gathering biomass</span>
-      <span style="font-weight: bold; white-space: nowrap;">${states.gathering}</span>
+      <span style="display: flex; align-items: center; gap: 0.5rem;">
+        ${nextDeliveryHtml}
+        <span style="font-weight: bold; white-space: nowrap;">${states.gathering}</span>
+      </span>
     </div>`);
   }
   if (states.selfMaintenance > 0) {

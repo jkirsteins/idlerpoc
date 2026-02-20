@@ -114,6 +114,7 @@ metric.innerHTML = `
 | Fuel % (number) | `calculateFuelPercentage(fuel, max)` | `src/ui/fuelFormatting.ts` | `75.5`              |
 | Fuel colour     | `getFuelColorHex(pct)`               | `src/ui/fuelFormatting.ts` | `#4caf50`           |
 | Time (dual)     | `formatDualTime(gameSec)`            | `src/timeSystem.ts`        | `2 days (irl 5m)`   |
+| Time (ticks)    | `formatTicksDualTime(ticks)`         | `src/timeSystem.ts`        | `1d (irl 8m)`       |
 | Game date       | `formatGameDate(gameTime)`           | `src/timeSystem.ts`        | `Day 42`            |
 | Provisions mass | `formatMass(kg)`                     | `src/formatting.ts`        | `900 kg`            |
 | Provisions days | `getProvisionsSurvivalDays(ship)`    | `src/provisionsSystem.ts`  | `166`               |

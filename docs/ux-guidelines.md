@@ -301,7 +301,9 @@ All value formatting passes through the centralized functions documented in CLAU
 
 ### Time & Duration Displays
 
-All time values must show both game time and real-life equivalent using `formatDualTime()`. This applies everywhere a duration or ETA appears: flight ETAs, contract timers, catch-up report elapsed time, cooldowns, training time remaining. The only exception is pure real-time values (e.g. "last saved 2 min ago") which have no game-time equivalent.
+All time values must show both game time and real-life equivalent using `formatDualTime()`. This applies everywhere a duration or ETA appears: flight ETAs, contract timers, catch-up report elapsed time, cooldowns, training time remaining, worker gathering ETAs, queen energy depletion estimates. The only exception is pure real-time values (e.g. "last saved 2 min ago") which have no game-time equivalent.
+
+For swarm systems that work in ticks rather than game seconds, use `formatTicksDualTime(ticks)` which converts ticks → game seconds → dual-time string in one call. Never display raw tick counts in the UI.
 
 Two time-unit vocabularies exist for different contexts:
 

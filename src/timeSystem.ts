@@ -172,3 +172,12 @@ export function formatDualTime(gameSeconds: number): string {
   const realPart = formatRealDuration(realSeconds);
   return `${gamePart} (irl ${realPart})`;
 }
+
+/**
+ * Format a tick count as dual time: game time + real time.
+ * Convenience wrapper for swarm systems that work in ticks.
+ * Example: formatTicksDualTime(480) => "1d (irl 8m)"
+ */
+export function formatTicksDualTime(ticks: number): string {
+  return formatDualTime(ticksToGameSeconds(ticks));
+}
