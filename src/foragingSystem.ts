@@ -110,8 +110,9 @@ export function calculateGatherRate(
   // Skill modifier: 0 skill = 1x, 100 skill = 2x
   const skillBonus = 1 + worker.skills.foraging / 100;
 
-  // Mastery modifier: 0 mastery = 1x, 99 mastery = 2x
-  const masteryBonus = 1 + worker.skills.mastery.surfaceLichen / 200;
+  // Mastery modifier: 0 mastery = 1x, level 99 mastery ≈ 1.5x
+  const masteryLevel = getMasteryLevel(worker.skills.mastery.surfaceLichen);
+  const masteryBonus = 1 + masteryLevel / 200;
 
   // Zone efficiency: available biomass / base rate
   const zoneEfficiency = Math.min(

@@ -879,7 +879,8 @@ function createSwarmTabContent(
 
 function getWorkerGatherRate(worker: Worker): number {
   const skillMod = 1 + worker.skills.foraging / 100;
-  const masteryMod = 1 + worker.skills.mastery.surfaceLichen / 200;
+  const masteryLevel = getMasteryLevel(worker.skills.mastery.surfaceLichen);
+  const masteryMod = 1 + masteryLevel / 200;
   return SWARM_CONSTANTS.BASE_GATHER_RATE * skillMod * masteryMod;
 }
 

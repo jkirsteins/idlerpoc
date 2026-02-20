@@ -436,7 +436,7 @@ function onSetQueenDirective(directive: 'gather_biomass' | 'idle'): void {
 
   const queen = gameData.swarm.queens[0];
   if (queen) {
-    setQueenDirective(queen, directive);
+    setQueenDirective(queen, directive, gameData.gameTime);
   }
 }
 

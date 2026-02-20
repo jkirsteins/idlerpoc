@@ -415,7 +415,6 @@ export const SWARM_CONSTANTS = {
 
   // Energy costs
   EGG_COST: 10,
-  QUEEN_UPKEEP: 0.5,
 
   // Conversion
   BIOMASS_TO_ENERGY: 1,
