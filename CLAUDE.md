@@ -114,6 +114,7 @@ metric.innerHTML = `
 | Fuel % (number) | `calculateFuelPercentage(fuel, max)` | `src/ui/fuelFormatting.ts` | `75.5`              |
 | Fuel colour     | `getFuelColorHex(pct)`               | `src/ui/fuelFormatting.ts` | `#4caf50`           |
 | Time (dual)     | `formatDualTime(gameSec)`            | `src/timeSystem.ts`        | `2 days (irl 5m)`   |
+| Time (ticks)    | `formatTicksDualTime(ticks)`         | `src/timeSystem.ts`        | `1d (irl 8m)`       |
 | Game date       | `formatGameDate(gameTime)`           | `src/timeSystem.ts`        | `Day 42`            |
 | Provisions mass | `formatMass(kg)`                     | `src/formatting.ts`        | `900 kg`            |
 | Provisions days | `getProvisionsSurvivalDays(ship)`    | `src/provisionsSystem.ts`  | `166`               |
@@ -190,6 +191,17 @@ Implementation references:
 - Mining route provisions return: `checkMiningRouteProvisionsReturn()` in `src/miningRoute.ts`
 - Flight time estimation: `estimateFlightDurationTicks()` in `src/flightPhysics.ts`
 - Provisions survival: `getProvisionsSurvivalTicks()` in `src/provisionsSystem.ts`
+
+# Alien Type Implementation
+
+**Every swarm organism must implement the universal metabolism model via the shared `Organism` interface and `processMetabolismCascade()` function.** See `WORLDRULES.md § Alien Metabolism (Universal Model)` for the authoritative specification.
+
+Non-negotiable rules:
+
+- **Never write metabolism logic inline.** All organisms call `processMetabolismCascade()` from `src/metabolismCascade.ts`. No copy-pasting the cascade into per-type tick functions.
+- **Never write biomass directly to an energy pool.** Biomass intake always goes to `biomassBuffer`. The cascade converts buffer → energy. If you find yourself writing `queen.energy.current += biomass`, stop — that bypasses the buffer.
+- **Every organism has all three pools.** Energy, health, and biomass buffer. If an organism appears to not need one (e.g. "the queen doesn't gather, so she doesn't need a buffer"), that's a misunderstanding — raise it, don't work around it.
+- **Organism-specific intake is separate from the cascade.** Workers replenish their buffer from cargo. Queens receive buffer from worker deliveries. These are pre-cascade steps, not part of `processMetabolismCascade()`.
 
 # Additional rules
 

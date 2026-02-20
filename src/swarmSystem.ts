@@ -5,12 +5,18 @@ import type {
   Worker,
   QueenDirective,
   LogEntry,
+  Egg,
+  EggType,
+  Structure,
 } from './models/swarmTypes';
 import { SWARM_CONSTANTS } from './models/swarmTypes';
+import { calculateSkillGainRate, getMasteryLevel } from './foragingSystem';
 import {
   DEFAULT_QUEEN_ALIEN_TYPE_ID,
   getQueenMetabolismProfile,
 } from './alienTypes';
+import { processMetabolismCascade } from './metabolismCascade';
+import { onSwarm } from './swarmEvents';
 
 // ============================================================================
 // QUEEN OPERATIONS
@@ -24,19 +30,22 @@ export function createQueen(zoneId: string, yearTicks: number): Queen {
     yearTicks
   );
 
-  return {
+  const queen: Queen = {
     id: `queen-${Date.now()}`,
     locationZoneId: zoneId,
     alienTypeId: DEFAULT_QUEEN_ALIEN_TYPE_ID,
     neuralCapacity: SWARM_CONSTANTS.QUEEN_BASE_CAPACITY,
-    directive: 'idle',
+    directive: 'gather_biomass',
     commandQueue: [],
     eggProduction: {
       enabled: false,
-      inProgress: false,
-      progress: 0,
-      ticksRemaining: 0,
+      isLaying: false,
+      layingProgress: 0,
+      layingTicksRemaining: 0,
+      cooldownTicksRemaining: 0,
     },
+    broodSkill: 0,
+    broodMastery: { worker: 0 },
     energy: {
       current: 100,
       max: 100,
@@ -45,9 +54,18 @@ export function createQueen(zoneId: string, yearTicks: number): Queen {
       current: 100,
       max: 100,
     },
+    biomassBuffer: {
+      current: SWARM_CONSTANTS.QUEEN_BIOMASS_BUFFER_MAX,
+      max: SWARM_CONSTANTS.QUEEN_BIOMASS_BUFFER_MAX,
+    },
     metabolismPerTick: profile.metabolismPerTick,
     hpDecayPerTickAtZeroEnergy: profile.hpDecayPerTickAtZeroEnergy,
   };
+
+  // Populate command queue so workers hatched immediately have orders
+  regenerateCommandQueue(queen);
+
+  return queen;
 }
 
 export function setQueenDirective(
@@ -64,58 +82,250 @@ export function toggleEggProduction(queen: Queen, enabled: boolean): void {
 }
 
 export function canQueenAcceptBiomass(queen: Queen): boolean {
-  return queen.energy.current < queen.energy.max;
+  return queen.biomassBuffer.current < queen.biomassBuffer.max;
 }
 
 export function queenReceiveBiomass(queen: Queen, amount: number): void {
-  queen.energy.current = Math.min(
-    queen.energy.current + amount,
-    queen.energy.max
+  queen.biomassBuffer.current = Math.min(
+    queen.biomassBuffer.current + amount,
+    queen.biomassBuffer.max
   );
 }
 
 // ============================================================================
-// EGG PRODUCTION
+// EGG PRODUCTION - Two-stage: Queen Laying + Egg Gestation
 // ============================================================================
 
-export function processEggProduction(
+// --- Effective tick calculations (skill-adjusted) ---
+
+export function getEffectiveLayingTicks(queen: Queen): number {
+  return SWARM_CONSTANTS.EGG_LAYING_TICKS / (1 + queen.broodSkill / 100);
+}
+
+export function getEffectiveGestationTicks(
   queen: Queen,
-  gameTime: number
-): Worker | null {
-  // Check if production enabled and not in progress
-  if (!queen.eggProduction.enabled) {
+  _eggType: EggType
+): number {
+  const masteryLevel = getMasteryLevel(queen.broodMastery.worker);
+  return SWARM_CONSTANTS.EGG_TOTAL_GESTATION_TICKS / (1 + masteryLevel / 100);
+}
+
+function getEffectiveIncubationTicks(queen: Queen): number {
+  const masteryLevel = getMasteryLevel(queen.broodMastery.worker);
+  return SWARM_CONSTANTS.EGG_INCUBATION_TICKS / (1 + masteryLevel / 100);
+}
+
+function getEffectiveMaturationTicks(queen: Queen): number {
+  const masteryLevel = getMasteryLevel(queen.broodMastery.worker);
+  return SWARM_CONSTANTS.EGG_MATURATION_TICKS / (1 + masteryLevel / 100);
+}
+
+// --- Nursery helpers ---
+
+export function createNursery(zoneId: string): Structure {
+  return {
+    id: `nursery-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+    type: 'nursery',
+    zoneId,
+    capacity: SWARM_CONSTANTS.NURSERY_BASE_CAPACITY,
+  };
+}
+
+export function getNurseryForQueen(
+  queen: Queen,
+  structures: Structure[]
+): Structure | undefined {
+  return structures.find(
+    (s) => s.type === 'nursery' && s.zoneId === queen.locationZoneId
+  );
+}
+
+export function getNurseryAvailableSpace(
+  nursery: Structure,
+  eggs: Egg[]
+): number {
+  const eggsInNursery = eggs.filter((e) => e.nurseryId === nursery.id).length;
+  return nursery.capacity - eggsInNursery;
+}
+
+// --- Egg entity creation ---
+
+export function createEgg(queenId: string, nurseryId: string): Egg {
+  return {
+    id: `egg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+    queenId,
+    nurseryId,
+    type: 'worker',
+    phase: 'incubating',
+    ticksInPhase: 0,
+    totalTicks: 0,
+  };
+}
+
+// --- Queen laying (Phase A: queen action with cooldown) ---
+
+export function processQueenLaying(
+  queen: Queen,
+  eggs: Egg[],
+  structures: Structure[]
+): Egg | null {
+  const ep = queen.eggProduction;
+  if (!ep.enabled && !ep.isLaying && ep.cooldownTicksRemaining <= 0)
+    return null;
+
+  // Handle cooldown
+  if (ep.cooldownTicksRemaining > 0) {
+    ep.cooldownTicksRemaining--;
     return null;
   }
 
-  if (!queen.eggProduction.inProgress) {
-    // Start new egg if we have energy
-    if (queen.energy.current >= SWARM_CONSTANTS.EGG_COST) {
-      queen.energy.current -= SWARM_CONSTANTS.EGG_COST;
-      queen.eggProduction.inProgress = true;
-      queen.eggProduction.progress = 0;
-      queen.eggProduction.ticksRemaining = SWARM_CONSTANTS.TOTAL_SPAWN_TICKS;
+  // Currently laying — count down
+  if (ep.isLaying) {
+    ep.layingTicksRemaining--;
+
+    const effectiveTicks = getEffectiveLayingTicks(queen);
+    const elapsed = effectiveTicks - ep.layingTicksRemaining;
+    ep.layingProgress = Math.min(100, (elapsed / effectiveTicks) * 100);
+
+    if (ep.layingTicksRemaining <= 0) {
+      // Laying complete — create egg
+      ep.isLaying = false;
+      ep.layingProgress = 0;
+      ep.cooldownTicksRemaining = SWARM_CONSTANTS.EGG_COOLDOWN_TICKS;
+
+      // Award brood skill XP
+      const skillGain =
+        calculateSkillGainRate(queen.broodSkill) *
+        SWARM_CONSTANTS.BROOD_XP_PER_LAY *
+        SWARM_CONSTANTS.SKILL_ACTIVITY_MULTIPLIER;
+      queen.broodSkill = Math.min(
+        100,
+        queen.broodSkill + skillGain / SWARM_CONSTANTS.SKILL_GAIN_DIVISOR
+      );
+
+      // Find nursery and create egg
+      const nursery = getNurseryForQueen(queen, structures);
+      if (nursery) {
+        const egg = createEgg(queen.id, nursery.id);
+        return egg;
+      }
     }
     return null;
   }
 
-  // Egg in progress
-  queen.eggProduction.ticksRemaining--;
+  // Not laying, not in cooldown — only auto-start if enabled
+  if (!ep.enabled) return null;
 
-  // Calculate progress percentage
-  const totalTicks = SWARM_CONSTANTS.TOTAL_SPAWN_TICKS;
-  const elapsed = totalTicks - queen.eggProduction.ticksRemaining;
-  queen.eggProduction.progress = (elapsed / totalTicks) * 100;
+  // Check nursery space
+  const nursery = getNurseryForQueen(queen, structures);
+  if (!nursery) return null;
+  if (getNurseryAvailableSpace(nursery, eggs) <= 0) return null;
 
-  // Check if complete
-  if (queen.eggProduction.ticksRemaining <= 0) {
-    queen.eggProduction.inProgress = false;
-    queen.eggProduction.progress = 0;
+  // Check energy
+  if (queen.energy.current < SWARM_CONSTANTS.EGG_COST) return null;
 
-    // Create new worker
-    return createWorker(queen.id, gameTime);
-  }
+  // Start laying
+  queen.energy.current -= SWARM_CONSTANTS.EGG_COST;
+  ep.isLaying = true;
+  ep.layingTicksRemaining = Math.ceil(getEffectiveLayingTicks(queen));
+  ep.layingProgress = 0;
 
   return null;
+}
+
+// --- Manual lay trigger (called by UI button) ---
+
+export function triggerManualLay(
+  queen: Queen,
+  eggs: Egg[],
+  structures: Structure[]
+): void {
+  const ep = queen.eggProduction;
+
+  // Always enable auto-lay when manually clicking
+  ep.enabled = true;
+
+  // During laying: advance progress by tapping
+  if (ep.isLaying) {
+    ep.layingTicksRemaining = Math.max(
+      0,
+      ep.layingTicksRemaining - SWARM_CONSTANTS.SPEED_UP_ADVANCE_TICKS
+    );
+    return;
+  }
+
+  // During cooldown: advance cooldown by tapping
+  if (ep.cooldownTicksRemaining > 0) {
+    ep.cooldownTicksRemaining = Math.max(
+      0,
+      ep.cooldownTicksRemaining - SWARM_CONSTANTS.SPEED_UP_ADVANCE_TICKS
+    );
+    return;
+  }
+
+  // Ready to lay — start immediately
+  const nursery = getNurseryForQueen(queen, structures);
+  if (!nursery) return;
+  if (getNurseryAvailableSpace(nursery, eggs) <= 0) return;
+  if (queen.energy.current < SWARM_CONSTANTS.EGG_COST) return;
+
+  queen.energy.current -= SWARM_CONSTANTS.EGG_COST;
+  ep.isLaying = true;
+  ep.layingTicksRemaining = Math.ceil(getEffectiveLayingTicks(queen));
+  ep.layingProgress = 0;
+}
+
+// --- Egg gestation (Phase B: independent egg processing) ---
+
+export interface EggGestationResult {
+  hatched: boolean;
+  worker?: Worker;
+}
+
+export function processEggGestation(
+  egg: Egg,
+  queen: Queen | undefined,
+  gameTime: number
+): EggGestationResult {
+  egg.ticksInPhase++;
+  egg.totalTicks++;
+
+  // Calculate mastery-adjusted phase duration
+  const phaseDuration =
+    egg.phase === 'incubating'
+      ? queen
+        ? getEffectiveIncubationTicks(queen)
+        : SWARM_CONSTANTS.EGG_INCUBATION_TICKS
+      : queen
+        ? getEffectiveMaturationTicks(queen)
+        : SWARM_CONSTANTS.EGG_MATURATION_TICKS;
+
+  if (egg.ticksInPhase >= phaseDuration) {
+    if (egg.phase === 'incubating') {
+      egg.phase = 'maturing';
+      egg.ticksInPhase = 0;
+      return { hatched: false };
+    } else {
+      // Maturation complete — hatch
+      if (queen) {
+        // Award mastery XP
+        queen.broodMastery.worker += SWARM_CONSTANTS.EGG_HATCH_MASTERY_XP;
+      }
+      const worker = createWorker(egg.queenId, gameTime);
+      return { hatched: true, worker };
+    }
+  }
+
+  return { hatched: false };
+}
+
+// --- Egg progress for UI ---
+
+export function getEggProgress(egg: Egg, queen: Queen | undefined): number {
+  const totalGestation = queen
+    ? getEffectiveGestationTicks(queen, egg.type)
+    : SWARM_CONSTANTS.EGG_TOTAL_GESTATION_TICKS;
+  return Math.min(100, (egg.totalTicks / totalGestation) * 100);
 }
 
 // ============================================================================
@@ -123,11 +333,32 @@ export function processEggProduction(
 // ============================================================================
 
 export function createWorker(queenId: string, _gameTime: number): Worker {
+  // Derive metabolism rates from pool sizes and depletion durations
+  const metabolismPerTick =
+    SWARM_CONSTANTS.WORKER_ENERGY_MAX /
+    SWARM_CONSTANTS.WORKER_ENERGY_DEPLETION_TICKS;
+  const hpDecayPerTickAtZeroEnergy =
+    SWARM_CONSTANTS.WORKER_HEALTH_MAX /
+    SWARM_CONSTANTS.WORKER_HP_DEPLETION_TICKS_AT_ZERO_ENERGY;
+
   return {
     id: `worker-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
     queenId,
     state: 'idle_empty',
-    health: SWARM_CONSTANTS.WORKER_HEALTH_MAX,
+    energy: {
+      current: SWARM_CONSTANTS.WORKER_ENERGY_MAX,
+      max: SWARM_CONSTANTS.WORKER_ENERGY_MAX,
+    },
+    health: {
+      current: SWARM_CONSTANTS.WORKER_HEALTH_MAX,
+      max: SWARM_CONSTANTS.WORKER_HEALTH_MAX,
+    },
+    biomassBuffer: {
+      current: SWARM_CONSTANTS.WORKER_BIOMASS_BUFFER_MAX,
+      max: SWARM_CONSTANTS.WORKER_BIOMASS_BUFFER_MAX,
+    },
+    metabolismPerTick,
+    hpDecayPerTickAtZeroEnergy,
     cargo: {
       current: 0,
       max: SWARM_CONSTANTS.WORKER_CARGO_MAX,
@@ -238,24 +469,31 @@ export function processWorkerTick(
     starvationDamage: false,
   };
 
-  // 1. Self-maintenance (highest priority)
-  if (worker.cargo.current >= SWARM_CONSTANTS.WORKER_UPKEEP_ENERGY) {
-    worker.cargo.current -= SWARM_CONSTANTS.WORKER_UPKEEP_ENERGY;
+  // Pre-cascade: Replenish biomass buffer from cargo (worker-specific intake)
+  if (
+    worker.biomassBuffer.current < worker.biomassBuffer.max &&
+    worker.cargo.current > 0
+  ) {
+    const bufferDeficit =
+      worker.biomassBuffer.max - worker.biomassBuffer.current;
+    const transferred = Math.min(bufferDeficit, worker.cargo.current);
+    worker.biomassBuffer.current += transferred;
+    worker.cargo.current -= transferred;
     worker.state = 'self_maintenance';
-  } else {
-    // Starvation - take health damage
-    worker.health -= 5; // Damage per tick when starving
-    result.starvationDamage = true;
-
-    if (worker.health <= 0) {
-      result.died = true;
-      return result;
-    }
   }
 
-  // 2. Execute order
+  // Universal metabolism cascade (shared with all organisms)
+  const cascadeResult = processMetabolismCascade(worker);
+  result.starvationDamage = cascadeResult.starvationDamage;
+
+  if (cascadeResult.died) {
+    result.died = true;
+    return result;
+  }
+
+  // Execute order
   if (!worker.order) {
-    worker.state = 'idle_empty';
+    worker.state = worker.cargo.current > 0 ? 'idle_cargo_full' : 'idle_empty';
     return result;
   }
 
@@ -263,10 +501,8 @@ export function processWorkerTick(
   if (orderType === 'gather_biomass') {
     processGatherOrder(worker, queen, result);
   } else if (orderType === 'idle') {
-    // Just self-maintenance already done
     worker.state = worker.cargo.current > 0 ? 'idle_cargo_full' : 'idle_empty';
   } else {
-    // Future order types not yet implemented: combat, explore_zone, build_structure
     worker.state = 'idle_empty';
   }
 
@@ -315,6 +551,8 @@ function processGatherOrder(
 export interface SwarmAggregates {
   totalWorkers: number;
   totalQueens: number;
+  totalEggs: number;
+  totalStructures: number;
   neuralCapacity: number;
   neuralLoad: number;
   efficiency: number;
@@ -325,11 +563,18 @@ export interface SwarmAggregates {
     idleEmpty: number;
     idleCargoFull: number;
   };
+
+  eggPhases: {
+    incubating: number;
+    maturing: number;
+  };
 }
 
 export function calculateSwarmAggregates(swarm: {
   queens: Queen[];
   workers: Worker[];
+  eggs: Egg[];
+  structures: Structure[];
 }): SwarmAggregates {
   const totalWorkers = swarm.workers.length;
   const totalQueens = swarm.queens.length;
@@ -370,13 +615,23 @@ export function calculateSwarmAggregates(swarm: {
     }
   }
 
+  // Count egg phases
+  const eggPhases = { incubating: 0, maturing: 0 };
+  for (const egg of swarm.eggs) {
+    if (egg.phase === 'incubating') eggPhases.incubating++;
+    else if (egg.phase === 'maturing') eggPhases.maturing++;
+  }
+
   return {
     totalWorkers,
     totalQueens,
+    totalEggs: swarm.eggs.length,
+    totalStructures: swarm.structures.length,
     neuralCapacity,
     neuralLoad,
     efficiency,
     workerStates,
+    eggPhases,
   };
 }
 
@@ -396,4 +651,24 @@ export function createLogEntry(
     message,
     data,
   };
+}
+
+// ============================================================================
+// EVENT HANDLERS
+// ============================================================================
+
+/**
+ * Register swarm system event handlers.
+ * Called once at application startup from main.ts.
+ */
+export function initSwarmEvents(): void {
+  // When a worker hatches, immediately assign it an order from the queen's
+  // command queue so it can start working on its first tick.
+  onSwarm('worker_hatched', (_gameData, event) => {
+    if (event.type !== 'worker_hatched') return;
+    const { worker, queen } = event;
+    if (queen.commandQueue.length > 0) {
+      worker.order = queen.commandQueue[0];
+    }
+  });
 }

@@ -2678,4 +2678,137 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
       'navigation',
     ],
   },
+  // ═══════════════════════════════════════════════════════════
+  // SWARM SYSTEMS
+  // ═══════════════════════════════════════════════════════════
+  {
+    id: 'egg-production',
+    title: 'Egg Production & Nursery',
+    category: 'Core Systems',
+    summary:
+      'How queens lay eggs, how eggs gestate in nurseries, and the skills that improve both processes.',
+    sections: [
+      {
+        paragraphs: [
+          'Egg production is how the swarm grows its worker population. The queen lays eggs into a nursery structure, where they gestate independently through two phases before hatching into workers. The process is gated by energy cost and nursery capacity, creating a natural population growth curve.',
+        ],
+      },
+      {
+        heading: 'Two-Stage Process',
+        paragraphs: [
+          'Egg production has two distinct stages that operate independently:',
+          "Stage 1 — Laying: The queen spends energy and time to produce an egg. Once laid, the egg is placed into a nursery in the queen's zone. The queen then enters a cooldown before she can lay again.",
+          'Stage 2 — Gestation: Each egg in the nursery progresses through incubation and maturation phases on its own timer. Multiple eggs gestate simultaneously. When maturation completes, the egg hatches into a new worker.',
+        ],
+        table: {
+          headers: ['Stage', 'Base Duration', 'Improved By'],
+          rows: [
+            ['Laying', '10 seconds', 'Brood Skill (queen)'],
+            ['Incubation', '30 seconds', 'Egg Type Mastery (queen)'],
+            ['Maturation', '15 seconds', 'Egg Type Mastery (queen)'],
+            ['Auto-Cooldown', '20 seconds', 'Manual Lay button'],
+            ['Manual Cooldown', '5 seconds', '—'],
+          ],
+        },
+      },
+      {
+        heading: 'Active vs Passive Play',
+        paragraphs: [
+          'Egg production supports both idle and active play styles:',
+          'Passive (auto-mode): Toggle egg production on and the queen lays eggs automatically with a 20-second cooldown between each lay. Walk away and the swarm grows on its own.',
+          'Active (Lay Egg button): Clicking the Lay Egg button during cooldown shortens it to 5 seconds. This roughly doubles egg throughput compared to passive mode, but also burns energy twice as fast — requiring proportionally more gatherers to sustain.',
+          'The Lay Egg button is disabled when the queen is mid-lay, when energy is too low, or when the nursery is full.',
+        ],
+      },
+      {
+        heading: 'Nursery',
+        paragraphs: [
+          'A nursery is a physical structure built in a swarm-conquered zone. Each nursery has a capacity that limits how many eggs can gestate simultaneously. The starting zone begins with one nursery (capacity 10).',
+          'The queen can only lay eggs if there is a nursery in her zone with available space. When the nursery is full, laying pauses until an egg hatches and frees a slot.',
+          "Multiple eggs gestate in parallel — at steady state, roughly 3 eggs are gestating at once. This means the nursery acts as a buffer between the queen's laying rate and the hatching rate.",
+        ],
+      },
+      {
+        heading: 'Energy Cost',
+        paragraphs: [
+          "Each egg costs 10 energy to lay. If the queen's energy drops below this threshold, laying pauses automatically until energy is restored through the [[swarm-metabolism|metabolism cascade]] (biomass buffer → energy). This creates a natural feedback loop: more workers gather more biomass, feeding the queen's buffer, enabling more eggs, producing more workers — until the energy economy reaches equilibrium.",
+        ],
+      },
+      {
+        heading: 'Brood Skill',
+        paragraphs: [
+          'The queen gains Brood Skill experience each time she completes laying an egg. Brood Skill ranges from 0 to 100 and reduces the time required to lay each egg.',
+          'At skill 0 laying takes 10 seconds. At skill 50 laying takes about 6.7 seconds. At skill 100 laying takes 5 seconds. The formula is: effective laying time = base time / (1 + skill / 100).',
+          'Brood Skill uses the same diminishing-returns curve as worker foraging skill — early levels come quickly, later levels require significantly more lays.',
+        ],
+      },
+      {
+        heading: 'Egg Type Mastery',
+        paragraphs: [
+          'The queen also gains mastery XP for each egg type when eggs of that type hatch. Worker egg mastery reduces the total gestation time (incubation + maturation) for worker eggs.',
+          'Mastery uses the RuneScape-style XP curve. At level 0 gestation takes 45 seconds. At level 50 gestation takes about 36 seconds (20% faster). At level 99 gestation takes about 23 seconds (50% faster).',
+          'Each hatched worker egg awards 10 mastery XP. Higher mastery levels require exponentially more XP, creating a long-term progression arc.',
+        ],
+      },
+    ],
+    relatedArticles: ['skill-system', 'mastery-system', 'swarm-metabolism'],
+  },
+  {
+    id: 'swarm-metabolism',
+    title: 'Metabolism & Energy Cascade',
+    category: 'Core Systems',
+    summary:
+      'How all swarm organisms stay alive: the universal energy, biomass buffer, and health system shared by queens and workers alike.',
+    sections: [
+      {
+        paragraphs: [
+          'Every organism in the swarm — queens and workers — shares the same metabolism system. This universal lifecycle cascade governs energy consumption, food digestion, starvation, and death. No organism is exempt.',
+        ],
+      },
+      {
+        heading: 'Three Resource Pools',
+        paragraphs: [
+          'Every organism has three internal pools:',
+          'Energy — metabolic fuel that depletes every tick. When empty, health starts to drain. Restored by digesting biomass from the buffer.',
+          'Biomass Buffer — internal food storage. Automatically converted to energy each tick. How it gets filled differs: workers replenish from cargo, queens receive deliveries from workers.',
+          'Health — structural integrity. Only drains when energy is completely empty (starvation). When health reaches zero, the organism dies.',
+        ],
+        table: {
+          headers: ['Pool', 'Queen', 'Worker'],
+          rows: [
+            ['Energy', '100 max', '10 max'],
+            ['Biomass Buffer', '100 max', '2 max'],
+            ['Health', '100 max', '100 max'],
+          ],
+        },
+      },
+      {
+        heading: 'The Cascade',
+        paragraphs: [
+          'Each tick, every organism processes the same four steps in order:',
+          "1. Energy depletes by the organism's metabolism rate (always, even if buffer is full).",
+          '2. Biomass buffer is digested to refuel energy (up to the deficit). This happens automatically — no player action needed.',
+          '3. If energy is empty, health drains at the starvation rate.',
+          '4. If health reaches zero, the organism dies.',
+          "The queen's metabolism rate is very slow (energy lasts about 1 year without food). Workers burn energy much faster (about 100 ticks without food). This means workers die quickly when food runs out, while the queen can survive extended droughts.",
+        ],
+      },
+      {
+        heading: 'Biomass Flow',
+        paragraphs: [
+          "Biomass flows through the swarm in a chain: zones produce surface lichen, workers gather it into cargo, workers eat from cargo to fill their own biomass buffer, and workers deliver surplus cargo to the queen's biomass buffer.",
+          'Workers prioritize self-maintenance: they fill their internal buffer from cargo before delivering the rest to the queen. This means workers stay alive at the cost of slightly slower queen feeding.',
+          "If the queen's biomass buffer is full, workers with full cargo will wait idle until space opens up.",
+        ],
+      },
+      {
+        heading: 'Starvation & Death',
+        paragraphs: [
+          "When an organism's energy reaches zero and its biomass buffer is empty, health begins to drain. Workers die after about 20 ticks of starvation. The queen is more resilient, taking about 7 years to die from health drain alone.",
+          "Dead workers are partially recycled — their biomass is returned to the queen's buffer, providing a small recovery during population crashes.",
+        ],
+      },
+    ],
+    relatedArticles: ['egg-production'],
+  },
 ];

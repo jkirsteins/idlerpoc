@@ -1,16 +1,21 @@
 // Game Tick - Master tick system for swarm simulation
 
-import type { GameData, Worker, LogEntry } from './models/swarmTypes';
+import type { GameData, Worker, Egg, LogEntry } from './models/swarmTypes';
 import { SWARM_CONSTANTS } from './models/swarmTypes';
 import { updatePlanetPositions } from './trappist1Data';
 import {
-  processEggProduction,
+  processQueenLaying,
+  processEggGestation,
   processWorkerTick,
   assignOrders,
   calculateSwarmAggregates,
   createLogEntry,
+  createWorker,
+  queenReceiveBiomass,
 } from './swarmSystem';
+import { processMetabolismCascade } from './metabolismCascade';
 import { gainForagingSkill, gainMasteryXp } from './foragingSystem';
+import { emitSwarm } from './swarmEvents';
 import {
   calculateTotalNeuralCapacity,
   calculateNeuralLoad,
@@ -30,6 +35,7 @@ export interface TickResult {
   workersDied: number;
   queensDied: number;
   eggsLaid: number;
+  eggsHatched: number;
   netEnergy: number;
   logEntries: LogEntry[];
 }
@@ -44,6 +50,7 @@ export function applyTick(
     workersDied: 0,
     queensDied: 0,
     eggsLaid: 0,
+    eggsHatched: 0,
     netEnergy: 0,
     logEntries: [],
   };
@@ -68,6 +75,7 @@ export function applyTick(
     result.workersDied += tickResult.workersDied;
     result.queensDied += tickResult.queensDied;
     result.eggsLaid += tickResult.eggsLaid;
+    result.eggsHatched += tickResult.eggsHatched;
     result.netEnergy += tickResult.netEnergy;
     result.logEntries.push(...tickResult.logEntries);
 
@@ -113,6 +121,7 @@ interface SingleTickResult {
   workersDied: number;
   queensDied: number;
   eggsLaid: number;
+  eggsHatched: number;
   netEnergy: number;
   logEntries: LogEntry[];
 }
@@ -123,6 +132,7 @@ function processSingleTick(data: GameData): SingleTickResult {
     workersDied: 0,
     queensDied: 0,
     eggsLaid: 0,
+    eggsHatched: 0,
     netEnergy: 0,
     logEntries: [],
   };
@@ -135,47 +145,38 @@ function processSingleTick(data: GameData): SingleTickResult {
   // 2. Calculate swarm aggregates (for future use)
   void calculateSwarmAggregates(swarm);
 
-  // 3. Process each queen
+  // 3. Process each queen (universal metabolism cascade)
   for (const queen of swarm.queens) {
-    queen.energy.current = Math.max(
-      0,
-      queen.energy.current - queen.metabolismPerTick
-    );
+    const cascadeResult = processMetabolismCascade(queen);
 
-    if (queen.energy.current <= 0) {
-      queen.health.current = Math.max(
-        0,
-        queen.health.current - queen.hpDecayPerTickAtZeroEnergy
+    if (cascadeResult.died) {
+      result.queensDied++;
+      result.logEntries.push(
+        createLogEntry('queen_died', `Queen died from starvation`, {
+          queenId: queen.id,
+        })
       );
-
-      if (queen.health.current <= 0) {
-        result.queensDied++;
-        result.logEntries.push(
-          createLogEntry('queen_died', `Queen died from starvation`, {
-            queenId: queen.id,
-          })
-        );
-        const queenIndex = swarm.queens.indexOf(queen);
-        if (queenIndex > -1) {
-          swarm.queens.splice(queenIndex, 1);
-        }
-        continue;
+      const queenIndex = swarm.queens.indexOf(queen);
+      if (queenIndex > -1) {
+        swarm.queens.splice(queenIndex, 1);
       }
+      continue;
     }
 
-    // Egg production
-    if (queen.eggProduction.enabled) {
-      const newWorker = processEggProduction(queen, data.gameTime);
-      if (newWorker) {
-        swarm.workers.push(newWorker);
-        result.workersHatched++;
-        result.eggsLaid++;
-        result.logEntries.push(
-          createLogEntry('worker_hatched', `New worker hatched`, {
-            workerId: newWorker.id,
-          })
-        );
-      }
+    // Egg laying (queen action with cooldown)
+    const newEgg = processQueenLaying(
+      queen,
+      data.swarm.eggs,
+      data.swarm.structures
+    );
+    if (newEgg) {
+      data.swarm.eggs.push(newEgg);
+      result.eggsLaid++;
+      result.logEntries.push(
+        createLogEntry('egg_laid', 'Queen laid a new egg', {
+          eggId: newEgg.id,
+        })
+      );
     }
 
     // Re-evaluate orders periodically
@@ -184,7 +185,36 @@ function processSingleTick(data: GameData): SingleTickResult {
     }
   }
 
-  // 4. Process workers
+  // 3b. Process egg gestation (independent of queen laying)
+  const eggsToRemove: Egg[] = [];
+  for (const egg of data.swarm.eggs) {
+    const queen = swarm.queens.find((q) => q.id === egg.queenId);
+    const gestationResult = processEggGestation(egg, queen, data.gameTime);
+    if (gestationResult.hatched && gestationResult.worker && queen) {
+      swarm.workers.push(gestationResult.worker);
+      result.workersHatched++;
+      result.eggsHatched++;
+      eggsToRemove.push(egg);
+      result.logEntries.push(
+        createLogEntry('egg_hatched', 'A worker hatched from an egg', {
+          workerId: gestationResult.worker.id,
+          eggId: egg.id,
+        })
+      );
+      // Notify subscribers (queen assigns orders immediately)
+      emitSwarm(data, {
+        type: 'worker_hatched',
+        worker: gestationResult.worker,
+        queen,
+      });
+    }
+  }
+  for (const egg of eggsToRemove) {
+    const index = data.swarm.eggs.indexOf(egg);
+    if (index > -1) data.swarm.eggs.splice(index, 1);
+  }
+
+  // 4. Process workers (energy→health cascade handled inside processWorkerTick)
   const workersToRemove: Worker[] = [];
 
   for (const worker of swarm.workers) {
@@ -195,15 +225,7 @@ function processSingleTick(data: GameData): SingleTickResult {
       continue;
     }
 
-    // Health decay
-    worker.health -= SWARM_CONSTANTS.WORKER_HEALTH_DECAY;
-    if (worker.health <= 0) {
-      workersToRemove.push(worker);
-      result.workersDied++;
-      continue;
-    }
-
-    // Process worker tick
+    // Process worker tick (energy depletion, self-maintenance, orders)
     const tickResult = processWorkerTick(worker, queen);
 
     if (tickResult.died) {
@@ -255,7 +277,7 @@ function processSingleTick(data: GameData): SingleTickResult {
 
     // Kill starving workers
     const sortedWorkers = [...swarm.workers].sort(
-      (a, b) => a.health - b.health
+      (a, b) => a.health.current - b.health.current
     );
     const workersToStarve = sortedWorkers.slice(0, starvationResult.deaths);
 
@@ -267,15 +289,12 @@ function processSingleTick(data: GameData): SingleTickResult {
       }
     }
 
-    // Add biomass from recycling
+    // Add biomass from recycling (into queen biomass buffers, not energy directly)
     if (starvationResult.biomassRecovered > 0) {
       // Distribute to queens proportionally
       for (const queen of swarm.queens) {
         const share = starvationResult.biomassRecovered / swarm.queens.length;
-        queen.energy.current = Math.min(
-          queen.energy.current + share,
-          queen.energy.max
-        );
+        queenReceiveBiomass(queen, share);
       }
     }
   }
@@ -300,6 +319,7 @@ export function processCatchUp(
       workersDied: 0,
       queensDied: 0,
       eggsLaid: 0,
+      eggsHatched: 0,
       netEnergy: 0,
       logEntries: [],
     };
@@ -326,6 +346,7 @@ function processBatchedCatchUp(
     workersDied: 0,
     queensDied: 0,
     eggsLaid: 0,
+    eggsHatched: 0,
     netEnergy: 0,
     logEntries: [],
   };
@@ -333,38 +354,72 @@ function processBatchedCatchUp(
   const { swarm } = data;
   const neuralCapacity = calculateTotalNeuralCapacity(swarm.queens);
 
+  // Resolve mid-gestation eggs: complete any eggs that would have hatched
+  const gestationTicks = SWARM_CONSTANTS.EGG_TOTAL_GESTATION_TICKS;
+  const eggsToHatch: Egg[] = [];
+  for (const egg of swarm.eggs) {
+    const remainingTicks = gestationTicks - egg.totalTicks;
+    if (remainingTicks <= elapsedTicks) {
+      eggsToHatch.push(egg);
+    } else {
+      // Advance egg progress
+      egg.totalTicks += elapsedTicks;
+      egg.ticksInPhase += elapsedTicks;
+      // Check phase transition
+      if (
+        egg.phase === 'incubating' &&
+        egg.ticksInPhase >= SWARM_CONSTANTS.EGG_INCUBATION_TICKS
+      ) {
+        egg.ticksInPhase -= SWARM_CONSTANTS.EGG_INCUBATION_TICKS;
+        egg.phase = 'maturing';
+      }
+    }
+  }
+  for (const egg of eggsToHatch) {
+    const queen = swarm.queens.find((q) => q.id === egg.queenId);
+    if (queen) {
+      swarm.workers.push(createWorker(queen.id, data.gameTime));
+      queen.broodMastery.worker += SWARM_CONSTANTS.EGG_HATCH_MASTERY_XP;
+      result.workersHatched++;
+      result.eggsHatched++;
+    }
+    const idx = swarm.eggs.indexOf(egg);
+    if (idx > -1) swarm.eggs.splice(idx, 1);
+  }
+
   // Simulate toward equilibrium
   const daysElapsed = elapsedTicks / SWARM_CONSTANTS.TICKS_PER_DAY;
 
   // Target: slightly over capacity for stability
-  const targetWorkers = Math.floor(neuralCapacity * 1.2);
+  const targetWorkers = Math.floor(
+    neuralCapacity * SWARM_CONSTANTS.EQUILIBRIUM_TARGET_LOAD
+  );
   const currentWorkers = swarm.workers.length;
 
   if (currentWorkers < targetWorkers) {
     // Population growth
-    const growthRate = 0.1; // 10% per day toward target
     const newWorkers = Math.floor(
-      (targetWorkers - currentWorkers) * growthRate * daysElapsed
+      (targetWorkers - currentWorkers) *
+        SWARM_CONSTANTS.CATCHUP_GROWTH_RATE *
+        daysElapsed
     );
 
     for (let i = 0; i < newWorkers; i++) {
       const queen = swarm.queens[0];
       if (queen) {
-        swarm.workers.push({
-          id: `worker-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-          queenId: queen.id,
-          state: 'idle_empty',
-          health: SWARM_CONSTANTS.WORKER_HEALTH_MAX,
-          cargo: { current: 0, max: SWARM_CONSTANTS.WORKER_CARGO_MAX },
-          skills: { foraging: 0, mastery: { surfaceLichen: 0 } },
-        });
+        swarm.workers.push(createWorker(queen.id, data.gameTime));
         result.workersHatched++;
       }
     }
-  } else if (currentWorkers > targetWorkers * 1.5) {
+  } else if (
+    currentWorkers >
+    targetWorkers * SWARM_CONSTANTS.CATCHUP_OVERCAPACITY_THRESHOLD
+  ) {
     // Population crash from overcapacity
     const deaths = Math.floor(
-      (currentWorkers - targetWorkers) * 0.2 * daysElapsed
+      (currentWorkers - targetWorkers) *
+        SWARM_CONSTANTS.CATCHUP_DEATH_RATE *
+        daysElapsed
     );
     const actualDeaths = Math.min(deaths, swarm.workers.length);
 

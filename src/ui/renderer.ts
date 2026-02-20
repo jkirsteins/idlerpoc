@@ -1,14 +1,33 @@
 // Swarm Game Renderer - Component-based architecture
 // Follows mount-once / update-on-tick pattern from component.ts
 
-import { SWARM_CONSTANTS, type GameData } from '../models/swarmTypes';
-import { calculateSwarmAggregates } from '../swarmSystem';
+import {
+  SWARM_CONSTANTS,
+  type GameData,
+  type Egg,
+  type Worker,
+  type Queen,
+} from '../models/swarmTypes';
+import {
+  calculateSwarmAggregates,
+  getEggProgress,
+  getNurseryForQueen,
+  getNurseryAvailableSpace,
+  getEffectiveLayingTicks,
+} from '../swarmSystem';
+import { getMasteryLevel, getMasteryXpForLevel } from '../foragingSystem';
 import {
   formatAtmosphericMass,
   formatPercentage,
   formatPressureIndex,
 } from '../formatting';
 import { derivePlanetAtmosphere } from '../planetAtmosphere';
+import {
+  calculateEnergyBalance,
+  calculateCoordinationEfficiency,
+  calculateNeuralLoad,
+} from '../populationSystem';
+import { formatTicksDualTime } from '../timeSystem';
 import type { Component } from './component';
 import { createOrreryComponent, type OrreryCallbacks } from './orreryComponent';
 import {
@@ -28,6 +47,7 @@ export interface RendererCallbacks {
   onTogglePause: () => void;
   onSetQueenDirective: (directive: 'gather_biomass' | 'idle') => void;
   onToggleEggProduction: (enabled: boolean) => void;
+  onLayEgg: () => void;
   onExportSave: () => string;
   onImportSave: (saveData: string) => boolean;
   onResetGame: () => void;
@@ -175,6 +195,7 @@ export function render(
     window.swarmCallbacks = {
       setQueenDirective: callbacks.onSetQueenDirective,
       toggleEggProduction: callbacks.onToggleEggProduction,
+      layEgg: callbacks.onLayEgg,
       saveGame: () => {
         const saveData = callbacks.onExportSave();
         if (!saveData) return;
@@ -371,6 +392,12 @@ function createLeftSidebar(_gameData: GameData): Component<TickSnapshot> {
     '<span>Workers:</span><span style="font-weight: bold;">-</span>';
   statsContainer.appendChild(workersEl);
 
+  const eggsEl = document.createElement('div');
+  eggsEl.style.cssText = 'display: flex; justify-content: space-between;';
+  eggsEl.innerHTML =
+    '<span>Eggs:</span><span style="font-weight: bold;">-</span>';
+  statsContainer.appendChild(eggsEl);
+
   const queensEl = document.createElement('div');
   queensEl.style.cssText = 'display: flex; justify-content: space-between;';
   queensEl.innerHTML =
@@ -407,20 +434,20 @@ function createLeftSidebar(_gameData: GameData): Component<TickSnapshot> {
   `;
 
   const gatheringEl = document.createElement('div');
-  gatheringEl.textContent = 'Gathering: -';
+  gatheringEl.textContent = 'Gathering biomass: -';
   distributionContainer.appendChild(gatheringEl);
 
+  const maintenanceEl = document.createElement('div');
+  maintenanceEl.textContent = 'Feeding: -';
+  distributionContainer.appendChild(maintenanceEl);
+
   const idleEmptyEl = document.createElement('div');
-  idleEmptyEl.textContent = 'Idle (empty): -';
+  idleEmptyEl.textContent = 'Idle: -';
   distributionContainer.appendChild(idleEmptyEl);
 
   const idleFullEl = document.createElement('div');
-  idleFullEl.textContent = 'Idle (full): -';
+  idleFullEl.textContent = 'Waiting to deliver: -';
   distributionContainer.appendChild(idleFullEl);
-
-  const maintenanceEl = document.createElement('div');
-  maintenanceEl.textContent = 'Maintenance: -';
-  distributionContainer.appendChild(maintenanceEl);
 
   distributionSection.appendChild(distributionContainer);
   el.appendChild(distributionSection);
@@ -451,6 +478,9 @@ function createLeftSidebar(_gameData: GameData): Component<TickSnapshot> {
       (workersEl.lastChild as HTMLElement).textContent = String(
         aggregates.totalWorkers
       );
+      (eggsEl.lastChild as HTMLElement).textContent = String(
+        aggregates.totalEggs
+      );
       (queensEl.lastChild as HTMLElement).textContent = String(
         aggregates.totalQueens
       );
@@ -464,10 +494,10 @@ function createLeftSidebar(_gameData: GameData): Component<TickSnapshot> {
         `${Math.round(aggregates.efficiency * 100)}%`;
 
       // Update distribution
-      gatheringEl.textContent = `Gathering: ${aggregates.workerStates.gathering}`;
-      idleEmptyEl.textContent = `Idle (empty): ${aggregates.workerStates.idleEmpty}`;
-      idleFullEl.textContent = `Idle (full): ${aggregates.workerStates.idleCargoFull}`;
-      maintenanceEl.textContent = `Maintenance: ${aggregates.workerStates.selfMaintenance}`;
+      gatheringEl.textContent = `Gathering biomass: ${aggregates.workerStates.gathering}`;
+      maintenanceEl.textContent = `Feeding: ${aggregates.workerStates.selfMaintenance}`;
+      idleEmptyEl.textContent = `Idle: ${aggregates.workerStates.idleEmpty}`;
+      idleFullEl.textContent = `Waiting to deliver: ${aggregates.workerStates.idleCargoFull}`;
     },
   };
 }
@@ -522,7 +552,7 @@ function createMainPanel(
 
   // Tab content container
   const contentContainer = document.createElement('div');
-  contentContainer.style.cssText = 'min-height: 400px;';
+  contentContainer.style.cssText = 'flex: 1; overflow-y: auto; min-height: 0;';
 
   const tabContents = new Map<TabId, HTMLElement>();
 
@@ -632,11 +662,9 @@ function createSwarmTabContent(
           <div style="font-size: 1rem; font-weight: 600; color: #ff9b9b; margin-bottom: 0.5rem;">No active queens</div>
           <div style="color: var(--text-secondary, #888); line-height: 1.5;">All queens are dead. Swarm-owned areas remain under swarm control, but no new directives can be issued.</div>
         </div>
-        <div style="background: var(--bg-panel, #12121a); padding: 1rem; border-radius: 8px;">
-          <h3 style="margin: 0 0 0.75rem 0; font-size: 1rem;">Swarm Stats</h3>
+        ${renderWorkerActivitySection(gameData)}
+        <div style="background: var(--bg-panel, #12121a); padding: 1rem; border-radius: 8px; margin-top: 1rem;">
           <div style="font-size: 0.9rem; line-height: 1.8;">
-            <div>Total Workers: ${gameData.swarm.workers.length}</div>
-            <div>Total Queens: ${gameData.swarm.queens.length}</div>
             <div>Swarm-Owned Zones: ${gameData.planets.reduce(
               (sum, planet) =>
                 sum + planet.zones.filter((zone) => zone.ownedBySwarm).length,
@@ -652,8 +680,80 @@ function createSwarmTabContent(
     queen.energy.max > 0 ? (queen.energy.current / queen.energy.max) * 100 : 0;
   const healthPct =
     queen.health.max > 0 ? (queen.health.current / queen.health.max) * 100 : 0;
-  const eggHoursRemaining =
-    queen.eggProduction.ticksRemaining / SWARM_CONSTANTS.TICKS_PER_HOUR;
+  const biomassPct =
+    queen.biomassBuffer.max > 0
+      ? (queen.biomassBuffer.current / queen.biomassBuffer.max) * 100
+      : 0;
+
+  // Egg production status
+  const ep = queen.eggProduction;
+  const nursery = getNurseryForQueen(queen, gameData.swarm.structures);
+  const nurserySpace = nursery
+    ? getNurseryAvailableSpace(nursery, gameData.swarm.eggs)
+    : 0;
+  const nurseryCapacity = nursery?.capacity ?? 0;
+  const nurseryUsed = nurseryCapacity - nurserySpace;
+
+  let layingStatus: string;
+  let layingStatusColor: string;
+  if (ep.isLaying) {
+    layingStatus = `Laying ${ep.layingProgress.toFixed(0)}%`;
+    layingStatusColor = '#4caf50';
+  } else if (ep.cooldownTicksRemaining > 0) {
+    layingStatus = `Cooldown ${ep.cooldownTicksRemaining}s`;
+    layingStatusColor = '#ff9800';
+  } else if (!nursery || nurserySpace <= 0) {
+    layingStatus = 'Nursery full';
+    layingStatusColor = '#ff4444';
+  } else if (queen.energy.current < SWARM_CONSTANTS.EGG_COST) {
+    layingStatus = 'Low energy';
+    layingStatusColor = '#ff4444';
+  } else {
+    layingStatus = 'Ready';
+    layingStatusColor = '#4caf50';
+  }
+
+  // Lay Egg button: enabled during laying (speed up) or cooldown (shorten),
+  // or when ready to start a new lay
+  const canLayEgg =
+    ep.isLaying ||
+    ep.cooldownTicksRemaining > 0 ||
+    (queen.energy.current >= SWARM_CONSTANTS.EGG_COST && nurserySpace > 0);
+  const layBtnStyle = canLayEgg
+    ? 'background: var(--accent-cyan, #00e5ff); color: #0a0a0f; cursor: pointer;'
+    : 'background: #1a1a2a; color: #555; cursor: not-allowed;';
+
+  // Brood skill display
+  const effectiveLayTicks = getEffectiveLayingTicks(queen);
+  const broodSkillDisplay = queen.broodSkill.toFixed(1);
+
+  // Mastery display
+  const workerMasteryLevel = getMasteryLevel(queen.broodMastery.worker);
+  const workerMasteryXp = Math.floor(queen.broodMastery.worker);
+  const nextLevelXp = getMasteryXpForLevel(workerMasteryLevel + 1);
+
+  // Nursery eggs display
+  const queenEggs = gameData.swarm.eggs.filter(
+    (e: Egg) => e.queenId === queen.id
+  );
+  const eggListHtml =
+    queenEggs.length > 0
+      ? queenEggs
+          .map((egg: Egg) => {
+            const progress = getEggProgress(egg, queen);
+            const phaseLabel = egg.phase === 'incubating' ? 'Inc' : 'Mat';
+            const phaseColor =
+              egg.phase === 'incubating' ? '#2196f3' : '#ff9800';
+            return `<div style="display: flex; align-items: center; gap: 0.5rem; white-space: nowrap;">
+          <span style="color: ${phaseColor}; font-size: 0.8rem; min-width: 28px;">${phaseLabel}</span>
+          <div style="flex: 1; background: #2a2a3a; height: 6px; border-radius: 3px; overflow: hidden;">
+            <div style="background: ${phaseColor}; height: 100%; width: ${progress.toFixed(0)}%;"></div>
+          </div>
+          <span style="font-size: 0.75rem; color: #888; min-width: 32px; text-align: right;">${progress.toFixed(0)}%</span>
+        </div>`;
+          })
+          .join('')
+      : '<div style="font-size: 0.82rem; color: #555;">No eggs — enable egg production to grow your colony</div>';
 
   return `
     <div style="max-width: 600px;">
@@ -669,25 +769,29 @@ function createSwarmTabContent(
             </div>
           </div>
           <div class="stat-bar stat-bar--compact">
+            <div class="stat-bar__label">Biomass Buffer ${queen.biomassBuffer.current.toFixed(1)} / ${queen.biomassBuffer.max.toFixed(0)}</div>
+            <div class="stat-bar__track">
+              <div class="stat-bar__fill ${biomassPct > 40 ? 'bar-good' : biomassPct > 15 ? 'bar-warning' : 'bar-danger'}" style="width: ${Math.max(0, Math.min(100, biomassPct))}%;"></div>
+            </div>
+          </div>
+          <div class="stat-bar stat-bar--compact">
             <div class="stat-bar__label">Health ${queen.health.current.toFixed(1)} / ${queen.health.max.toFixed(0)}</div>
             <div class="stat-bar__track">
               <div class="stat-bar__fill ${healthPct > 40 ? 'bar-good' : healthPct > 15 ? 'bar-warning' : 'bar-danger'}" style="width: ${Math.max(0, Math.min(100, healthPct))}%;"></div>
             </div>
           </div>
-          <div style="font-size: 0.82rem; color: var(--text-secondary, #888);">
-            Metabolism: ${queen.metabolismPerTick.toFixed(4)} energy/s
-          </div>
+          ${renderQueenEconomySection(queen, gameData.swarm.workers)}
         </div>
       </div>
-      
+
       <div style="background: var(--bg-panel, #12121a); padding: 1rem; border-radius: 8px; margin-bottom: 1rem;">
         <h3 style="margin: 0 0 0.75rem 0; font-size: 1rem;">Directive</h3>
         <div style="display: flex; gap: 0.5rem;">
-          <button 
+          <button
             onclick="window.swarmCallbacks?.setQueenDirective('gather_biomass')"
             style="
-              flex: 1; 
-              padding: 0.75rem; 
+              flex: 1;
+              padding: 0.75rem;
               background: ${queen.directive === 'gather_biomass' ? 'var(--accent-cyan, #00e5ff)' : '#2a2a3a'};
               color: ${queen.directive === 'gather_biomass' ? '#0a0a0f' : '#fff'};
               border: none;
@@ -697,11 +801,11 @@ function createSwarmTabContent(
           >
             Gather Biomass
           </button>
-          <button 
+          <button
             onclick="window.swarmCallbacks?.setQueenDirective('idle')"
             style="
-              flex: 1; 
-              padding: 0.75rem; 
+              flex: 1;
+              padding: 0.75rem;
               background: ${queen.directive === 'idle' ? 'var(--accent-cyan, #00e5ff)' : '#2a2a3a'};
               color: ${queen.directive === 'idle' ? '#0a0a0f' : '#fff'};
               border: none;
@@ -713,43 +817,190 @@ function createSwarmTabContent(
           </button>
         </div>
       </div>
-      
+
       <div style="background: var(--bg-panel, #12121a); padding: 1rem; border-radius: 8px; margin-bottom: 1rem;">
         <h3 style="margin: 0 0 0.75rem 0; font-size: 1rem;">Egg Production</h3>
-        <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
-          <input 
-            type="checkbox" 
-            ${queen.eggProduction.enabled ? 'checked' : ''}
-            onchange="window.swarmCallbacks?.toggleEggProduction(this.checked)"
-            style="width: 20px; height: 20px;"
+        <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.75rem;">
+          <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; flex: 1;">
+            <input
+              type="checkbox"
+              ${ep.enabled ? 'checked' : ''}
+              onchange="window.swarmCallbacks?.toggleEggProduction(this.checked)"
+              style="width: 18px; height: 18px;"
+            >
+            <span style="font-size: 0.9rem;">Auto (${SWARM_CONSTANTS.EGG_COST} energy/egg)</span>
+          </label>
+          <button
+            onclick="window.swarmCallbacks?.layEgg()"
+            ${canLayEgg ? '' : 'disabled'}
+            style="
+              padding: 0.4rem 0.8rem;
+              border: none;
+              border-radius: 4px;
+              font-size: 0.85rem;
+              font-weight: 600;
+              ${layBtnStyle}
+            "
+            title="${ep.isLaying ? 'Tap to speed up laying' : ep.cooldownTicksRemaining > 0 ? 'Tap to speed up cooldown' : 'Lay an egg now'}"
           >
-          <span>Enable egg laying (costs 10 energy per egg)</span>
-        </label>
-        ${
-          queen.eggProduction.inProgress
-            ? `
-          <div style="margin-top: 0.75rem;">
-            <div style="background: #2a2a3a; height: 8px; border-radius: 4px; overflow: hidden;">
-              <div style="background: #4caf50; height: 100%; width: ${queen.eggProduction.progress}%"></div>
+            ${ep.isLaying ? 'Speed Up' : ep.cooldownTicksRemaining > 0 ? 'Speed Up' : 'Lay Egg'}
+          </button>
+        </div>
+        <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.5rem;">
+          <span style="font-size: 0.82rem; color: ${layingStatusColor}; white-space: nowrap;">${layingStatus}</span>
+          ${
+            ep.isLaying
+              ? `
+            <div style="flex: 1; background: #2a2a3a; height: 6px; border-radius: 3px; overflow: hidden;">
+              <div style="background: #4caf50; height: 100%; width: ${ep.layingProgress}%;"></div>
             </div>
-            <div style="font-size: 0.8rem; color: #888; margin-top: 0.25rem;">
-              ${eggHoursRemaining.toFixed(1)}h remaining
-            </div>
-          </div>
-        `
-            : ''
-        }
-      </div>
-      
-      <div style="background: var(--bg-panel, #12121a); padding: 1rem; border-radius: 8px;">
-        <h3 style="margin: 0 0 0.75rem 0; font-size: 1rem;">Swarm Stats</h3>
-        <div style="font-size: 0.9rem; line-height: 1.8;">
-          <div>Total Workers: ${gameData.swarm.workers.length}</div>
-          <div>Total Queens: ${gameData.swarm.queens.length}</div>
+          `
+              : ''
+          }
+        </div>
+        <div style="font-size: 0.78rem; color: #666; display: flex; gap: 1rem; flex-wrap: wrap;">
+          <span style="white-space: nowrap;">Brood Skill: ${broodSkillDisplay}</span>
+          <span style="white-space: nowrap;">Lay Speed: ${effectiveLayTicks.toFixed(1)}s</span>
+          <span style="white-space: nowrap;">Worker Mastery: Lv.${workerMasteryLevel} (${workerMasteryXp}/${nextLevelXp} XP)</span>
         </div>
       </div>
+
+      <div style="background: var(--bg-panel, #12121a); padding: 1rem; border-radius: 8px; margin-bottom: 1rem;">
+        <h3 style="margin: 0 0 0.75rem 0; font-size: 1rem;">Nursery (${nurseryUsed}/${nurseryCapacity})</h3>
+        <div style="display: flex; flex-direction: column; gap: 0.4rem;">
+          ${eggListHtml}
+        </div>
+      </div>
+
+      ${renderWorkerActivitySection(gameData)}
     </div>
   `;
+}
+
+function getWorkerGatherRate(worker: Worker): number {
+  const skillMod = 1 + worker.skills.foraging / 100;
+  const masteryMod = 1 + worker.skills.mastery.surfaceLichen / 200;
+  return SWARM_CONSTANTS.BASE_GATHER_RATE * skillMod * masteryMod;
+}
+
+function renderQueenEconomySection(queen: Queen, workers: Worker[]): string {
+  const neuralLoad = calculateNeuralLoad(workers.length, queen.neuralCapacity);
+  const efficiency = calculateCoordinationEfficiency(neuralLoad);
+  const balance = calculateEnergyBalance(workers, [queen], efficiency);
+
+  const incomePerDay = balance.production * SWARM_CONSTANTS.TICKS_PER_DAY;
+  const metabolismPerDay = balance.consumption * SWARM_CONSTANTS.TICKS_PER_DAY;
+  const netPerDay = balance.net * SWARM_CONSTANTS.TICKS_PER_DAY;
+
+  const netColor =
+    netPerDay > 0 ? '#4caf50' : netPerDay < 0 ? '#ff4444' : '#888';
+  const netSign = netPerDay > 0 ? '+' : '';
+
+  // Total stored = biomass buffer + energy (both represent food reserves)
+  const totalStored = queen.biomassBuffer.current + queen.energy.current;
+  const totalCapacity = queen.biomassBuffer.max + queen.energy.max;
+
+  // ETA: time to depletion or time to full (based on total reserves)
+  let etaHtml = '';
+  if (balance.net < 0 && totalStored > 0) {
+    const ticksToEmpty = totalStored / Math.abs(balance.net);
+    etaHtml = `<div style="color: #ff4444; white-space: nowrap;">Depletes in ${formatTicksDualTime(Math.ceil(ticksToEmpty))}</div>`;
+  } else if (balance.net > 0 && totalStored < totalCapacity) {
+    const ticksToFull = (totalCapacity - totalStored) / balance.net;
+    etaHtml = `<div style="color: #4caf50; white-space: nowrap;">Full in ${formatTicksDualTime(Math.ceil(ticksToFull))}</div>`;
+  }
+
+  const storedColor =
+    totalStored > totalCapacity * 0.4
+      ? '#4caf50'
+      : totalStored > totalCapacity * 0.15
+        ? '#ffc107'
+        : '#ff4444';
+
+  return `
+    <div style="font-size: 0.82rem; color: var(--text-secondary, #888); display: flex; flex-direction: column; gap: 0.2rem;">
+      <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+        <span style="white-space: nowrap;">Reserves: <span style="color: ${storedColor}; font-weight: bold;">${totalStored.toFixed(1)}</span> / ${totalCapacity.toFixed(0)} biomass</span>
+      </div>
+      <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+        <span style="white-space: nowrap;">Gathering: <span style="color: #4caf50;">${incomePerDay.toFixed(1)}</span>/day</span>
+        <span style="white-space: nowrap;">Metabolism: <span style="color: #ffc107;">${metabolismPerDay.toFixed(1)}</span>/day</span>
+        <span style="white-space: nowrap;">Net: <span style="color: ${netColor}; font-weight: bold;">${netSign}${netPerDay.toFixed(1)}</span>/day</span>
+      </div>
+      ${etaHtml}
+    </div>`;
+}
+
+function renderWorkerActivitySection(gameData: GameData): string {
+  const aggregates = calculateSwarmAggregates(gameData.swarm);
+  const total = aggregates.totalWorkers;
+
+  if (total === 0) {
+    return `
+      <div style="background: var(--bg-panel, #12121a); padding: 1rem; border-radius: 8px;">
+        <h3 style="margin: 0 0 0.75rem 0; font-size: 1rem;">Workers</h3>
+        <div style="font-size: 0.9rem; color: var(--text-secondary, #888);">No workers yet — lay eggs to grow your colony</div>
+      </div>`;
+  }
+
+  const states = aggregates.workerStates;
+  const lines: string[] = [];
+
+  if (states.gathering > 0) {
+    // Find the gathering worker closest to delivering (most cargo)
+    const gatheringWorkers = gameData.swarm.workers.filter(
+      (w) => w.state === 'gathering'
+    );
+    let nextDeliveryHtml = '';
+    if (gatheringWorkers.length > 0) {
+      let minTicksToFull = Infinity;
+      for (const w of gatheringWorkers) {
+        const remaining = w.cargo.max - w.cargo.current;
+        if (remaining > 0) {
+          const rate = getWorkerGatherRate(w);
+          const ticks = remaining / rate;
+          if (ticks < minTicksToFull) minTicksToFull = ticks;
+        }
+      }
+      if (minTicksToFull < Infinity) {
+        nextDeliveryHtml = `<span style="color: var(--text-secondary, #888); font-size: 0.8rem; white-space: nowrap;">next delivery ~${formatTicksDualTime(Math.ceil(minTicksToFull))}</span>`;
+      }
+    }
+
+    lines.push(`<div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.25rem;">
+      <span style="color: #4caf50; white-space: nowrap;">Gathering biomass</span>
+      <span style="display: flex; align-items: center; gap: 0.5rem;">
+        ${nextDeliveryHtml}
+        <span style="font-weight: bold; white-space: nowrap;">${states.gathering}</span>
+      </span>
+    </div>`);
+  }
+  if (states.selfMaintenance > 0) {
+    lines.push(`<div style="display: flex; justify-content: space-between; align-items: center;">
+      <span style="color: #ffc107; white-space: nowrap;">Feeding</span>
+      <span style="font-weight: bold; white-space: nowrap;">${states.selfMaintenance}</span>
+    </div>`);
+  }
+  if (states.idleCargoFull > 0) {
+    lines.push(`<div style="display: flex; justify-content: space-between; align-items: center;">
+      <span style="color: #ff9800; white-space: nowrap;">Waiting to deliver</span>
+      <span style="font-weight: bold; white-space: nowrap;">${states.idleCargoFull}</span>
+    </div>`);
+  }
+  if (states.idleEmpty > 0) {
+    lines.push(`<div style="display: flex; justify-content: space-between; align-items: center;">
+      <span style="color: #888; white-space: nowrap;">Idle</span>
+      <span style="font-weight: bold; white-space: nowrap;">${states.idleEmpty}</span>
+    </div>`);
+  }
+
+  return `
+    <div style="background: var(--bg-panel, #12121a); padding: 1rem; border-radius: 8px;">
+      <h3 style="margin: 0 0 0.75rem 0; font-size: 1rem;">Workers <span style="color: var(--text-secondary, #888); font-weight: normal;">(${total})</span></h3>
+      <div style="display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.9rem;">
+        ${lines.join('')}
+      </div>
+    </div>`;
 }
 
 function createPlanetTabContent(gameData: GameData): string {
@@ -1377,6 +1628,7 @@ declare global {
     swarmCallbacks?: {
       setQueenDirective: (directive: 'gather_biomass' | 'idle') => void;
       toggleEggProduction: (enabled: boolean) => void;
+      layEgg: () => void;
       saveGame: () => void;
       loadGame: () => void;
       resetGame: () => void;

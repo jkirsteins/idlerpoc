@@ -7,7 +7,7 @@ import {
   getStartingZone,
   normalizePlanetsFromSave,
 } from './trappist1Data';
-import { createQueen, createLogEntry } from './swarmSystem';
+import { createQueen, createNursery, createLogEntry } from './swarmSystem';
 import {
   DEFAULT_QUEEN_ALIEN_TYPE_ID,
   getQueenMetabolismProfile,
@@ -26,16 +26,20 @@ export function createNewGame(): GameData {
 
   // Get starting zone (auto-conquered)
   const startingZone = getStartingZone(planets);
-  const homePlanet = planets.find((planet) => planet.id === 'asimov');
-  const yearTicks = homePlanet?.dayLengthTicks ?? SWARM_CONSTANTS.TICKS_PER_DAY;
+  const yearTicks = SWARM_CONSTANTS.TICKS_PER_YEAR;
 
   // Create initial queen
   const queen = createQueen(startingZone.id, yearTicks);
+
+  // Create starting nursery in the queen's zone
+  const nursery = createNursery(startingZone.id);
 
   // Create swarm
   const swarm: Swarm = {
     queens: [queen],
     workers: [],
+    eggs: [],
+    structures: [nursery],
   };
 
   // Create game data
@@ -98,9 +102,16 @@ export function loadGame(saveData: string): GameData | null {
 
     parsed.planets = normalizePlanetsFromSave(parsed.planets);
 
-    const homePlanet = parsed.planets.find((p) => p.id === parsed.homePlanetId);
-    const yearTicks =
-      homePlanet?.dayLengthTicks ?? SWARM_CONSTANTS.TICKS_PER_DAY;
+    // Backfill eggs and structures arrays for old saves
+    const swarmRaw = parsed.swarm as unknown as Record<string, unknown>;
+    if (!Array.isArray(swarmRaw.eggs)) {
+      (parsed.swarm as { eggs: unknown[] }).eggs = [];
+    }
+    if (!Array.isArray(swarmRaw.structures)) {
+      (parsed.swarm as { structures: unknown[] }).structures = [];
+    }
+
+    const yearTicks = SWARM_CONSTANTS.TICKS_PER_YEAR;
 
     for (const queen of parsed.swarm.queens) {
       const energyMax = Math.max(1, queen.energy?.max ?? 100);
@@ -137,6 +148,147 @@ export function loadGame(saveData: string): GameData | null {
         queen.metabolismPerTick = profile.metabolismPerTick;
         queen.hpDecayPerTickAtZeroEnergy = profile.hpDecayPerTickAtZeroEnergy;
       }
+
+      // Backfill biomass buffer (universal metabolism model)
+      const qRaw = queen as unknown as Record<string, unknown>;
+      if (!qRaw.biomassBuffer || typeof qRaw.biomassBuffer !== 'object') {
+        // For existing saves: seed the buffer from a portion of current energy
+        // so queens don't suddenly have empty buffers after migration
+        const bufferMax = SWARM_CONSTANTS.QUEEN_BIOMASS_BUFFER_MAX;
+        queen.biomassBuffer = {
+          current: Math.min(queen.energy.current, bufferMax),
+          max: bufferMax,
+        };
+      }
+
+      // Backfill brood skill/mastery for old saves
+      if (typeof queen.broodSkill !== 'number') {
+        queen.broodSkill = 0;
+      }
+      if (
+        !queen.broodMastery ||
+        typeof queen.broodMastery.worker !== 'number'
+      ) {
+        queen.broodMastery = { worker: 0 };
+      }
+
+      // Migrate old EggProduction shape (inProgress) to new shape (isLaying)
+      const ep = queen.eggProduction as unknown as Record<string, unknown>;
+      if (ep.inProgress !== undefined) {
+        const wasInProgress = ep.inProgress as boolean;
+        const oldTicksRemaining = (ep.ticksRemaining as number) ?? 0;
+        const enabled = (ep.enabled as boolean) ?? false;
+
+        // Old system: single timer covering laying + gestation
+        // If timer was in the laying portion (> gestation ticks remaining),
+        // the queen was still laying. Otherwise, create an egg entity.
+        const gestationTicks = SWARM_CONSTANTS.EGG_TOTAL_GESTATION_TICKS;
+        const wasStillLaying =
+          wasInProgress && oldTicksRemaining > gestationTicks;
+
+        queen.eggProduction = {
+          enabled,
+          isLaying: wasStillLaying,
+          layingProgress: 0,
+          layingTicksRemaining: wasStillLaying
+            ? Math.max(0, oldTicksRemaining - gestationTicks)
+            : 0,
+          cooldownTicksRemaining: 0,
+        };
+
+        // If old egg was in gestation phase, create an egg entity in a nursery
+        if (wasInProgress && !wasStillLaying && oldTicksRemaining > 0) {
+          // Ensure we have a nursery
+          let nursery = parsed.swarm.structures.find(
+            (s) => s.type === 'nursery' && s.zoneId === queen.locationZoneId
+          );
+          if (!nursery) {
+            nursery = createNursery(queen.locationZoneId);
+            parsed.swarm.structures.push(nursery);
+          }
+
+          const elapsedGestation = gestationTicks - oldTicksRemaining;
+          const incubationTicks = SWARM_CONSTANTS.EGG_INCUBATION_TICKS;
+          parsed.swarm.eggs.push({
+            id: `egg-migrated-${Date.now()}`,
+            queenId: queen.id,
+            nurseryId: nursery.id,
+            type: 'worker' as const,
+            phase:
+              elapsedGestation < incubationTicks ? 'incubating' : 'maturing',
+            ticksInPhase:
+              elapsedGestation < incubationTicks
+                ? elapsedGestation
+                : elapsedGestation - incubationTicks,
+            totalTicks: elapsedGestation,
+          });
+        }
+      }
+    }
+
+    // Backfill worker fields for old saves
+    for (const worker of parsed.swarm.workers) {
+      const w = worker as unknown as Record<string, unknown>;
+
+      // Backfill biomass buffer (universal metabolism model)
+      if (!w.biomassBuffer || typeof w.biomassBuffer !== 'object') {
+        const bufferMax = SWARM_CONSTANTS.WORKER_BIOMASS_BUFFER_MAX;
+        worker.biomassBuffer = {
+          current: bufferMax, // Start full so workers don't starve on load
+          max: bufferMax,
+        };
+      }
+      if (!worker.energy || typeof worker.energy !== 'object') {
+        worker.energy = {
+          current: SWARM_CONSTANTS.WORKER_ENERGY_MAX,
+          max: SWARM_CONSTANTS.WORKER_ENERGY_MAX,
+        };
+      }
+      if (
+        !worker.health ||
+        typeof worker.health !== 'object' ||
+        !('current' in worker.health)
+      ) {
+        // Migrate from old number health to EnergyPool
+        const oldHealth =
+          typeof w.health === 'number'
+            ? w.health
+            : SWARM_CONSTANTS.WORKER_HEALTH_MAX;
+        worker.health = {
+          current: Math.max(
+            0,
+            Math.min(SWARM_CONSTANTS.WORKER_HEALTH_MAX, oldHealth)
+          ),
+          max: SWARM_CONSTANTS.WORKER_HEALTH_MAX,
+        };
+      }
+      if (
+        typeof worker.metabolismPerTick !== 'number' ||
+        !Number.isFinite(worker.metabolismPerTick) ||
+        worker.metabolismPerTick <= 0
+      ) {
+        worker.metabolismPerTick =
+          SWARM_CONSTANTS.WORKER_ENERGY_MAX /
+          SWARM_CONSTANTS.WORKER_ENERGY_DEPLETION_TICKS;
+      }
+      if (
+        typeof worker.hpDecayPerTickAtZeroEnergy !== 'number' ||
+        !Number.isFinite(worker.hpDecayPerTickAtZeroEnergy) ||
+        worker.hpDecayPerTickAtZeroEnergy <= 0
+      ) {
+        worker.hpDecayPerTickAtZeroEnergy =
+          SWARM_CONSTANTS.WORKER_HEALTH_MAX /
+          SWARM_CONSTANTS.WORKER_HP_DEPLETION_TICKS_AT_ZERO_ENERGY;
+      }
+    }
+
+    // Ensure at least one nursery exists (for old saves that had no structures)
+    if (
+      parsed.swarm.structures.length === 0 &&
+      parsed.swarm.queens.length > 0
+    ) {
+      const firstQueen = parsed.swarm.queens[0];
+      parsed.swarm.structures.push(createNursery(firstQueen.locationZoneId));
     }
 
     return parsed;

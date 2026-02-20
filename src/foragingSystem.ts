@@ -23,9 +23,11 @@ export function calculateSkillGainRate(currentSkill: number): number {
 export function gainForagingSkill(worker: Worker, foodGathered: number): void {
   // Gain based on activity (food gathered), not time
   const baseGain = calculateSkillGainRate(worker.skills.foraging);
-  const activityMultiplier = foodGathered * 10; // Scale by activity
+  const activityMultiplier =
+    foodGathered * SWARM_CONSTANTS.SKILL_ACTIVITY_MULTIPLIER;
 
-  const gain = (baseGain * activityMultiplier) / 1000000; // Scale down
+  const gain =
+    (baseGain * activityMultiplier) / SWARM_CONSTANTS.SKILL_GAIN_DIVISOR;
 
   worker.skills.foraging = Math.min(100, worker.skills.foraging + gain);
 }
@@ -78,9 +80,7 @@ export function gainMasteryXp(
   _foodType: 'surface_lichen',
   foodGathered: number
 ): void {
-  // XP per food unit gathered
-  const xpPerUnit = 10;
-  const xpGained = foodGathered * xpPerUnit;
+  const xpGained = foodGathered * SWARM_CONSTANTS.MASTERY_XP_PER_FOOD_UNIT;
 
   worker.skills.mastery.surfaceLichen += xpGained;
 

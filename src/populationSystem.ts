@@ -41,7 +41,7 @@ export function calculateMetabolicRates(
   workers: Worker[],
   queens: Queen[]
 ): MetabolicRates {
-  const workerUpkeep = workers.length * SWARM_CONSTANTS.WORKER_UPKEEP_ENERGY;
+  const workerUpkeep = workers.reduce((sum, w) => sum + w.metabolismPerTick, 0);
   const queenUpkeep = queens.reduce(
     (sum, queen) => sum + queen.metabolismPerTick,
     0
@@ -126,27 +126,32 @@ export function calculateStarvationDeaths(
   }
 
   // Calculate potential deaths from energy deficit
-  const upkeepPerWorker = SWARM_CONSTANTS.WORKER_UPKEEP_ENERGY;
+  const upkeepPerWorker =
+    workers.length > 0
+      ? workers[0].metabolismPerTick
+      : SWARM_CONSTANTS.WORKER_ENERGY_MAX /
+        SWARM_CONSTANTS.WORKER_ENERGY_DEPLETION_TICKS;
   const potentialDeaths = Math.min(
     workers.length,
     SWARM_CONSTANTS.STARVATION_COEFFICIENT * (energyDeficit / upkeepPerWorker)
   );
 
   // Kill workers with lowest health first
-  const sortedWorkers = [...workers].sort((a, b) => a.health - b.health);
+  const sortedWorkers = [...workers].sort(
+    (a, b) => a.health.current - b.health.current
+  );
   const workersToKill = sortedWorkers.slice(0, Math.floor(potentialDeaths));
 
   result.deaths = workersToKill.length;
 
   // Calculate biomass recovered
-  const biomassPerWorker = 5; // Cost to spawn a worker
   result.biomassRecovered =
     workersToKill.length *
-    biomassPerWorker *
+    SWARM_CONSTANTS.WORKER_RECYCLE_BIOMASS *
     SWARM_CONSTANTS.RECYCLE_EFFICIENCY;
 
-  // Count starving workers (health < 50)
-  result.workersStarving = workers.filter((w) => w.health < 50).length;
+  // Count starving workers (energy depleted)
+  result.workersStarving = workers.filter((w) => w.energy.current <= 0).length;
 
   return result;
 }
@@ -183,22 +188,18 @@ export function calculateEquilibrium(
   const balance = calculateEnergyBalance(workers, queens, currentEfficiency);
 
   let trend: 'growing' | 'shrinking' | 'stable';
-  if (balance.net > 2) {
+  if (balance.net > SWARM_CONSTANTS.EQUILIBRIUM_TREND_THRESHOLD) {
     trend = 'growing';
-  } else if (balance.net < -2) {
+  } else if (balance.net < -SWARM_CONSTANTS.EQUILIBRIUM_TREND_THRESHOLD) {
     trend = 'shrinking';
   } else {
     trend = 'stable';
   }
 
   // Estimate target population
-  // At equilibrium: production = consumption
-  // gathering_workers * rate * efficiency = total_workers * upkeep + queen_cost
-  // Approximate: W * base_rate * 0.5 * efficiency ≈ W * upkeep
-  // This gives us: efficiency ≈ upkeep / (base_rate * 0.5)
-
-  const targetLoad = 1.2; // Slight overshoot is stable
-  const targetPopulation = Math.floor(neuralCapacity * targetLoad);
+  const targetPopulation = Math.floor(
+    neuralCapacity * SWARM_CONSTANTS.EQUILIBRIUM_TARGET_LOAD
+  );
 
   return {
     stable: trend === 'stable',
@@ -208,7 +209,8 @@ export function calculateEquilibrium(
     estimatedDaysToEquilibrium:
       trend === 'stable'
         ? 0
-        : Math.abs(currentPopulation - targetPopulation) / 10,
+        : Math.abs(currentPopulation - targetPopulation) /
+          SWARM_CONSTANTS.EQUILIBRIUM_CONVERGENCE_RATE,
   };
 }
 
@@ -278,6 +280,14 @@ export function formatDailySummary(summary: DailySummary): string {
   if (summary.queensDied > 0) {
     parts.push(`• ${summary.queensDied} QUEEN died (starvation)`);
     parts.push('• ⚠️ CRITICAL: Swarm collapse imminent');
+  }
+
+  const activeEggs =
+    'activeEggs' in summary
+      ? (summary as DailySummary & { activeEggs?: number }).activeEggs
+      : undefined;
+  if (activeEggs !== undefined && activeEggs > 0) {
+    parts.push(`• Nursery: ${activeEggs} eggs gestating`);
   }
 
   parts.push(

@@ -9,6 +9,27 @@ export interface EnergyPool {
   max: number;
 }
 
+export interface BiomassBuffer {
+  current: number;
+  max: number;
+}
+
+/**
+ * Universal organism interface — every swarm organism MUST implement this.
+ * See WORLDRULES.md § Alien Metabolism (Universal Model).
+ *
+ * The three pools (energy, health, biomassBuffer) and two metabolism rates
+ * are required on every organism. The shared processMetabolismCascade()
+ * function operates on this interface.
+ */
+export interface Organism {
+  energy: EnergyPool;
+  health: EnergyPool;
+  biomassBuffer: BiomassBuffer;
+  metabolismPerTick: number;
+  hpDecayPerTickAtZeroEnergy: number;
+}
+
 // Single resource for v1 - Energy (converted from biomass)
 export interface Resources {
   energy: EnergyPool;
@@ -39,7 +60,7 @@ export const FOOD_TYPES: FoodType[] = [
 // ============================================================================
 
 export type WorkerState =
-  | 'self_maintenance' // Consuming from personal cargo
+  | 'self_maintenance' // Consuming from cargo to refuel energy
   | 'gathering' // Filling cargo from zone
   | 'idle_empty' // No orders, empty cargo
   | 'idle_cargo_full'; // Queen full, can't unload
@@ -64,15 +85,14 @@ export interface WorkerPosition {
   moving: boolean;
 }
 
-export interface Worker {
+export interface Worker extends Organism {
   id: string;
   queenId: string; // Which queen controls this worker
 
   // State
   state: WorkerState;
-  health: number; // 0-100, degrades over time
 
-  // Cargo system
+  // Cargo system (purely for biomass transport — separate from internal biomassBuffer)
   cargo: WorkerCargo;
 
   // Skills
@@ -96,10 +116,41 @@ export interface Worker {
 export type QueenDirective = 'gather_biomass' | 'idle';
 
 export interface EggProduction {
-  enabled: boolean; // Player toggle
-  inProgress: boolean; // Currently laying?
-  progress: number; // 0-100
-  ticksRemaining: number;
+  enabled: boolean; // Auto-mode toggle
+  isLaying: boolean; // Currently in laying phase
+  layingProgress: number; // 0-100
+  layingTicksRemaining: number;
+  cooldownTicksRemaining: number;
+}
+
+// ============================================================================
+// EGG ENTITY
+// ============================================================================
+
+export type EggPhase = 'incubating' | 'maturing';
+export type EggType = 'worker'; // Extensible for future types
+
+export interface Egg {
+  id: string;
+  queenId: string;
+  nurseryId: string; // Which nursery holds this egg
+  type: EggType;
+  phase: EggPhase;
+  ticksInPhase: number;
+  totalTicks: number;
+}
+
+// ============================================================================
+// STRUCTURES
+// ============================================================================
+
+export type StructureType = 'nursery';
+
+export interface Structure {
+  id: string;
+  type: StructureType;
+  zoneId: string; // Which zone it's built in
+  capacity: number; // Nursery: max eggs
 }
 
 export interface WorkerOrder {
@@ -114,7 +165,7 @@ export interface WorkerOrder {
   issuedAt: number;
 }
 
-export interface Queen {
+export interface Queen extends Organism {
   id: string;
   locationZoneId: string; // Where embedded
   alienTypeId: string;
@@ -128,12 +179,10 @@ export interface Queen {
 
   // Reproduction
   eggProduction: EggProduction;
-
-  // Resources
-  energy: EnergyPool;
-  health: EnergyPool;
-  metabolismPerTick: number;
-  hpDecayPerTickAtZeroEnergy: number;
+  broodSkill: number; // 0-100, laying efficiency (reduces laying time)
+  broodMastery: {
+    worker: number; // XP for worker egg type (reduces gestation time)
+  };
 
   // Position
   position?: { x: number; y: number }; // Within zone
@@ -266,6 +315,8 @@ export interface Planet {
 export interface Swarm {
   queens: Queen[];
   workers: Worker[];
+  eggs: Egg[];
+  structures: Structure[];
 }
 
 // ============================================================================
@@ -290,6 +341,7 @@ export type LogEntryType =
   | 'worker_died'
   | 'queen_died'
   | 'egg_laid'
+  | 'egg_hatched'
   | 'zone_conquered'
   | 'daily_summary';
 
@@ -334,17 +386,32 @@ export interface GameData {
 // ============================================================================
 
 export const SWARM_CONSTANTS = {
-  // Timing (ticks)
-  EGG_LAYING_TICKS: 10,
-  INCUBATION_TICKS: 30,
-  MATURATION_TICKS: 15,
-  TOTAL_SPAWN_TICKS: 55, // 10 + 30 + 15
+  // Egg production timing (ticks)
+  EGG_LAYING_TICKS: 10, // Base laying duration
+  EGG_INCUBATION_TICKS: 30, // Egg incubation phase
+  EGG_MATURATION_TICKS: 15, // Egg maturation phase
+  EGG_TOTAL_GESTATION_TICKS: 45, // 30 + 15 (gestation only, excludes laying)
+  EGG_COOLDOWN_TICKS: 20, // Cooldown between lays
+  SPEED_UP_ADVANCE_TICKS: 2, // Ticks advanced per Speed Up tap
 
-  // Worker lifecycle
+  // Nursery
+  NURSERY_BASE_CAPACITY: 10, // Starting nursery egg capacity
+
+  // Brood skill progression
+  BROOD_XP_PER_LAY: 1, // Activity amount for brood skill gain
+  EGG_HATCH_MASTERY_XP: 10, // Mastery XP per hatch
+
+  // Worker lifecycle (universal metabolism cascade)
   WORKER_HEALTH_MAX: 100,
-  WORKER_HEALTH_DECAY: 0.36, // Dies at ~275 ticks
+  WORKER_ENERGY_MAX: 10, // Energy pool size (spawns full)
+  WORKER_BIOMASS_BUFFER_MAX: 2, // Internal food storage (refueled from cargo)
+  WORKER_ENERGY_DEPLETION_TICKS: 100, // Ticks to fully deplete energy with no food
+  WORKER_HP_DEPLETION_TICKS_AT_ZERO_ENERGY: 20, // Ticks to die once energy=0
   WORKER_CARGO_MAX: 10,
-  WORKER_UPKEEP_ENERGY: 0.1,
+  WORKER_RECYCLE_BIOMASS: 5, // Biomass recovered when a worker dies
+
+  // Queen biomass buffer (universal metabolism cascade)
+  QUEEN_BIOMASS_BUFFER_MAX: 100, // Royal food chamber capacity
 
   // Energy costs
   EGG_COST: 10,
@@ -356,15 +423,29 @@ export const SWARM_CONSTANTS = {
   // Gathering
   BASE_GATHER_RATE: 0.2,
 
+  // Skill progression tuning (shared by foraging and brood skills)
+  SKILL_ACTIVITY_MULTIPLIER: 10, // Scales activity into skill gain units
+  SKILL_GAIN_DIVISOR: 1_000_000, // Scales raw skill gain into usable range
+  MASTERY_XP_PER_FOOD_UNIT: 10, // Mastery XP awarded per unit of food gathered
+
   // Neural capacity
   QUEEN_BASE_CAPACITY: 20,
   OVERLOAD_EXPONENT: 4,
   STARVATION_COEFFICIENT: 0.5,
   RECYCLE_EFFICIENCY: 0.7,
 
+  // Equilibrium / catch-up
+  EQUILIBRIUM_TARGET_LOAD: 1.2, // Slight neural overshoot is stable
+  CATCHUP_GROWTH_RATE: 0.1, // Fraction of gap closed per day during catch-up
+  CATCHUP_OVERCAPACITY_THRESHOLD: 1.5, // Above this × target, population crashes
+  CATCHUP_DEATH_RATE: 0.2, // Fraction of excess killed per day during crash
+  EQUILIBRIUM_TREND_THRESHOLD: 2, // Net energy above/below this = growing/shrinking
+  EQUILIBRIUM_CONVERGENCE_RATE: 10, // Workers per day toward equilibrium
+
   // Time
   TICKS_PER_DAY: 480,
   TICKS_PER_HOUR: 20,
+  TICKS_PER_YEAR: 480 * 365, // 175,200 ticks = 1 game year
 
   // Re-evaluation
   ORDER_REEVALUATION_INTERVAL: 10,

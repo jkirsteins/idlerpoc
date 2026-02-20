@@ -4,6 +4,11 @@ import './style.css';
 import { SWARM_CONSTANTS, type GameData } from './models/swarmTypes';
 import { createNewGame, loadGame, saveGame } from './gameFactory';
 import { applyTick } from './gameTickSwarm';
+import {
+  triggerManualLay,
+  initSwarmEvents,
+  setQueenDirective,
+} from './swarmSystem';
 import { render, type Renderer } from './ui/renderer';
 
 const app = document.getElementById('app')!;
@@ -21,6 +26,7 @@ interface CatchUpTotals {
   workersDied: number;
   queensDied: number;
   eggsLaid: number;
+  eggsHatched: number;
   logEntries: number;
 }
 
@@ -70,6 +76,9 @@ function computeCatchUpTicks(elapsedSeconds: number): number {
 // ============================================================================
 
 function init(): void {
+  // Register cross-module event handlers
+  initSwarmEvents();
+
   // Try to load saved game
   const savedData = localStorage.getItem('swarmSave');
 
@@ -296,6 +305,7 @@ function startCatchUp(elapsedSeconds: number): void {
       workersDied: 0,
       queensDied: 0,
       eggsLaid: 0,
+      eggsHatched: 0,
       logEntries: 0,
     },
   };
@@ -350,6 +360,7 @@ function startCatchUp(elapsedSeconds: number): void {
     activeCatchUp.totals.workersDied += result.workersDied;
     activeCatchUp.totals.queensDied += result.queensDied;
     activeCatchUp.totals.eggsLaid += result.eggsLaid;
+    activeCatchUp.totals.eggsHatched += result.eggsHatched;
     activeCatchUp.totals.logEntries += result.logEntries.length;
 
     if (renderer) renderer.update(gameData);
@@ -402,6 +413,7 @@ function renderGame(): Renderer {
     onTogglePause,
     onSetQueenDirective,
     onToggleEggProduction,
+    onLayEgg,
     onExportSave,
     onImportSave,
     onResetGame,
@@ -424,7 +436,7 @@ function onSetQueenDirective(directive: 'gather_biomass' | 'idle'): void {
 
   const queen = gameData.swarm.queens[0];
   if (queen) {
-    queen.directive = directive;
+    setQueenDirective(queen, directive);
   }
 }
 
@@ -434,6 +446,15 @@ function onToggleEggProduction(enabled: boolean): void {
   const queen = gameData.swarm.queens[0];
   if (queen) {
     queen.eggProduction.enabled = enabled;
+  }
+}
+
+function onLayEgg(): void {
+  if (!gameData) return;
+
+  const queen = gameData.swarm.queens[0];
+  if (queen) {
+    triggerManualLay(queen, gameData.swarm.eggs, gameData.swarm.structures);
   }
 }
 

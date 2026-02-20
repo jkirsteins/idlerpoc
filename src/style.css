@@ -1,5 +1,6 @@
 * {
   box-sizing: border-box;
+  touch-action: manipulation; /* Prevent double-tap zoom on mobile */
 }
 
 body {
@@ -19,6 +20,7 @@ body {
   width: 100%;
   margin: 0 auto;
   overflow-x: hidden;
+  height: 100vh;
 }
 
 .game-container {
@@ -172,6 +174,8 @@ body {
   overflow-y: auto;
   background: var(--bg-void, #050508);
   min-width: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .swarm-header {
@@ -387,6 +391,7 @@ button {
   cursor: pointer;
   font-size: 14px;
   transition: background 0.2s;
+  touch-action: manipulation; /* Prevent double-tap zoom on mobile */
 }
 
 button:hover {
@@ -3859,7 +3864,7 @@ button:disabled:hover {
 
   .swarm-layout > .main-panel {
     max-height: none;
-    overflow-y: visible;
+    overflow-y: auto;
   }
 
   /* Show the mobile header bar in swarm layout */
