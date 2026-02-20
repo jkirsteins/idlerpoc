@@ -435,6 +435,7 @@ export const SWARM_CONSTANTS = {
   // Time
   TICKS_PER_DAY: 480,
   TICKS_PER_HOUR: 20,
+  TICKS_PER_YEAR: 480 * 365, // 175,200 ticks = 1 game year
 
   // Re-evaluation
   ORDER_REEVALUATION_INTERVAL: 10,

@@ -29,12 +29,12 @@ export function createQueen(zoneId: string, yearTicks: number): Queen {
     yearTicks
   );
 
-  return {
+  const queen: Queen = {
     id: `queen-${Date.now()}`,
     locationZoneId: zoneId,
     alienTypeId: DEFAULT_QUEEN_ALIEN_TYPE_ID,
     neuralCapacity: SWARM_CONSTANTS.QUEEN_BASE_CAPACITY,
-    directive: 'idle',
+    directive: 'gather_biomass',
     commandQueue: [],
     eggProduction: {
       enabled: false,
@@ -57,6 +57,11 @@ export function createQueen(zoneId: string, yearTicks: number): Queen {
     metabolismPerTick: profile.metabolismPerTick,
     hpDecayPerTickAtZeroEnergy: profile.hpDecayPerTickAtZeroEnergy,
   };
+
+  // Populate command queue so workers hatched immediately have orders
+  regenerateCommandQueue(queen);
+
+  return queen;
 }
 
 export function setQueenDirective(

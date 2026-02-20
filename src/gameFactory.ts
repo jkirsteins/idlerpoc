@@ -26,8 +26,7 @@ export function createNewGame(): GameData {
 
   // Get starting zone (auto-conquered)
   const startingZone = getStartingZone(planets);
-  const homePlanet = planets.find((planet) => planet.id === 'asimov');
-  const yearTicks = homePlanet?.dayLengthTicks ?? SWARM_CONSTANTS.TICKS_PER_DAY;
+  const yearTicks = SWARM_CONSTANTS.TICKS_PER_YEAR;
 
   // Create initial queen
   const queen = createQueen(startingZone.id, yearTicks);
@@ -112,9 +111,7 @@ export function loadGame(saveData: string): GameData | null {
       (parsed.swarm as { structures: unknown[] }).structures = [];
     }
 
-    const homePlanet = parsed.planets.find((p) => p.id === parsed.homePlanetId);
-    const yearTicks =
-      homePlanet?.dayLengthTicks ?? SWARM_CONSTANTS.TICKS_PER_DAY;
+    const yearTicks = SWARM_CONSTANTS.TICKS_PER_YEAR;
 
     for (const queen of parsed.swarm.queens) {
       const energyMax = Math.max(1, queen.energy?.max ?? 100);

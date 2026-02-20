@@ -4,7 +4,11 @@ import './style.css';
 import { SWARM_CONSTANTS, type GameData } from './models/swarmTypes';
 import { createNewGame, loadGame, saveGame } from './gameFactory';
 import { applyTick } from './gameTickSwarm';
-import { triggerManualLay, initSwarmEvents } from './swarmSystem';
+import {
+  triggerManualLay,
+  initSwarmEvents,
+  setQueenDirective,
+} from './swarmSystem';
 import { render, type Renderer } from './ui/renderer';
 
 const app = document.getElementById('app')!;
@@ -432,7 +436,7 @@ function onSetQueenDirective(directive: 'gather_biomass' | 'idle'): void {
 
   const queen = gameData.swarm.queens[0];
   if (queen) {
-    queen.directive = directive;
+    setQueenDirective(queen, directive);
   }
 }
 

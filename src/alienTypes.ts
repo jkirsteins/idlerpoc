@@ -35,7 +35,10 @@ export function getQueenMetabolismProfile(
   const definition =
     QUEEN_ALIEN_TYPES[alienTypeId as AlienTypeId] ??
     QUEEN_ALIEN_TYPES[DEFAULT_QUEEN_ALIEN_TYPE_ID];
-  const safeYearTicks = Math.max(1, yearTicks || SWARM_CONSTANTS.TICKS_PER_DAY);
+  const safeYearTicks = Math.max(
+    1,
+    yearTicks || SWARM_CONSTANTS.TICKS_PER_YEAR
+  );
 
   const metabolismPerTick =
     energyMax / Math.max(1, definition.energyToZeroYears * safeYearTicks);
