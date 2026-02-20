@@ -108,20 +108,6 @@ export function getZoneWorkers(zone: Zone, allWorkers: Worker[]): Worker[] {
 // BIOMASS MANAGEMENT
 // ============================================================================
 
-export function depleteZoneBiomass(zone: Zone, amount: number): number {
-  // Returns actual amount depleted
-  const actualDepletion = Math.min(amount, zone.biomassAvailable);
-  zone.biomassAvailable -= actualDepletion;
-
-  // Natural regrowth (slow)
-  zone.biomassAvailable = Math.min(
-    zone.biomassAvailable + zone.biomassRate * 0.01, // 1% regrowth per tick
-    zone.biomassRate * 1000 // Cap at initial amount
-  );
-
-  return actualDepletion;
-}
-
 export function getZoneBiomassPercentage(zone: Zone): number {
   const maxBiomass = zone.biomassRate * 1000;
   return (zone.biomassAvailable / maxBiomass) * 100;

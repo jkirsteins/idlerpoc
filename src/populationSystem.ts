@@ -70,13 +70,14 @@ export interface EnergyBalance {
 export function calculateEnergyBalance(
   workers: Worker[],
   queens: Queen[],
-  efficiency: number
+  efficiency: number,
+  actualProduction?: number
 ): EnergyBalance {
-  // Production = biomass gathered * efficiency
-  // This is calculated elsewhere and passed in
-  // For now, we'll calculate it from worker gathering activity
-
-  const production = calculateWorkerProduction(workers) * efficiency;
+  // When actualProduction is provided (tracked per tick), use it directly.
+  // This reflects real zone scarcity, neural efficiency, and all modifiers.
+  // Falls back to estimate when actual data isn't available (e.g. first tick).
+  const production =
+    actualProduction ?? calculateWorkerProduction(workers) * efficiency;
   const consumption = calculateMetabolicRates(workers, queens).totalUpkeep;
   const net = production - consumption;
 
@@ -102,61 +103,6 @@ function calculateWorkerProduction(workers: Worker[]): number {
     const masteryMod = 1 + masteryLevel / 200;
     return sum + baseRate * skillMod * masteryMod;
   }, 0);
-}
-
-// ============================================================================
-// STARVATION
-// ============================================================================
-
-export interface StarvationResult {
-  deaths: number;
-  biomassRecovered: number;
-  workersStarving: number;
-}
-
-export function calculateStarvationDeaths(
-  workers: Worker[],
-  energyDeficit: number
-): StarvationResult {
-  const result: StarvationResult = {
-    deaths: 0,
-    biomassRecovered: 0,
-    workersStarving: 0,
-  };
-
-  if (energyDeficit <= 0) {
-    return result;
-  }
-
-  // Calculate potential deaths from energy deficit
-  const upkeepPerWorker =
-    workers.length > 0
-      ? workers[0].metabolismPerTick
-      : SWARM_CONSTANTS.WORKER_ENERGY_MAX /
-        SWARM_CONSTANTS.WORKER_ENERGY_DEPLETION_TICKS;
-  const potentialDeaths = Math.min(
-    workers.length,
-    SWARM_CONSTANTS.STARVATION_COEFFICIENT * (energyDeficit / upkeepPerWorker)
-  );
-
-  // Kill workers with lowest health first
-  const sortedWorkers = [...workers].sort(
-    (a, b) => a.health.current - b.health.current
-  );
-  const workersToKill = sortedWorkers.slice(0, Math.floor(potentialDeaths));
-
-  result.deaths = workersToKill.length;
-
-  // Calculate biomass recovered
-  result.biomassRecovered =
-    workersToKill.length *
-    SWARM_CONSTANTS.WORKER_RECYCLE_BIOMASS *
-    SWARM_CONSTANTS.RECYCLE_EFFICIENCY;
-
-  // Count starving workers (energy depleted)
-  result.workersStarving = workers.filter((w) => w.energy.current <= 0).length;
-
-  return result;
 }
 
 // ============================================================================

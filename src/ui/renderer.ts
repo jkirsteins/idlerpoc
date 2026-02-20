@@ -780,7 +780,7 @@ function createSwarmTabContent(
               <div class="stat-bar__fill ${healthPct > 40 ? 'bar-good' : healthPct > 15 ? 'bar-warning' : 'bar-danger'}" style="width: ${Math.max(0, Math.min(100, healthPct))}%;"></div>
             </div>
           </div>
-          ${renderQueenEconomySection(queen, gameData.swarm.workers)}
+          ${renderQueenEconomySection(queen, gameData.swarm.workers, gameData.swarm.lastTickProduction)}
         </div>
       </div>
 
@@ -877,17 +877,31 @@ function createSwarmTabContent(
   `;
 }
 
-function getWorkerGatherRate(worker: Worker): number {
+function getWorkerGatherRate(
+  worker: Worker,
+  neuralEfficiency: number = 1
+): number {
   const skillMod = 1 + worker.skills.foraging / 100;
   const masteryLevel = getMasteryLevel(worker.skills.mastery.surfaceLichen);
   const masteryMod = 1 + masteryLevel / 200;
-  return SWARM_CONSTANTS.BASE_GATHER_RATE * skillMod * masteryMod;
+  return (
+    SWARM_CONSTANTS.BASE_GATHER_RATE * skillMod * masteryMod * neuralEfficiency
+  );
 }
 
-function renderQueenEconomySection(queen: Queen, workers: Worker[]): string {
+function renderQueenEconomySection(
+  queen: Queen,
+  workers: Worker[],
+  lastTickProduction?: number
+): string {
   const neuralLoad = calculateNeuralLoad(workers.length, queen.neuralCapacity);
   const efficiency = calculateCoordinationEfficiency(neuralLoad);
-  const balance = calculateEnergyBalance(workers, [queen], efficiency);
+  const balance = calculateEnergyBalance(
+    workers,
+    [queen],
+    efficiency,
+    lastTickProduction
+  );
 
   const incomePerDay = balance.production * SWARM_CONSTANTS.TICKS_PER_DAY;
   const metabolismPerDay = balance.consumption * SWARM_CONSTANTS.TICKS_PER_DAY;
@@ -945,6 +959,7 @@ function renderWorkerActivitySection(gameData: GameData): string {
   }
 
   const states = aggregates.workerStates;
+  const efficiency = aggregates.efficiency;
   const lines: string[] = [];
 
   if (states.gathering > 0) {
@@ -958,7 +973,7 @@ function renderWorkerActivitySection(gameData: GameData): string {
       for (const w of gatheringWorkers) {
         const remaining = w.cargo.max - w.cargo.current;
         if (remaining > 0) {
-          const rate = getWorkerGatherRate(w);
+          const rate = getWorkerGatherRate(w, efficiency);
           const ticks = remaining / rate;
           if (ticks < minTicksToFull) minTicksToFull = ticks;
         }

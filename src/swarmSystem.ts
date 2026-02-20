@@ -11,7 +11,11 @@ import type {
   Zone,
 } from './models/swarmTypes';
 import { SWARM_CONSTANTS } from './models/swarmTypes';
-import { calculateSkillGainRate, getMasteryLevel } from './foragingSystem';
+import {
+  calculateSkillGainRate,
+  getMasteryLevel,
+  calculateGatherRate,
+} from './foragingSystem';
 import {
   DEFAULT_QUEEN_ALIEN_TYPE_ID,
   getQueenMetabolismProfile,
@@ -529,28 +533,28 @@ function processGatherOrder(
 ): void {
   // If cargo not full: gather
   if (worker.cargo.current < worker.cargo.max) {
-    // Base gather rate + skill + mastery + neural efficiency modifiers
-    const skillModifier = 1 + worker.skills.foraging / 100;
-    const masteryLevel = getMasteryLevel(worker.skills.mastery.surfaceLichen);
-    const masteryModifier = 1 + masteryLevel / 200;
-    let gatherRate =
-      SWARM_CONSTANTS.BASE_GATHER_RATE *
-      skillModifier *
-      masteryModifier *
-      neuralEfficiency;
+    // Use calculateGatherRate as single source of truth for gather formula.
+    // Includes skill, mastery, scarcity curve, and neural efficiency.
+    const { rate: gatherRate } = calculateGatherRate(
+      worker,
+      zone,
+      neuralEfficiency
+    );
 
     // Clamp to zone's available biomass and deplete it
+    const actualGather = zone
+      ? Math.min(gatherRate, zone.biomassAvailable)
+      : gatherRate;
     if (zone) {
-      gatherRate = Math.min(gatherRate, zone.biomassAvailable);
-      zone.biomassAvailable -= gatherRate;
+      zone.biomassAvailable -= actualGather;
     }
 
     worker.cargo.current = Math.min(
-      worker.cargo.current + gatherRate,
+      worker.cargo.current + actualGather,
       worker.cargo.max
     );
 
-    result.biomassGathered = gatherRate;
+    result.biomassGathered = actualGather;
     worker.state = 'gathering';
     return;
   }

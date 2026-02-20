@@ -129,18 +129,6 @@ interface SingleTickResult {
   logEntries: LogEntry[];
 }
 
-/** Find a zone by ID across all planets. */
-function findZoneById(
-  planets: { zones: Zone[] }[],
-  zoneId: string
-): Zone | undefined {
-  for (const planet of planets) {
-    const zone = planet.zones.find((z) => z.id === zoneId);
-    if (zone) return zone;
-  }
-  return undefined;
-}
-
 function processSingleTick(data: GameData): SingleTickResult {
   const result: SingleTickResult = {
     workersHatched: 0,
@@ -163,31 +151,78 @@ function processSingleTick(data: GameData): SingleTickResult {
   const neuralLoad = calculateNeuralLoad(swarm.workers.length, neuralCapacity);
   const efficiency = calculateCoordinationEfficiency(neuralLoad);
 
-  // 2b. Build queen→zone cache and apply zone regrowth.
+  // 2b. Build zone ID map + queen→zone cache + regrowth.
   //     Only needed when workers exist (no biomass consumed → no regrowth needed).
-  //     Cache is reused by worker processing in step 4.
+  //     Zone ID map enables O(1) lookups for worker.assignedZoneId.
+  //     Regrowth runs on ALL harvesting zones, not just queen zones.
+  const zoneIdMap = new Map<string, Zone>();
   const queenZoneCache = new Map<string, Zone | undefined>();
-  if (swarm.workers.length > 0) {
-    for (const queen of swarm.queens) {
-      const queenZone = findZoneById(planets, queen.locationZoneId);
-      queenZoneCache.set(queen.id, queenZone);
 
-      // Zone regrowth — once per tick, before workers gather
-      if (queenZone && queenZone.biomassRate > 0) {
-        const maxBiomass = queenZone.biomassRate * 1000;
-        if (queenZone.biomassAvailable < maxBiomass) {
-          queenZone.biomassAvailable = Math.min(
-            queenZone.biomassAvailable + queenZone.biomassRate * 0.01,
-            maxBiomass
-          );
+  if (swarm.workers.length > 0) {
+    for (const planet of planets) {
+      for (const zone of planet.zones) {
+        zoneIdMap.set(zone.id, zone);
+
+        // Zone regrowth — once per tick, before workers gather.
+        if (zone.state === 'harvesting' && zone.biomassRate > 0) {
+          const maxBiomass = zone.biomassRate * 1000;
+          if (zone.biomassAvailable < maxBiomass) {
+            zone.biomassAvailable = Math.min(
+              zone.biomassAvailable + zone.biomassRate,
+              maxBiomass
+            );
+          }
         }
       }
     }
   }
 
+  for (const queen of swarm.queens) {
+    if (zoneIdMap.size > 0) {
+      queenZoneCache.set(queen.id, zoneIdMap.get(queen.locationZoneId));
+    }
+  }
+
   // 3. Process each queen (universal metabolism cascade)
   for (const queen of swarm.queens) {
+    // Dormancy: isolated queen with depleted reserves enters hibernation
+    // at reduced metabolism to survive extended absences.
+    const wasAlreadyDormant = queen.isDormant === true;
+    if (queen.isDormant) {
+      // Wake up if buffer refueled or workers exist
+      if (queen.biomassBuffer.current > 0 || swarm.workers.length > 0) {
+        queen.isDormant = false;
+      }
+    }
+    if (
+      !queen.isDormant &&
+      queen.energy.current <
+        queen.energy.max * SWARM_CONSTANTS.QUEEN_DORMANCY_ENERGY_THRESHOLD &&
+      swarm.workers.length === 0 &&
+      queen.biomassBuffer.current <= 0
+    ) {
+      queen.isDormant = true;
+      if (!wasAlreadyDormant) {
+        result.logEntries.push(
+          createLogEntry(
+            'daily_summary',
+            'Queen entered dormancy — no workers, reserves critical',
+            {
+              queenId: queen.id,
+            }
+          )
+        );
+      }
+    }
+
+    // Apply reduced metabolism when dormant
+    const savedMetabolism = queen.metabolismPerTick;
+    if (queen.isDormant) {
+      queen.metabolismPerTick *=
+        SWARM_CONSTANTS.QUEEN_DORMANCY_METABOLISM_FACTOR;
+    }
     const cascadeResult = processMetabolismCascade(queen);
+    queen.metabolismPerTick = savedMetabolism; // Restore original rate
 
     if (cascadeResult.died) {
       result.queensDied++;
@@ -256,7 +291,9 @@ function processSingleTick(data: GameData): SingleTickResult {
 
   // 4. Process workers (energy→health cascade handled inside processWorkerTick)
   //    Neural efficiency and zone availability now constrain gathering per worker.
+  //    Track actual biomass gathered for accurate energy balance display.
   const workersToRemove: Worker[] = [];
+  let actualProductionThisTick = 0;
 
   for (const worker of swarm.workers) {
     const queen = swarm.queens.find((q) => q.id === worker.queenId);
@@ -266,11 +303,16 @@ function processSingleTick(data: GameData): SingleTickResult {
       continue;
     }
 
-    // Look up the queen's zone (reuses cache built in step 2b)
-    const zone = queenZoneCache.get(queen.id);
+    // Look up the worker's assigned zone, falling back to the queen's zone.
+    // Uses zoneIdMap (built in step 2b) for O(1) lookup.
+    const zone = worker.assignedZoneId
+      ? zoneIdMap.get(worker.assignedZoneId)
+      : queenZoneCache.get(queen.id);
 
     // Process worker tick (energy depletion, self-maintenance, orders)
     const tickResult = processWorkerTick(worker, queen, zone, efficiency);
+
+    actualProductionThisTick += tickResult.biomassGathered;
 
     if (tickResult.died) {
       workersToRemove.push(worker);
@@ -297,13 +339,18 @@ function processSingleTick(data: GameData): SingleTickResult {
     }
   }
 
+  // Store actual biomass gathered this tick for accurate display.
+  data.swarm.lastTickProduction = actualProductionThisTick;
+
   // 5. Calculate energy balance (for display/stats only — population
   //    equilibrium is now entirely driven by the per-organism metabolism
   //    cascade, not a macro starvation overlay).
+  //    Uses actual production instead of estimate for accuracy.
   const balance = calculateEnergyBalance(
     swarm.workers,
     swarm.queens,
-    efficiency
+    efficiency,
+    actualProductionThisTick
   );
   result.netEnergy = balance.net;
 
@@ -395,6 +442,116 @@ function processBatchedCatchUp(
     if (idx > -1) swarm.eggs.splice(idx, 1);
   }
 
+  // Simulate queen metabolism during catch-up using phase-based approach.
+  // Phases: buffer depletion → energy depletion → dormancy energy → HP decay.
+  const queensToRemove: typeof swarm.queens = [];
+  for (const queen of swarm.queens) {
+    // Estimate net biomass delivered from workers during absence.
+    const workerCount = swarm.workers.filter(
+      (w) => w.queenId === queen.id
+    ).length;
+    const workerSelfConsumption =
+      SWARM_CONSTANTS.WORKER_ENERGY_MAX /
+      SWARM_CONSTANTS.WORKER_ENERGY_DEPLETION_TICKS;
+    const neuralLoad = calculateNeuralLoad(workerCount, queen.neuralCapacity);
+    const workerEfficiency = calculateCoordinationEfficiency(neuralLoad);
+    const grossDeliveryPerWorker =
+      SWARM_CONSTANTS.BASE_GATHER_RATE * workerEfficiency;
+    const netDeliveryPerWorker = Math.max(
+      0,
+      grossDeliveryPerWorker - workerSelfConsumption
+    );
+    const totalDelivered = netDeliveryPerWorker * workerCount * elapsedTicks;
+
+    const baseMet = queen.metabolismPerTick;
+    const dormancyFactor = SWARM_CONSTANTS.QUEEN_DORMANCY_METABOLISM_FACTOR;
+    const dormancyThreshold =
+      queen.energy.max * SWARM_CONSTANTS.QUEEN_DORMANCY_ENERGY_THRESHOLD;
+    const canGoDormant = workerCount === 0;
+
+    // Starting pool values (buffer includes deliveries, capped at max)
+    let currentBuffer = Math.min(
+      queen.biomassBuffer.max,
+      queen.biomassBuffer.current + totalDelivered
+    );
+    let currentEnergy = queen.energy.current;
+    let currentHealth = queen.health.current;
+    let ticksRemaining = elapsedTicks;
+
+    // Phase 1: Deplete buffer at full metabolism rate.
+    // In the tick cascade, metabolism drains energy then buffer refuels it.
+    // Net effect: buffer is consumed first while energy stays topped off.
+    if (currentBuffer > 0 && ticksRemaining > 0) {
+      const ticksToDeplete = Math.ceil(currentBuffer / baseMet);
+      const ticksInPhase = Math.min(ticksRemaining, ticksToDeplete);
+      currentBuffer = Math.max(0, currentBuffer - baseMet * ticksInPhase);
+      ticksRemaining -= ticksInPhase;
+    }
+
+    // Phase 2: Deplete energy at full rate.
+    // If dormancy-eligible, drain only to the dormancy threshold (15%).
+    // Otherwise drain fully.
+    if (currentEnergy > 0 && ticksRemaining > 0) {
+      const drainTarget = canGoDormant
+        ? Math.max(0, currentEnergy - dormancyThreshold)
+        : currentEnergy;
+      if (drainTarget > 0) {
+        const ticksToTarget = Math.ceil(drainTarget / baseMet);
+        const ticksInPhase = Math.min(ticksRemaining, ticksToTarget);
+        currentEnergy = Math.max(
+          canGoDormant ? dormancyThreshold : 0,
+          currentEnergy - baseMet * ticksInPhase
+        );
+        ticksRemaining -= ticksInPhase;
+      }
+    }
+
+    // Phase 3: Dormancy — deplete remaining energy at 10% metabolism rate.
+    if (canGoDormant && currentEnergy > 0 && ticksRemaining > 0) {
+      const dormantMet = baseMet * dormancyFactor;
+      const ticksToZero = Math.ceil(currentEnergy / dormantMet);
+      const ticksInPhase = Math.min(ticksRemaining, ticksToZero);
+      currentEnergy = Math.max(0, currentEnergy - dormantMet * ticksInPhase);
+      ticksRemaining -= ticksInPhase;
+    }
+
+    // Phase 4: Starvation — HP decay for remaining ticks at zero energy.
+    if (currentEnergy <= 0 && ticksRemaining > 0) {
+      const effectiveDecay = canGoDormant
+        ? queen.hpDecayPerTickAtZeroEnergy * dormancyFactor
+        : queen.hpDecayPerTickAtZeroEnergy;
+      currentHealth = Math.max(
+        0,
+        currentHealth - effectiveDecay * ticksRemaining
+      );
+    }
+
+    // Apply final state
+    queen.biomassBuffer.current = currentBuffer;
+    queen.energy.current = currentEnergy;
+    queen.health.current = currentHealth;
+    queen.isDormant =
+      canGoDormant && currentEnergy <= dormancyThreshold && currentBuffer <= 0;
+
+    if (currentHealth <= 0) {
+      result.queensDied++;
+      queensToRemove.push(queen);
+      result.logEntries.push(
+        createLogEntry(
+          'queen_died',
+          `Queen died from starvation during absence`,
+          { queenId: queen.id }
+        )
+      );
+    }
+  }
+
+  // Remove dead queens
+  for (const queen of queensToRemove) {
+    const idx = swarm.queens.indexOf(queen);
+    if (idx > -1) swarm.queens.splice(idx, 1);
+  }
+
   // Simulate toward equilibrium
   const daysElapsed = elapsedTicks / SWARM_CONSTANTS.TICKS_PER_DAY;
 
@@ -402,12 +559,12 @@ function processBatchedCatchUp(
   const targetWorkers = Math.floor(
     neuralCapacity * SWARM_CONSTANTS.EQUILIBRIUM_TARGET_LOAD
   );
-  const currentWorkers = swarm.workers.length;
+  const populationBefore = swarm.workers.length;
 
-  if (currentWorkers < targetWorkers) {
+  if (populationBefore < targetWorkers) {
     // Population growth
     const newWorkers = Math.floor(
-      (targetWorkers - currentWorkers) *
+      (targetWorkers - populationBefore) *
         SWARM_CONSTANTS.CATCHUP_GROWTH_RATE *
         daysElapsed
     );
@@ -420,12 +577,12 @@ function processBatchedCatchUp(
       }
     }
   } else if (
-    currentWorkers >
+    populationBefore >
     targetWorkers * SWARM_CONSTANTS.CATCHUP_OVERCAPACITY_THRESHOLD
   ) {
     // Population crash from overcapacity
     const deaths = Math.floor(
-      (currentWorkers - targetWorkers) *
+      (populationBefore - targetWorkers) *
         SWARM_CONSTANTS.CATCHUP_DEATH_RATE *
         daysElapsed
     );
@@ -435,6 +592,17 @@ function processBatchedCatchUp(
       swarm.workers.pop();
       result.workersDied++;
     }
+  }
+
+  // Normalize surviving worker pools after catch-up.
+  // Workers that survived evidently had enough food — stale pre-offline
+  // pool values would cause a "first tick massacre" otherwise.
+  for (const worker of swarm.workers) {
+    worker.energy.current = worker.energy.max;
+    worker.health.current = worker.health.max;
+    worker.biomassBuffer.current = worker.biomassBuffer.max;
+    worker.cargo.current = 0;
+    worker.state = 'gathering';
   }
 
   // Update timestamps
@@ -452,7 +620,7 @@ function processBatchedCatchUp(
     const summary = createDailySummary(
       day,
       data,
-      { workers: result.workersDied, queens: 0 },
+      { workers: result.workersDied, queens: result.queensDied },
       result.workersHatched,
       result.eggsLaid,
       result.netEnergy

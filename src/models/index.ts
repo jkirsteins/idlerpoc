@@ -583,6 +583,16 @@ export interface CatchUpShipSummary {
   powerChanges?: number;
 }
 
+export interface CatchUpSwarmSummary {
+  workersHatched: number;
+  workersDied: number;
+  eggsLaid: number;
+  populationBefore: number;
+  populationAfter: number;
+  queenDormant: boolean;
+  queensDied: number;
+}
+
 export interface CatchUpReport {
   totalTicks: number;
   elapsedRealSeconds: number; // actual real-world seconds that passed
@@ -591,6 +601,7 @@ export interface CatchUpReport {
   crewLost: number; // total crew deaths across fleet during catch-up
   shipSummaries: CatchUpShipSummary[]; // per-ship consolidated summaries
   logHighlights: LogEntry[]; // notable log entries (skill-ups, etc.) from the idle period
+  swarmSummary?: CatchUpSwarmSummary; // swarm activity during absence
 }
 
 /** Snapshot of lifetime earnings and expenses at the end of a game day, for rolling averages. */
