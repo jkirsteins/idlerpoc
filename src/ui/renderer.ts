@@ -422,20 +422,20 @@ function createLeftSidebar(_gameData: GameData): Component<TickSnapshot> {
   `;
 
   const gatheringEl = document.createElement('div');
-  gatheringEl.textContent = 'Gathering: -';
+  gatheringEl.textContent = 'Gathering biomass: -';
   distributionContainer.appendChild(gatheringEl);
 
+  const maintenanceEl = document.createElement('div');
+  maintenanceEl.textContent = 'Feeding: -';
+  distributionContainer.appendChild(maintenanceEl);
+
   const idleEmptyEl = document.createElement('div');
-  idleEmptyEl.textContent = 'Idle (empty): -';
+  idleEmptyEl.textContent = 'Idle: -';
   distributionContainer.appendChild(idleEmptyEl);
 
   const idleFullEl = document.createElement('div');
-  idleFullEl.textContent = 'Idle (full): -';
+  idleFullEl.textContent = 'Waiting to deliver: -';
   distributionContainer.appendChild(idleFullEl);
-
-  const maintenanceEl = document.createElement('div');
-  maintenanceEl.textContent = 'Maintenance: -';
-  distributionContainer.appendChild(maintenanceEl);
 
   distributionSection.appendChild(distributionContainer);
   el.appendChild(distributionSection);
@@ -482,10 +482,10 @@ function createLeftSidebar(_gameData: GameData): Component<TickSnapshot> {
         `${Math.round(aggregates.efficiency * 100)}%`;
 
       // Update distribution
-      gatheringEl.textContent = `Gathering: ${aggregates.workerStates.gathering}`;
-      idleEmptyEl.textContent = `Idle (empty): ${aggregates.workerStates.idleEmpty}`;
-      idleFullEl.textContent = `Idle (full): ${aggregates.workerStates.idleCargoFull}`;
-      maintenanceEl.textContent = `Maintenance: ${aggregates.workerStates.selfMaintenance}`;
+      gatheringEl.textContent = `Gathering biomass: ${aggregates.workerStates.gathering}`;
+      maintenanceEl.textContent = `Feeding: ${aggregates.workerStates.selfMaintenance}`;
+      idleEmptyEl.textContent = `Idle: ${aggregates.workerStates.idleEmpty}`;
+      idleFullEl.textContent = `Waiting to deliver: ${aggregates.workerStates.idleCargoFull}`;
     },
   };
 }
@@ -650,11 +650,9 @@ function createSwarmTabContent(
           <div style="font-size: 1rem; font-weight: 600; color: #ff9b9b; margin-bottom: 0.5rem;">No active queens</div>
           <div style="color: var(--text-secondary, #888); line-height: 1.5;">All queens are dead. Swarm-owned areas remain under swarm control, but no new directives can be issued.</div>
         </div>
-        <div style="background: var(--bg-panel, #12121a); padding: 1rem; border-radius: 8px;">
-          <h3 style="margin: 0 0 0.75rem 0; font-size: 1rem;">Swarm Stats</h3>
+        ${renderWorkerActivitySection(gameData)}
+        <div style="background: var(--bg-panel, #12121a); padding: 1rem; border-radius: 8px; margin-top: 1rem;">
           <div style="font-size: 0.9rem; line-height: 1.8;">
-            <div>Total Workers: ${gameData.swarm.workers.length}</div>
-            <div>Total Queens: ${gameData.swarm.queens.length}</div>
             <div>Swarm-Owned Zones: ${gameData.planets.reduce(
               (sum, planet) =>
                 sum + planet.zones.filter((zone) => zone.ownedBySwarm).length,
@@ -823,7 +821,7 @@ function createSwarmTabContent(
               font-weight: 600;
               ${layBtnStyle}
             "
-            title="${ep.isLaying ? 'Speed up current lay' : ep.cooldownTicksRemaining > 0 ? 'Shorten cooldown' : 'Lay an egg now'}"
+            title="${ep.isLaying ? 'Tap to speed up laying' : ep.cooldownTicksRemaining > 0 ? 'Tap to speed up cooldown' : 'Lay an egg now'}"
           >
             ${ep.isLaying ? 'Speed Up' : ep.cooldownTicksRemaining > 0 ? 'Speed Up' : 'Lay Egg'}
           </button>
@@ -854,15 +852,58 @@ function createSwarmTabContent(
         </div>
       </div>
 
-      <div style="background: var(--bg-panel, #12121a); padding: 1rem; border-radius: 8px;">
-        <h3 style="margin: 0 0 0.75rem 0; font-size: 1rem;">Swarm Stats</h3>
-        <div style="font-size: 0.9rem; line-height: 1.8;">
-          <div>Total Workers: ${gameData.swarm.workers.length}</div>
-          <div>Total Queens: ${gameData.swarm.queens.length}</div>
-        </div>
-      </div>
+      ${renderWorkerActivitySection(gameData)}
     </div>
   `;
+}
+
+function renderWorkerActivitySection(gameData: GameData): string {
+  const aggregates = calculateSwarmAggregates(gameData.swarm);
+  const total = aggregates.totalWorkers;
+
+  if (total === 0) {
+    return `
+      <div style="background: var(--bg-panel, #12121a); padding: 1rem; border-radius: 8px;">
+        <h3 style="margin: 0 0 0.75rem 0; font-size: 1rem;">Workers</h3>
+        <div style="font-size: 0.9rem; color: var(--text-secondary, #888);">No workers yet — lay eggs to grow your colony</div>
+      </div>`;
+  }
+
+  const states = aggregates.workerStates;
+  const lines: string[] = [];
+
+  if (states.gathering > 0) {
+    lines.push(`<div style="display: flex; justify-content: space-between; align-items: center;">
+      <span style="color: #4caf50; white-space: nowrap;">Gathering biomass</span>
+      <span style="font-weight: bold; white-space: nowrap;">${states.gathering}</span>
+    </div>`);
+  }
+  if (states.selfMaintenance > 0) {
+    lines.push(`<div style="display: flex; justify-content: space-between; align-items: center;">
+      <span style="color: #ffc107; white-space: nowrap;">Feeding</span>
+      <span style="font-weight: bold; white-space: nowrap;">${states.selfMaintenance}</span>
+    </div>`);
+  }
+  if (states.idleCargoFull > 0) {
+    lines.push(`<div style="display: flex; justify-content: space-between; align-items: center;">
+      <span style="color: #ff9800; white-space: nowrap;">Waiting to deliver</span>
+      <span style="font-weight: bold; white-space: nowrap;">${states.idleCargoFull}</span>
+    </div>`);
+  }
+  if (states.idleEmpty > 0) {
+    lines.push(`<div style="display: flex; justify-content: space-between; align-items: center;">
+      <span style="color: #888; white-space: nowrap;">Idle</span>
+      <span style="font-weight: bold; white-space: nowrap;">${states.idleEmpty}</span>
+    </div>`);
+  }
+
+  return `
+    <div style="background: var(--bg-panel, #12121a); padding: 1rem; border-radius: 8px;">
+      <h3 style="margin: 0 0 0.75rem 0; font-size: 1rem;">Workers <span style="color: var(--text-secondary, #888); font-weight: normal;">(${total})</span></h3>
+      <div style="display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.9rem;">
+        ${lines.join('')}
+      </div>
+    </div>`;
 }
 
 function createPlanetTabContent(gameData: GameData): string {

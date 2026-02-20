@@ -182,7 +182,6 @@ export function loadGame(saveData: string): GameData | null {
             ? Math.max(0, oldTicksRemaining - gestationTicks)
             : 0,
           cooldownTicksRemaining: 0,
-          manualCooldown: false,
         };
 
         // If old egg was in gestation phase, create an egg entity in a nursery

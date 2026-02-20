@@ -108,7 +108,6 @@ export interface EggProduction {
   layingProgress: number; // 0-100
   layingTicksRemaining: number;
   cooldownTicksRemaining: number;
-  manualCooldown: boolean; // Was last/current action manually triggered?
 }
 
 // ============================================================================
@@ -385,8 +384,8 @@ export const SWARM_CONSTANTS = {
   EGG_INCUBATION_TICKS: 30, // Egg incubation phase
   EGG_MATURATION_TICKS: 15, // Egg maturation phase
   EGG_TOTAL_GESTATION_TICKS: 45, // 30 + 15 (gestation only, excludes laying)
-  EGG_AUTO_COOLDOWN_TICKS: 20, // Passive cooldown between lays
-  EGG_MANUAL_COOLDOWN_TICKS: 5, // Active (clicked) cooldown
+  EGG_COOLDOWN_TICKS: 20, // Cooldown between lays
+  SPEED_UP_ADVANCE_TICKS: 2, // Ticks advanced per Speed Up tap
 
   // Nursery
   NURSERY_BASE_CAPACITY: 10, // Starting nursery egg capacity
