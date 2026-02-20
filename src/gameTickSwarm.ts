@@ -1,6 +1,12 @@
 // Game Tick - Master tick system for swarm simulation
 
-import type { GameData, Worker, Egg, LogEntry } from './models/swarmTypes';
+import type {
+  GameData,
+  Worker,
+  Egg,
+  LogEntry,
+  Zone,
+} from './models/swarmTypes';
 import { SWARM_CONSTANTS } from './models/swarmTypes';
 import { updatePlanetPositions } from './trappist1Data';
 import {
@@ -8,10 +14,8 @@ import {
   processEggGestation,
   processWorkerTick,
   assignOrders,
-  calculateSwarmAggregates,
   createLogEntry,
   createWorker,
-  queenReceiveBiomass,
 } from './swarmSystem';
 import { processMetabolismCascade } from './metabolismCascade';
 import { gainForagingSkill, gainMasteryXp } from './foragingSystem';
@@ -21,7 +25,6 @@ import {
   calculateNeuralLoad,
   calculateCoordinationEfficiency,
   calculateEnergyBalance,
-  calculateStarvationDeaths,
   createDailySummary,
   formatDailySummary,
 } from './populationSystem';
@@ -126,6 +129,18 @@ interface SingleTickResult {
   logEntries: LogEntry[];
 }
 
+/** Find a zone by ID across all planets. */
+function findZoneById(
+  planets: { zones: Zone[] }[],
+  zoneId: string
+): Zone | undefined {
+  for (const planet of planets) {
+    const zone = planet.zones.find((z) => z.id === zoneId);
+    if (zone) return zone;
+  }
+  return undefined;
+}
+
 function processSingleTick(data: GameData): SingleTickResult {
   const result: SingleTickResult = {
     workersHatched: 0,
@@ -142,8 +157,33 @@ function processSingleTick(data: GameData): SingleTickResult {
   // 1. Update planet positions
   updatePlanetPositions(planets, data.gameTime);
 
-  // 2. Calculate swarm aggregates (for future use)
-  void calculateSwarmAggregates(swarm);
+  // 2. Calculate neural efficiency BEFORE worker processing so it
+  //    constrains gathering rates (the core homeostatic mechanism).
+  const neuralCapacity = calculateTotalNeuralCapacity(swarm.queens);
+  const neuralLoad = calculateNeuralLoad(swarm.workers.length, neuralCapacity);
+  const efficiency = calculateCoordinationEfficiency(neuralLoad);
+
+  // 2b. Build queen→zone cache and apply zone regrowth.
+  //     Only needed when workers exist (no biomass consumed → no regrowth needed).
+  //     Cache is reused by worker processing in step 4.
+  const queenZoneCache = new Map<string, Zone | undefined>();
+  if (swarm.workers.length > 0) {
+    for (const queen of swarm.queens) {
+      const queenZone = findZoneById(planets, queen.locationZoneId);
+      queenZoneCache.set(queen.id, queenZone);
+
+      // Zone regrowth — once per tick, before workers gather
+      if (queenZone && queenZone.biomassRate > 0) {
+        const maxBiomass = queenZone.biomassRate * 1000;
+        if (queenZone.biomassAvailable < maxBiomass) {
+          queenZone.biomassAvailable = Math.min(
+            queenZone.biomassAvailable + queenZone.biomassRate * 0.01,
+            maxBiomass
+          );
+        }
+      }
+    }
+  }
 
   // 3. Process each queen (universal metabolism cascade)
   for (const queen of swarm.queens) {
@@ -181,7 +221,7 @@ function processSingleTick(data: GameData): SingleTickResult {
 
     // Re-evaluate orders periodically
     if (data.gameTime % SWARM_CONSTANTS.ORDER_REEVALUATION_INTERVAL === 0) {
-      assignOrders(queen, swarm.workers);
+      assignOrders(queen, swarm.workers, data.gameTime);
     }
   }
 
@@ -215,6 +255,7 @@ function processSingleTick(data: GameData): SingleTickResult {
   }
 
   // 4. Process workers (energy→health cascade handled inside processWorkerTick)
+  //    Neural efficiency and zone availability now constrain gathering per worker.
   const workersToRemove: Worker[] = [];
 
   for (const worker of swarm.workers) {
@@ -225,8 +266,11 @@ function processSingleTick(data: GameData): SingleTickResult {
       continue;
     }
 
+    // Look up the queen's zone (reuses cache built in step 2b)
+    const zone = queenZoneCache.get(queen.id);
+
     // Process worker tick (energy depletion, self-maintenance, orders)
-    const tickResult = processWorkerTick(worker, queen);
+    const tickResult = processWorkerTick(worker, queen, zone, efficiency);
 
     if (tickResult.died) {
       workersToRemove.push(worker);
@@ -237,9 +281,6 @@ function processSingleTick(data: GameData): SingleTickResult {
         })
       );
     } else {
-      // Track biomass for stats
-      void tickResult.biomassGathered;
-
       // Gain skills
       if (tickResult.biomassGathered > 0) {
         gainForagingSkill(worker, tickResult.biomassGathered);
@@ -256,48 +297,15 @@ function processSingleTick(data: GameData): SingleTickResult {
     }
   }
 
-  // 5. Calculate energy balance
-  const neuralCapacity = calculateTotalNeuralCapacity(swarm.queens);
-  const neuralLoad = calculateNeuralLoad(swarm.workers.length, neuralCapacity);
-  const efficiency = calculateCoordinationEfficiency(neuralLoad);
-
+  // 5. Calculate energy balance (for display/stats only — population
+  //    equilibrium is now entirely driven by the per-organism metabolism
+  //    cascade, not a macro starvation overlay).
   const balance = calculateEnergyBalance(
     swarm.workers,
     swarm.queens,
     efficiency
   );
   result.netEnergy = balance.net;
-
-  // 6. Apply starvation deaths
-  if (balance.deficit > 0) {
-    const starvationResult = calculateStarvationDeaths(
-      swarm.workers,
-      balance.deficit
-    );
-
-    // Kill starving workers
-    const sortedWorkers = [...swarm.workers].sort(
-      (a, b) => a.health.current - b.health.current
-    );
-    const workersToStarve = sortedWorkers.slice(0, starvationResult.deaths);
-
-    for (const worker of workersToStarve) {
-      const index = swarm.workers.indexOf(worker);
-      if (index > -1) {
-        swarm.workers.splice(index, 1);
-        result.workersDied++;
-      }
-    }
-
-    // Add biomass from recycling (into queen biomass buffers, not energy directly)
-    if (starvationResult.biomassRecovered > 0) {
-      // Distribute to queens proportionally
-      for (const queen of swarm.queens) {
-        const share = starvationResult.biomassRecovered / swarm.queens.length;
-        queenReceiveBiomass(queen, share);
-      }
-    }
-  }
 
   return result;
 }

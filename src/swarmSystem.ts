@@ -8,6 +8,7 @@ import type {
   Egg,
   EggType,
   Structure,
+  Zone,
 } from './models/swarmTypes';
 import { SWARM_CONSTANTS } from './models/swarmTypes';
 import { calculateSkillGainRate, getMasteryLevel } from './foragingSystem';
@@ -70,11 +71,12 @@ export function createQueen(zoneId: string, yearTicks: number): Queen {
 
 export function setQueenDirective(
   queen: Queen,
-  directive: QueenDirective
+  directive: QueenDirective,
+  gameTime: number = 0
 ): void {
   queen.directive = directive;
   // Clear and regenerate command queue
-  regenerateCommandQueue(queen);
+  regenerateCommandQueue(queen, gameTime);
 }
 
 export function toggleEggProduction(queen: Queen, enabled: boolean): void {
@@ -376,7 +378,10 @@ export function createWorker(queenId: string, _gameTime: number): Worker {
 // COMMAND QUEUE
 // ============================================================================
 
-export function regenerateCommandQueue(queen: Queen): void {
+export function regenerateCommandQueue(
+  queen: Queen,
+  gameTime: number = 0
+): void {
   queen.commandQueue = [];
 
   if (queen.directive === 'gather_biomass') {
@@ -386,7 +391,7 @@ export function regenerateCommandQueue(queen: Queen): void {
       queen.commandQueue.push({
         type: 'gather_biomass',
         priority: 10,
-        issuedAt: Date.now(),
+        issuedAt: gameTime,
       });
     }
   } else if (queen.directive === 'idle') {
@@ -395,13 +400,17 @@ export function regenerateCommandQueue(queen: Queen): void {
       queen.commandQueue.push({
         type: 'idle',
         priority: 1,
-        issuedAt: Date.now(),
+        issuedAt: gameTime,
       });
     }
   }
 }
 
-export function assignOrders(queen: Queen, workers: Worker[]): void {
+export function assignOrders(
+  queen: Queen,
+  workers: Worker[],
+  gameTime: number = 0
+): void {
   // Get available workers (idle states)
   const availableWorkers = workers.filter(
     (w) =>
@@ -439,7 +448,7 @@ export function assignOrders(queen: Queen, workers: Worker[]): void {
     availableWorkers[i].order = {
       type: 'idle',
       priority: 0,
-      issuedAt: Date.now(),
+      issuedAt: gameTime,
     };
     availableWorkers[i].state = 'idle_empty';
   }
@@ -459,7 +468,9 @@ export interface WorkerTickResult {
 
 export function processWorkerTick(
   worker: Worker,
-  queen: Queen
+  queen: Queen,
+  zone: Zone | undefined,
+  neuralEfficiency: number
 ): WorkerTickResult {
   const result: WorkerTickResult = {
     worker,
@@ -499,7 +510,7 @@ export function processWorkerTick(
 
   const orderType = worker.order.type;
   if (orderType === 'gather_biomass') {
-    processGatherOrder(worker, queen, result);
+    processGatherOrder(worker, queen, zone, neuralEfficiency, result);
   } else if (orderType === 'idle') {
     worker.state = worker.cargo.current > 0 ? 'idle_cargo_full' : 'idle_empty';
   } else {
@@ -512,15 +523,27 @@ export function processWorkerTick(
 function processGatherOrder(
   worker: Worker,
   queen: Queen,
+  zone: Zone | undefined,
+  neuralEfficiency: number,
   result: WorkerTickResult
 ): void {
   // If cargo not full: gather
   if (worker.cargo.current < worker.cargo.max) {
-    // Base gather rate + skill modifier
+    // Base gather rate + skill + mastery + neural efficiency modifiers
     const skillModifier = 1 + worker.skills.foraging / 100;
-    const masteryModifier = 1 + worker.skills.mastery.surfaceLichen / 200;
-    const gatherRate =
-      SWARM_CONSTANTS.BASE_GATHER_RATE * skillModifier * masteryModifier;
+    const masteryLevel = getMasteryLevel(worker.skills.mastery.surfaceLichen);
+    const masteryModifier = 1 + masteryLevel / 200;
+    let gatherRate =
+      SWARM_CONSTANTS.BASE_GATHER_RATE *
+      skillModifier *
+      masteryModifier *
+      neuralEfficiency;
+
+    // Clamp to zone's available biomass and deplete it
+    if (zone) {
+      gatherRate = Math.min(gatherRate, zone.biomassAvailable);
+      zone.biomassAvailable -= gatherRate;
+    }
 
     worker.cargo.current = Math.min(
       worker.cargo.current + gatherRate,
@@ -668,7 +691,14 @@ export function initSwarmEvents(): void {
     if (event.type !== 'worker_hatched') return;
     const { worker, queen } = event;
     if (queen.commandQueue.length > 0) {
-      worker.order = queen.commandQueue[0];
+      const order = queen.commandQueue[0];
+      worker.order = order;
+      // Set state to match order type so the worker acts immediately
+      if (order.type === 'gather_biomass') {
+        worker.state = 'gathering';
+      } else if (order.type === 'idle') {
+        worker.state = 'idle_empty';
+      }
     }
   });
 }

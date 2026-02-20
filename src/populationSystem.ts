@@ -2,6 +2,7 @@
 
 import type { GameData, Worker, Queen } from './models/swarmTypes';
 import { SWARM_CONSTANTS } from './models/swarmTypes';
+import { getMasteryLevel } from './foragingSystem';
 
 // ============================================================================
 // NEURAL CAPACITY
@@ -89,15 +90,17 @@ export function calculateEnergyBalance(
 }
 
 function calculateWorkerProduction(workers: Worker[]): number {
-  // Sum of actual biomass gathered this tick
-  // This would be tracked in worker state
-  // For calculation purposes, estimate based on gathering workers
+  // Estimate biomass production based on gathering workers.
+  // Includes skill + mastery modifiers to match the actual gathering formula.
+  // Note: neural efficiency is applied externally by the caller.
   const gatheringWorkers = workers.filter((w) => w.state === 'gathering');
   const baseRate = SWARM_CONSTANTS.BASE_GATHER_RATE;
 
   return gatheringWorkers.reduce((sum, worker) => {
     const skillMod = 1 + worker.skills.foraging / 100;
-    return sum + baseRate * skillMod;
+    const masteryLevel = getMasteryLevel(worker.skills.mastery.surfaceLichen);
+    const masteryMod = 1 + masteryLevel / 200;
+    return sum + baseRate * skillMod * masteryMod;
   }, 0);
 }
 

@@ -2797,6 +2797,8 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
         heading: 'Biomass Flow',
         paragraphs: [
           "Biomass flows through the swarm in a chain: zones produce surface lichen, workers gather it into cargo, workers eat from cargo to fill their own biomass buffer, and workers deliver surplus cargo to the queen's biomass buffer.",
+          "Gathering rate depends on worker [[skill-system|foraging skill]], [[mastery-system|mastery level]], and [[neural-capacity|neural coordination efficiency]]. Overloading the queen with more workers than her neural capacity reduces every worker's gathering rate dramatically.",
+          'Workers can only gather biomass that is actually available in their zone. Zones regenerate slowly, so too many workers in one zone will deplete it faster than it regrows — encouraging expansion to new zones.',
           'Workers prioritize self-maintenance: they fill their internal buffer from cargo before delivering the rest to the queen. This means workers stay alive at the cost of slightly slower queen feeding.',
           "If the queen's biomass buffer is full, workers with full cargo will wait idle until space opens up.",
         ],
@@ -2805,7 +2807,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
         heading: 'Starvation & Death',
         paragraphs: [
           "When an organism's energy reaches zero and its biomass buffer is empty, health begins to drain. Workers die after about 20 ticks of starvation. The queen is more resilient, taking about 7 years to die from health drain alone.",
-          "Dead workers are partially recycled — their biomass is returned to the queen's buffer, providing a small recovery during population crashes.",
+          'Population naturally finds its own equilibrium through the metabolism cascade: when there are too many workers, neural efficiency drops, gathering slows, workers starve individually, and the population shrinks until it stabilizes. This is fully emergent — there is no arbitrary population cap.',
         ],
       },
     ],
