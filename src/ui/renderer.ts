@@ -885,6 +885,7 @@ function createSwarmTabContent(
 }
 
 /** Resolve a worker's zone using the same logic as gameTickSwarm.ts */
+/** Resolve a worker's zone using the same logic as gameTickSwarm.ts */
 function findWorkerZone(
   worker: Worker,
   queen: Queen | undefined,

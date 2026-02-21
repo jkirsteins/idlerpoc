@@ -457,6 +457,36 @@ function processSingleTick(data: GameData): SingleTickResult {
     }
   }
 
+  // 4b. Check for zone saturation after worker gathering.
+  //     Zones depleted to 0 biomass transition to 'saturated' state
+  //     (0.1× regrowth rate penalty, visual feedback on zone map).
+  for (const planet of planets) {
+    for (const zone of planet.zones) {
+      if (zone.state === 'harvesting' && zone.biomassAvailable <= 0) {
+        const previousState: ZoneState = zone.state;
+        zone.state = 'saturated';
+        zone.progress = 100;
+        result.logEntries.push(
+          createLogEntry(
+            'zone_state_change',
+            `Zone ${zone.name} depleted — recovering slowly`,
+            {
+              zoneId: zone.id,
+              previousState,
+              newState: 'saturated' as ZoneState,
+            }
+          )
+        );
+        emitSwarm(data, {
+          type: 'zone_state_changed',
+          zone,
+          previousState,
+          newState: 'saturated' as ZoneState,
+        });
+      }
+    }
+  }
+
   // Store actual biomass gathered this tick for accurate display.
   data.swarm.lastTickProduction = actualProductionThisTick;
 

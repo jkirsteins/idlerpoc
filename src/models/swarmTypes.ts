@@ -436,9 +436,6 @@ export const SWARM_CONSTANTS = {
   // Neural capacity
   QUEEN_BASE_CAPACITY: 20,
   OVERLOAD_EXPONENT: 4,
-  STARVATION_COEFFICIENT: 0.5,
-  RECYCLE_EFFICIENCY: 0.7,
-
   // Equilibrium / catch-up
   EQUILIBRIUM_TARGET_LOAD: 1.2, // Slight neural overshoot is stable
   CATCHUP_GROWTH_RATE: 0.1, // Fraction of gap closed per day during catch-up

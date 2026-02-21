@@ -56,18 +56,10 @@ export function advanceZoneState(zone: Zone): boolean {
       break;
 
     case 'harvesting':
-      // Can stay in harvesting indefinitely
-      // Eventually becomes saturated
-      if (zone.biomassAvailable <= 0) {
-        zone.state = 'saturated';
-        zone.progress = 100;
-        return true;
-      }
-      break;
-
     case 'saturated':
-      // Slow regrowth; transition back to harvesting handled in tick processing
-      // when biomassAvailable rises above 0.
+      // Harvesting→saturated transition is resource-driven (biomass depletion),
+      // handled in the tick loop (step 4b) after worker gathering.
+      // Saturated→harvesting recovery is handled in regrowth (step 2b).
       break;
   }
 
@@ -99,10 +91,6 @@ export function unassignWorkerFromZone(worker: Worker, zone: Zone): void {
     zone.assignedWorkers.splice(index, 1);
   }
   worker.assignedZoneId = undefined;
-}
-
-export function getZoneWorkers(zone: Zone, allWorkers: Worker[]): Worker[] {
-  return allWorkers.filter((w) => zone.assignedWorkers.includes(w.id));
 }
 
 // ============================================================================
