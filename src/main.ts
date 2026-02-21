@@ -27,7 +27,12 @@ interface CatchUpTotals {
   queensDied: number;
   eggsLaid: number;
   eggsHatched: number;
+  zonesConquered: number;
+  biomassRecycled: number;
   logEntries: number;
+  populationBefore: number;
+  populationAfter: number;
+  queenDormant: boolean;
 }
 
 interface ActiveCatchUp {
@@ -263,15 +268,40 @@ function showCatchUpSummary(
   const card = document.createElement('div');
   card.style.cssText =
     'width: min(460px, 92vw); background: #11131b; border: 1px solid #2a2f42; border-radius: 10px; padding: 1rem; color: #e6ebff;';
+  const popDelta = totals.populationAfter - totals.populationBefore;
+  const popDeltaSign = popDelta > 0 ? '+' : '';
+  const popDeltaColor =
+    popDelta > 0 ? '#4caf50' : popDelta < 0 ? '#ff4444' : '#888';
+  const dormancyLine = totals.queenDormant
+    ? '<div style="color: #ffc107;">Queen is dormant — no workers, reserves critical</div>'
+    : '';
+  const queensDiedLine =
+    totals.queensDied > 0
+      ? `<div style="color: #ff4444;">Queen losses: ${totals.queensDied.toLocaleString()}</div>`
+      : '';
+  const zonesConqueredLine =
+    totals.zonesConquered > 0
+      ? `<div style="color: #22886b;">Zones conquered: ${totals.zonesConquered}</div>`
+      : '';
+  const recycledLine =
+    totals.biomassRecycled > 0
+      ? `<div style="color: #888;">Biomass recycled: ${totals.biomassRecycled.toFixed(1)}</div>`
+      : '';
+
   card.innerHTML = `
     <h3 style="margin: 0 0 0.75rem 0; color: #00e5ff;">While you were away...</h3>
     <div style="font-size: 0.9rem; line-height: 1.6; color: #c6cee9;">
       <div>Replayed: ${replayedHours.toFixed(1)}h in-game (${replayedDays.toFixed(1)} days)</div>
       <div>Elapsed: ${Math.floor(elapsedSeconds / 3600)}h ${Math.floor((elapsedSeconds % 3600) / 60)}m</div>
-      <div>Events logged: ${totals.logEntries.toLocaleString()}</div>
-      <div>Workers hatched: ${totals.workersHatched.toLocaleString()}</div>
-      <div>Worker losses: ${totals.workersDied.toLocaleString()}</div>
-      <div>Queen losses: ${totals.queensDied.toLocaleString()}</div>
+      <div style="margin-top: 0.5rem; border-top: 1px solid #2a2f42; padding-top: 0.5rem;">
+        <div>Population: ${totals.populationBefore} → <span style="color: ${popDeltaColor}; font-weight: bold;">${totals.populationAfter}</span> (${popDeltaSign}${popDelta})</div>
+        <div>Workers hatched: ${totals.workersHatched.toLocaleString()}</div>
+        <div>Worker losses: ${totals.workersDied.toLocaleString()}</div>
+        ${queensDiedLine}
+        ${zonesConqueredLine}
+        ${recycledLine}
+        ${dormancyLine}
+      </div>
     </div>
     <button id="closeCatchUpSummary" style="margin-top: 1rem; width: 100%; padding: 0.7rem; border: 1px solid #364064; background: #1a2032; color: #dbe6ff; border-radius: 6px; cursor: pointer;">Close</button>
   `;
@@ -306,7 +336,12 @@ function startCatchUp(elapsedSeconds: number): void {
       queensDied: 0,
       eggsLaid: 0,
       eggsHatched: 0,
+      zonesConquered: 0,
+      biomassRecycled: 0,
       logEntries: 0,
+      populationBefore: gameData.swarm.workers.length,
+      populationAfter: 0,
+      queenDormant: false,
     },
   };
   catchUpOverlay = createCatchUpOverlay(totalTicks);
@@ -333,6 +368,10 @@ function startCatchUp(elapsedSeconds: number): void {
     const remaining = activeCatchUp.totalTicks - activeCatchUp.processedTicks;
     if (!Number.isFinite(remaining) || remaining <= 0) {
       const finished = activeCatchUp;
+      finished.totals.populationAfter = gameData.swarm.workers.length;
+      finished.totals.queenDormant = gameData.swarm.queens.some(
+        (q) => q.isDormant === true
+      );
       activeCatchUp = null;
       isCatchUpRunning = false;
       removeCatchUpOverlay();
@@ -361,6 +400,8 @@ function startCatchUp(elapsedSeconds: number): void {
     activeCatchUp.totals.queensDied += result.queensDied;
     activeCatchUp.totals.eggsLaid += result.eggsLaid;
     activeCatchUp.totals.eggsHatched += result.eggsHatched;
+    activeCatchUp.totals.zonesConquered += result.zonesConquered;
+    activeCatchUp.totals.biomassRecycled += result.biomassRecycled;
     activeCatchUp.totals.logEntries += result.logEntries.length;
 
     if (renderer) renderer.update(gameData);
@@ -371,6 +412,10 @@ function startCatchUp(elapsedSeconds: number): void {
 
     if (activeCatchUp.processedTicks >= activeCatchUp.totalTicks) {
       const finished = activeCatchUp;
+      finished.totals.populationAfter = gameData.swarm.workers.length;
+      finished.totals.queenDormant = gameData.swarm.queens.some(
+        (q) => q.isDormant === true
+      );
       activeCatchUp = null;
       isCatchUpRunning = false;
       removeCatchUpOverlay();

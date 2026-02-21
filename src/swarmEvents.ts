@@ -1,4 +1,10 @@
-import type { GameData, Worker, Queen } from './models/swarmTypes';
+import type {
+  GameData,
+  Worker,
+  Queen,
+  Zone,
+  ZoneState,
+} from './models/swarmTypes';
 
 // ── Event Definitions ────────────────────────────────────────────
 
@@ -9,12 +15,30 @@ export interface WorkerHatchedEvent {
   queen: Queen;
 }
 
+/** A zone transitioned to a new state (exploration, conversion, conquest). */
+export interface ZoneStateChangedEvent {
+  type: 'zone_state_changed';
+  zone: Zone;
+  previousState: ZoneState;
+  newState: ZoneState;
+}
+
+/** A dead worker's biomass was recycled back to the ecosystem. */
+export interface WorkerRecycledEvent {
+  type: 'worker_recycled';
+  zoneId: string | undefined;
+  biomassReturned: number;
+}
+
 /**
  * Discriminated union of all swarm events.
  * Add new event interfaces above, then include them in this union.
  * The event bus emits synchronously within the current tick.
  */
-export type SwarmEvent = WorkerHatchedEvent;
+export type SwarmEvent =
+  | WorkerHatchedEvent
+  | ZoneStateChangedEvent
+  | WorkerRecycledEvent;
 
 // ── Event Bus ────────────────────────────────────────────────────
 

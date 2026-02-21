@@ -6,6 +6,12 @@
 import type { GameData, Zone } from '../models/swarmTypes';
 import type { Component } from './component';
 import { setupMapZoomPan, type MapZoomPanControls } from './mapZoomPan';
+import {
+  getStateDisplayName,
+  getStateDescription,
+  getZoneBiomassPercentage,
+  isZoneExplorable,
+} from '../zoneSystem';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
@@ -14,6 +20,8 @@ export interface PlanetMapCallbacks {
   onBackToLocal?: () => void;
   onBackToSystem?: () => void;
   getPlanetId?: () => string | null;
+  onAssignWorkers?: (zoneId: string, count: number) => void;
+  onRecallWorkers?: (zoneId: string) => void;
 }
 
 interface ZoneHex {
@@ -71,8 +79,29 @@ function getSafeZoneHex(
   return { q, r, s: -q - r };
 }
 
-function getZoneBaseColor(isSwarmOwned: boolean): string {
-  return isSwarmOwned ? '#b13dff' : '#10141d';
+function getZoneBiomassOpacity(zone: Zone): number {
+  // For swarm-owned zones, modulate brightness by biomass level.
+  // Full biomass = 1.0 (bright), depleted = 0.3 (dim but visible).
+  if (!zone.ownedBySwarm || zone.biomassRate <= 0) return 1;
+  const maxBiomass = zone.biomassRate * 1000;
+  const pct = maxBiomass > 0 ? zone.biomassAvailable / maxBiomass : 0;
+  return 0.3 + 0.7 * pct; // Range: 0.3 to 1.0
+}
+
+function getZoneBaseColor(isSwarmOwned: boolean, zone?: Zone): string {
+  if (!zone) return isSwarmOwned ? '#b13dff' : '#10141d';
+
+  // Zones actively being explored/converted — distinct colors regardless of ownership
+  if (zone.assignedWorkers.length > 0) {
+    if (zone.state === 'unexplored' || zone.state === 'exploring')
+      return '#1a6baa'; // Blue for exploration
+    if (zone.state === 'combating') return '#aa4422'; // Orange-red for combat
+    if (zone.state === 'converting') return '#22886b'; // Teal for conversion
+  }
+
+  if (!isSwarmOwned) return '#10141d';
+  if (zone.state === 'saturated') return '#663399';
+  return '#b13dff';
 }
 
 function getInsolationTint(
@@ -269,8 +298,189 @@ export function createPlanetMapComponent(
     <span style="color: #6ab8c9">◌ Terminator</span>
     <span style="color: #6c80d1">◌ Dark</span>
     <span style="color: #b13dff">● Swarm</span>
+    <span style="color: #663399">● Depleted</span>
+    <span style="color: #1a6baa">● Exploring</span>
+    <span style="color: #22886b">● Converting</span>
   `;
   el.appendChild(legend);
+
+  // Zone detail panel — shown when a zone hex is clicked
+  const zoneDetailPanel = document.createElement('div');
+  zoneDetailPanel.style.cssText = `
+    display: none;
+    padding: 0.6rem 0.75rem;
+    border-top: 1px solid var(--border-color, #2a2a3a);
+    background: var(--bg-panel, #12121a);
+    font-size: 0.82rem;
+    color: var(--text-primary, #ddd);
+    line-height: 1.5;
+  `;
+  el.appendChild(zoneDetailPanel);
+
+  const zoneDetailName = document.createElement('div');
+  zoneDetailName.style.cssText =
+    'font-weight: bold; color: var(--accent-cyan, #00e5ff); margin-bottom: 0.3rem;';
+  zoneDetailPanel.appendChild(zoneDetailName);
+
+  const zoneDetailBody = document.createElement('div');
+  zoneDetailBody.style.cssText =
+    'display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; white-space: nowrap;';
+  zoneDetailPanel.appendChild(zoneDetailBody);
+
+  // Stable child elements for zone stats (avoid innerHTML)
+  const stateSpan = document.createElement('span');
+  const stateValue = document.createElement('span');
+  stateSpan.textContent = 'State: ';
+  stateSpan.appendChild(stateValue);
+  zoneDetailBody.appendChild(stateSpan);
+
+  const biomassSpan = document.createElement('span');
+  zoneDetailBody.appendChild(biomassSpan);
+
+  const rateSpan = document.createElement('span');
+  zoneDetailBody.appendChild(rateSpan);
+
+  const workersSpan = document.createElement('span');
+  zoneDetailBody.appendChild(workersSpan);
+
+  const bandSpan = document.createElement('span');
+  zoneDetailBody.appendChild(bandSpan);
+
+  const helpSpan = document.createElement('span');
+  helpSpan.style.cssText = 'color: #888; cursor: help;';
+  helpSpan.textContent = '?';
+  zoneDetailBody.appendChild(helpSpan);
+
+  // Progress bar (shown for exploring/converting zones)
+  const progressRow = document.createElement('div');
+  progressRow.style.cssText = 'display: none; width: 100%; margin-top: 0.3rem;';
+  zoneDetailPanel.appendChild(progressRow);
+
+  const progressLabel = document.createElement('span');
+  progressLabel.style.cssText =
+    'font-size: 0.78rem; color: var(--text-secondary, #888); margin-right: 0.5rem; white-space: nowrap;';
+  progressRow.appendChild(progressLabel);
+
+  const progressTrack = document.createElement('div');
+  progressTrack.style.cssText =
+    'flex: 1; height: 6px; background: #1f2538; border-radius: 3px; overflow: hidden; min-width: 80px;';
+  progressRow.appendChild(progressTrack);
+
+  const progressFill = document.createElement('div');
+  progressFill.style.cssText =
+    'height: 100%; background: #4a9eff; border-radius: 3px; transition: width 200ms;';
+  progressTrack.appendChild(progressFill);
+  progressRow.style.display = 'flex';
+  progressRow.style.alignItems = 'center';
+
+  // Action buttons row
+  const actionRow = document.createElement('div');
+  actionRow.style.cssText =
+    'display: none; width: 100%; margin-top: 0.3rem; gap: 0.5rem;';
+  zoneDetailPanel.appendChild(actionRow);
+
+  const btnStyle = `
+    background: transparent;
+    border: 1px solid var(--border-color, #444);
+    color: var(--text-secondary, #ccc);
+    padding: 0.25rem 0.6rem;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.78rem;
+  `;
+
+  const assignBtn = document.createElement('button');
+  assignBtn.style.cssText = btnStyle;
+  actionRow.appendChild(assignBtn);
+
+  const recallBtn = document.createElement('button');
+  recallBtn.textContent = 'Recall Workers';
+  recallBtn.style.cssText = btnStyle;
+  actionRow.appendChild(recallBtn);
+
+  let selectedZoneId: string | null = null;
+  let latestGameData: GameData | null = null;
+
+  function showZoneDetail(zone: Zone, workerCount: number) {
+    selectedZoneId = zone.id;
+    zoneDetailPanel.style.display = '';
+    zoneDetailName.textContent = zone.name;
+
+    // State
+    const stateColor =
+      zone.state === 'saturated'
+        ? '#ff9800'
+        : zone.state === 'harvesting'
+          ? '#4caf50'
+          : zone.state === 'exploring' || zone.state === 'unexplored'
+            ? '#4a9eff'
+            : zone.state === 'converting'
+              ? '#22886b'
+              : '#888';
+    stateValue.textContent = getStateDisplayName(zone.state);
+    stateValue.style.color = stateColor;
+
+    // Biomass
+    const biomassPct = getZoneBiomassPercentage(zone);
+    const maxBiomass = zone.biomassRate * 1000;
+    const biomassColor =
+      biomassPct > 60 ? '#4caf50' : biomassPct > 25 ? '#ffc107' : '#ff4444';
+    biomassSpan.innerHTML = `Biomass: <span style="color: ${biomassColor}; font-weight: bold;">${Math.round(zone.biomassAvailable)}</span> / ${Math.round(maxBiomass)} (${biomassPct.toFixed(0)}%)`;
+
+    rateSpan.textContent = `Rate: ${zone.biomassRate.toFixed(1)}/day`;
+    workersSpan.textContent = `Workers: ${workerCount}`;
+    bandSpan.textContent = `Band: ${zone.insolationBand}`;
+    helpSpan.title = getStateDescription(zone.state);
+
+    // Progress bar — only for zones in progression states
+    const isProgressing =
+      zone.state !== 'harvesting' && zone.state !== 'saturated';
+    if (isProgressing && workerCount > 0) {
+      progressRow.style.display = 'flex';
+      const pct = Math.min(100, zone.progress);
+      progressFill.style.width = `${pct}%`;
+      progressFill.style.background =
+        zone.state === 'converting' ? '#22886b' : '#4a9eff';
+      progressLabel.textContent = `${getStateDisplayName(zone.state)}: ${pct.toFixed(0)}%`;
+    } else if (isProgressing && workerCount === 0) {
+      progressRow.style.display = 'flex';
+      progressFill.style.width = '0%';
+      progressLabel.textContent = 'Assign workers to begin';
+      progressLabel.style.color = '#666';
+    } else {
+      progressRow.style.display = 'none';
+    }
+
+    // Action buttons
+    const allZones = latestGameData
+      ? latestGameData.planets.flatMap((p) => p.zones)
+      : [];
+    const explorable = isProgressing && isZoneExplorable(zone, allZones);
+    const hasWorkers = workerCount > 0;
+
+    if (explorable || hasWorkers) {
+      actionRow.style.display = 'flex';
+      // Assign button — shown for explorable zones
+      assignBtn.style.display = explorable ? '' : 'none';
+      assignBtn.textContent = `Send 4 Workers`;
+      // Recall button — shown when zone has workers
+      recallBtn.style.display = hasWorkers ? '' : 'none';
+    } else {
+      actionRow.style.display = 'none';
+    }
+  }
+
+  assignBtn.addEventListener('click', () => {
+    if (selectedZoneId && callbacks.onAssignWorkers) {
+      callbacks.onAssignWorkers(selectedZoneId, 4);
+    }
+  });
+
+  recallBtn.addEventListener('click', () => {
+    if (selectedZoneId && callbacks.onRecallWorkers) {
+      callbacks.onRecallWorkers(selectedZoneId);
+    }
+  });
 
   // Store zone hex refs for updates
   let zoneHexes: ZoneHex[] = [];
@@ -305,6 +515,7 @@ export function createPlanetMapComponent(
   return {
     el,
     update: (gameData: GameData) => {
+      latestGameData = gameData;
       // Find current planet (home planet or first accessible)
       const selectedPlanetId = callbacks.getPlanetId?.();
       const planet =
@@ -357,8 +568,9 @@ export function createPlanetMapComponent(
           const hexBg = document.createElementNS(SVG_NS, 'path');
           hexBg.setAttribute('d', createHexPath(x, y));
           hexBg.setAttribute('class', 'zone-bg');
-          hexBg.setAttribute('fill', getZoneBaseColor(isSwarmOwned));
-          hexBg.setAttribute('opacity', isSwarmOwned ? '1' : '0.26');
+          hexBg.setAttribute('fill', getZoneBaseColor(isSwarmOwned, zone));
+          const biomassOp = isSwarmOwned ? getZoneBiomassOpacity(zone) : 0.26;
+          hexBg.setAttribute('opacity', String(biomassOp));
           hexBg.setAttribute('stroke', '#333');
           hexBg.setAttribute('stroke-width', '0.5');
           hexGroup.appendChild(hexBg);
@@ -390,9 +602,11 @@ export function createPlanetMapComponent(
           insolationRing.style.pointerEvents = 'none';
           hexGroup.appendChild(insolationRing);
 
-          // Click handler
+          // Click handler — show zone detail panel and notify parent
           hexGroup.style.cursor = 'pointer';
           hexGroup.addEventListener('click', () => {
+            const workerCount = zone.assignedWorkers.length;
+            showZoneDetail(zone, workerCount);
             if (callbacks.onZoneSelect) {
               callbacks.onZoneSelect(zone.id);
             }
@@ -468,14 +682,24 @@ export function createPlanetMapComponent(
         }
       }
 
+      // Update zone count (can change as zones are conquered)
+      const conquered = planet.zones.filter((z) => z.ownedBySwarm).length;
+      zoneCount.textContent = `${conquered}/${planet.zones.length} zones`;
+
       // Update zone colors (states may change)
       for (let i = 0; i < zoneHexes.length; i++) {
         const { zone, hex } = zoneHexes[i];
         const isSwarmOwned = zone.ownedBySwarm;
+        const isExploring = zone.assignedWorkers.length > 0 && !isSwarmOwned;
         const hexBg = hex.querySelector('.zone-bg');
         if (hexBg) {
-          hexBg.setAttribute('fill', getZoneBaseColor(isSwarmOwned));
-          hexBg.setAttribute('opacity', isSwarmOwned ? '1' : '0.26');
+          hexBg.setAttribute('fill', getZoneBaseColor(isSwarmOwned, zone));
+          const updatedOp = isSwarmOwned
+            ? getZoneBiomassOpacity(zone)
+            : isExploring
+              ? 0.7
+              : 0.26;
+          hexBg.setAttribute('opacity', String(updatedOp));
         }
 
         const insolationOverlay = hex.querySelector('.zone-insolation-overlay');
@@ -524,6 +748,11 @@ export function createPlanetMapComponent(
           workerDot.setAttribute('data-zone', zone.id);
           workerDot.style.pointerEvents = 'none';
           workerLayer.appendChild(workerDot);
+        }
+
+        // Refresh the zone detail panel if this zone is selected
+        if (selectedZoneId === zone.id) {
+          showZoneDetail(zone, zone.assignedWorkers.length);
         }
       }
     },

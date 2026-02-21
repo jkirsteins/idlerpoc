@@ -96,13 +96,21 @@ export function gainMasteryXp(
 export interface GatherRateModifiers {
   skillBonus: number;
   masteryBonus: number;
-  zoneEfficiency: number;
+  scarcityFactor: number;
   neuralEfficiency: number;
 }
 
+/**
+ * Single source of truth for worker gather rate calculation.
+ * Includes all modifiers: skill, mastery, zone scarcity, and neural efficiency.
+ *
+ * Scarcity curve: gathering runs at full speed while zone is above
+ * ZONE_SCARCITY_THRESHOLD (30%) of max biomass, then degrades linearly
+ * to 0 as zone approaches empty. This gives visible warning before collapse.
+ */
 export function calculateGatherRate(
   worker: Worker,
-  zoneBiomassRate: number,
+  zone: { biomassAvailable: number; biomassRate: number } | undefined,
   neuralEfficiency: number
 ): { rate: number; modifiers: GatherRateModifiers } {
   const baseRate = SWARM_CONSTANTS.BASE_GATHER_RATE;
@@ -114,22 +122,28 @@ export function calculateGatherRate(
   const masteryLevel = getMasteryLevel(worker.skills.mastery.surfaceLichen);
   const masteryBonus = 1 + masteryLevel / 200;
 
-  // Zone efficiency: available biomass / base rate
-  const zoneEfficiency = Math.min(
-    1,
-    zoneBiomassRate / SWARM_CONSTANTS.BASE_GATHER_RATE
-  );
+  // Scarcity factor: degrades gathering proportionally as zone depletes below threshold.
+  // Full speed above 30% stock, linear degradation below 30% → 0 at empty.
+  let scarcityFactor = 1;
+  if (zone && zone.biomassRate > 0) {
+    const maxBiomass = zone.biomassRate * 1000;
+    const scarcityThreshold =
+      maxBiomass * SWARM_CONSTANTS.ZONE_SCARCITY_THRESHOLD;
+    scarcityFactor = Math.min(1, zone.biomassAvailable / scarcityThreshold);
+  } else if (!zone) {
+    scarcityFactor = 0; // No zone = no gathering
+  }
 
-  // Apply neural efficiency (coordination penalty)
+  // Apply all modifiers
   const rate =
-    baseRate * skillBonus * masteryBonus * zoneEfficiency * neuralEfficiency;
+    baseRate * skillBonus * masteryBonus * scarcityFactor * neuralEfficiency;
 
   return {
     rate,
     modifiers: {
       skillBonus,
       masteryBonus,
-      zoneEfficiency,
+      scarcityFactor,
       neuralEfficiency,
     },
   };

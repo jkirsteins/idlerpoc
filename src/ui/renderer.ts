@@ -27,6 +27,7 @@ import {
   calculateCoordinationEfficiency,
   calculateNeuralLoad,
 } from '../populationSystem';
+import { assignWorkersToZone, recallWorkersFromZone } from '../zoneSystem';
 import { formatTicksDualTime } from '../timeSystem';
 import type { Component } from './component';
 import { createOrreryComponent, type OrreryCallbacks } from './orreryComponent';
@@ -761,6 +762,7 @@ function createSwarmTabContent(
 
       <div style="background: var(--bg-panel, #12121a); padding: 1rem; border-radius: 8px; margin-bottom: 1rem;">
         <h3 style="margin: 0 0 0.75rem 0; font-size: 1rem;">Vital Status</h3>
+        ${queen.isDormant ? `<div style="background: #1a1a3a; border: 1px solid #6c80d1; border-radius: 4px; padding: 0.5rem 0.75rem; margin-bottom: 0.6rem; font-size: 0.85rem; color: #8899dd;" title="No workers and reserves critical. Metabolism reduced to ${Math.round(SWARM_CONSTANTS.QUEEN_DORMANCY_METABOLISM_FACTOR * 100)}% to survive. Hatch workers to wake the queen.">DORMANT — metabolism at ${Math.round(SWARM_CONSTANTS.QUEEN_DORMANCY_METABOLISM_FACTOR * 100)}% (no workers, reserves critical)</div>` : ''}
         <div style="display: flex; flex-direction: column; gap: 0.6rem;">
           <div class="stat-bar stat-bar--compact">
             <div class="stat-bar__label">Energy ${queen.energy.current.toFixed(1)} / ${queen.energy.max.toFixed(0)}</div>
@@ -780,7 +782,7 @@ function createSwarmTabContent(
               <div class="stat-bar__fill ${healthPct > 40 ? 'bar-good' : healthPct > 15 ? 'bar-warning' : 'bar-danger'}" style="width: ${Math.max(0, Math.min(100, healthPct))}%;"></div>
             </div>
           </div>
-          ${renderQueenEconomySection(queen, gameData.swarm.workers)}
+          ${renderQueenEconomySection(queen, gameData.swarm.workers, gameData.swarm.lastTickProduction)}
         </div>
       </div>
 
@@ -877,17 +879,31 @@ function createSwarmTabContent(
   `;
 }
 
-function getWorkerGatherRate(worker: Worker): number {
+function getWorkerGatherRate(
+  worker: Worker,
+  neuralEfficiency: number = 1
+): number {
   const skillMod = 1 + worker.skills.foraging / 100;
   const masteryLevel = getMasteryLevel(worker.skills.mastery.surfaceLichen);
   const masteryMod = 1 + masteryLevel / 200;
-  return SWARM_CONSTANTS.BASE_GATHER_RATE * skillMod * masteryMod;
+  return (
+    SWARM_CONSTANTS.BASE_GATHER_RATE * skillMod * masteryMod * neuralEfficiency
+  );
 }
 
-function renderQueenEconomySection(queen: Queen, workers: Worker[]): string {
+function renderQueenEconomySection(
+  queen: Queen,
+  workers: Worker[],
+  lastTickProduction?: number
+): string {
   const neuralLoad = calculateNeuralLoad(workers.length, queen.neuralCapacity);
   const efficiency = calculateCoordinationEfficiency(neuralLoad);
-  const balance = calculateEnergyBalance(workers, [queen], efficiency);
+  const balance = calculateEnergyBalance(
+    workers,
+    [queen],
+    efficiency,
+    lastTickProduction
+  );
 
   const incomePerDay = balance.production * SWARM_CONSTANTS.TICKS_PER_DAY;
   const metabolismPerDay = balance.consumption * SWARM_CONSTANTS.TICKS_PER_DAY;
@@ -945,6 +961,7 @@ function renderWorkerActivitySection(gameData: GameData): string {
   }
 
   const states = aggregates.workerStates;
+  const efficiency = aggregates.efficiency;
   const lines: string[] = [];
 
   if (states.gathering > 0) {
@@ -958,7 +975,7 @@ function renderWorkerActivitySection(gameData: GameData): string {
       for (const w of gatheringWorkers) {
         const remaining = w.cargo.max - w.cargo.current;
         if (remaining > 0) {
-          const rate = getWorkerGatherRate(w);
+          const rate = getWorkerGatherRate(w, efficiency);
           const ticks = remaining / rate;
           if (ticks < minTicksToFull) minTicksToFull = ticks;
         }
@@ -1336,6 +1353,12 @@ function createRightSidebar(gameData: GameData): Component {
       switchToSystemView();
     },
     getPlanetId: () => selectedPlanetId,
+    onAssignWorkers: (zoneId: string, count: number) => {
+      assignWorkersToZone(gameData, zoneId, count);
+    },
+    onRecallWorkers: (zoneId: string) => {
+      recallWorkersFromZone(gameData, zoneId);
+    },
   };
 
   let planetMap: Component<GameData> | null = null;

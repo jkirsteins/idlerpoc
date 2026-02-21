@@ -186,6 +186,9 @@ export interface Queen extends Organism {
 
   // Position
   position?: { x: number; y: number }; // Within zone
+
+  // Dormancy (isolated queen survival)
+  isDormant?: boolean;
 }
 
 // ============================================================================
@@ -317,6 +320,7 @@ export interface Swarm {
   workers: Worker[];
   eggs: Egg[];
   structures: Structure[];
+  lastTickProduction?: number; // Actual biomass gathered last tick (for display)
 }
 
 // ============================================================================
@@ -343,6 +347,8 @@ export type LogEntryType =
   | 'egg_laid'
   | 'egg_hatched'
   | 'zone_conquered'
+  | 'zone_state_change'
+  | 'worker_recycled'
   | 'daily_summary';
 
 export interface LogEntry {
@@ -445,6 +451,19 @@ export const SWARM_CONSTANTS = {
   TICKS_PER_DAY: 480,
   TICKS_PER_HOUR: 20,
   TICKS_PER_YEAR: 480 * 365, // 175,200 ticks = 1 game year
+
+  // Zone scarcity
+  ZONE_SCARCITY_THRESHOLD: 0.3, // Gathering degrades below 30% zone stock
+
+  // Zone regrowth
+  SATURATED_REGROWTH_FACTOR: 0.1, // Saturated zones regrow at 10% of normal rate
+
+  // Zone progression
+  COMBAT_AUTO_RESOLVE_RATE: 5, // Progress per tick for v1 auto-resolved combat
+
+  // Queen dormancy
+  QUEEN_DORMANCY_METABOLISM_FACTOR: 0.1, // 10% metabolism when dormant
+  QUEEN_DORMANCY_ENERGY_THRESHOLD: 0.15, // Enter dormancy below 15% energy
 
   // Re-evaluation
   ORDER_REEVALUATION_INTERVAL: 10,

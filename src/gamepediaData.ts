@@ -2769,7 +2769,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
         heading: 'Three Resource Pools',
         paragraphs: [
           'Every organism has three internal pools:',
-          'Energy — metabolic fuel that depletes every tick. When empty, health starts to drain. Restored by digesting biomass from the buffer.',
+          'Energy — metabolic fuel that depletes continuously. When empty, health starts to drain. Restored by digesting biomass from the buffer.',
           'Biomass Buffer — internal food storage. Automatically converted to energy each tick. How it gets filled differs: workers replenish from cargo, queens receive deliveries from workers.',
           'Health — structural integrity. Only drains when energy is completely empty (starvation). When health reaches zero, the organism dies.',
         ],
@@ -2794,23 +2794,103 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
         ],
       },
       {
+        heading: 'Zone Biomass & Scarcity',
+        paragraphs: [
+          "Each harvesting zone produces surface lichen at its own biomass rate. Each zone has a carrying capacity (1000× its biomass rate) and regenerates continuously. Workers gather from their assigned zone — if no zone is assigned, they gather from the queen's zone.",
+          "When a zone's biomass drops below 30% of its carrying capacity, a scarcity penalty reduces gathering efficiency. Below 30%, gathering rate scales linearly with available biomass — at 15% stock, workers gather at half their normal rate. At 0%, gathering stops entirely.",
+          'This creates natural carrying capacity per zone: a zone with biomass rate 0.6 sustains roughly 5–8 workers comfortably, but overpacking 15+ workers into one zone will deplete it and trigger scarcity. Expanding to multiple zones distributes the load.',
+          'If a zone is fully depleted it becomes saturated. Saturated zones regrow at 10% of their normal biomass rate and automatically resume harvesting once biomass returns. On the zone map, saturated zones appear as dull purple, and zone brightness reflects current biomass level — dim zones are nearly empty, bright zones are healthy.',
+        ],
+      },
+      {
         heading: 'Biomass Flow',
         paragraphs: [
           "Biomass flows through the swarm in a chain: zones produce surface lichen, workers gather it into cargo, workers eat from cargo to fill their own biomass buffer, and workers deliver surplus cargo to the queen's biomass buffer.",
-          "Gathering rate depends on worker [[skill-system|foraging skill]], [[mastery-system|mastery level]], and [[neural-capacity|neural coordination efficiency]]. Overloading the queen with more workers than her neural capacity reduces every worker's gathering rate dramatically.",
-          'Workers can only gather biomass that is actually available in their zone. Zones regenerate slowly, so too many workers in one zone will deplete it faster than it regrows — encouraging expansion to new zones.',
+          "Gathering rate depends on worker [[skill-system|foraging skill]], [[mastery-system|mastery level]], zone scarcity, and neural coordination efficiency. Overloading the queen with more workers than her neural capacity reduces every worker's gathering rate dramatically (efficiency drops as the 4th power of the overload ratio).",
           'Workers prioritize self-maintenance: they fill their internal buffer from cargo before delivering the rest to the queen. This means workers stay alive at the cost of slightly slower queen feeding.',
           "If the queen's biomass buffer is full, workers with full cargo will wait idle until space opens up.",
         ],
       },
       {
+        heading: 'Queen Dormancy',
+        paragraphs: [
+          "When a queen is completely isolated — no workers alive, biomass buffer empty, and energy below 15% — she enters a dormancy state. Dormancy reduces the queen's metabolism to just 10% of its normal rate, dramatically extending survival time.",
+          'A dormant queen can survive for decades on minimal energy reserves and will take roughly 70 years to die from health drain alone (compared to 7 years at normal rate). This is a failsafe that prevents the game from ending during extended absences.',
+          'The queen wakes from dormancy automatically when workers are present or her biomass buffer receives food. When dormant, a status indicator appears in the Vital Status panel showing the reduced metabolism rate.',
+        ],
+      },
+      {
         heading: 'Starvation & Death',
         paragraphs: [
-          "When an organism's energy reaches zero and its biomass buffer is empty, health begins to drain. Workers die after about 20 ticks of starvation. The queen is more resilient, taking about 7 years to die from health drain alone.",
-          'Population naturally finds its own equilibrium through the metabolism cascade: when there are too many workers, neural efficiency drops, gathering slows, workers starve individually, and the population shrinks until it stabilizes. This is fully emergent — there is no arbitrary population cap.',
+          "When an organism's energy reaches zero and its biomass buffer is empty, health begins to drain. Workers die after about 20 ticks of starvation. The queen is more resilient, taking about 7 years to die from health drain alone (or ~70 years while dormant).",
+          'Population naturally finds its own equilibrium through the metabolism cascade: when there are too many workers, neural efficiency drops, gathering slows, zone scarcity increases, workers starve individually, and the population shrinks until it stabilizes. This is fully emergent — there is no arbitrary population cap.',
+        ],
+      },
+      {
+        heading: 'Worker Recycling',
+        paragraphs: [
+          "When a worker dies, 70% of its biomass is recycled back into the zone's biomass pool. This creates a nutrient cycling loop: dead workers feed the ecosystem that sustains living workers.",
+          "The recycled biomass is capped by the zone's carrying capacity, so excess recycled matter doesn't overflow. This means mass die-offs during starvation events partially replenish the zone, helping surviving workers recover faster.",
+          'Recycling is automatic and passive — no player intervention needed. The amount recycled per worker is fixed at 5 biomass units. During long absences, the catch-up summary shows total biomass recycled.',
         ],
       },
     ],
-    relatedArticles: ['egg-production'],
+    relatedArticles: ['egg-production', 'zone-expansion'],
+  },
+  {
+    id: 'zone-expansion',
+    title: 'Zone Expansion & Exploration',
+    category: 'Core Systems',
+    summary:
+      'How the swarm claims new territory: assigning workers to explore, convert, and conquer adjacent zones for biomass harvesting.',
+    sections: [
+      {
+        paragraphs: [
+          'The swarm starts with a single conquered zone on the home planet. To grow beyond this starting territory, workers must be sent to explore and claim adjacent zones. Expansion is the primary long-term progression mechanic — more zones means more biomass, which sustains a larger population.',
+        ],
+      },
+      {
+        heading: 'Zone States',
+        paragraphs: [
+          'Every zone progresses through a state machine before it can be harvested:',
+          'Unexplored — Unknown territory. No information available until workers begin scouting. Appears dark on the zone map.',
+          'Exploring — Workers are mapping the terrain and cataloguing resources. Progress depends on the number of workers assigned.',
+          'Converting — The swarm is establishing infrastructure to harvest the zone. This phase takes longer than exploration.',
+          'Harvesting — Fully claimed. Workers can gather [[swarm-metabolism|biomass]] at full efficiency. Appears as bright purple on the zone map.',
+          'Saturated — A harvesting zone that has been completely depleted. Regrows slowly at 10% of normal rate and automatically resumes harvesting when biomass returns.',
+        ],
+        table: {
+          headers: ['Phase', 'Base Rate', 'Duration (4 workers)'],
+          rows: [
+            ['Unexplored → Exploring', '0.5/day per worker', '~50 days'],
+            ['Exploring → Converting', '0.5/day per worker', '~50 days'],
+            ['Converting → Harvesting', '0.2/day per worker', '~125 days'],
+          ],
+        },
+      },
+      {
+        heading: 'Assigning Workers',
+        paragraphs: [
+          "To begin exploring a zone, open the Zone Map and click on a zone adjacent to any swarm-owned territory. The detail panel shows a 'Send Workers' button if the zone is explorable. Workers are pulled from the queen's zone and assigned to the target.",
+          'Workers assigned to exploration zones can still gather biomass from those zones (they have untouched food supply), so exploration is not a net drain on the colony. However, those workers are not delivering to the queen, so there is an opportunity cost.',
+          "Workers can be recalled at any time via the 'Recall Workers' button. Progress is preserved — if you recall workers from a zone at 60% exploration, assigning workers again later resumes from 60%.",
+        ],
+      },
+      {
+        heading: 'Frontier Constraint',
+        paragraphs: [
+          'Only zones that border at least one swarm-owned zone can be explored. This creates a natural expanding frontier — you cannot leapfrog across the map. Plan your expansion path carefully: high-biomass zones in favorable insolation bands are more valuable long-term.',
+          'On the zone map, explorable zones glow blue when workers are assigned. Converting zones appear teal. A progress bar in the detail panel shows completion percentage.',
+        ],
+      },
+      {
+        heading: 'Offline Progression',
+        paragraphs: [
+          'Zone exploration continues during absences. If you assign workers to a zone before closing the game, they will continue making progress. The catch-up summary shows any zones conquered while you were away.',
+          'For very long absences, zone progression is batch-calculated: the system fast-forwards through state transitions and shows the final result.',
+        ],
+      },
+    ],
+    relatedArticles: ['swarm-metabolism', 'egg-production'],
   },
 ];

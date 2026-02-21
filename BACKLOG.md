@@ -194,7 +194,9 @@ Environmental adaptation through genetic evolution:
 
 ## Zone Expansion
 
-Richer zone mechanics:
+**Implemented**: Zone state progression (unexplored → exploring → converting → harvesting) is now wired into the tick system. Workers assigned to unexplored neighbor zones contribute exploration/conversion progress each tick. UI supports assign/recall workers from zone map. Combat auto-resolves in v1. Worker recycling (70% biomass recovery) is active.
+
+Remaining richer zone mechanics:
 
 ### Zone Visualization
 
