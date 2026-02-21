@@ -7,6 +7,7 @@ import {
   type Egg,
   type Worker,
   type Queen,
+  type Zone,
 } from '../models/swarmTypes';
 import {
   calculateSwarmAggregates,
@@ -15,7 +16,11 @@ import {
   getNurseryAvailableSpace,
   getEffectiveLayingTicks,
 } from '../swarmSystem';
-import { getMasteryLevel, getMasteryXpForLevel } from '../foragingSystem';
+import {
+  getMasteryLevel,
+  getMasteryXpForLevel,
+  calculateGatherRate,
+} from '../foragingSystem';
 import {
   formatAtmosphericMass,
   formatPercentage,
@@ -879,16 +884,19 @@ function createSwarmTabContent(
   `;
 }
 
-function getWorkerGatherRate(
+/** Resolve a worker's zone using the same logic as gameTickSwarm.ts */
+function findWorkerZone(
   worker: Worker,
-  neuralEfficiency: number = 1
-): number {
-  const skillMod = 1 + worker.skills.foraging / 100;
-  const masteryLevel = getMasteryLevel(worker.skills.mastery.surfaceLichen);
-  const masteryMod = 1 + masteryLevel / 200;
-  return (
-    SWARM_CONSTANTS.BASE_GATHER_RATE * skillMod * masteryMod * neuralEfficiency
-  );
+  queen: Queen | undefined,
+  gameData: GameData
+): Zone | undefined {
+  const targetId = worker.assignedZoneId ?? queen?.locationZoneId;
+  if (!targetId) return undefined;
+  for (const planet of gameData.planets) {
+    const zone = planet.zones.find((z) => z.id === targetId);
+    if (zone) return zone;
+  }
+  return undefined;
 }
 
 function renderQueenEconomySection(
@@ -972,16 +980,28 @@ function renderWorkerActivitySection(gameData: GameData): string {
     let nextDeliveryHtml = '';
     if (gatheringWorkers.length > 0) {
       let minTicksToFull = Infinity;
+      let zoneScarce = false;
+      const queen = gameData.swarm.queens[0];
       for (const w of gatheringWorkers) {
         const remaining = w.cargo.max - w.cargo.current;
         if (remaining > 0) {
-          const rate = getWorkerGatherRate(w, efficiency);
-          const ticks = remaining / rate;
-          if (ticks < minTicksToFull) minTicksToFull = ticks;
+          // Look up worker's zone (same resolution as gameTickSwarm.ts)
+          const zone = findWorkerZone(w, queen, gameData);
+          const { rate: grossRate } = calculateGatherRate(w, zone, efficiency);
+          // Subtract self-maintenance drain (cargo → buffer each tick)
+          const netRate = grossRate - w.metabolismPerTick;
+          if (netRate <= 0) {
+            zoneScarce = true;
+          } else {
+            const ticks = remaining / netRate;
+            if (ticks < minTicksToFull) minTicksToFull = ticks;
+          }
         }
       }
       if (minTicksToFull < Infinity) {
         nextDeliveryHtml = `<span style="color: var(--text-secondary, #888); font-size: 0.8rem; white-space: nowrap;">next delivery ~${formatTicksDualTime(Math.ceil(minTicksToFull))}</span>`;
+      } else if (zoneScarce) {
+        nextDeliveryHtml = `<span style="color: #ff9800; font-size: 0.8rem; white-space: nowrap;">zone scarce</span>`;
       }
     }
 
