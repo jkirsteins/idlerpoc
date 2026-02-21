@@ -15,7 +15,11 @@ import {
   getNurseryAvailableSpace,
   getEffectiveLayingTicks,
 } from '../swarmSystem';
-import { getMasteryLevel, getMasteryXpForLevel } from '../foragingSystem';
+import {
+  getMasteryLevel,
+  getMasteryXpForLevel,
+  calculateGatherRate,
+} from '../foragingSystem';
 import {
   formatAtmosphericMass,
   formatPercentage,
@@ -881,14 +885,10 @@ function createSwarmTabContent(
 
 function getWorkerGatherRate(
   worker: Worker,
-  neuralEfficiency: number = 1
+  neuralEfficiency: number = 1,
+  zone?: { biomassAvailable: number; biomassRate: number }
 ): number {
-  const skillMod = 1 + worker.skills.foraging / 100;
-  const masteryLevel = getMasteryLevel(worker.skills.mastery.surfaceLichen);
-  const masteryMod = 1 + masteryLevel / 200;
-  return (
-    SWARM_CONSTANTS.BASE_GATHER_RATE * skillMod * masteryMod * neuralEfficiency
-  );
+  return calculateGatherRate(worker, zone, neuralEfficiency).rate;
 }
 
 function renderQueenEconomySection(
@@ -965,6 +965,14 @@ function renderWorkerActivitySection(gameData: GameData): string {
   const lines: string[] = [];
 
   if (states.gathering > 0) {
+    // Build zone lookup for scarcity-aware gather rate display
+    const zoneMap = new Map<string, { biomassAvailable: number; biomassRate: number }>();
+    for (const planet of gameData.planets) {
+      for (const zone of planet.zones) {
+        zoneMap.set(zone.id, zone);
+      }
+    }
+
     // Find the gathering worker closest to delivering (most cargo)
     const gatheringWorkers = gameData.swarm.workers.filter(
       (w) => w.state === 'gathering'
@@ -975,7 +983,10 @@ function renderWorkerActivitySection(gameData: GameData): string {
       for (const w of gatheringWorkers) {
         const remaining = w.cargo.max - w.cargo.current;
         if (remaining > 0) {
-          const rate = getWorkerGatherRate(w, efficiency);
+          const workerZone = w.assignedZoneId
+            ? zoneMap.get(w.assignedZoneId)
+            : undefined;
+          const rate = getWorkerGatherRate(w, efficiency, workerZone);
           const ticks = remaining / rate;
           if (ticks < minTicksToFull) minTicksToFull = ticks;
         }
