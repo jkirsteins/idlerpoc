@@ -761,6 +761,7 @@ function createSwarmTabContent(
 
       <div style="background: var(--bg-panel, #12121a); padding: 1rem; border-radius: 8px; margin-bottom: 1rem;">
         <h3 style="margin: 0 0 0.75rem 0; font-size: 1rem;">Vital Status</h3>
+        ${queen.isDormant ? `<div style="background: #1a1a3a; border: 1px solid #6c80d1; border-radius: 4px; padding: 0.5rem 0.75rem; margin-bottom: 0.6rem; font-size: 0.85rem; color: #8899dd;" title="No workers and reserves critical. Metabolism reduced to ${Math.round(SWARM_CONSTANTS.QUEEN_DORMANCY_METABOLISM_FACTOR * 100)}% to survive. Hatch workers to wake the queen.">DORMANT — metabolism at ${Math.round(SWARM_CONSTANTS.QUEEN_DORMANCY_METABOLISM_FACTOR * 100)}% (no workers, reserves critical)</div>` : ''}
         <div style="display: flex; flex-direction: column; gap: 0.6rem;">
           <div class="stat-bar stat-bar--compact">
             <div class="stat-bar__label">Energy ${queen.energy.current.toFixed(1)} / ${queen.energy.max.toFixed(0)}</div>

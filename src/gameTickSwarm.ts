@@ -151,10 +151,36 @@ function processSingleTick(data: GameData): SingleTickResult {
   const neuralLoad = calculateNeuralLoad(swarm.workers.length, neuralCapacity);
   const efficiency = calculateCoordinationEfficiency(neuralLoad);
 
-  // 2b. Build zone ID map + queen→zone cache + regrowth.
-  //     Only needed when workers exist (no biomass consumed → no regrowth needed).
+  // 2b. Zone regrowth — runs for all harvesting/saturated zones regardless
+  //     of worker count, so zones heal while the colony recovers.
+  for (const planet of planets) {
+    for (const zone of planet.zones) {
+      if (zone.biomassRate <= 0) continue;
+      const maxBiomass = zone.biomassRate * 1000;
+      if (zone.state === 'harvesting' && zone.biomassAvailable < maxBiomass) {
+        zone.biomassAvailable = Math.min(
+          zone.biomassAvailable + zone.biomassRate,
+          maxBiomass
+        );
+      } else if (zone.state === 'saturated') {
+        // Saturated zones regrow slowly; transition back to harvesting
+        // once biomass returns above zero.
+        const regrowth =
+          zone.biomassRate * SWARM_CONSTANTS.SATURATED_REGROWTH_FACTOR;
+        zone.biomassAvailable = Math.min(
+          zone.biomassAvailable + regrowth,
+          maxBiomass
+        );
+        if (zone.biomassAvailable > 0) {
+          zone.state = 'harvesting';
+          zone.progress = 0;
+        }
+      }
+    }
+  }
+
+  // 2c. Build zone ID map + queen→zone cache (only needed when workers exist).
   //     Zone ID map enables O(1) lookups for worker.assignedZoneId.
-  //     Regrowth runs on ALL harvesting zones, not just queen zones.
   const zoneIdMap = new Map<string, Zone>();
   const queenZoneCache = new Map<string, Zone | undefined>();
 
@@ -162,17 +188,6 @@ function processSingleTick(data: GameData): SingleTickResult {
     for (const planet of planets) {
       for (const zone of planet.zones) {
         zoneIdMap.set(zone.id, zone);
-
-        // Zone regrowth — once per tick, before workers gather.
-        if (zone.state === 'harvesting' && zone.biomassRate > 0) {
-          const maxBiomass = zone.biomassRate * 1000;
-          if (zone.biomassAvailable < maxBiomass) {
-            zone.biomassAvailable = Math.min(
-              zone.biomassAvailable + zone.biomassRate,
-              maxBiomass
-            );
-          }
-        }
       }
     }
   }
@@ -603,6 +618,34 @@ function processBatchedCatchUp(
     worker.biomassBuffer.current = worker.biomassBuffer.max;
     worker.cargo.current = 0;
     worker.state = 'gathering';
+  }
+
+  // Zone regrowth during absence — zones regenerate biomass while player
+  // is away, including saturated zones recovering at reduced rate.
+  for (const planet of data.planets) {
+    for (const zone of planet.zones) {
+      if (zone.biomassRate <= 0) continue;
+      const maxBiomass = zone.biomassRate * 1000;
+      if (zone.state === 'harvesting') {
+        zone.biomassAvailable = Math.min(
+          maxBiomass,
+          zone.biomassAvailable + zone.biomassRate * elapsedTicks
+        );
+      } else if (zone.state === 'saturated') {
+        const regrowth =
+          zone.biomassRate *
+          SWARM_CONSTANTS.SATURATED_REGROWTH_FACTOR *
+          elapsedTicks;
+        zone.biomassAvailable = Math.min(
+          maxBiomass,
+          zone.biomassAvailable + regrowth
+        );
+        if (zone.biomassAvailable > 0) {
+          zone.state = 'harvesting';
+          zone.progress = 0;
+        }
+      }
+    }
   }
 
   // Update timestamps

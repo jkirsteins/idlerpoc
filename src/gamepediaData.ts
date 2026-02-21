@@ -2799,6 +2799,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
           "Each harvesting zone produces surface lichen at its own biomass rate. Each zone has a carrying capacity (1000× its biomass rate) and regenerates continuously. Workers gather from their assigned zone — if no zone is assigned, they gather from the queen's zone.",
           "When a zone's biomass drops below 30% of its carrying capacity, a scarcity penalty reduces gathering efficiency. Below 30%, gathering rate scales linearly with available biomass — at 15% stock, workers gather at half their normal rate. At 0%, gathering stops entirely.",
           'This creates natural carrying capacity per zone: a zone with biomass rate 0.6 sustains roughly 5–8 workers comfortably, but overpacking 15+ workers into one zone will deplete it and trigger scarcity. Expanding to multiple zones distributes the load.',
+          'If a zone is fully depleted it becomes saturated. Saturated zones regrow at 10% of their normal biomass rate and automatically resume harvesting once biomass returns. On the zone map, saturated zones appear as dull purple, and zone brightness reflects current biomass level — dim zones are nearly empty, bright zones are healthy.',
         ],
       },
       {
@@ -2815,7 +2816,7 @@ export const GAMEPEDIA_ARTICLES: GamepediaArticle[] = [
         paragraphs: [
           "When a queen is completely isolated — no workers alive, biomass buffer empty, and energy below 15% — she enters a dormancy state. Dormancy reduces the queen's metabolism to just 10% of its normal rate, dramatically extending survival time.",
           'A dormant queen can survive for decades on minimal energy reserves and will take roughly 70 years to die from health drain alone (compared to 7 years at normal rate). This is a failsafe that prevents the game from ending during extended absences.',
-          'The queen wakes from dormancy automatically when workers are present or her biomass buffer receives food.',
+          'The queen wakes from dormancy automatically when workers are present or her biomass buffer receives food. When dormant, a status indicator appears in the Vital Status panel showing the reduced metabolism rate.',
         ],
       },
       {

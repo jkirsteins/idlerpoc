@@ -453,6 +453,9 @@ export const SWARM_CONSTANTS = {
   // Zone scarcity
   ZONE_SCARCITY_THRESHOLD: 0.3, // Gathering degrades below 30% zone stock
 
+  // Zone regrowth
+  SATURATED_REGROWTH_FACTOR: 0.1, // Saturated zones regrow at 10% of normal rate
+
   // Queen dormancy
   QUEEN_DORMANCY_METABOLISM_FACTOR: 0.1, // 10% metabolism when dormant
   QUEEN_DORMANCY_ENERGY_THRESHOLD: 0.15, // Enter dormancy below 15% energy

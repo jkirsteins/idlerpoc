@@ -66,7 +66,8 @@ export function advanceZoneState(zone: Zone): boolean {
       break;
 
     case 'saturated':
-      // Stays saturated, minimal biomass regrowth
+      // Slow regrowth; transition back to harvesting handled in tick processing
+      // when biomassAvailable rises above 0.
       break;
   }
 
@@ -168,7 +169,8 @@ export function getStateDescription(state: string): string {
     combating: 'Fighting native resistance.',
     converting: 'Establishing swarm presence.',
     harvesting: 'Active biomass extraction.',
-    saturated: 'Maximum extraction reached. Minimal regrowth.',
+    saturated:
+      'Depleted. Slowly recovering — will resume harvest when biomass returns.',
   };
   return descriptions[state] || '';
 }

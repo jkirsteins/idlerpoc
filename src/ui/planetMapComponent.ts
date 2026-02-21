@@ -6,6 +6,11 @@
 import type { GameData, Zone } from '../models/swarmTypes';
 import type { Component } from './component';
 import { setupMapZoomPan, type MapZoomPanControls } from './mapZoomPan';
+import {
+  getStateDisplayName,
+  getStateDescription,
+  getZoneBiomassPercentage,
+} from '../zoneSystem';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
@@ -71,8 +76,19 @@ function getSafeZoneHex(
   return { q, r, s: -q - r };
 }
 
-function getZoneBaseColor(isSwarmOwned: boolean): string {
-  return isSwarmOwned ? '#b13dff' : '#10141d';
+function getZoneBiomassOpacity(zone: Zone): number {
+  // For swarm-owned zones, modulate brightness by biomass level.
+  // Full biomass = 1.0 (bright), depleted = 0.3 (dim but visible).
+  if (!zone.ownedBySwarm || zone.biomassRate <= 0) return 1;
+  const maxBiomass = zone.biomassRate * 1000;
+  const pct = maxBiomass > 0 ? zone.biomassAvailable / maxBiomass : 0;
+  return 0.3 + 0.7 * pct; // Range: 0.3 to 1.0
+}
+
+function getZoneBaseColor(isSwarmOwned: boolean, zone?: Zone): string {
+  if (!isSwarmOwned) return '#10141d';
+  if (zone?.state === 'saturated') return '#663399'; // Dull purple for depleted
+  return '#b13dff';
 }
 
 function getInsolationTint(
@@ -269,8 +285,60 @@ export function createPlanetMapComponent(
     <span style="color: #6ab8c9">◌ Terminator</span>
     <span style="color: #6c80d1">◌ Dark</span>
     <span style="color: #b13dff">● Swarm</span>
+    <span style="color: #663399">● Depleted</span>
   `;
   el.appendChild(legend);
+
+  // Zone detail panel — shown when a zone hex is clicked
+  const zoneDetailPanel = document.createElement('div');
+  zoneDetailPanel.style.cssText = `
+    display: none;
+    padding: 0.6rem 0.75rem;
+    border-top: 1px solid var(--border-color, #2a2a3a);
+    background: var(--bg-panel, #12121a);
+    font-size: 0.82rem;
+    color: var(--text-primary, #ddd);
+    line-height: 1.5;
+  `;
+  el.appendChild(zoneDetailPanel);
+
+  const zoneDetailName = document.createElement('div');
+  zoneDetailName.style.cssText =
+    'font-weight: bold; color: var(--accent-cyan, #00e5ff); margin-bottom: 0.3rem;';
+  zoneDetailPanel.appendChild(zoneDetailName);
+
+  const zoneDetailBody = document.createElement('div');
+  zoneDetailBody.style.cssText =
+    'display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; white-space: nowrap;';
+  zoneDetailPanel.appendChild(zoneDetailBody);
+
+  let selectedZoneId: string | null = null;
+
+  function showZoneDetail(zone: Zone, workerCount: number) {
+    selectedZoneId = zone.id;
+    zoneDetailPanel.style.display = '';
+    zoneDetailName.textContent = zone.name;
+
+    const biomassPct = getZoneBiomassPercentage(zone);
+    const maxBiomass = zone.biomassRate * 1000;
+    const biomassColor =
+      biomassPct > 60 ? '#4caf50' : biomassPct > 25 ? '#ffc107' : '#ff4444';
+    const stateColor =
+      zone.state === 'saturated'
+        ? '#ff9800'
+        : zone.state === 'harvesting'
+          ? '#4caf50'
+          : '#888';
+
+    zoneDetailBody.innerHTML = `
+      <span>State: <span style="color: ${stateColor};">${getStateDisplayName(zone.state)}</span></span>
+      <span>Biomass: <span style="color: ${biomassColor}; font-weight: bold;">${Math.round(zone.biomassAvailable)}</span> / ${Math.round(maxBiomass)} (${biomassPct.toFixed(0)}%)</span>
+      <span>Rate: ${zone.biomassRate.toFixed(1)}/tick</span>
+      <span>Workers: ${workerCount}</span>
+      <span>Band: ${zone.insolationBand}</span>
+      <span title="${getStateDescription(zone.state)}" style="color: #888; cursor: help;">?</span>
+    `;
+  }
 
   // Store zone hex refs for updates
   let zoneHexes: ZoneHex[] = [];
@@ -357,8 +425,9 @@ export function createPlanetMapComponent(
           const hexBg = document.createElementNS(SVG_NS, 'path');
           hexBg.setAttribute('d', createHexPath(x, y));
           hexBg.setAttribute('class', 'zone-bg');
-          hexBg.setAttribute('fill', getZoneBaseColor(isSwarmOwned));
-          hexBg.setAttribute('opacity', isSwarmOwned ? '1' : '0.26');
+          hexBg.setAttribute('fill', getZoneBaseColor(isSwarmOwned, zone));
+          const biomassOp = isSwarmOwned ? getZoneBiomassOpacity(zone) : 0.26;
+          hexBg.setAttribute('opacity', String(biomassOp));
           hexBg.setAttribute('stroke', '#333');
           hexBg.setAttribute('stroke-width', '0.5');
           hexGroup.appendChild(hexBg);
@@ -390,9 +459,11 @@ export function createPlanetMapComponent(
           insolationRing.style.pointerEvents = 'none';
           hexGroup.appendChild(insolationRing);
 
-          // Click handler
+          // Click handler — show zone detail panel and notify parent
           hexGroup.style.cursor = 'pointer';
           hexGroup.addEventListener('click', () => {
+            const workerCount = zone.assignedWorkers.length;
+            showZoneDetail(zone, workerCount);
             if (callbacks.onZoneSelect) {
               callbacks.onZoneSelect(zone.id);
             }
@@ -474,8 +545,9 @@ export function createPlanetMapComponent(
         const isSwarmOwned = zone.ownedBySwarm;
         const hexBg = hex.querySelector('.zone-bg');
         if (hexBg) {
-          hexBg.setAttribute('fill', getZoneBaseColor(isSwarmOwned));
-          hexBg.setAttribute('opacity', isSwarmOwned ? '1' : '0.26');
+          hexBg.setAttribute('fill', getZoneBaseColor(isSwarmOwned, zone));
+          const updatedOp = isSwarmOwned ? getZoneBiomassOpacity(zone) : 0.26;
+          hexBg.setAttribute('opacity', String(updatedOp));
         }
 
         const insolationOverlay = hex.querySelector('.zone-insolation-overlay');
@@ -524,6 +596,11 @@ export function createPlanetMapComponent(
           workerDot.setAttribute('data-zone', zone.id);
           workerDot.style.pointerEvents = 'none';
           workerLayer.appendChild(workerDot);
+        }
+
+        // Refresh the zone detail panel if this zone is selected
+        if (selectedZoneId === zone.id) {
+          showZoneDetail(zone, zone.assignedWorkers.length);
         }
       }
     },
