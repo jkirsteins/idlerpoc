@@ -27,6 +27,8 @@ interface CatchUpTotals {
   queensDied: number;
   eggsLaid: number;
   eggsHatched: number;
+  zonesConquered: number;
+  biomassRecycled: number;
   logEntries: number;
   populationBefore: number;
   populationAfter: number;
@@ -277,6 +279,14 @@ function showCatchUpSummary(
     totals.queensDied > 0
       ? `<div style="color: #ff4444;">Queen losses: ${totals.queensDied.toLocaleString()}</div>`
       : '';
+  const zonesConqueredLine =
+    totals.zonesConquered > 0
+      ? `<div style="color: #22886b;">Zones conquered: ${totals.zonesConquered}</div>`
+      : '';
+  const recycledLine =
+    totals.biomassRecycled > 0
+      ? `<div style="color: #888;">Biomass recycled: ${totals.biomassRecycled.toFixed(1)}</div>`
+      : '';
 
   card.innerHTML = `
     <h3 style="margin: 0 0 0.75rem 0; color: #00e5ff;">While you were away...</h3>
@@ -288,6 +298,8 @@ function showCatchUpSummary(
         <div>Workers hatched: ${totals.workersHatched.toLocaleString()}</div>
         <div>Worker losses: ${totals.workersDied.toLocaleString()}</div>
         ${queensDiedLine}
+        ${zonesConqueredLine}
+        ${recycledLine}
         ${dormancyLine}
       </div>
     </div>
@@ -324,6 +336,8 @@ function startCatchUp(elapsedSeconds: number): void {
       queensDied: 0,
       eggsLaid: 0,
       eggsHatched: 0,
+      zonesConquered: 0,
+      biomassRecycled: 0,
       logEntries: 0,
       populationBefore: gameData.swarm.workers.length,
       populationAfter: 0,
@@ -386,6 +400,8 @@ function startCatchUp(elapsedSeconds: number): void {
     activeCatchUp.totals.queensDied += result.queensDied;
     activeCatchUp.totals.eggsLaid += result.eggsLaid;
     activeCatchUp.totals.eggsHatched += result.eggsHatched;
+    activeCatchUp.totals.zonesConquered += result.zonesConquered;
+    activeCatchUp.totals.biomassRecycled += result.biomassRecycled;
     activeCatchUp.totals.logEntries += result.logEntries.length;
 
     if (renderer) renderer.update(gameData);

@@ -347,6 +347,8 @@ export type LogEntryType =
   | 'egg_laid'
   | 'egg_hatched'
   | 'zone_conquered'
+  | 'zone_state_change'
+  | 'worker_recycled'
   | 'daily_summary';
 
 export interface LogEntry {
@@ -455,6 +457,9 @@ export const SWARM_CONSTANTS = {
 
   // Zone regrowth
   SATURATED_REGROWTH_FACTOR: 0.1, // Saturated zones regrow at 10% of normal rate
+
+  // Zone progression
+  COMBAT_AUTO_RESOLVE_RATE: 5, // Progress per tick for v1 auto-resolved combat
 
   // Queen dormancy
   QUEEN_DORMANCY_METABOLISM_FACTOR: 0.1, // 10% metabolism when dormant

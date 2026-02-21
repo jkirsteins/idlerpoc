@@ -27,6 +27,7 @@ import {
   calculateCoordinationEfficiency,
   calculateNeuralLoad,
 } from '../populationSystem';
+import { assignWorkersToZone, recallWorkersFromZone } from '../zoneSystem';
 import { formatTicksDualTime } from '../timeSystem';
 import type { Component } from './component';
 import { createOrreryComponent, type OrreryCallbacks } from './orreryComponent';
@@ -1352,6 +1353,12 @@ function createRightSidebar(gameData: GameData): Component {
       switchToSystemView();
     },
     getPlanetId: () => selectedPlanetId,
+    onAssignWorkers: (zoneId: string, count: number) => {
+      assignWorkersToZone(gameData, zoneId, count);
+    },
+    onRecallWorkers: (zoneId: string) => {
+      recallWorkersFromZone(gameData, zoneId);
+    },
   };
 
   let planetMap: Component<GameData> | null = null;

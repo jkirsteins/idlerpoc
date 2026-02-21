@@ -6,6 +6,7 @@ import type {
   Egg,
   LogEntry,
   Zone,
+  ZoneState,
 } from './models/swarmTypes';
 import { SWARM_CONSTANTS } from './models/swarmTypes';
 import { updatePlanetPositions } from './trappist1Data';
@@ -28,6 +29,13 @@ import {
   createDailySummary,
   formatDailySummary,
 } from './populationSystem';
+import {
+  advanceZoneState,
+  addZoneProgress,
+  calculateExplorationProgress,
+  calculateConversionProgress,
+  getStateDisplayName,
+} from './zoneSystem';
 
 // ============================================================================
 // TICK PROCESSING
@@ -39,6 +47,8 @@ export interface TickResult {
   queensDied: number;
   eggsLaid: number;
   eggsHatched: number;
+  zonesConquered: number;
+  biomassRecycled: number;
   netEnergy: number;
   logEntries: LogEntry[];
 }
@@ -54,6 +64,8 @@ export function applyTick(
     queensDied: 0,
     eggsLaid: 0,
     eggsHatched: 0,
+    zonesConquered: 0,
+    biomassRecycled: 0,
     netEnergy: 0,
     logEntries: [],
   };
@@ -79,6 +91,8 @@ export function applyTick(
     result.queensDied += tickResult.queensDied;
     result.eggsLaid += tickResult.eggsLaid;
     result.eggsHatched += tickResult.eggsHatched;
+    result.zonesConquered += tickResult.zonesConquered;
+    result.biomassRecycled += tickResult.biomassRecycled;
     result.netEnergy += tickResult.netEnergy;
     result.logEntries.push(...tickResult.logEntries);
 
@@ -125,6 +139,8 @@ interface SingleTickResult {
   queensDied: number;
   eggsLaid: number;
   eggsHatched: number;
+  zonesConquered: number;
+  biomassRecycled: number;
   netEnergy: number;
   logEntries: LogEntry[];
 }
@@ -136,6 +152,8 @@ function processSingleTick(data: GameData): SingleTickResult {
     queensDied: 0,
     eggsLaid: 0,
     eggsHatched: 0,
+    zonesConquered: 0,
+    biomassRecycled: 0,
     netEnergy: 0,
     logEntries: [],
   };
@@ -197,6 +215,63 @@ function processSingleTick(data: GameData): SingleTickResult {
       queenZoneCache.set(queen.id, zoneIdMap.get(queen.locationZoneId));
     }
   }
+
+  // 2d. Zone state progression — workers assigned to non-harvesting zones
+  //     contribute exploration or conversion progress each tick.
+  //     Guard: skip entirely when no workers exist (avoids iterating all zones
+  //     on every tick when the swarm has no active workers yet).
+  if (swarm.workers.length > 0)
+    for (const planet of planets) {
+      for (const zone of planet.zones) {
+        if (zone.state === 'harvesting' || zone.state === 'saturated') continue;
+
+        const workerCount = zone.assignedWorkers.length;
+        if (workerCount === 0) continue;
+
+        const previousState: ZoneState = zone.state;
+
+        if (zone.state === 'unexplored' || zone.state === 'exploring') {
+          addZoneProgress(
+            zone,
+            calculateExplorationProgress(zone, workerCount)
+          );
+        } else if (zone.state === 'converting') {
+          addZoneProgress(zone, calculateConversionProgress(zone, workerCount));
+        } else if (zone.state === 'combating') {
+          // v1: auto-resolve combat quickly
+          addZoneProgress(zone, SWARM_CONSTANTS.COMBAT_AUTO_RESOLVE_RATE);
+        }
+
+        if (advanceZoneState(zone)) {
+          // advanceZoneState() mutates zone.state and sets ownedBySwarm=true
+          // on entering 'harvesting'. We pre-filtered those states, so checking
+          // ownedBySwarm reliably detects conquest without TS narrowing issues.
+          const isConquered = zone.ownedBySwarm;
+          const logType = isConquered ? 'zone_conquered' : 'zone_state_change';
+          const newState: ZoneState = zone.state;
+          const message = isConquered
+            ? `Zone ${zone.name} conquered — now harvesting`
+            : `Zone ${zone.name}: ${getStateDisplayName(previousState)} → ${getStateDisplayName(newState)}`;
+
+          result.logEntries.push(
+            createLogEntry(logType, message, {
+              zoneId: zone.id,
+              previousState,
+              newState,
+            })
+          );
+
+          if (isConquered) result.zonesConquered++;
+
+          emitSwarm(data, {
+            type: 'zone_state_changed',
+            zone,
+            previousState,
+            newState,
+          });
+        }
+      }
+    }
 
   // 3. Process each queen (universal metabolism cascade)
   for (const queen of swarm.queens) {
@@ -346,11 +421,39 @@ function processSingleTick(data: GameData): SingleTickResult {
     }
   }
 
-  // Remove dead workers
+  // Remove dead workers and recycle biomass back to zone ecosystem
   for (const worker of workersToRemove) {
     const index = swarm.workers.indexOf(worker);
     if (index > -1) {
       swarm.workers.splice(index, 1);
+
+      // Recycle worker biomass — 70% recovered to the zone's biomass pool.
+      // This creates a nutrient cycling loop (WORLDRULES § Recycling).
+      const recycleZoneId = worker.assignedZoneId;
+      const recycleZone = recycleZoneId
+        ? zoneIdMap.get(recycleZoneId)
+        : undefined;
+      if (recycleZone && recycleZone.biomassRate > 0) {
+        const maxBiomass = recycleZone.biomassRate * 1000;
+        const recycled = SWARM_CONSTANTS.WORKER_RECYCLE_BIOMASS;
+        recycleZone.biomassAvailable = Math.min(
+          recycleZone.biomassAvailable + recycled,
+          maxBiomass
+        );
+        result.biomassRecycled += recycled;
+
+        emitSwarm(data, {
+          type: 'worker_recycled',
+          zoneId: recycleZoneId,
+          biomassReturned: recycled,
+        });
+      }
+
+      // Clean up zone assignment
+      if (recycleZoneId && recycleZone) {
+        const workerIdx = recycleZone.assignedWorkers.indexOf(worker.id);
+        if (workerIdx > -1) recycleZone.assignedWorkers.splice(workerIdx, 1);
+      }
     }
   }
 
@@ -390,6 +493,8 @@ export function processCatchUp(
       queensDied: 0,
       eggsLaid: 0,
       eggsHatched: 0,
+      zonesConquered: 0,
+      biomassRecycled: 0,
       netEnergy: 0,
       logEntries: [],
     };
@@ -417,6 +522,8 @@ function processBatchedCatchUp(
     queensDied: 0,
     eggsLaid: 0,
     eggsHatched: 0,
+    zonesConquered: 0,
+    biomassRecycled: 0,
     netEnergy: 0,
     logEntries: [],
   };
@@ -643,6 +750,72 @@ function processBatchedCatchUp(
         if (zone.biomassAvailable > 0) {
           zone.state = 'harvesting';
           zone.progress = 0;
+        }
+      }
+    }
+  }
+
+  // Zone state progression during absence — zones with assigned workers
+  // accumulate exploration/conversion progress proportionally to elapsed time.
+  for (const planet of data.planets) {
+    for (const zone of planet.zones) {
+      if (zone.state === 'harvesting' || zone.state === 'saturated') continue;
+
+      const workerCount = zone.assignedWorkers.length;
+      if (workerCount === 0) continue;
+
+      // Calculate total progress over the absence
+      let progressPerTick = 0;
+      if (zone.state === 'unexplored' || zone.state === 'exploring') {
+        progressPerTick = calculateExplorationProgress(zone, workerCount);
+      } else if (zone.state === 'converting') {
+        progressPerTick = calculateConversionProgress(zone, workerCount);
+      } else if (zone.state === 'combating') {
+        progressPerTick = SWARM_CONSTANTS.COMBAT_AUTO_RESOLVE_RATE;
+      }
+
+      // Simulate progress through state transitions
+      let ticksRemaining = elapsedTicks;
+      while (ticksRemaining > 0 && !zone.ownedBySwarm) {
+        const deficit = 100 - zone.progress;
+        const ticksToComplete =
+          progressPerTick > 0 ? Math.ceil(deficit / progressPerTick) : Infinity;
+
+        if (ticksToComplete <= ticksRemaining) {
+          zone.progress = 100;
+          ticksRemaining -= ticksToComplete;
+          const previousState: ZoneState = zone.state;
+          if (advanceZoneState(zone)) {
+            const isConquered = zone.ownedBySwarm;
+            const newState: ZoneState = zone.state;
+            if (isConquered) result.zonesConquered++;
+            result.logEntries.push(
+              createLogEntry(
+                isConquered ? 'zone_conquered' : 'zone_state_change',
+                isConquered
+                  ? `Zone ${zone.name} conquered during absence`
+                  : `Zone ${zone.name}: ${getStateDisplayName(previousState)} → ${getStateDisplayName(newState)}`,
+                { zoneId: zone.id, previousState, newState }
+              )
+            );
+
+            // Update progress rate for the new state
+            if (newState === 'converting') {
+              progressPerTick = calculateConversionProgress(zone, workerCount);
+            } else if (newState === 'combating') {
+              progressPerTick = SWARM_CONSTANTS.COMBAT_AUTO_RESOLVE_RATE;
+            } else if (newState === 'unexplored' || newState === 'exploring') {
+              progressPerTick = calculateExplorationProgress(zone, workerCount);
+            } else {
+              break; // Reached harvesting or saturated
+            }
+          } else {
+            break; // State didn't advance
+          }
+        } else {
+          // Partial progress — not enough ticks to complete current phase
+          addZoneProgress(zone, progressPerTick * ticksRemaining);
+          ticksRemaining = 0;
         }
       }
     }
