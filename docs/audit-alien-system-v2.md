@@ -1,23 +1,19 @@
 # Alien System Audit v2 — Post-Fix Re-Assessment (Updated)
 
-*Date: 2026-02-21 (updated after rebase on `b1dbd24`)*
-*Base commit: `b1dbd24` (Implement queen dormancy and zone scarcity mechanics #175)*
-*Previous base: `d1c1535` (Fix biomass buffer audit issues #174)*
+*Date: 2026-02-21 (final — all issues resolved)*
+*Commits: `d1c1535` (#174) → `b1dbd24` (#175) → `1fce564` (final fixes)*
 *Audience: Engineering team*
 
 ---
 
 ## Executive Summary
 
-Commit `b1dbd24` is a substantial follow-up that resolves **all eight** original audit proposals and both new issues from the v2 report. Zone regrowth is calibrated at full `biomassRate` per tick. Workers gather from their assigned zone via O(1) zoneIdMap. `calculateGatherRate()` is the single source of truth. Queen dormancy and full catch-up metabolism simulation are implemented. Dead code (`calculateStarvationDeaths`, `depleteZoneBiomass`) is deleted.
+**All audit items are resolved.** The alien system is mechanically sound across all gameplay paths: real-time ticks, offline catch-up, and UI display.
 
-Two **residual issues** remain, plus one **new bug** discovered during this re-assessment:
-
-1. **NEW BUG: Harvesting → saturated transition is dead code.** Zones can never enter the `saturated` state because `advanceZoneState()` is never called for `harvesting` zones. The saturated regrowth penalty (0.1×) never applies. Zones depleted to 0 biomass regrow at full rate on the next tick.
-2. **UI gather rate still omits zone scarcity.** `getWorkerGatherRate()` in the renderer includes neural efficiency now (good), but doesn't include the scarcity curve — displayed rates overstate actual rates when zones are below 30% stock.
-3. **Orphaned constants and one dead function remain.** `STARVATION_COEFFICIENT`, `RECYCLE_EFFICIENCY` constants, and `getZoneWorkers()` are unreferenced.
-
-Overall, the alien system is now **mechanically sound** for normal gameplay. The saturated-state bug is cosmetic in practice (zones recover faster than intended, which is player-friendly), and the UI overstatement is misleading but not game-breaking.
+The arc across three commits:
+- **#174** (`d1c1535`): Fixed mastery scaling, neural efficiency, starvation overlay removal.
+- **#175** (`b1dbd24`): Recalibrated zone regrowth, wired zone assignments, added scarcity curve, queen dormancy, catch-up metabolism, worker recycling, production tracking.
+- **Final fixes** (`1fce564`): Wired harvesting→saturated zone transition, added scarcity to UI display, deleted remaining dead code.
 
 ---
 
@@ -32,135 +28,50 @@ Overall, the alien system is now **mechanically sound** for normal gameplay. The
 | 5 | Align production estimate with reality | High | **Done** | `actualProductionThisTick` tracked and passed to `calculateEnergyBalance()` |
 | 6 | Queen idle-period safety | Medium | **Done** | 4-phase catch-up metabolism, dormancy at 10% rate |
 | 7 | Catch-up pool normalization | Medium | **Done** | Worker pools normalized to max; swarm events in catch-up summary |
-| 8 | Dead code cleanup | Low | **Mostly done** | 3 major dead functions removed; 1 minor function + 2 constants remain |
+| 8 | Dead code cleanup | Low | **Done** | All dead functions and orphaned constants removed |
 
 ### New Issues from v2 Report
 
 | # | Issue | Status | Notes |
 |---|-------|--------|-------|
 | v2-§2 | Worker zone assignments decorative | **Done** | Workers use `worker.assignedZoneId` via `zoneIdMap` |
-| v2-§3 | UI gather rate omits neural efficiency | **Partial** | Neural efficiency added; scarcity curve still missing |
+| v2-§3 | UI gather rate omits neural efficiency | **Done** | Now delegates to `calculateGatherRate()` with full scarcity + neural |
 
 ---
 
-## §1 — NEW BUG: Harvesting → Saturated Transition Is Dead Code
+## §1 — RESOLVED: Harvesting → Saturated Transition
 
-### Discovery
+**Previously:** The transition in `advanceZoneState()` was dead code — never called for harvesting zones.
 
-`advanceZoneState()` in `zoneSystem.ts:58-65` contains the only code path that transitions a zone to `saturated`:
-
-```typescript
-case 'harvesting':
-  if (zone.biomassAvailable <= 0) {
-    zone.state = 'saturated';
-    zone.progress = 100;
-    return true;
-  }
-  break;
-```
-
-However, `advanceZoneState()` is only called in two places:
-
-1. **Real-time tick:** `gameTickSwarm.ts:245` — inside step 2d, which guards with `if (zone.state === 'harvesting' || zone.state === 'saturated') continue;`
-2. **Catch-up:** `gameTickSwarm.ts:788` — also guarded by `if (zone.state === 'harvesting' || zone.state === 'saturated') continue;`
-
-Both call sites skip harvesting zones. The harvesting→saturated branch in `advanceZoneState` is **never reachable**.
-
-### Impact
-
-- **Zones never enter the `saturated` state.** When workers deplete a zone to 0 biomass, it stays in `harvesting` state.
-- **The saturated regrowth penalty (0.1×) never applies.** Depleted zones regrow at full `biomassRate` per tick instead of `biomassRate * 0.1`.
-- **Saturated zone UI states never appear.** The gamepedia describes saturated zones ("dull purple, slowly recovering") but players will never see them.
-- **The saturated→harvesting recovery transition is also dead.** `gameTickSwarm.ts:192-195` handles saturated→harvesting recovery, but no zone ever reaches saturated state to benefit from it.
-
-### Effective behavior
-
-With the current code, the actual zone biomass cycle is:
-
-```
-Workers deplete zone to 0 → zone stays "harvesting" → regrowth adds
-biomassRate per tick → scarcity curve kicks in below 30% stock →
-workers gather less → equilibrium emerges from scarcity alone
-```
-
-This is actually a reasonable model — the scarcity curve provides a smooth degradation without needing a discrete "saturated" state. The question is whether the saturated state adds gameplay value (visual feedback, slower recovery as punishment for overextraction) or is unnecessary.
-
-### Recommendation
-
-**Option A (simpler): Remove the saturated state entirely.** The scarcity curve already handles depletion gracefully. Delete the saturated branches in `advanceZoneState`, `gameTickSwarm.ts` regrowth, and `zoneSystem.ts`. Update the gamepedia to describe scarcity-only behavior. This eliminates dead code and aligns documentation with reality.
-
-**Option B (richer): Wire the transition into the tick loop.** After worker processing (step 4), check all harvesting zones. If `biomassAvailable <= 0`, call `advanceZoneState()` to transition to saturated. This gives depleted zones the 0.1× regrowth penalty and visual feedback. Add the check as a post-worker-processing step:
-
-```typescript
-// Step 4b: Check for zone saturation after worker gathering
-for (const planet of planets) {
-  for (const zone of planet.zones) {
-    if (zone.state === 'harvesting' && zone.biomassAvailable <= 0) {
-      advanceZoneState(zone);
-      // Log and emit event...
-    }
-  }
-}
-```
-
-**Recommendation:** Option A is simpler and the scarcity curve is sufficient. If the saturated visual feedback is desired, go with Option B. Either way, the current state (dead code claiming to do something it doesn't) must be resolved.
+**Fix:** Added step 4b in `processSingleTick()` (`gameTickSwarm.ts`) that checks all harvesting zones after worker gathering. Zones depleted to 0 biomass now correctly transition to `saturated` state with 0.1× regrowth penalty and event logging. The `advanceZoneState()` harvesting case was collapsed to a no-op since the transition is resource-driven (tick loop), not progress-driven (exploration pipeline).
 
 ---
 
-## §2 — UI Gather Rate Still Omits Scarcity Curve (Low-Medium)
+## §2 — RESOLVED: UI Gather Rate Now Includes Scarcity
 
-### Current state
+**Previously:** `getWorkerGatherRate()` in `renderer.ts` computed rates without zone scarcity, overstating displayed rates by up to 2× for depleted zones.
 
-`getWorkerGatherRate()` in `renderer.ts:882-892` now includes `neuralEfficiency` (fixed from v2 report), but still computes the rate without zone scarcity:
-
-```typescript
-function getWorkerGatherRate(
-  worker: Worker,
-  neuralEfficiency: number = 1
-): number {
-  const skillMod = 1 + worker.skills.foraging / 100;
-  const masteryLevel = getMasteryLevel(worker.skills.mastery.surfaceLichen);
-  const masteryMod = 1 + masteryLevel / 200;
-  return SWARM_CONSTANTS.BASE_GATHER_RATE * skillMod * masteryMod * neuralEfficiency;
-  // Missing: scarcityFactor from calculateGatherRate()
-}
-```
-
-The actual gather rate in `processGatherOrder()` uses `calculateGatherRate()` which includes scarcity. When a zone is at 15% stock, the UI shows 2× the actual rate.
-
-### Recommendation
-
-Replace `getWorkerGatherRate()` with a call to `calculateGatherRate()` from `foragingSystem.ts`, passing the worker's zone. This ensures the UI always matches the simulation. Alternatively, display the base rate with a "zone scarcity" modifier in a tooltip breakdown so the player understands why actual gathering is slower.
+**Fix:** `getWorkerGatherRate()` now delegates to `calculateGatherRate()` from `foragingSystem.ts`, passing the worker's assigned zone. A zone lookup map is built once per render in `renderWorkerActivitySection()`. Displayed rates now match the simulation exactly, including skill, mastery, scarcity, and neural efficiency.
 
 ---
 
-## §3 — Remaining Dead Code (Low)
+## §3 — RESOLVED: Dead Code Cleanup Complete
 
-### Cleaned up in #175
+All dead code identified across audit v1, v2, and this re-assessment is now removed:
 
 | Item | Status |
 |------|--------|
-| `calculateStarvationDeaths()` | Deleted |
-| `depleteZoneBiomass()` | Deleted |
-| `calculateGatherRate()` — previously dead | Now wired as single source of truth |
-| `calculateSwarmAggregates()` — previously reported dead | Actually used in renderer (false positive in v2) |
-
-### Still remaining
-
-| Item | File | Notes |
-|------|------|-------|
-| `getZoneWorkers()` | `zoneSystem.ts:104-106` | Exported but never called. Worker lookup uses `zone.assignedWorkers` directly. |
-| `STARVATION_COEFFICIENT` | `swarmTypes.ts:439` | Only consumer (`calculateStarvationDeaths`) was deleted. |
-| `RECYCLE_EFFICIENCY` | `swarmTypes.ts:440` | Only consumer (`calculateStarvationDeaths`) was deleted. Recycling now uses `WORKER_RECYCLE_BIOMASS` directly. |
-| Saturated state handling code | Multiple files | Dead per §1 — either wire it in or remove it. |
-
-### Recommendation
-
-Delete `getZoneWorkers()`, `STARVATION_COEFFICIENT`, and `RECYCLE_EFFICIENCY`. They have no consumers. For the saturated state code, resolve per §1.
+| `calculateStarvationDeaths()` | Deleted in #175 |
+| `depleteZoneBiomass()` | Deleted in #175 |
+| `calculateGatherRate()` — previously dead | Wired as single source of truth in #175 |
+| `calculateSwarmAggregates()` | Actually used in renderer (false positive in v2) |
+| `getZoneWorkers()` | Deleted in final fixes |
+| `STARVATION_COEFFICIENT` | Deleted in final fixes |
+| `RECYCLE_EFFICIENCY` | Deleted in final fixes |
 
 ---
 
-## §4 — What Was Done Well in #175
+## §4 — What Was Done Well
 
 Credit where due — this commit addressed a large surface area correctly:
 
@@ -200,26 +111,17 @@ With current regrowth at `biomassRate` per tick and scarcity threshold at 0.3:
 | 1 zone, 20 workers | Zone oscillates near 0. Scarcity = ~0. Workers starving, expansion mandatory. |
 | 3 zones, 20 workers | ~7 workers/zone. Each zone at ~50%. Comfortable. |
 | 25 workers, 20 capacity | Neural penalty (0.41×) reduces consumption. Scarcity + neural = double pressure for die-off to ~20. |
-| Depleted zone, 0 workers | Regrows at full rate (bug: should be 0.1× if saturated state worked). Fully recovers in ~1000 ticks. |
-
-**Note:** Because the saturated transition never fires (§1), depleted zones recover at full speed. If Option B from §1 is implemented, the "Depleted zone, 0 workers" row changes to ~10,000 ticks recovery.
+| Depleted zone, 0 workers | Transitions to saturated. Regrows at 0.1× rate. Fully recovers in ~10,000 ticks (~35 min IRL). |
 
 ---
 
-## §6 — Revised Priority Order
+## §6 — Verification Checklist
 
-```
-MINOR BUGS:
-  §1  Fix or remove saturated zone state (dead code)
+All code issues are resolved. These scenarios should be tested in-game:
 
-POLISH:
-  §2  Add scarcity curve to UI gather rate display
-  §3  Delete getZoneWorkers(), STARVATION_COEFFICIENT, RECYCLE_EFFICIENCY
-
-VERIFICATION:
-  Run calibration scenarios from §5 in-game to confirm steady-state numbers
-  Test catch-up with 48h+ absence — verify queen dormancy and pool normalization
-  Test zone expansion loop end-to-end (explore → convert → harvest → deplete → expand)
-```
-
-All original Critical and High items are resolved. Remaining work is polish-level.
+- [ ] Zone depletion: 20 workers on 1 zone → zone transitions to saturated → regrows slowly → resumes harvesting
+- [ ] Zone scarcity: 12 workers on 1 zone → scarcity kicks in below 30% → gathering rate degrades in UI
+- [ ] Multi-zone: 20 workers across 3 zones → each zone sustainable at ~50% stock
+- [ ] Queen dormancy: kill all workers → queen enters dormancy below 15% energy → survives extended period
+- [ ] Catch-up: 48h+ absence → queen metabolism simulated → worker pools normalized → swarm events in summary
+- [ ] Zone expansion: explore → convert → harvest → deplete → saturated → recovery cycle
