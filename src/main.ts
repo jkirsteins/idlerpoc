@@ -16,6 +16,8 @@ import {
   buildCatchUpReport,
   snapshotContracts,
   snapshotRoutes,
+  createCatchUpAccumulator,
+  type CatchUpAccumulator,
 } from './catchUpReportBuilder';
 import { getActiveShip, getFinancials } from './models';
 import { createNewGame, createAdditionalShip } from './gameFactory';
@@ -40,7 +42,7 @@ import {
 } from './contractExec';
 import { initProvisionsEvents } from './provisionsSystem';
 import { getSkillRank } from './skillRanks';
-import { addLog } from './logSystem';
+import { addLog, setLogListener } from './logSystem';
 import { getCrewEquipmentDefinition } from './crewEquipment';
 import { getShipClass } from './shipClasses';
 import { canAffordResources, deductResourceCost } from './resourceCost';
@@ -97,6 +99,7 @@ interface ActiveCatchUp {
   elapsedRealSeconds: number;
   routeSnapshots: Map<string, RouteSnapshot>;
   contractSnapshots: Map<string, ContractSnapshot>;
+  accumulator: CatchUpAccumulator;
 }
 
 let activeCatchUp: ActiveCatchUp | null = null;
@@ -221,6 +224,11 @@ function fastForwardTicks(gameData: GameData): CatchUpReport | null {
   const routeSnaps = snapshotRoutes(gameData);
   const contractSnaps = snapshotContracts(gameData);
 
+  // Accumulator processes every log entry before trimming can drop it,
+  // so the catch-up report gets accurate trip counts even during long absences.
+  const accumulator = createCatchUpAccumulator();
+  setLogListener(accumulator.onLog);
+
   if (totalTicks <= CATCH_UP_BATCH_SIZE) {
     // Small gap: process synchronously
     const prevCredits = gameData.credits;
@@ -240,6 +248,7 @@ function fastForwardTicks(gameData: GameData): CatchUpReport | null {
       }
     }
 
+    setLogListener(null);
     const encounterResults = drainEncounterResults();
 
     // Only persist if all ticks succeeded — a mid-tick exception leaves
@@ -266,7 +275,7 @@ function fastForwardTicks(gameData: GameData): CatchUpReport | null {
         gameData,
         prevCredits,
         prevGameTime,
-        { routes: routeSnaps, contracts: contractSnaps }
+        { routes: routeSnaps, contracts: contractSnaps, accumulator }
       );
     }
     return null;
@@ -281,6 +290,7 @@ function fastForwardTicks(gameData: GameData): CatchUpReport | null {
     elapsedRealSeconds: elapsedSeconds,
     routeSnapshots: routeSnaps,
     contractSnapshots: contractSnaps,
+    accumulator,
   };
 
   return null;
@@ -1485,6 +1495,7 @@ function checkAutoPause(gameData: GameData, prevGameTime: number): boolean {
  */
 function processCatchUpBatch(): void {
   if (!activeCatchUp || state.phase !== 'playing') {
+    setLogListener(null);
     activeCatchUp = null;
     catchUpBatchScheduled = false;
     return;
@@ -1508,6 +1519,7 @@ function processCatchUpBatch(): void {
   if (tickError) {
     // Revert to last saved state so corrupted data never persists.
     // Skip remaining ticks to avoid repeated failures on bad state.
+    setLogListener(null);
     revertToLastSave(state.gameData);
     state.gameData.lastTickTimestamp = Date.now();
     saveGame(state.gameData);
@@ -1522,6 +1534,7 @@ function processCatchUpBatch(): void {
       {
         routes: activeCatchUp.routeSnapshots,
         contracts: activeCatchUp.contractSnapshots,
+        accumulator: activeCatchUp.accumulator,
       }
     );
     activeCatchUp = null;
@@ -1546,6 +1559,7 @@ function processCatchUpBatch(): void {
 
   if (activeCatchUp.ticksProcessed >= activeCatchUp.totalTicks) {
     // Done — build report and show it
+    setLogListener(null);
     const encounterResults = drainEncounterResults();
     const report = buildCatchUpReport(
       activeCatchUp.totalTicks,
@@ -1557,6 +1571,7 @@ function processCatchUpBatch(): void {
       {
         routes: activeCatchUp.routeSnapshots,
         contracts: activeCatchUp.contractSnapshots,
+        accumulator: activeCatchUp.accumulator,
       }
     );
     activeCatchUp = null;
@@ -1637,6 +1652,8 @@ function processPendingTicks(): void {
 
   const pendingRouteSnaps = snapshotRoutes(state.gameData);
   const pendingContractSnaps = snapshotContracts(state.gameData);
+  const pendingAccumulator = createCatchUpAccumulator();
+  setLogListener(pendingAccumulator.onLog);
 
   if (totalTicks > CATCH_UP_BATCH_SIZE) {
     // Large gap: start batched catch-up
@@ -1650,6 +1667,7 @@ function processPendingTicks(): void {
       elapsedRealSeconds: reportRealSeconds,
       routeSnapshots: pendingRouteSnaps,
       contractSnapshots: pendingContractSnaps,
+      accumulator: pendingAccumulator,
     };
     if (state.phase === 'playing') {
       state = {
@@ -1693,6 +1711,7 @@ function processPendingTicks(): void {
   // On tick error, revert to last saved state so corrupted data never
   // persists. Advance the timestamp to avoid replaying the same failing ticks.
   if (tickError) {
+    setLogListener(null);
     revertToLastSave(state.gameData);
     state.gameData.lastTickTimestamp = now;
     saveGame(state.gameData);
@@ -1703,6 +1722,7 @@ function processPendingTicks(): void {
     return;
   }
 
+  setLogListener(null);
   state.gameData.lastTickTimestamp = now;
 
   const isLongAbsence = reportRealSeconds >= CATCH_UP_REPORT_THRESHOLD_SECONDS;
@@ -1715,7 +1735,11 @@ function processPendingTicks(): void {
       state.gameData,
       prevCredits,
       prevGameTime,
-      { routes: pendingRouteSnaps, contracts: pendingContractSnaps }
+      {
+        routes: pendingRouteSnaps,
+        contracts: pendingContractSnaps,
+        accumulator: pendingAccumulator,
+      }
     );
     if (state.phase === 'playing') {
       state = { ...state, catchUpReport: report };

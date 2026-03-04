@@ -55,6 +55,18 @@ function isDroppable(type: LogEntry['type']): boolean {
   );
 }
 
+// ── Log Listener ──────────────────────────────────────────────────
+// During catch-up, a listener processes every entry as it's created
+// (before trimming can drop it), so the catch-up report gets accurate
+// trip counts even when the log overflows.
+
+type LogListener = (entry: LogEntry) => void;
+let logListener: LogListener | null = null;
+
+export function setLogListener(listener: LogListener | null): void {
+  logListener = listener;
+}
+
 export function createLogEntry(
   gameTime: number,
   type: LogEntry['type'],
@@ -86,7 +98,11 @@ export function addLog(
   shipName?: string,
   meta?: LogEntryMeta
 ): void {
-  log.push(createLogEntry(gameTime, type, message, shipName, meta));
+  const entry = createLogEntry(gameTime, type, message, shipName, meta);
+  log.push(entry);
+
+  // Notify listener BEFORE trimming so catch-up accumulators see every entry.
+  if (logListener) logListener(entry);
 
   // Trim to stay within budget. We keep a small buffer above
   // MAX_LOG_ENTRIES before trimming to avoid scanning on every push.
