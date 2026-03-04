@@ -12,6 +12,53 @@ import type {
 } from './models';
 import { getMiningRouteName } from './utils';
 
+// ── Catch-Up Accumulator ──────────────────────────────────────────
+// Processes every log entry as it's created during catch-up (via the
+// log listener) to maintain accurate trip counts that survive log
+// trimming.
+
+export interface CatchUpAccumulator {
+  /** shipName → highest "trip #N" seen */
+  miningTripsByShip: Map<string, number>;
+  /** shipName → count of trip_complete + payment entries */
+  tripsByShip: Map<string, number>;
+  /** Register as logSystem listener */
+  onLog: (entry: LogEntry) => void;
+}
+
+export function createCatchUpAccumulator(): CatchUpAccumulator {
+  const miningTripsByShip = new Map<string, number>();
+  const tripsByShip = new Map<string, number>();
+
+  return {
+    miningTripsByShip,
+    tripsByShip,
+    onLog(entry: LogEntry) {
+      // Mining trips: track highest "trip #N" per ship
+      if (entry.type === 'mining_route' && entry.shipName) {
+        const match = entry.message.match(/trip #(\d+)/);
+        if (match) {
+          const tripNum = parseInt(match[1], 10);
+          const prev = miningTripsByShip.get(entry.shipName) ?? 0;
+          if (tripNum > prev) {
+            miningTripsByShip.set(entry.shipName, tripNum);
+          }
+        }
+      }
+      // Trade/contract trips: count trip_complete and payment entries
+      if (
+        (entry.type === 'trip_complete' || entry.type === 'payment') &&
+        entry.shipName
+      ) {
+        tripsByShip.set(
+          entry.shipName,
+          (tripsByShip.get(entry.shipName) ?? 0) + 1
+        );
+      }
+    },
+  };
+}
+
 /** Snapshot each ship's automated route assignment before catch-up ticks run. */
 export function snapshotRoutes(gameData: GameData): Map<string, RouteSnapshot> {
   const snapshots = new Map<string, RouteSnapshot>();
@@ -55,8 +102,10 @@ export function buildCatchUpReport(
   snapshots?: {
     routes?: Map<string, RouteSnapshot>;
     contracts?: Map<string, ContractSnapshot>;
+    accumulator?: CatchUpAccumulator;
   }
 ): CatchUpReport {
+  const accumulator = snapshots?.accumulator;
   // --- Encounter stats per ship ---
   const encounterMap = new Map<string, CatchUpEncounterStats>();
 
@@ -121,34 +170,11 @@ export function buildCatchUpReport(
 
   const crewLost = newLogs.filter((e) => e.type === 'crew_death').length;
 
-  // Count trips per ship — both 'trip_complete' and 'payment' entries represent trip completions
-  const tripsByShip = new Map<string, number>();
-  for (const entry of newLogs) {
-    if (
-      (entry.type === 'trip_complete' || entry.type === 'payment') &&
-      entry.shipName
-    ) {
-      tripsByShip.set(
-        entry.shipName,
-        (tripsByShip.get(entry.shipName) ?? 0) + 1
-      );
-    }
-  }
-
-  // Count mining route trips per ship — "trip #N" in mining_route log entries
-  const miningTripsByShip = new Map<string, number>();
-  for (const entry of newLogs) {
-    if (entry.type === 'mining_route' && entry.shipName) {
-      const match = entry.message.match(/trip #(\d+)/);
-      if (match) {
-        const tripNum = parseInt(match[1], 10);
-        const prev = miningTripsByShip.get(entry.shipName) ?? 0;
-        if (tripNum > prev) {
-          miningTripsByShip.set(entry.shipName, tripNum);
-        }
-      }
-    }
-  }
+  // Trip counts: prefer accumulator (processes entries before trimming)
+  // over log scanning (entries may have been purged during long catch-ups).
+  const tripsByShip = accumulator?.tripsByShip ?? scanTripsByShip(newLogs);
+  const miningTripsByShip =
+    accumulator?.miningTripsByShip ?? scanMiningTripsByShip(newLogs);
 
   // --- Track contract events per ship for the report ---
   const contractCompletedByShip = new Set<string>();
@@ -508,4 +534,37 @@ export function buildCatchUpReport(
     shipSummaries: filteredSummaries,
     logHighlights,
   };
+}
+
+// ── Fallback log-scanning helpers ────────────────────────────────
+// Used when no accumulator is provided (non-catch-up codepaths).
+
+function scanTripsByShip(newLogs: LogEntry[]): Map<string, number> {
+  const map = new Map<string, number>();
+  for (const entry of newLogs) {
+    if (
+      (entry.type === 'trip_complete' || entry.type === 'payment') &&
+      entry.shipName
+    ) {
+      map.set(entry.shipName, (map.get(entry.shipName) ?? 0) + 1);
+    }
+  }
+  return map;
+}
+
+function scanMiningTripsByShip(newLogs: LogEntry[]): Map<string, number> {
+  const map = new Map<string, number>();
+  for (const entry of newLogs) {
+    if (entry.type === 'mining_route' && entry.shipName) {
+      const match = entry.message.match(/trip #(\d+)/);
+      if (match) {
+        const tripNum = parseInt(match[1], 10);
+        const prev = map.get(entry.shipName) ?? 0;
+        if (tripNum > prev) {
+          map.set(entry.shipName, tripNum);
+        }
+      }
+    }
+  }
+  return map;
 }
